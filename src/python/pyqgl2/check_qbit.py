@@ -13,7 +13,9 @@ if __name__ == '__main__':
     DIRNAME = os.path.normpath(
             os.path.abspath(os.path.dirname(sys.argv[0]) or '.')) 
     sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
+    print os.path.normpath(os.path.join(DIRNAME, '..'))
 
+from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.ast_util import NodeVisitorWithFname
 
@@ -21,7 +23,8 @@ from pyqgl2.ast_util import NodeVisitorWithFname
 # (I'm not sure whether these are even correct, or
 # meaningful, but they're good enough for test cases)
 #
-UNI_WAVEFORMS = set(['MEAS', 'Y90', 'Y180', 'X90', 'X180', 'Z90', 'Z180'])
+UNI_WAVEFORMS = set(
+        ['MEAS', 'Y90', 'Y180', 'X90', 'X180', 'Z90', 'Z180', 'UTheta'])
 
 # Like UNI_WAVEFORMS, BI_OPS is fictitious
 # 
@@ -41,11 +44,15 @@ class CheckType(NodeTransformerWithFname):
 
         # a list of scope tuples: (name, qbit?, context)
         #
-        self.scope = list()
+        # We begin with the global scope, initially empty
+        #
+        self.scope = list(list())
 
         self.class_defs = dict()
 
         self.func_level = 0
+
+        self.waveforms = dict()
 
     def _push_scope(self, qbit_scope):
         self.scope.append(qbit_scope)
@@ -86,6 +93,32 @@ class CheckType(NodeTransformerWithFname):
                 params.append(decl.elts[0].s)
 
         return params
+
+    def gen_waveform(self, name, args, kwargs):
+        arg_text = ', '.join([ast.dump(arg) for arg in args])
+        kwarg_text = ', '.join(sorted([ast.dump(arg) for arg in kwargs]))
+
+        errs = 0
+        for arg_index in xrange(1, len(args)):
+            if type(args[arg_index]) != ast.Num:
+                self.error_msg(arg, 'arg %d must be a number' % arg_index)
+                errs += 1
+
+        if errs:
+            return
+
+        signature = '%s-%s' % (name, arg_text)
+        if kwarg_text:
+            signature += '-%s' % kwarg_text
+
+        # print 'WAVEFORM %s %s %s' % (name, arg_text, kwarg_text)
+        # print signature
+
+        if signature in self.waveforms:
+            print 'NOTE: already generated waveform %s' % signature
+        else:
+            print 'generating waveform %s' % signature
+            self.waveforms[signature] = 1 # BOGUS
 
     def assign_simple(self, node):
 
@@ -129,7 +162,8 @@ class CheckType(NodeTransformerWithFname):
         decls = self._qbit_decl(node)
         if decls is not None:
             # diagnostic only
-            print 'DECL: %s qbits %s' % (node.name, str(decls))
+            self.diag_msg(
+                    node, '%s declares qbits %s' % (node.name, str(decls)))
             self._push_scope(decls)
             self.func_level += 1
             self.generic_visit(node)
@@ -170,6 +204,8 @@ class CheckType(NodeTransformerWithFname):
 
             first_arg = node.args[0]
             check_arg(first_arg, 'first')
+
+            self.gen_waveform(func_name, node.args, node.keywords)
 
         elif func_name in BI_OPS:
             if len(node.args) < 2:
@@ -347,6 +383,10 @@ if __name__ == '__main__':
         text = open(fname, 'r').read()
 
         ptree = ast.parse(text, mode='exec')
-        nptree = CheckType(fname).visit(ptree)
+        type_check = CheckType(fname)
+        nptree = type_check.visit(ptree)
+        if type_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
+            print 'bailing out'
+            sys.exit(1)
 
     preprocess(sys.argv[1])
