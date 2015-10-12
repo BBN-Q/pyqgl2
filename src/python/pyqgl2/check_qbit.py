@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Copyright 2015 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 import ast
@@ -13,7 +15,6 @@ if __name__ == '__main__':
     DIRNAME = os.path.normpath(
             os.path.abspath(os.path.dirname(sys.argv[0]) or '.')) 
     sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
-    print os.path.normpath(os.path.join(DIRNAME, '..'))
 
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
@@ -115,9 +116,9 @@ class CheckType(NodeTransformerWithFname):
         # print signature
 
         if signature in self.waveforms:
-            print 'NOTE: already generated waveform %s' % signature
+            print('NOTE: already generated waveform %s' % signature)
         else:
-            print 'generating waveform %s' % signature
+            print('generating waveform %s' % signature)
             self.waveforms[signature] = 1 # BOGUS
 
     def assign_simple(self, node):
@@ -130,7 +131,6 @@ class CheckType(NodeTransformerWithFname):
 
         if target.id in self._curr_scope():
             msg = 'reassignment of qbit \'%s\' forbidden' % target.id
-            print msg
             self.error_msg(node,
                     ('reassignment of qbit \'%s\' forbidden' % target.id))
 
@@ -143,7 +143,7 @@ class CheckType(NodeTransformerWithFname):
         else:
             return node
 
-        print 'new scope %s' % str(self._curr_scope())
+        print('new scope %s' % str(self._curr_scope()))
 
         return node
 
@@ -234,14 +234,14 @@ class CompileQGLFunctions(ast.NodeTransformer):
         qglmode = False
         found_other = False
 
-        print '>>> %s' % ast.dump(node)
+        print('>>> %s' % ast.dump(node))
 
         if node.decorator_list:
             for dec in node.decorator_list:
                 if (type(dec) == ast.Name) and (dec.id == 'qglmode'):
                     qglmode = True
                 elif (type(dec) == ast.Call) and (dec.func.id == 'qtypes'):
-                    print 'yahoo'
+                    print('yahoo')
                 else:
                     found_other = True
 
@@ -321,8 +321,8 @@ class FindConcurBlocks(ast.NodeTransformer):
         # check_conflicts will halt the program if it detects an error
         #
         qbits_referenced = self.check_conflicts(node.lineno)
-        print 'qbits in concur block (line: %d): %s' % (
-                node.lineno, str(qbits_referenced))
+        print('qbits in concur block (line: %d): %s' % (
+                node.lineno, str(qbits_referenced)))
 
         for ind in xrange(len(body)):
             stmnt = body[ind]
@@ -330,7 +330,7 @@ class FindConcurBlocks(ast.NodeTransformer):
             find_waveforms.generic_visit(stmnt)
 
             for waveform in find_waveforms.seq:
-                print 'concur %d: WAVEFORM: %s' % (stmnt.lineno, waveform)
+                print('concur %d: WAVEFORM: %s' % (stmnt.lineno, waveform))
 
     def check_conflicts(self, lineno):
 
@@ -383,10 +383,12 @@ if __name__ == '__main__':
         text = open(fname, 'r').read()
 
         ptree = ast.parse(text, mode='exec')
+        print(ast.dump(ptree))
+
         type_check = CheckType(fname)
         nptree = type_check.visit(ptree)
         if type_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
-            print 'bailing out'
+            print('bailing out')
             sys.exit(1)
 
     preprocess(sys.argv[1])
