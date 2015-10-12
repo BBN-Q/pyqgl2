@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Copyright 2015 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 import ast
@@ -13,7 +15,6 @@ if __name__ == '__main__':
     DIRNAME = os.path.normpath(
             os.path.abspath(os.path.dirname(sys.argv[0]) or '.')) 
     sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
-    print os.path.normpath(os.path.join(DIRNAME, '..'))
 
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
@@ -66,40 +67,53 @@ class CheckType(NodeTransformerWithFname):
     def _extend_scope(self, name):
         self.scope[-1].append(name)
 
-    @staticmethod
-    def _qbit_decl(node):
+    def _qbit_decl(self, node):
+
+        q_args = list()
+        q_return = None
 
         if type(node) != ast.FunctionDef:
             return None
 
-        if not node.decorator_list:
-            return None
+        if node.returns:
+            ret = node.returns
 
-        decls = None
-        for dec in node.decorator_list:
-            if (type(dec) == ast.Call) and (dec.func.id == 'qtypes'):
-                decls = dec.args
-                break
+            if ((type(ret) == ast.Name) and (ret.id == 'qbit')):
+                q_return = 'qbit'
+            else:
+                self.warning_msg(node,
+                        'unexpected annotation [%s]' % ast.dump(ret))
 
-        if not decls:
-            return None
+        if node.args.args:
+            for arg in node.args.args:
+                print('>> %s' % ast.dump(arg))
 
-        params = list()
+                name = arg.arg
+                annotation = arg.annotation
+                if not annotation:
+                    continue
 
-        for decl in decls:
-            if type(decl) == ast.Str:
-                params.append(decl.s)
-            elif type(decl) == ast.Tuple:
-                params.append(decl.elts[0].s)
+                if type(annotation) == ast.Name:
+                    if annotation.id == 'qbit':
+                        q_args.append(name)
+                    else:
+                        self.warning_msg(node, 'unexpected annotation [%s]' %
+                                annotation.id)
+                else:
+                    self.warning_msg(node, 'unexpected annotation [%s]' %
+                            ast.dump(annotation))
 
-        return params
+        node.q_args = q_args
+        node.q_return = q_return
+
+        return q_args
 
     def gen_waveform(self, name, args, kwargs):
         arg_text = ', '.join([ast.dump(arg) for arg in args])
         kwarg_text = ', '.join(sorted([ast.dump(arg) for arg in kwargs]))
 
         errs = 0
-        for arg_index in xrange(1, len(args)):
+        for arg_index in range(1, len(args)):
             if type(args[arg_index]) != ast.Num:
                 self.error_msg(arg, 'arg %d must be a number' % arg_index)
                 errs += 1
@@ -115,9 +129,9 @@ class CheckType(NodeTransformerWithFname):
         # print signature
 
         if signature in self.waveforms:
-            print 'NOTE: already generated waveform %s' % signature
+            print('NOTE: already generated waveform %s' % signature)
         else:
-            print 'generating waveform %s' % signature
+            print('generating waveform %s' % signature)
             self.waveforms[signature] = 1 # BOGUS
 
     def assign_simple(self, node):
@@ -130,7 +144,6 @@ class CheckType(NodeTransformerWithFname):
 
         if target.id in self._curr_scope():
             msg = 'reassignment of qbit \'%s\' forbidden' % target.id
-            print msg
             self.error_msg(node,
                     ('reassignment of qbit \'%s\' forbidden' % target.id))
 
@@ -143,7 +156,7 @@ class CheckType(NodeTransformerWithFname):
         else:
             return node
 
-        print 'new scope %s' % str(self._curr_scope())
+        print('new scope %s' % str(self._curr_scope()))
 
         return node
 
@@ -234,14 +247,14 @@ class CompileQGLFunctions(ast.NodeTransformer):
         qglmode = False
         found_other = False
 
-        print '>>> %s' % ast.dump(node)
+        print('>>> %s' % ast.dump(node))
 
         if node.decorator_list:
             for dec in node.decorator_list:
                 if (type(dec) == ast.Name) and (dec.id == 'qglmode'):
                     qglmode = True
                 elif (type(dec) == ast.Call) and (dec.func.id == 'qtypes'):
-                    print 'yahoo'
+                    print('yahoo')
                 else:
                     found_other = True
 
@@ -262,7 +275,7 @@ class CompileQGLFunctions(ast.NodeTransformer):
         # First, find and check all the concur blocks
 
         body = node.body
-        for ind in xrange(len(body)):
+        for ind in range(len(body)):
             stmnt = body[ind]
             body[ind] = self.concur_finder.visit(stmnt)
 
@@ -308,7 +321,7 @@ class FindConcurBlocks(ast.NodeTransformer):
         self.LEVEL += 1
 
         body = node.body
-        for ind in xrange(len(body)):
+        for ind in range(len(body)):
             stmnt = body[ind]
             find_ref = FindQbitReferences()
             find_ref.generic_visit(stmnt)
@@ -321,16 +334,16 @@ class FindConcurBlocks(ast.NodeTransformer):
         # check_conflicts will halt the program if it detects an error
         #
         qbits_referenced = self.check_conflicts(node.lineno)
-        print 'qbits in concur block (line: %d): %s' % (
-                node.lineno, str(qbits_referenced))
+        print('qbits in concur block (line: %d): %s' % (
+                node.lineno, str(qbits_referenced)))
 
-        for ind in xrange(len(body)):
+        for ind in range(len(body)):
             stmnt = body[ind]
             find_waveforms = FindWaveforms()
             find_waveforms.generic_visit(stmnt)
 
             for waveform in find_waveforms.seq:
-                print 'concur %d: WAVEFORM: %s' % (stmnt.lineno, waveform)
+                print('concur %d: WAVEFORM: %s' % (stmnt.lineno, waveform))
 
     def check_conflicts(self, lineno):
 
@@ -383,10 +396,12 @@ if __name__ == '__main__':
         text = open(fname, 'r').read()
 
         ptree = ast.parse(text, mode='exec')
+        print(ast.dump(ptree))
+
         type_check = CheckType(fname)
         nptree = type_check.visit(ptree)
         if type_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
-            print 'bailing out'
+            print('bailing out')
             sys.exit(1)
 
     preprocess(sys.argv[1])

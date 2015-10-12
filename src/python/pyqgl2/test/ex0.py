@@ -1,8 +1,7 @@
 
 from qgl2 import qtypes, concur
 
-@qtypes('a', ('b', 2))
-def test_loops(a, b):
+def test_loops(a:qbit, b:qbit):
 
     with concur():
         while True:
