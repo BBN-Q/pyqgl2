@@ -67,40 +67,53 @@ class CheckType(NodeTransformerWithFname):
     def _extend_scope(self, name):
         self.scope[-1].append(name)
 
-    @staticmethod
-    def _qbit_decl(node):
+    def _qbit_decl(self, node):
+
+        q_args = list()
+        q_return = None
 
         if type(node) != ast.FunctionDef:
             return None
 
-        if not node.decorator_list:
-            return None
+        if node.returns:
+            ret = node.returns
 
-        decls = None
-        for dec in node.decorator_list:
-            if (type(dec) == ast.Call) and (dec.func.id == 'qtypes'):
-                decls = dec.args
-                break
+            if ((type(ret) == ast.Name) and (ret.id == 'qbit')):
+                q_return = 'qbit'
+            else:
+                self.warning_msg(node,
+                        'unexpected annotation [%s]' % ast.dump(ret))
 
-        if not decls:
-            return None
+        if node.args.args:
+            for arg in node.args.args:
+                print('>> %s' % ast.dump(arg))
 
-        params = list()
+                name = arg.arg
+                annotation = arg.annotation
+                if not annotation:
+                    continue
 
-        for decl in decls:
-            if type(decl) == ast.Str:
-                params.append(decl.s)
-            elif type(decl) == ast.Tuple:
-                params.append(decl.elts[0].s)
+                if type(annotation) == ast.Name:
+                    if annotation.id == 'qbit':
+                        q_args.append(name)
+                    else:
+                        self.warning_msg(node, 'unexpected annotation [%s]' %
+                                annotation.id)
+                else:
+                    self.warning_msg(node, 'unexpected annotation [%s]' %
+                            ast.dump(annotation))
 
-        return params
+        node.q_args = q_args
+        node.q_return = q_return
+
+        return q_args
 
     def gen_waveform(self, name, args, kwargs):
         arg_text = ', '.join([ast.dump(arg) for arg in args])
         kwarg_text = ', '.join(sorted([ast.dump(arg) for arg in kwargs]))
 
         errs = 0
-        for arg_index in xrange(1, len(args)):
+        for arg_index in range(1, len(args)):
             if type(args[arg_index]) != ast.Num:
                 self.error_msg(arg, 'arg %d must be a number' % arg_index)
                 errs += 1
@@ -262,7 +275,7 @@ class CompileQGLFunctions(ast.NodeTransformer):
         # First, find and check all the concur blocks
 
         body = node.body
-        for ind in xrange(len(body)):
+        for ind in range(len(body)):
             stmnt = body[ind]
             body[ind] = self.concur_finder.visit(stmnt)
 
@@ -308,7 +321,7 @@ class FindConcurBlocks(ast.NodeTransformer):
         self.LEVEL += 1
 
         body = node.body
-        for ind in xrange(len(body)):
+        for ind in range(len(body)):
             stmnt = body[ind]
             find_ref = FindQbitReferences()
             find_ref.generic_visit(stmnt)
@@ -324,7 +337,7 @@ class FindConcurBlocks(ast.NodeTransformer):
         print('qbits in concur block (line: %d): %s' % (
                 node.lineno, str(qbits_referenced)))
 
-        for ind in xrange(len(body)):
+        for ind in range(len(body)):
             stmnt = body[ind]
             find_waveforms = FindWaveforms()
             find_waveforms.generic_visit(stmnt)

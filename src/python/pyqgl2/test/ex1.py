@@ -1,8 +1,7 @@
 
 import qconcur
 
-@qtypes('a', ('b', 2))
-def test_loops(a, b):
+def test_loops(a:qbit, b:qbit):
 
     x = Qbit(1)
     x = r
@@ -22,8 +21,7 @@ def test_loops(a, b):
                 break
 
     with concur:
-        print 'fred'
-        pass
+        print('fred')
 
 
 
