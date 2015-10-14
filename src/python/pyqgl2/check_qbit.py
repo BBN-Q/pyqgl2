@@ -4,6 +4,8 @@
 
 import ast
 
+from copy import deepcopy
+
 # For testing only
 if __name__ == '__main__':
     import os
@@ -49,11 +51,17 @@ class CheckType(NodeTransformerWithFname):
         #
         self.scope = list(list())
 
-        self.class_defs = dict()
+        self.func_defs = dict()
 
         self.func_level = 0
 
         self.waveforms = dict()
+
+        # Reference to the main function, if any
+        #
+        self.qglmain = None
+
+        self.qgl_call_stack = list()
 
     def _push_scope(self, qbit_scope):
         self.scope.append(qbit_scope)
@@ -61,7 +69,7 @@ class CheckType(NodeTransformerWithFname):
     def _pop_scope(self):
         self.scope = self.scope[:-1]
 
-    def _curr_scope(self):
+    def _qbit_scope(self):
         return self.scope[-1]
 
     def _extend_scope(self, name):
@@ -142,21 +150,21 @@ class CheckType(NodeTransformerWithFname):
         if type(target) != ast.Name:
             return node
 
-        if target.id in self._curr_scope():
+        if target.id in self._qbit_scope():
             msg = 'reassignment of qbit \'%s\' forbidden' % target.id
             self.error_msg(node,
                     ('reassignment of qbit \'%s\' forbidden' % target.id))
 
         if (type(value) == ast.Call) and (value.func.id == 'Qbit'):
             self._extend_scope(target.id)
-        elif (type(value) == ast.Name) and value.id in self._curr_scope():
+        elif (type(value) == ast.Name) and value.id in self._qbit_scope():
             self.warning_msg(node, 'alias of qbit \'%s\' as \'%s\'' %
                     (value.id, target.id))
             self._extend_scope(target.id)
         else:
             return node
 
-        print('new scope %s' % str(self._curr_scope()))
+        print('qbit scope %s' % str(self._qbit_scope()))
 
         return node
 
@@ -172,17 +180,90 @@ class CheckType(NodeTransformerWithFname):
         return node
 
     def visit_FunctionDef(self, node):
+
+        print('>>> %s' % ast.dump(node))
+
+        # Initialize the called functions list for this
+        # definition, and then push this context onto
+        # the call stack.  The call stack is a stack of
+        # call lists, with the top of the stack being
+        # the current function at the top and bottom
+        # of each function definition.
+        #
+        # We do this for all functions, not just QGL functions,
+        # because we might want to be able to analyze non-QGL
+        # functions
+        #
+        self.qgl_call_stack.append(list()) 
+
+        qglmain = False
+        qglfunc = False
+        other_decorator = False
+
+        if node.decorator_list:
+            for dec in node.decorator_list:
+
+                # qglmain implies qglfunc, but it's permitted to
+                # have both
+                #
+                if (type(dec) == ast.Name) and (dec.id == 'qglmain'):
+                    print('XXXXX')
+                    qglmain = True
+                    qglfunc = True
+                elif (type(dec) == ast.Name) and (dec.id == 'qglfunc'):
+                    print('YYYYYY')
+                    qglfunc = True
+                else:
+                    other_decorator = True
+
+            if qglfunc and other_decorator:
+                self.error_msg(node, 'unrecognized decorator with qglfunc')
+
+        if qglmain:
+            print('qblmain detected')
+            if self.qglmain:
+                omain = self.qglmain
+                self.error_msg(node, 'more than one qglmain function')
+                self.error_msg(node,
+                        'previous qglmain %s:%d:%d' %
+                        (omain.fname, omain.lineno, omain.col_offset))
+                self._pop_scope()
+                self.qgl_call_stack.pop()
+                return node
+            else:
+                node.fname = self.fname
+                self.qglmain = node
+
+        if self.func_level > 0:
+            self.error_msg(node, 'qgldef functions cannot be nested')
+
+        # So far so good: now actually begin to process this node
+
         decls = self._qbit_decl(node)
         if decls is not None:
             # diagnostic only
             self.diag_msg(
                     node, '%s declares qbits %s' % (node.name, str(decls)))
             self._push_scope(decls)
-            self.func_level += 1
-            self.generic_visit(node)
-            self.func_level -= 1
-            self._pop_scope()
+        else:
+            self._push_scope(list())
 
+        self.func_level += 1
+        self.generic_visit(node)
+        self.func_level -= 1
+
+        # make a copy of this node and its qbit scope
+
+        node.qgl_call_list = self.qgl_call_stack.pop()
+
+        self.func_defs[node.name] = (self._qbit_scope(), deepcopy(node))
+
+        self._pop_scope()
+
+        print('CALL STACK %s: %s' %
+                (node.name,
+                str(', '.join([call.func.id
+                    for call in node.qgl_call_list]))))
         return node
 
     def visit_Call(self, node):
@@ -194,6 +275,8 @@ class CheckType(NodeTransformerWithFname):
             self.warning_msg(node, 'function not referenced by name')
             return node
 
+        self.qgl_call_stack[-1].append(node)
+
         func_name = node.func.id
 
         def check_arg(arg, argpos):
@@ -202,7 +285,7 @@ class CheckType(NodeTransformerWithFname):
                         (argpos, func_name))
                 return False
 
-            if arg.id not in self._curr_scope():
+            if arg.id not in self._qbit_scope():
                 self.error_msg(node, '%s param to %s must be a qbit' %
                         (argpos, func_name))
                 return False
@@ -244,31 +327,54 @@ class CompileQGLFunctions(ast.NodeTransformer):
         self.concur_finder = FindConcurBlocks()
 
     def visit_FunctionDef(self, node):
-        qglmode = False
-        found_other = False
+        qglmain = False
+        qglfunc = False
+        other_decorator = False
 
         print('>>> %s' % ast.dump(node))
 
         if node.decorator_list:
+            print('HAS DECO')
             for dec in node.decorator_list:
-                if (type(dec) == ast.Name) and (dec.id == 'qglmode'):
-                    qglmode = True
-                elif (type(dec) == ast.Call) and (dec.func.id == 'qtypes'):
-                    print('yahoo')
+                print('HAS DECO %s' % str(dec))
+
+                # qglmain implies qglfunc, but it's permitted to
+                # have both
+                #
+                if (type(dec) == ast.Name) and (dec.id == 'qglmain'):
+                    print('XXXXX')
+                    qglmain = True
+                    qglfunc = True
+                elif (type(dec) == ast.Name) and (dec.id == 'qglfunc'):
+                    print('YYYYYY')
+                    qglfunc = True
                 else:
-                    found_other = True
+                    other_decorator = True
 
-            if qglmode and found_other:
-                self.error_msg(node, 'qtypes must be the sole decorator')
+            if qglfunc and other_decorator:
+                self.error_msg(node, 'unrecognized decorator with qglfunc')
 
-        if not qglmode:
+        if not qglfunc:
             return node
+
+        if qglmain:
+            print('qblmain detected')
+            if self.qglmain:
+                omain = self.qglmain
+                self.error_msg(node, 'more than one qglmain function')
+                self.error_msg(node,
+                        'previous qglmain %s:%d:%d' %
+                        (omain.fname, omain.lineno, omain.col_offset))
+                return node
+            else:
+                node.fname = self.fname
+                self.qglmain = node
 
         if self.LEVEL > 0:
             self.error_msg(node, 'QGL mode functions cannot be nested')
 
         self.LEVEL += 1
-        # check for nested qglmode functions
+        # check for nested qglfunc functions
         self.generic_visit(node)
         self.LEVEL -= 1
 
@@ -399,7 +505,16 @@ if __name__ == '__main__':
         print(ast.dump(ptree))
 
         type_check = CheckType(fname)
+
         nptree = type_check.visit(ptree)
+
+        for func_def in sorted(type_check.func_defs.keys()):
+            types, node = type_check.func_defs[func_def]
+            call_list = node.qgl_call_list
+
+            print('%s -> %s' %
+                    (node.name, ', '.join(node.func.id for node in call_list)))
+
         if type_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
             print('bailing out')
             sys.exit(1)
