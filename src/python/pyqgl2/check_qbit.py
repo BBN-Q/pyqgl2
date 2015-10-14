@@ -15,7 +15,7 @@ if __name__ == '__main__':
     # munge the path to look within the parent module
     #
     DIRNAME = os.path.normpath(
-            os.path.abspath(os.path.dirname(sys.argv[0]) or '.')) 
+            os.path.abspath(os.path.dirname(sys.argv[0]) or '.'))
     sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
 
 from pyqgl2.ast_util import NodeError
@@ -30,7 +30,7 @@ UNI_WAVEFORMS = set(
         ['MEAS', 'Y90', 'Y180', 'X90', 'X180', 'Z90', 'Z180', 'UTheta'])
 
 # Like UNI_WAVEFORMS, BI_OPS is fictitious
-# 
+#
 BI_OPS = set(['SWAP'])
 
 class CheckType(NodeTransformerWithFname):
@@ -181,7 +181,7 @@ class CheckType(NodeTransformerWithFname):
 
     def visit_FunctionDef(self, node):
 
-        print('>>> %s' % ast.dump(node))
+        # print('>>> %s' % ast.dump(node))
 
         # Initialize the called functions list for this
         # definition, and then push this context onto
@@ -194,7 +194,7 @@ class CheckType(NodeTransformerWithFname):
         # because we might want to be able to analyze non-QGL
         # functions
         #
-        self.qgl_call_stack.append(list()) 
+        self.qgl_call_stack.append(list())
 
         qglmain = False
         qglfunc = False
@@ -207,11 +207,9 @@ class CheckType(NodeTransformerWithFname):
                 # have both
                 #
                 if (type(dec) == ast.Name) and (dec.id == 'qglmain'):
-                    print('XXXXX')
                     qglmain = True
                     qglfunc = True
                 elif (type(dec) == ast.Name) and (dec.id == 'qglfunc'):
-                    print('YYYYYY')
                     qglfunc = True
                 else:
                     other_decorator = True
@@ -260,9 +258,9 @@ class CheckType(NodeTransformerWithFname):
 
         self._pop_scope()
 
-        print('CALL STACK %s: %s' %
-                (node.name,
-                str(', '.join([call.func.id
+        self.diag_msg(node,
+                'CALL STACK %s: %s' %
+                (node.name, str(', '.join([call.func.id
                     for call in node.qgl_call_list]))))
         return node
 
@@ -342,11 +340,9 @@ class CompileQGLFunctions(ast.NodeTransformer):
                 # have both
                 #
                 if (type(dec) == ast.Name) and (dec.id == 'qglmain'):
-                    print('XXXXX')
                     qglmain = True
                     qglfunc = True
                 elif (type(dec) == ast.Name) and (dec.id == 'qglfunc'):
-                    print('YYYYYY')
                     qglfunc = True
                 else:
                     other_decorator = True
