@@ -52,6 +52,7 @@ class CheckType(NodeTransformerWithFname):
         # We begin with the global scope, initially empty
         #
         self.scope = list(list())
+        self.local = list(list())
 
         self.func_defs = dict()
 
@@ -65,6 +66,9 @@ class CheckType(NodeTransformerWithFname):
 
         self.qgl_call_stack = list()
 
+        self.qgl_already_imported = set()
+        self.qgl_to_import = list()
+
     def _push_scope(self, qbit_scope):
         self.scope.append(qbit_scope)
 
@@ -76,6 +80,18 @@ class CheckType(NodeTransformerWithFname):
 
     def _extend_scope(self, name):
         self.scope[-1].append(name)
+
+    def _push_local(self, qbit_local):
+        self.local.append(qbit_local)
+
+    def _pop_local(self):
+        self.local = self.local[:-1]
+
+    def _qbit_local(self):
+        return self.local[-1]
+
+    def _extend_local(self, name):
+        self.local[-1].append(name)
 
     def _qbit_decl(self, node):
 
@@ -156,23 +172,56 @@ class CheckType(NodeTransformerWithFname):
         if type(target) != ast.Name:
             return node
 
+        print('AS SCOPE %s' % str(self._qbit_scope()))
+
         if target.id in self._qbit_scope():
             msg = 'reassignment of qbit \'%s\' forbidden' % target.id
             self.error_msg(node,
                     ('reassignment of qbit \'%s\' forbidden' % target.id))
 
         if (type(value) == ast.Call) and (value.func.id == 'Qbit'):
-            self._extend_scope(target.id)
+            self._extend_local(target.id)
         elif (type(value) == ast.Name) and value.id in self._qbit_scope():
             self.warning_msg(node, 'alias of qbit \'%s\' as \'%s\'' %
                     (value.id, target.id))
-            self._extend_scope(target.id)
+            self._extend_local(target.id)
         else:
             return node
 
         print('qbit scope %s' % str(self._qbit_scope()))
 
         return node
+
+    def schedule_qimport(self, name):
+
+        if name not in self.qgl_already_imported:
+            self.qgl_to_import.append(name)
+
+        self.process_qimports()
+
+    def process_qimports(self):
+
+        # We can't do a simple iteration here, because
+        # Python doesn't like iterating over mutated objects
+
+        if not self.qgl_to_import:
+            return
+
+        fname = self.qgl_to_import[0]
+        self.qgl_to_import = self.qgl_to_import[1:]
+
+        if fname not in self.qgl_already_imported:
+
+            self.qgl_already_imported.add(fname)
+            path = fname # TODO: resolution here
+
+            text = open(path, 'r').read()
+            ptree = ast.parse(text, mode='exec')
+
+            old_fname = self.fname
+            self.fname = path
+            self.visit(ptree)
+            self.fname = old_fname
 
     def visit_Assign(self, node):
 
@@ -244,13 +293,15 @@ class CheckType(NodeTransformerWithFname):
         # So far so good: now actually begin to process this node
 
         decls = self._qbit_decl(node)
-        if decls is not None:
-            # diagnostic only
-            self.diag_msg(
-                    node, '%s declares qbits %s' % (node.name, str(decls)))
-            self._push_scope(decls)
-        else:
-            self._push_scope(list())
+        print('GOT %s' % str(decls))
+        if not decls:
+            decls = list()
+
+        # diagnostic only
+        self.diag_msg(
+                node, '%s declares qbits %s' % (node.name, str(decls)))
+        self._push_scope(decls)
+        self._push_local(list())
 
         self.func_level += 1
         self.generic_visit(node)
@@ -260,9 +311,11 @@ class CheckType(NodeTransformerWithFname):
 
         node.qgl_call_list = self.qgl_call_stack.pop()
 
-        self.func_defs[node.name] = (self._qbit_scope(), deepcopy(node))
+        print('DECLS: %s %s' % (node.name, str(decls)))
+        self.func_defs[node.name] = (decls, deepcopy(node))
 
         self._pop_scope()
+        self._pop_local()
 
         self.diag_msg(node,
                 'call stack %s: %s' %
@@ -278,6 +331,25 @@ class CheckType(NodeTransformerWithFname):
         if type(node.func) != ast.Name:
             self.error_msg(node, 'function not referenced by name')
             return node
+
+        # If we encounter a qimport, then add the import to the
+        # list of files to import (unless it's already there)
+        # and then replace the call with a pass statement.
+        #
+        # TODO this will fail if anyone pretends that qimport
+        # returns a meaningful value
+        #
+        if node.func.id == 'qimport':
+            print('GOT A QIMPORT %s' % ast.dump(node))
+
+            for arg in node.args:
+                if type(arg) != ast.Name:
+                    self.error_msg(node, 'qimport must be a name')
+                    break
+
+                self.schedule_qimport(arg.id)
+
+            return ast.Pass()
 
         node.qgl_scope = self._qbit_scope()[:]
 

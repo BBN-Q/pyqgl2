@@ -39,6 +39,7 @@ class CheckSymtab(NodeTransformerWithFname):
             return False
 
         if arg.id not in call_node.qgl_scope:
+            print('call scope %s' % str(call_node.qgl_scope))
             self.error_msg(call_node, '%s param to %s must be a qbit' %
                     (argpos, call_node.func.id))
             return False
@@ -76,6 +77,8 @@ class CheckSymtab(NodeTransformerWithFname):
             (fparams, func_def) = self.func_defs[func_name]
 
             if len(fparams) != len(node.args):
+                self.diag_msg(node,
+                        '%s %s %s' % (func_name, str(node.args), str(fparams)))
                 self.error_msg(node,
                         '%s actual params do not match declaration' %
                             func_name)
