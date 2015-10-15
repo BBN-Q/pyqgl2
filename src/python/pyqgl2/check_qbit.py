@@ -21,17 +21,7 @@ if __name__ == '__main__':
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.ast_util import NodeVisitorWithFname
-
-# This is just a smattering of possible waveforms.
-# (I'm not sure whether these are even correct, or
-# meaningful, but they're good enough for test cases)
-#
-UNI_WAVEFORMS = set(
-        ['MEAS', 'Y90', 'Y180', 'X90', 'X180', 'Z90', 'Z180', 'UTheta'])
-
-# Like UNI_WAVEFORMS, BI_OPS is fictitious
-#
-BI_OPS = set(['SWAP'])
+from pyqgl2.check_symtab import CheckSymtab
 
 class FuncParam(object):
 
@@ -286,66 +276,12 @@ class CheckType(NodeTransformerWithFname):
         # expressions that return a function
         #
         if type(node.func) != ast.Name:
-            self.warning_msg(node, 'function not referenced by name')
+            self.error_msg(node, 'function not referenced by name')
             return node
 
+        node.qgl_scope = self._qbit_scope()[:]
+
         self.qgl_call_stack[-1].append(node)
-
-        func_name = node.func.id
-
-        def check_arg(arg, argpos):
-            if type(arg) != ast.Name:
-                self.error_msg(node, '%s param to %s must be a symbol' %
-                        (argpos, func_name))
-                return False
-
-            if arg.id not in self._qbit_scope():
-                self.error_msg(node, '%s param to %s must be a qbit' %
-                        (argpos, func_name))
-                return False
-
-            return True
-
-        if func_name in UNI_WAVEFORMS:
-            if len(node.args) < 1:
-                self.error_msg(node,
-                        '%s requires a qbit parameter' % func_name)
-                return node
-
-            first_arg = node.args[0]
-            check_arg(first_arg, 'first')
-
-            self.gen_waveform(func_name, node.args, node.keywords)
-
-        elif func_name in BI_OPS:
-            if len(node.args) < 2:
-                self.error_msg(node,
-                        '%s requires two qbit parameters' % func_name)
-                return node
-
-            arg1 = node.args[0]
-            arg2 = node.args[1]
-
-            check_arg(arg1, 'first')
-            check_arg(arg2, 'second')
-
-        elif func_name in self.func_defs:
-            (fparams, func_def) = self.func_defs[func_name]
-
-            print('KNOWN FUNCTION %s' % func_name)
-            print('KNOWN FUNCTION %s' % str(self.func_defs[func_name]))
-
-            if len(fparams) != len(node.args):
-                self.error_msg(node,
-                        'param list length does not match declaration')
-            else:
-                for ind in range(len(node.args)):
-                    arg = node.args[ind]
-                    fparam = fparams[ind]
-
-                    print('FPARAM %s' % fparam)
-                    if fparam.endswith(':qbit'):
-                        check_arg(arg, fparam)
 
         return node
 
@@ -548,5 +484,8 @@ if __name__ == '__main__':
         if type_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
             print('bailing out')
             sys.exit(1)
+
+        sym_check = CheckSymtab(fname, type_check.func_defs)
+        nptree2 = sym_check.visit(nptree)
 
     preprocess(sys.argv[1])
