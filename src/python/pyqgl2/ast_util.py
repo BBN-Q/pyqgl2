@@ -9,6 +9,8 @@ transform, or create a Python parse tree
 import ast
 import sys
 
+from copy import deepcopy
+
 class NodeError(object):
     """
     A mix-in to make it simplify the generation of
@@ -114,3 +116,15 @@ class NodeVisitorWithFname(ast.NodeVisitor, NodeError):
 
     def __init__(self, fname):
         super(NodeVisitorWithFname, self).__init__(fname)
+
+def copy_node(node):
+    """
+    Make a copy of the given ast node and its descendants
+    so that the copy can be manipulated without altering
+    the original
+
+    Hopefully deepcopy() is sufficient
+    """
+
+    return deepcopy(node)
+
