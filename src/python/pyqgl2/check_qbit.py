@@ -33,6 +33,18 @@ UNI_WAVEFORMS = set(
 #
 BI_OPS = set(['SWAP'])
 
+class FuncParam(object):
+
+    def __init__(self, name):
+        self.name = name
+        self.value = None
+
+class QuantumFuncParam(FuncParam):
+    pass
+
+class ClassicalFuncParam(FuncParam):
+    pass
+
 class CheckType(NodeTransformerWithFname):
 
     def __init__(self, fname):
@@ -86,6 +98,9 @@ class CheckType(NodeTransformerWithFname):
         if node.returns:
             ret = node.returns
 
+            # It would be nice to be able to return a qbit
+            # tuple, maybe.
+            #
             if ((type(ret) == ast.Name) and (ret.id == 'qbit')):
                 q_return = 'qbit'
             else:
@@ -99,11 +114,12 @@ class CheckType(NodeTransformerWithFname):
                 name = arg.arg
                 annotation = arg.annotation
                 if not annotation:
+                    q_args.append('%s:classical' % name)
                     continue
 
                 if type(annotation) == ast.Name:
                     if annotation.id == 'qbit':
-                        q_args.append(name)
+                        q_args.append('%s:qbit' % name)
                     else:
                         self.warning_msg(node, 'unexpected annotation [%s]' %
                                 annotation.id)
@@ -259,7 +275,7 @@ class CheckType(NodeTransformerWithFname):
         self._pop_scope()
 
         self.diag_msg(node,
-                'CALL STACK %s: %s' %
+                'call stack %s: %s' %
                 (node.name, str(', '.join([call.func.id
                     for call in node.qgl_call_list]))))
         return node
@@ -312,6 +328,24 @@ class CheckType(NodeTransformerWithFname):
 
             check_arg(arg1, 'first')
             check_arg(arg2, 'second')
+
+        elif func_name in self.func_defs:
+            (fparams, func_def) = self.func_defs[func_name]
+
+            print('KNOWN FUNCTION %s' % func_name)
+            print('KNOWN FUNCTION %s' % str(self.func_defs[func_name]))
+
+            if len(fparams) != len(node.args):
+                self.error_msg(node,
+                        'param list length does not match declaration')
+            else:
+                for ind in range(len(node.args)):
+                    arg = node.args[ind]
+                    fparam = fparams[ind]
+
+                    print('FPARAM %s' % fparam)
+                    if fparam.endswith(':qbit'):
+                        check_arg(arg, fparam)
 
         return node
 
