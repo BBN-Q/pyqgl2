@@ -22,6 +22,7 @@ from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.ast_util import NodeVisitorWithFname
 from pyqgl2.check_symtab import CheckSymtab
+from pyqgl2.check_waveforms import CheckWaveforms
 
 class FuncParam(object):
 
@@ -115,7 +116,7 @@ class CheckType(NodeTransformerWithFname):
 
         if node.args.args:
             for arg in node.args.args:
-                print('>> %s' % ast.dump(arg))
+                # print('>> %s' % ast.dump(arg))
 
                 name = arg.arg
                 annotation = arg.annotation
@@ -138,32 +139,6 @@ class CheckType(NodeTransformerWithFname):
 
         return q_args
 
-    def gen_waveform(self, name, args, kwargs):
-        arg_text = ', '.join([ast.dump(arg) for arg in args])
-        kwarg_text = ', '.join(sorted([ast.dump(arg) for arg in kwargs]))
-
-        errs = 0
-        for arg_index in range(1, len(args)):
-            if type(args[arg_index]) != ast.Num:
-                self.error_msg(arg, 'arg %d must be a number' % arg_index)
-                errs += 1
-
-        if errs:
-            return
-
-        signature = '%s-%s' % (name, arg_text)
-        if kwarg_text:
-            signature += '-%s' % kwarg_text
-
-        # print 'WAVEFORM %s %s %s' % (name, arg_text, kwarg_text)
-        # print signature
-
-        if signature in self.waveforms:
-            print('NOTE: already generated waveform %s' % signature)
-        else:
-            print('generating waveform %s' % signature)
-            self.waveforms[signature] = 1 # BOGUS
-
     def assign_simple(self, node):
 
         target = node.targets[0]
@@ -172,7 +147,7 @@ class CheckType(NodeTransformerWithFname):
         if type(target) != ast.Name:
             return node
 
-        print('AS SCOPE %s' % str(self._qbit_scope()))
+        # print('AS SCOPE %s' % str(self._qbit_scope()))
 
         if target.id in self._qbit_local():
             msg = 'reassignment of qbit \'%s\' forbidden' % target.id
@@ -190,7 +165,7 @@ class CheckType(NodeTransformerWithFname):
         if (type(value) == ast.Call) and (value.func.id == 'Qbit'):
             self._extend_local(target.id)
         elif type(value) == ast.Name:
-            print('CHECKING %s' % str(self._qbit_scope()))
+            # print('CHECKING %s' % str(self._qbit_scope()))
             if (value.id + ':qbit') in self._qbit_scope():
                 self.warning_msg(node,
                         'aliasing qbit parameter \'%s\' as \'%s\'' %
@@ -203,7 +178,7 @@ class CheckType(NodeTransformerWithFname):
         else:
             return node
 
-        print('qbit scope %s' % str(self._qbit_scope()))
+        # print('qbit scope %s' % str(self._qbit_scope()))
 
         return node
 
@@ -308,7 +283,7 @@ class CheckType(NodeTransformerWithFname):
         # So far so good: now actually begin to process this node
 
         decls = self._qbit_decl(node)
-        print('GOT %s' % str(decls))
+        # print('GOT %s' % str(decls))
         if not decls:
             decls = list()
 
@@ -326,14 +301,14 @@ class CheckType(NodeTransformerWithFname):
 
         node.qgl_call_list = self.qgl_call_stack.pop()
 
-        print('DECLS: %s %s' % (node.name, str(decls)))
+        # print('DECLS: %s %s' % (node.name, str(decls)))
         self.func_defs[node.name] = (decls, deepcopy(node))
 
         self._pop_scope()
         self._pop_local()
 
         self.diag_msg(node,
-                'call stack %s: %s' %
+                'call list %s: %s' %
                 (node.name, str(', '.join([call.func.id
                     for call in node.qgl_call_list]))))
         return node
@@ -355,7 +330,7 @@ class CheckType(NodeTransformerWithFname):
         # returns a meaningful value
         #
         if node.func.id == 'qimport':
-            print('GOT A QIMPORT %s' % ast.dump(node))
+            # print('GOT A QIMPORT %s' % ast.dump(node))
 
             for arg in node.args:
                 if type(arg) != ast.Name:
@@ -387,12 +362,12 @@ class CompileQGLFunctions(ast.NodeTransformer):
         qglfunc = False
         other_decorator = False
 
-        print('>>> %s' % ast.dump(node))
+        # print('>>> %s' % ast.dump(node))
 
         if node.decorator_list:
-            print('HAS DECO')
+            # print('HAS DECO')
             for dec in node.decorator_list:
-                print('HAS DECO %s' % str(dec))
+                # print('HAS DECO %s' % str(dec))
 
                 # qglmain implies qglfunc, but it's permitted to
                 # have both
@@ -556,7 +531,7 @@ if __name__ == '__main__':
         text = open(fname, 'r').read()
 
         ptree = ast.parse(text, mode='exec')
-        print(ast.dump(ptree))
+        # print(ast.dump(ptree))
 
         type_check = CheckType(fname)
 
@@ -566,14 +541,25 @@ if __name__ == '__main__':
             types, node = type_check.func_defs[func_def]
             call_list = node.qgl_call_list
 
-            print('%s -> %s' %
-                    (node.name, ', '.join(node.func.id for node in call_list)))
+            # print('%s -> %s' %
+            #         (node.name, ', '.join(node.func.id for node in call_list)))
 
         if type_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
-            print('bailing out')
+            print('bailing out 1')
             sys.exit(1)
 
         sym_check = CheckSymtab(fname, type_check.func_defs)
         nptree2 = sym_check.visit(nptree)
+
+        if sym_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
+            print('bailing out 2')
+            sys.exit(1)
+
+        wav_check = CheckWaveforms(fname, type_check.func_defs)
+        nptree3 = sym_check.visit(nptree2)
+
+        if wav_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
+            print('bailing out 3')
+            sys.exit(1)
 
     preprocess(sys.argv[1])

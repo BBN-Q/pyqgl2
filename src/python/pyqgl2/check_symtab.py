@@ -31,6 +31,7 @@ class CheckSymtab(NodeTransformerWithFname):
 
         super(CheckSymtab, self).__init__(fname)
         self.func_defs = func_defs
+        self.waveforms = dict()
 
     def is_qbit(self, context_node, name):
         # print('params %s locals %s' %
@@ -49,7 +50,7 @@ class CheckSymtab(NodeTransformerWithFname):
             return True
         elif qbit_name in context_node.qgl_scope:
             return True
-        elif qchan in context_node.qgl_scope:
+        elif qchan_name in context_node.qgl_scope:
             return True
         else:
             return False
@@ -132,4 +133,31 @@ class CheckSymtab(NodeTransformerWithFname):
                                 (func_name, arg.id))
 
         return node
+
+    def gen_waveform(self, name, args, kwargs):
+        arg_text = ', '.join([ast.dump(arg) for arg in args])
+        kwarg_text = ', '.join(sorted([ast.dump(arg) for arg in kwargs]))
+
+        errs = 0
+        for arg_index in range(1, len(args)):
+            if type(args[arg_index]) != ast.Num:
+                self.error_msg(arg, 'arg %d must be a number' % arg_index)
+                errs += 1
+
+        if errs:
+            return
+
+        signature = '%s-%s' % (name, arg_text)
+        if kwarg_text:
+            signature += '-%s' % kwarg_text
+
+        # print 'WAVEFORM %s %s %s' % (name, arg_text, kwarg_text)
+        # print signature
+
+        if signature in self.waveforms:
+            print('NOTE: already generated waveform %s' % signature)
+        else:
+            print('generating waveform %s' % signature)
+            self.waveforms[signature] = 1 # BOGUS
+
 

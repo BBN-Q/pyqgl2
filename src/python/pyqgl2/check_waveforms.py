@@ -127,7 +127,7 @@ class CheckWaveforms(NodeTransformerWithFname):
         # print signature
 
         if signature in self.waveforms:
-            print('NOTE: already generated waveform %s' % signature)
+            print('xNOTE: already generated waveform %s' % signature)
         else:
             print('generating waveform %s' % signature)
             self.waveforms[signature] = 1 # BOGUS
