@@ -174,16 +174,31 @@ class CheckType(NodeTransformerWithFname):
 
         print('AS SCOPE %s' % str(self._qbit_scope()))
 
-        if target.id in self._qbit_scope():
+        if target.id in self._qbit_local():
             msg = 'reassignment of qbit \'%s\' forbidden' % target.id
             self.error_msg(node,
-                    ('reassignment of qbit \'%s\' forbidden' % target.id))
+                    ('reassignment of local qbit \'%s\' forbidden' %
+                        target.id))
+            return node
+
+        if (target.id + ':qbit') in self._qbit_scope():
+            self.error_msg(node,
+                    ('reassignment of qbit parameter \'%s\' forbidden' %
+                        target.id))
+            return node
 
         if (type(value) == ast.Call) and (value.func.id == 'Qbit'):
             self._extend_local(target.id)
-        elif (type(value) == ast.Name) and value.id in self._qbit_scope():
-            self.warning_msg(node, 'alias of qbit \'%s\' as \'%s\'' %
-                    (value.id, target.id))
+        elif type(value) == ast.Name:
+            print('CHECKING %s' % str(self._qbit_scope()))
+            if (value.id + ':qbit') in self._qbit_scope():
+                self.warning_msg(node,
+                        'aliasing qbit parameter \'%s\' as \'%s\'' %
+                        (value.id, target.id))
+            elif value.id in self._qbit_local():
+                self.warning_msg(node,
+                        'aliasing local qbit \'%s\' as \'%s\'' %
+                        (value.id, target.id))
             self._extend_local(target.id)
         else:
             return node
@@ -352,6 +367,7 @@ class CheckType(NodeTransformerWithFname):
             return ast.Pass()
 
         node.qgl_scope = self._qbit_scope()[:]
+        node.qgl_local = self._qbit_local()[:]
 
         self.qgl_call_stack[-1].append(node)
 

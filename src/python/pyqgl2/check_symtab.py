@@ -32,15 +32,36 @@ class CheckSymtab(NodeTransformerWithFname):
         super(CheckSymtab, self).__init__(fname)
         self.func_defs = func_defs
 
+    def is_qbit(self, context_node, name):
+        # print('params %s locals %s' %
+        #         (str(context_node.qgl_scope), str(context_node.qgl_local)))
+
+        qbit_name = '%s:qbit' % name
+        qchan_name = '%s:qchan' % name
+
+        # TODO: need to check for qchan references in the local context
+        #
+        # TODO: everything in the local context is a "qbit" of some kind
+        # but we should distinguish between qbits, channels, and classical
+        # types; all will be useful soon
+        #
+        if name in context_node.qgl_local:
+            return True
+        elif qbit_name in context_node.qgl_scope:
+            return True
+        elif qchan in context_node.qgl_scope:
+            return True
+        else:
+            return False
+
     def check_arg(self, call_node, arg, argpos):
         if type(arg) != ast.Name:
             self.error_msg(call_node, '%s param to %s must be a symbol' %
                     (argpos, call_node.func.id))
             return False
 
-        if arg.id not in call_node.qgl_scope:
-            print('call scope %s' % str(call_node.qgl_scope))
-            self.error_msg(call_node, '%s param to %s must be a qbit' %
+        if not self.is_qbit(call_node, arg.id):
+            self.error_msg(call_node, '%s param to %s must qbit or channel' %
                     (argpos, call_node.func.id))
             return False
 
