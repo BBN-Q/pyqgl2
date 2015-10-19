@@ -251,24 +251,28 @@ class CheckType(NodeTransformerWithFname):
                 # qglmain implies qglfunc, but it's permitted to
                 # have both
                 #
-                if (type(dec) == ast.Name) and (dec.id == 'qglmain'):
+                if (type(dec) == ast.Name) and (dec.id == QGL2.QMAIN):
                     qglmain = True
                     qglfunc = True
-                elif (type(dec) == ast.Name) and (dec.id == 'qglfunc'):
+                elif (type(dec) == ast.Name) and (dec.id == QGL2.QFUNC):
                     qglfunc = True
                 else:
                     other_decorator = True
 
-            if qglfunc and other_decorator:
-                self.error_msg(node, 'unrecognized decorator with qglfunc')
+            if qglmain and other_decorator:
+                self.error_msg(node,
+                        'unrecognized decorator with %s' % QGL2.QMAIN)
+            elif qglfunc and other_decorator:
+                self.error_msg(node,
+                        'unrecognized decorator with %s' % QGL2.QFUNC)
 
         if qglmain:
-            print('qblmain detected')
+            print('%s detected' % QGL2.QMAIN)
             if self.qglmain:
                 omain = self.qglmain
-                self.error_msg(node, 'more than one qglmain function')
+                self.error_msg(node, 'more than one %s function' % QGL2.QMAIN)
                 self.error_msg(node,
-                        'previous qglmain %s:%d:%d' %
+                        'previously defined %s:%d:%d' %
                         (omain.fname, omain.lineno, omain.col_offset))
                 self._pop_scope()
                 self.qgl_call_stack.pop()
@@ -278,7 +282,7 @@ class CheckType(NodeTransformerWithFname):
                 self.qglmain = node
 
         if self.func_level > 0:
-            self.error_msg(node, 'qgldef functions cannot be nested')
+            self.error_msg(node, '%s functions cannot be nested' % QGL2.QFUNC)
 
         # So far so good: now actually begin to process this node
 
@@ -372,28 +376,33 @@ class CompileQGLFunctions(ast.NodeTransformer):
                 # qglmain implies qglfunc, but it's permitted to
                 # have both
                 #
-                if (type(dec) == ast.Name) and (dec.id == 'qglmain'):
+                if (type(dec) == ast.Name) and (dec.id == QGL2.QMAIN):
                     qglmain = True
                     qglfunc = True
-                elif (type(dec) == ast.Name) and (dec.id == 'qglfunc'):
+                elif (type(dec) == ast.Name) and (dec.id == QGL2.QFUNC):
                     qglfunc = True
                 else:
                     other_decorator = True
 
-            if qglfunc and other_decorator:
-                self.error_msg(node, 'unrecognized decorator with qglfunc')
+            if qglmain and other_decorator:
+                self.error_msg(node,
+                        'unrecognized decorator with %s' % QGL2.QMAIN)
+            elif qglfunc and other_decorator:
+                self.error_msg(node,
+                        'unrecognized decorator with %s' % QGL2.QFUNC)
 
         if not qglfunc:
             return node
 
         if qglmain:
-            print('qblmain detected')
+            print('%s detected' % QGL2.QFUNC)
             if self.qglmain:
                 omain = self.qglmain
-                self.error_msg(node, 'more than one qglmain function')
+                self.error_msg(node, 'more than one %s function' % QGL2.QMAIN)
                 self.error_msg(node,
-                        'previous qglmain %s:%d:%d' %
-                        (omain.fname, omain.lineno, omain.col_offset))
+                        'previous %s %s:%d:%d' %
+                        (QGL2.QMAIN,
+                            omain.fname, omain.lineno, omain.col_offset))
                 return node
             else:
                 node.fname = self.fname
@@ -531,7 +540,7 @@ if __name__ == '__main__':
         text = open(fname, 'r').read()
 
         ptree = ast.parse(text, mode='exec')
-        # print(ast.dump(ptree))
+        print(ast.dump(ptree))
 
         type_check = CheckType(fname)
 
