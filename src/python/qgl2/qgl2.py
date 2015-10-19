@@ -7,7 +7,7 @@ In order to be recognized by the compiler, you should include
 the following snipped at the start of each module that uses
 QGL2 constructs:
 
-from qgl2 import concur, qgl2decl
+from qgl2 import concur, qgl2decl, qgl2import, qgl2main
 """
 
 class concur(object):
@@ -24,8 +24,12 @@ class concur(object):
     The purpose of the "concur()" is to mark these statements as
     things to execute concurrently. 
 
-    The "with concur()" has no effect if executed outside of a qgl2
-    context.
+    The "with concur()" currently has no effect if executed outside
+    of a qgl2 context.  If the statements don't have any side
+    effects, executing them concurrently or sequentially should
+    have the same effect. (it's tempting to have it be an error,
+    however, because even though it should behave correctly, it
+    means that the programmer is confused)
 
     I've included a quasi-degenerate __init__() because we've tossed
     around some ideas for how we could use pseudo-parameters to provide
@@ -36,46 +40,14 @@ class concur(object):
     def __init__(self, *args, **kwargs):
         pass
 
+def qgl2main(function):
+    def wrapper(*args, **kwargs):
+        assert False, 'qgl2main should not be directly executed'
+    return wrapper
 
-def qgl2decl(*qargs):
-    """
-    A decorator that allows the programmer to declare a function
-    or method to be quantum, and to specify which parameters of
-    a method are quantum bits.  It can also be used to specify
-    which bits map to which parameters, in the cases where the
-    programmer has this information.
+def qgl2decl(function):
+    def wrapper(*args, **kwargs):
+        assert False, 'qgl2decl should not be directly executed'
+    return wrapper
 
-    For example, the following declares that parameters "a" and "d"
-    are quantum bits, and that "b", and "c" are not:
-
-        @qtypes('a', 'd')
-        def foo(a, b, c, d):
-            ...
-
-    To assign specific bits, the following declares that parameter
-    "a" is qbit 1, and "d" is qbit 2.
-
-        @qtypes(('a', 1), ('d', 2))
-        def foo(a, b, c, d):
-            ...
-
-    At this time, all of the parameters must be constants (i.e. you
-    cannot specify the parameter name or qbit number as the value of
-    an arbitrary expression).
-
-    Note that the parens are required: because this decorator may take
-    parameters, it must be given an empty tuple in lieu of parameters.
-    So the empty declaration is
-
-        @qtypes()
-
-    and never
-
-        @qtypes
-    """
-
-    def inner_decorator(function):
-        def wrapper(*args, **kwargs):
-            function(*args, **kwargs)
-        return wrapper
-    return inner_decorator
+qgl2import = False
