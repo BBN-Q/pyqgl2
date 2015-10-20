@@ -92,7 +92,7 @@ class NodeError(object):
             level_str = 'weird'
 
         print ('%s:%d:%d: %s: %s' % (
-            self.fname, node.lineno, node.col_offset, level_str, msg))
+            node.qgl_fname, node.lineno, node.col_offset, level_str, msg))
 
         # If we've encountered a fatal error, then there's no
         # point in continuing: exit immediately.
