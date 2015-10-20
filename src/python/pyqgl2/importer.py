@@ -98,10 +98,30 @@ class Importer(NodeTransformerWithFname):
         if not as_name:
             as_name = import_name
 
+        context = self.context_stack[-1]
+
+        # check that the as_name isn't already in use
+        #
+        # Even though it's fatal if we reuse a namespace,
+        # we don't halt immediately, so we can additional
+        # checking before giving up
+        #
+        for (old_path, old_as_name) in context:
+            if old_path == path:
+                if old_as_name == as_name:
+                    self.warning_msg(parent,
+                            'repeated import of [%s]' % old_path)
+                else:
+                    self.warning_msg(parent,
+                            'multiple imports of [%s]' % old_path)
+            elif old_as_name == as_name:
+                self.error_msg(parent,
+                        'reusing import as-name [%s]' % as_name)
+                break
+
         # even if we don't import the file again, we add it to
         # the current context if it's not already there
         #
-        context = self.context_stack[-1]
         if (path, as_name) not in context:
             context.append((path, as_name))
 
@@ -132,6 +152,7 @@ class Importer(NodeTransformerWithFname):
             self.visit(ptree)
 
             self.path2ast[path] = ptree
+            self.context_stack.pop()
             return ptree
         else:
             if len(self.context_stack) > 1:
