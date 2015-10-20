@@ -113,7 +113,7 @@ class Importer(NodeTransformerWithFname):
             self.path2ast[path] = None
 
             if len(self.context_stack) > 1:
-                level = len(self.context_stack) - 1
+                level = len(self.context_stack) - 2
                 self.diag_msg(parent,
                         '%simporting path [%s] from [%s]' %
                             ('    ' * level, path, parent.qgl_fname))
@@ -135,7 +135,7 @@ class Importer(NodeTransformerWithFname):
             return ptree
         else:
             if len(self.context_stack) > 1:
-                level = len(self.context_stack) - 1
+                level = len(self.context_stack) - 2
                 self.diag_msg(parent,
                         '%sskipping redundant import of [%s] from [%s]' %
                         ('    ' * level, path, parent.qgl_fname))
