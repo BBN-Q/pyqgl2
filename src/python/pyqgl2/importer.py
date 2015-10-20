@@ -35,24 +35,6 @@ class Importer(NodeTransformerWithFname):
     qgl_context: the context needed to dereference
         names within that file, which is defined
         by the imports
-
-    NOTE that the qgl_context is not strictly identical
-    to the context Python would use to evaluate the
-    same code.  The qgl_context for each node in
-    a file contains all of the imports for that
-    file, even imports that are after the node.
-    The qgl_context behaves as if all of the imports
-    happened at the beginning of the file, prior to
-    any other statements.
-
-    For example, this is legal in QGL2 but not legal
-    in Python, because "bar" is used before defined: 
-
-        bar.something()
-        import bar
-
-    This "works" in QGL2 because the processor handles
-    all of the imports before handles anything else.
     """
 
     def __init__(self, module_name):
@@ -75,10 +57,13 @@ class Importer(NodeTransformerWithFname):
 
         self.do_import(None, module_name, '<main>', None)
 
-        self.base_fname = module_name
-        self.base_ptree = self.path2ast[module_name]
+        path = os.path.relpath(module_name)
 
-    def resolve_path(self, name):
+        self.base_fname = path
+        self.base_ptree = self.path2ast[path]
+
+    @staticmethod
+    def resolve_path(name):
         """
         Find the path to the file that would be imported for the
         given module name, if any.
@@ -99,6 +84,9 @@ class Importer(NodeTransformerWithFname):
         return None
 
     def do_import(self, parent, path, import_name, as_name):
+        """
+        Process an import
+        """
 
         # Convert all paths to be relative to pwd, to the extent possible
         #
@@ -112,9 +100,6 @@ class Importer(NodeTransformerWithFname):
 
         # even if we don't import the file again, we add it to
         # the current context if it's not already there
-        #
-        # TODO: this doesn't address what happens if the same
-        # file is imported as multiple different names.  Oof.
         #
         context = self.context_stack[-1]
         if (path, as_name) not in context:
@@ -145,22 +130,6 @@ class Importer(NodeTransformerWithFname):
             self.context_stack.append(list())
             self.context_stack[-1].append((path, None))
             self.visit(ptree)
-            qgl_context = self.context_stack.pop()
-
-            # now that we have the complete namespace defined by the
-            # imports within this file, label each node with the
-            # context in which any symbols referenced by name in
-            # that node should be interpreted (i.e., if it's a
-            # reference to a.b.c, how should we find where 'a.b.c'
-            # is defined?)
-            #
-            # Most nodes don't need this information, but
-            # it's easier to blindly label all of them than
-            # to pick and choose
-            #
-            for node in ast.walk(ptree):
-                if not hasattr(node, 'qgl_context'):
-                    node.qgl_context = qgl_context
 
             self.path2ast[path] = ptree
             return ptree
@@ -174,10 +143,36 @@ class Importer(NodeTransformerWithFname):
             return None
 
     def visit_Module(self, node):
+        """
+        Walk through the body of the module, looking for QGL imports
+        (which begin as "if" statements
+        """
+
         for stmnt in node.body:
+            # label each node within the statement with the
+            # current context (which may change after each
+            # statement) of imports within this file.
+            #
+            # The context determines how symbols referenced
+            # by name within that node should be interpreted
+            # (i.e., if it's a reference to a.b.c, how should
+            # we find where 'a.b.c' is defined?)
+            #
+            # Most nodes don't need this information, but
+            # it's easier to blindly label all of them than
+            # to pick and choose
+            #
+            qgl_context = self.context_stack[-1]
+            for subnode in ast.walk(stmnt):
+                subnode.qgl_context = qgl_context
+
             if isinstance(stmnt, ast.If):
                 self.handle_if(stmnt)
 
+        # A special case for debugging: put the last context
+        # for the module as the context of the root node
+        #
+        node.qgl_context = qgl_context
         return node
 
     def handle_if(self, node):
@@ -220,15 +215,32 @@ class Importer(NodeTransformerWithFname):
 if __name__ == '__main__':
 
     def preprocess(fname):
+        """
+        An example of how to use the Importer
+
+        Create an Importer instance with the base file name
+
+        After creation, check whether max_err_level indicates
+        that an error occured during parsing/importing
+
+        If everything succeeded, look through the importer.path2ast
+        dictionary to find the AST for each file imported,
+        including the base file.  The base file is identified 
+        as importer.module_fname (which might not be the same
+        as the base file name, because the paths are normalized
+        and/or expressed relatively).
+        """
+
         importer = Importer(fname)
-
-        for path in importer.path2ast.keys():
-            print('GOT NAME %s -> %s' %
-                    (path, str(importer.path2ast[path].qgl_context)))
-            print(ast.dump(importer.path2ast[path]))
-
         if importer.max_err_level >= NodeError.NODE_ERROR_ERROR:
             print('bailing out 1')
             sys.exit(1)
+
+        for path in importer.path2ast.keys():
+            node = importer.path2ast[path]
+            print('GOT NAME %s -> %s' % (path, str(node.qgl_context)))
+            print(ast.dump(node))
+
+        print('BASENAME %s' % importer.base_fname)
 
     preprocess(sys.argv[1])
