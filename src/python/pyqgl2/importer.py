@@ -1,5 +1,10 @@
 # Copyright 2015 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
+"""
+Utilities to do an initial parse of the file
+and recursively parse any imports in that file
+"""
+
 import ast
 import os
 import sys
@@ -10,7 +15,44 @@ from pyqgl2.lang import QGL2
 
 class Importer(NodeTransformerWithFname):
     """
-    Find imports and queue them up for later importing
+    Parse a Python file and recursively parse
+    any QGL2 imports referenced by that file
+
+    If successful, the path2ast dictionary is
+    initialized with the AST corresponding to
+    each file (both the initial file and any
+    files imported by this file or any file it
+    imports), base_fname is initialized to the
+    name of the initial file, and base_ptree
+    is initialized to the AST for that file
+
+    Each node in the ASTs created through this
+    process will be given two extra annotations:
+
+    qgl_fname: the relative path to the file
+        that was imported
+
+    qgl_context: the context needed to dereference
+        names within that file, which is defined
+        by the imports
+
+    NOTE that the qgl_context is not strictly identical
+    to the context Python would use to evaluate the
+    same code.  The qgl_context for each node in
+    a file contains all of the imports for that
+    file, even imports that are after the node.
+    The qgl_context behaves as if all of the imports
+    happened at the beginning of the file, prior to
+    any other statements.
+
+    For example, this is legal in QGL2 but not legal
+    in Python, because "bar" is used before defined: 
+
+        bar.something()
+        import bar
+
+    This "works" in QGL2 because the processor handles
+    all of the imports before handles anything else.
     """
 
     def __init__(self, module_name):
@@ -31,8 +73,10 @@ class Importer(NodeTransformerWithFname):
         self.context_stack = list()
         self.context_stack.append(list())
 
+        self.do_import(None, module_name, '<main>', None)
+
         self.base_fname = module_name
-        self.base_ptree = self.do_import(None, module_name, '<main>', None)
+        self.base_ptree = self.path2ast[module_name]
 
     def resolve_path(self, name):
         """
@@ -72,7 +116,6 @@ class Importer(NodeTransformerWithFname):
         # TODO: this doesn't address what happens if the same
         # file is imported as multiple different names.  Oof.
         #
-        print('CONTEXT STACK %s' % str(self.context_stack))
         context = self.context_stack[-1]
         if (path, as_name) not in context:
             context.append((path, as_name))
@@ -92,8 +135,6 @@ class Importer(NodeTransformerWithFname):
 
             text = open(path, 'r').read()
             ptree = ast.parse(text, mode='exec')
-
-            print('TREE: %s' % ast.dump(ptree))
 
             # label each node with the name of the input file;
             # this will make error messages much more readable
@@ -122,9 +163,6 @@ class Importer(NodeTransformerWithFname):
                     node.qgl_context = qgl_context
 
             self.path2ast[path] = ptree
-
-            print('%s context %s' % (ptree.qgl_fname, str(ptree.qgl_context)))
-
             return ptree
         else:
             if len(self.context_stack) > 1:
@@ -132,7 +170,8 @@ class Importer(NodeTransformerWithFname):
                 self.diag_msg(parent,
                         '%sskipping redundant import of [%s] from [%s]' %
                         ('    ' * level, path, parent.qgl_fname))
-            return None # SHOULD BE SOMETHING
+            # Probably should return something meaningful
+            return None
 
     def visit_Module(self, node):
         for stmnt in node.body:
