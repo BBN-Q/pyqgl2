@@ -23,6 +23,7 @@ from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.ast_util import NodeVisitorWithFname
 from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_waveforms import CheckWaveforms
+from pyqgl2.lang import QGL2
 
 class FuncParam(object):
 
@@ -66,9 +67,6 @@ class CheckType(NodeTransformerWithFname):
         self.qglmain = None
 
         self.qgl_call_stack = list()
-
-        self.qgl_already_imported = set()
-        self.qgl_to_import = list()
 
     def _push_scope(self, qbit_scope):
         self.scope.append(qbit_scope)
@@ -182,37 +180,6 @@ class CheckType(NodeTransformerWithFname):
 
         return node
 
-    def schedule_qimport(self, name):
-
-        if name not in self.qgl_already_imported:
-            self.qgl_to_import.append(name)
-
-        self.process_qimports()
-
-    def process_qimports(self):
-
-        # We can't do a simple iteration here, because
-        # Python doesn't like iterating over mutated objects
-
-        if not self.qgl_to_import:
-            return
-
-        fname = self.qgl_to_import[0]
-        self.qgl_to_import = self.qgl_to_import[1:]
-
-        if fname not in self.qgl_already_imported:
-
-            self.qgl_already_imported.add(fname)
-            path = fname # TODO: resolution here
-
-            text = open(path, 'r').read()
-            ptree = ast.parse(text, mode='exec')
-
-            old_fname = self.fname
-            self.fname = path
-            self.visit(ptree)
-            self.fname = old_fname
-
     def visit_Assign(self, node):
 
         # We only do singleton assignments, not tuples,
@@ -254,7 +221,7 @@ class CheckType(NodeTransformerWithFname):
                 if (type(dec) == ast.Name) and (dec.id == QGL2.QMAIN):
                     qglmain = True
                     qglfunc = True
-                elif (type(dec) == ast.Name) and (dec.id == QGL2.QFUNC):
+                elif (type(dec) == ast.Name) and (dec.id == QGL2.QDECL):
                     qglfunc = True
                 else:
                     other_decorator = True
@@ -264,7 +231,7 @@ class CheckType(NodeTransformerWithFname):
                         'unrecognized decorator with %s' % QGL2.QMAIN)
             elif qglfunc and other_decorator:
                 self.error_msg(node,
-                        'unrecognized decorator with %s' % QGL2.QFUNC)
+                        'unrecognized decorator with %s' % QGL2.QDECL)
 
         if qglmain:
             print('%s detected' % QGL2.QMAIN)
@@ -282,7 +249,7 @@ class CheckType(NodeTransformerWithFname):
                 self.qglmain = node
 
         if self.func_level > 0:
-            self.error_msg(node, '%s functions cannot be nested' % QGL2.QFUNC)
+            self.error_msg(node, '%s functions cannot be nested' % QGL2.QDECL)
 
         # So far so good: now actually begin to process this node
 
@@ -326,25 +293,6 @@ class CheckType(NodeTransformerWithFname):
             self.error_msg(node, 'function not referenced by name')
             return node
 
-        # If we encounter a qimport, then add the import to the
-        # list of files to import (unless it's already there)
-        # and then replace the call with a pass statement.
-        #
-        # TODO this will fail if anyone pretends that qimport
-        # returns a meaningful value
-        #
-        if node.func.id == 'qimport':
-            # print('GOT A QIMPORT %s' % ast.dump(node))
-
-            for arg in node.args:
-                if type(arg) != ast.Name:
-                    self.error_msg(node, 'qimport must be a name')
-                    break
-
-                self.schedule_qimport(arg.id)
-
-            return ast.Pass()
-
         node.qgl_scope = self._qbit_scope()[:]
         node.qgl_local = self._qbit_local()[:]
 
@@ -379,7 +327,7 @@ class CompileQGLFunctions(ast.NodeTransformer):
                 if (type(dec) == ast.Name) and (dec.id == QGL2.QMAIN):
                     qglmain = True
                     qglfunc = True
-                elif (type(dec) == ast.Name) and (dec.id == QGL2.QFUNC):
+                elif (type(dec) == ast.Name) and (dec.id == QGL2.QDECL):
                     qglfunc = True
                 else:
                     other_decorator = True
@@ -389,13 +337,13 @@ class CompileQGLFunctions(ast.NodeTransformer):
                         'unrecognized decorator with %s' % QGL2.QMAIN)
             elif qglfunc and other_decorator:
                 self.error_msg(node,
-                        'unrecognized decorator with %s' % QGL2.QFUNC)
+                        'unrecognized decorator with %s' % QGL2.QDECL)
 
         if not qglfunc:
             return node
 
         if qglmain:
-            print('%s detected' % QGL2.QFUNC)
+            print('%s detected' % QGL2.QDECL)
             if self.qglmain:
                 omain = self.qglmain
                 self.error_msg(node, 'more than one %s function' % QGL2.QMAIN)
@@ -535,12 +483,12 @@ class FindQbitReferences(ast.NodeTransformer):
 if __name__ == '__main__':
     import sys
 
+    from pyqgl2.importer import Importer
+
     def preprocess(fname):
 
-        text = open(fname, 'r').read()
-
-        ptree = ast.parse(text, mode='exec')
-        print(ast.dump(ptree))
+        importer = Importer(fname)
+        ptree = importer.path2ast[importer.base_fname]
 
         type_check = CheckType(fname)
 
@@ -549,9 +497,6 @@ if __name__ == '__main__':
         for func_def in sorted(type_check.func_defs.keys()):
             types, node = type_check.func_defs[func_def]
             call_list = node.qgl_call_list
-
-            # print('%s -> %s' %
-            #         (node.name, ', '.join(node.func.id for node in call_list)))
 
         if type_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
             print('bailing out 1')
