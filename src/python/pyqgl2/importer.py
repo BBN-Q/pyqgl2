@@ -6,9 +6,6 @@ import sys
 
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
-from pyqgl2.ast_util import NodeVisitorWithFname
-from pyqgl2.check_symtab import CheckSymtab
-from pyqgl2.check_waveforms import CheckWaveforms
 from pyqgl2.lang import QGL2
 
 class Importer(NodeTransformerWithFname):
@@ -28,19 +25,14 @@ class Importer(NodeTransformerWithFname):
         # to use resolve_path to find the path to each
         # module.
         #
-        self.fname = module_name
-        self.module_path = module_name
 
-        self.level = 0
+        self.path2ast = dict()
 
-        self.current_index = 0
+        self.context_stack = list()
+        self.context_stack.append(list())
 
-        self.import_queue = list()
-        self.node_queue = list()
-        self.ast_queue = list()
-
-        self.schedule_import(None, module_name)
-        self.process_imports()
+        self.base_fname = module_name
+        self.base_ptree = self.do_import(None, module_name, '<main>', None)
 
     def resolve_path(self, name):
         """
@@ -62,44 +54,89 @@ class Importer(NodeTransformerWithFname):
 
         return None
 
-    def schedule_import(self, node, path):
+    def do_import(self, parent, path, import_name, as_name):
 
-        if path not in self.import_queue:
-            self.import_queue.append(path)
-            self.node_queue.append(node)
-        else:
-            self.diag_msg(node, 'skipping redundant import of %s' % path)
+        # Convert all paths to be relative to pwd, to the extent possible
+        #
+        # TODO: this will fail to identify multiple links to the same
+        # file
+        #
+        path = os.path.relpath(path)
 
-        self.process_imports()
+        if not as_name:
+            as_name = import_name
 
-    def process_imports(self):
+        # even if we don't import the file again, we add it to
+        # the current context if it's not already there
+        #
+        # TODO: this doesn't address what happens if the same
+        # file is imported as multiple different names.  Oof.
+        #
+        print('CONTEXT STACK %s' % str(self.context_stack))
+        context = self.context_stack[-1]
+        if (path, as_name) not in context:
+            context.append((path, as_name))
 
-        while True:
-            ind = self.current_index
+        if path not in self.path2ast:
+            # Put in a placeholder value into path2ast to prevent
+            # recursively visiting this path again.  We'll put in
+            # the real value later.
+            #
+            self.path2ast[path] = None
 
-            if ind >= len(self.import_queue):
-                return
-
-            path = self.import_queue[ind]
-            node = self.node_queue[ind]
-            self.current_index += 1
-
-            # TODO: diagnostic
-            print('reading file [%s]' % path)
+            if len(self.context_stack) > 1:
+                level = len(self.context_stack) - 1
+                self.diag_msg(parent,
+                        '%simporting path [%s] from [%s]' %
+                            ('    ' * level, path, parent.qgl_fname))
 
             text = open(path, 'r').read()
             ptree = ast.parse(text, mode='exec')
 
-            self.ast_queue.append(ptree)
+            print('TREE: %s' % ast.dump(ptree))
 
-            old_fname = self.fname
-            self.fname = path
+            # label each node with the name of the input file;
+            # this will make error messages much more readable
+            #
+            for node in ast.walk(ptree):
+                node.qgl_fname = path
+
+            self.context_stack.append(list())
+            self.context_stack[-1].append((path, None))
             self.visit(ptree)
-            self.fname = old_fname
+            qgl_context = self.context_stack.pop()
+
+            # now that we have the complete namespace defined by the
+            # imports within this file, label each node with the
+            # context in which any symbols referenced by name in
+            # that node should be interpreted (i.e., if it's a
+            # reference to a.b.c, how should we find where 'a.b.c'
+            # is defined?)
+            #
+            # Most nodes don't need this information, but
+            # it's easier to blindly label all of them than
+            # to pick and choose
+            #
+            for node in ast.walk(ptree):
+                if not hasattr(node, 'qgl_context'):
+                    node.qgl_context = qgl_context
+
+            self.path2ast[path] = ptree
+
+            print('%s context %s' % (ptree.qgl_fname, str(ptree.qgl_context)))
+
+            return ptree
+        else:
+            if len(self.context_stack) > 1:
+                level = len(self.context_stack) - 1
+                self.diag_msg(parent,
+                        '%sskipping redundant import of [%s] from [%s]' %
+                        ('    ' * level, path, parent.qgl_fname))
+            return None # SHOULD BE SOMETHING
 
     def visit_Module(self, node):
         for stmnt in node.body:
-            if type(stmnt) == ast.If:
+            if isinstance(stmnt, ast.If):
                 self.handle_if(stmnt)
 
         return node
@@ -111,15 +148,15 @@ class Importer(NodeTransformerWithFname):
 
         if qgl2.qgl2import:
             import foo
-            import bar
+            import bar as something
 
         """
 
-        if type(node) != ast.If:
+        if not isinstance(node, ast.If):
             return node
-        if type(node.test) != ast.Attribute:
+        if not isinstance(node.test, ast.Attribute):
             return node
-        if type(node.test.value) != ast.Name:
+        if not isinstance(node.test.value, ast.Name):
             return node
         if node.test.value.id != QGL2.QMODULE:
             return node
@@ -127,26 +164,29 @@ class Importer(NodeTransformerWithFname):
             return node
 
         for stmnt in node.body:
-            if type(stmnt) == ast.Import:
-                imports = stmnt.names
-                for imp in imports:
+            if isinstance(stmnt, ast.Import):
+                for imp in stmnt.names:
                     path = self.resolve_path(imp.name)
-                    if not path:
+                    if path:
+                        self.do_import(stmnt, path, imp.name, imp.asname)
+                    else:
                         self.error_msg(stmnt,
                             'path to [%s] could not be found' % imp.name)
-                    else:
-                        self.schedule_import(stmnt, path)
-
-            elif type(stmnt) == ast.ImportFrom:
+            elif isinstance(stmnt, ast.ImportFrom):
                 self.error_msg(stmnt, 'import-from unsupported')
 
         return node
 
+
 if __name__ == '__main__':
-    import sys
 
     def preprocess(fname):
         importer = Importer(fname)
+
+        for path in importer.path2ast.keys():
+            print('GOT NAME %s -> %s' %
+                    (path, str(importer.path2ast[path].qgl_context)))
+            print(ast.dump(importer.path2ast[path]))
 
         if importer.max_err_level >= NodeError.NODE_ERROR_ERROR:
             print('bailing out 1')
