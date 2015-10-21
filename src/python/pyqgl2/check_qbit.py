@@ -108,9 +108,11 @@ class CheckType(NodeTransformerWithFname):
             #
             if ((type(ret) == ast.Name) and (ret.id == 'qbit')):
                 q_return = 'qbit'
+            elif ((type(ret) == ast.Name) and (ret.id == 'classical')):
+                q_return = 'classical'
             else:
-                self.warning_msg(node,
-                        'unexpected annotation [%s]' % ast.dump(ret))
+                self.error_msg(node,
+                        'unsupported return annotation [%s]' % ast.dump(ret))
 
         if node.args.args:
             for arg in node.args.args:
@@ -125,11 +127,15 @@ class CheckType(NodeTransformerWithFname):
                 if type(annotation) == ast.Name:
                     if annotation.id == 'qbit':
                         q_args.append('%s:qbit' % name)
+                    elif annotation.id == 'classical':
+                        q_args.append('%s:classical' % name)
                     else:
-                        self.warning_msg(node, 'unexpected annotation [%s]' %
+                        self.error_msg(node,
+                                'unsupported parameter annotation [%s]' %
                                 annotation.id)
                 else:
-                    self.warning_msg(node, 'unexpected annotation [%s]' %
+                    self.error_msg(node,
+                            'unsupported parameter annotation [%s]' %
                             ast.dump(annotation))
 
         node.q_args = q_args
@@ -234,7 +240,6 @@ class CheckType(NodeTransformerWithFname):
                         'unrecognized decorator with %s' % QGL2.QDECL)
 
         if qglmain:
-            print('%s detected' % QGL2.QMAIN)
             if self.qglmain:
                 omain = self.qglmain
                 self.error_msg(node, 'more than one %s function' % QGL2.QMAIN)
@@ -245,6 +250,8 @@ class CheckType(NodeTransformerWithFname):
                 self.qgl_call_stack.pop()
                 return node
             else:
+                self.diag_msg(node,
+                        '%s declared as %s' % (node.name, QGL2.QMAIN))
                 node.fname = self.fname
                 self.qglmain = node
 
