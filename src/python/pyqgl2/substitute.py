@@ -58,6 +58,61 @@ class SubstituteChannel(NodeTransformerWithFname):
 
         return node
 
+    def visit_Assign(self, node):
+        print('ASSIGN %s' % ast.dump(node))
+
+        if (isinstance(node.value, ast.Call) and
+                isinstance(node.value.func, ast.Name) and
+                node.value.func.id == QGL2.QBIT_ALLOC):
+            # OK, we got a Qbit.  But we're very fussy about what
+            # parameters a Qbit declaration must have: the first
+            # parameter must be plain-vanilla integer.  Anything
+            # else, and we can't guarantee its value at runtime.
+
+            if len(node.value.args) == 0:
+                self.error_msg(node,
+                        '%s does not have parameters' % QGL2.QBIT_ALLOC)
+                return node
+
+            arg0 = node.value.args[0]
+            if not isinstance(arg0, ast.Num):
+                self.error_msg(node,
+                        '1st param to %s must be an int' % QGL2.QBIT_ALLOC)
+                return node
+
+            if not isinstance(arg0.n, int):
+                self.error_msg(node,
+                        '1st param to %s must be an int' % QGL2.QBIT_ALLOC)
+                return node
+
+            channo = arg0.n
+
+            if len(node.targets) != 1:
+                self.error_msg(node,
+                        'assignment of Qbit must be to a symbol')
+                return node
+
+            target = node.targets[0]
+            if not isinstance(target, ast.Name):
+                self.error_msg(node,
+                        'assignment of Qbit must be to a symbol')
+                return node
+
+            target_name = target.id
+
+            if target_name in self.qbit_map:
+                # We don't treat this as an error, but perhaps
+                # we should
+                #
+                self.error_msg(node,
+                        'reassignment of Qbit [%s] deprecated' % target_name)
+
+            print('GOT QBIT CHANNEL %d for symbol %s' % (channo, target.id))
+
+            self.qbit_map[target_name] = 'QBIT_%d' % channo
+
+        return node
+
     def visit_FunctionDef(self, node):
         """
         This is a shortcut to leap to working on the
