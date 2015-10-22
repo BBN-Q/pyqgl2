@@ -15,3 +15,4 @@ class QGL2(object):
 
     QMODULE = 'qgl2'
 
+    QBIT_ALLOC = 'Qbit'
