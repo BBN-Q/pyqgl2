@@ -312,8 +312,7 @@ def preprocess(fname, main_name=None):
     if not qglmain:
         sys.exit(1)
 
-    specialize(qglmain,
-            [('a', 'QBIT_1'), ('b', 'QBIT_20')], type_check.func_defs)
+    specialize(qglmain, list(), type_check.func_defs)
 
     for func_def in sorted(type_check.func_defs.keys()):
         types, node = type_check.func_defs[func_def]
