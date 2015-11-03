@@ -52,6 +52,20 @@ class Importer(NodeTransformerWithFname):
 
         self.path2ast = dict()
 
+        # path2context is a mapping for the namespace internal
+        # to each module.  For example, if the module xxx contains
+        # the line "import foo as bar" then a search for bar.qux
+        # inside xxx will be done within module bar.
+        #
+        # Note that the context is for the entire file, which is
+        # not completely correct, because it can be changed by
+        # executable statements in the file.  We're glossing over
+        # that right now, and assuming it's file-wide and constant.
+        #
+        # The format of each entry is path:(path, name)
+        #
+        self.path2context = dict()
+
         self.context_stack = list()
         self.context_stack.append(list())
 
@@ -83,6 +97,29 @@ class Importer(NodeTransformerWithFname):
 
         return None
 
+    def resolve_sym(self, context_name, sym_name):
+        """
+        Resolve a symbol in a given context.
+
+        The context is currently the path to the module from which
+        the symbol named sym_name is referenced.
+
+        TODO: this function is incomplete.  It only finds the
+        path to the module that would contain the symbol, but
+        doesn't pull out the reference OR check whether
+        the reference even exists.
+        """
+
+        sym_components = sym_name.split('.')
+        sym_prefix = '.'.join(sym_components[:-1])
+
+        context = self.path2context[context_name]
+        for path, name in context:
+            if name == sym_prefix:
+                return path
+
+        return None
+
     def do_import(self, parent, path, import_name, as_name):
         """
         Process an import
@@ -103,7 +140,7 @@ class Importer(NodeTransformerWithFname):
         # check that the as_name isn't already in use
         #
         # Even though it's fatal if we reuse a namespace,
-        # we don't halt immediately, so we can additional
+        # we don't halt immediately, so we can do additional
         # checking before giving up
         #
         for (old_path, old_as_name) in context:
@@ -153,6 +190,17 @@ class Importer(NodeTransformerWithFname):
 
             self.path2ast[path] = ptree
             self.context_stack.pop()
+
+            curr_context = self.context_stack[-1]
+            context_head = curr_context[0]
+            context_tail = curr_context[1:]
+
+            # deal with the base case of the recursion in a clunky
+            # manner.  There's probably a cleaner way
+            #
+            if context_head[1] != '<main>':
+                self.path2context[context_head[0]] = context_tail
+
             return ptree
         else:
             if len(self.context_stack) > 1:
