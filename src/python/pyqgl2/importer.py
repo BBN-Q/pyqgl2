@@ -259,6 +259,80 @@ class Importer(NodeTransformerWithFname):
             # Probably should return something meaningful
             return None
 
+    def collapse_name(self, node):
+        """
+        Given the AST for a symbol reference, collapse it back into
+        the original reference string
+
+        Example, instead of the AST Attribute(Name(id='x'), addr='y')
+        return 'x.y'
+        """
+
+        if type(node) == ast.Name:
+            return node.id
+        elif type(node) == ast.Attribute:
+            return self.collapse_name(node.value) + '.' + node.attr
+        else:
+            # TODO: handle this more gracefully
+            print('UNEXPECTED')
+            return None
+
+    def _qbit_decl(self, node):
+        """ Copied from check_qbit.  Both need to be refactored. """
+
+        q_args = list()
+        q_return = None
+
+        if node is None:
+            print('NODE IS NONE')
+
+        if type(node) != ast.FunctionDef:
+            print('NOT A FUNCTIONDEF %s' % ast.dump(node))
+            return None
+
+        if node.returns:
+            ret = node.returns
+
+            # It would be nice to be able to return a qbit
+            # tuple, maybe.
+            #
+            if ((type(ret) == ast.Name) and (ret.id == 'qbit')):
+                q_return = 'qbit'
+            elif ((type(ret) == ast.Name) and (ret.id == 'classical')):
+                q_return = 'classical'
+            else:
+                self.error_msg(node,
+                        'unsupported return annotation [%s]' % ast.dump(ret))
+
+        if node.args.args:
+            for arg in node.args.args:
+                # print('>> %s' % ast.dump(arg))
+
+                name = arg.arg
+                annotation = arg.annotation
+                if not annotation:
+                    q_args.append('%s:classical' % name)
+                    continue
+
+                if type(annotation) == ast.Name:
+                    if annotation.id == 'qbit':
+                        q_args.append('%s:qbit' % name)
+                    elif annotation.id == 'classical':
+                        q_args.append('%s:classical' % name)
+                    else:
+                        self.error_msg(node,
+                                'unsupported parameter annotation [%s]' %
+                                annotation.id)
+                else:
+                    self.error_msg(node,
+                            'unsupported parameter annotation [%s]' %
+                            ast.dump(annotation))
+
+        node.q_args = q_args
+        node.q_return = q_return
+
+        return q_args
+
     def visit_Module(self, node):
         """
         Walk through the body of the module, looking for QGL imports
