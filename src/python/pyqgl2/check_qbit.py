@@ -39,7 +39,7 @@ class ClassicalFuncParam(FuncParam):
 
 class CheckType(NodeTransformerWithFname):
 
-    def __init__(self, fname):
+    def __init__(self, fname, importer=None):
         super(CheckType, self).__init__(fname)
 
         # for each qbit, track where it is created
@@ -67,6 +67,8 @@ class CheckType(NodeTransformerWithFname):
         self.qglmain = None
 
         self.qgl_call_stack = list()
+
+        self.importer = importer
 
     def _push_scope(self, qbit_scope):
         self.scope.append(qbit_scope)
@@ -111,8 +113,12 @@ class CheckType(NodeTransformerWithFname):
             elif ((type(ret) == ast.Name) and (ret.id == 'classical')):
                 q_return = 'classical'
             else:
-                self.error_msg(node,
-                        'unsupported return annotation [%s]' % ast.dump(ret))
+                # There are other annotations; we treat them all as
+                # classical.  (we used to treat them as errors)
+                #
+                # self.error_msg(node,
+                #         'unsupported return annotation [%s]' % ast.dump(ret))
+                q_return = 'classical'
 
         if node.args.args:
             for arg in node.args.args:
@@ -287,8 +293,9 @@ class CheckType(NodeTransformerWithFname):
 
         self.diag_msg(node,
                 'call list %s: %s' %
-                (node.name, str(', '.join([call.func.id
-                    for call in node.qgl_call_list]))))
+                (node.name, str(', '.join([
+                    self.importer.collapse_name(call.func)
+                        for call in node.qgl_call_list]))))
         return node
 
     def visit_Call(self, node):
@@ -296,7 +303,13 @@ class CheckType(NodeTransformerWithFname):
         # We can only check functions referenced by name, not arbitrary
         # expressions that return a function
         #
-        if type(node.func) != ast.Name:
+        # The way that we test whether something is referenced purely
+        # by name is clunky: we try to collapse reference the AST for
+        # the function reference back to a name, and if that works,
+        # then we think it's a name.
+        #
+
+        if not self.importer.collapse_name(node.func):
             self.error_msg(node, 'function not referenced by name')
             return node
 
