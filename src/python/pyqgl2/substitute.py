@@ -38,11 +38,12 @@ class SubstituteChannel(NodeTransformerWithFname):
             'UTheta'
     ]
 
-    def __init__(self, fname, qbit_bindings, func_defs):
+    def __init__(self, fname, qbit_bindings, func_defs, importer=None):
         super(SubstituteChannel, self).__init__(fname)
 
         self.qbit_map = {name:chan_no for (name, chan_no) in qbit_bindings}
         self.func_defs = func_defs
+        self.importer = importer
 
         print('QBIT MAP %s' % self.qbit_map)
 
@@ -176,13 +177,16 @@ class SubstituteChannel(NodeTransformerWithFname):
         # TODO: we're only looking in the current file,
         # not using modules
 
-        print('TT1 %s' % ast.dump(node))
+        # fname is the full name, including module names
+        #
+        print('TT0 %s' % ast.dump(node.func))
+        fname = self.importer.collapse_name(node.func)
+
+        print('TT1 %s' % ast.dump(node.func))
         # deal with any arguments
         for arg in node.args:
             self.visit(arg)
         print('TT2 %s' % ast.dump(node))
-
-        fname = node.func.id
 
         if fname in self.BUILTIN_FUNCS:
             return self.handle_builtin(node)
@@ -193,12 +197,18 @@ class SubstituteChannel(NodeTransformerWithFname):
 
         # FIXME: need to substitute the correct value for the QBITs
 
-        if fname in self.func_defs:
-            (fparams, func_ast) = self.func_defs[fname]
-            print('FOUND %s formal params %s' % (fname, str(fparams)))
-        else:
+        print('DBG finding ast for %s' % fname)
+
+        symval = self.importer.resolve_sym(node.qgl_fname, fname)
+        if not symval:
             self.error_msg(node, 'no definition found for %s' % fname)
             return node
+
+        print('SYMVAL %s' % str(symval))
+
+        func_ast = symval[3][0]
+        fparams = self.importer._qbit_decl(func_ast)
+        print('FOUND %s formal params %s' % (fname, str(fparams)))
 
         # map our local bindings to the formal parameters of
         # this function, to create a signature
@@ -246,7 +256,8 @@ class SubstituteChannel(NodeTransformerWithFname):
         # but create new ones each time.
 
         func_copy = deepcopy(func_ast)
-        specialized_func = specialize(func_copy, qbit_defs, self.func_defs)
+        specialized_func = specialize(func_copy, qbit_defs, self.func_defs,
+                self.importer)
         print('SPECIALIZED %s' % ast.dump(specialized_func))
 
         # replace this call with a call to the new function
@@ -255,7 +266,7 @@ class SubstituteChannel(NodeTransformerWithFname):
         #
         return node
 
-def specialize(func_node, qbit_defs, func_defs):
+def specialize(func_node, qbit_defs, func_defs, importer):
     """
     qbit_defs is a list of (fp_name, qref) mappings
     (where fp_name is the name of the formal parameter
@@ -277,9 +288,8 @@ def specialize(func_node, qbit_defs, func_defs):
 
     print('MANGLED NAME %s' % mangled_name)
 
-    # new_func = ast.If(name=mangled_name, 
-
-    sub_chan = SubstituteChannel(func_node.qgl_fname, qbit_defs, func_defs)
+    sub_chan = SubstituteChannel(func_node.qgl_fname, qbit_defs, func_defs,
+            importer)
     new_func = sub_chan.visit(func_node)
     print('SPECIALIZED %s' % ast.dump(new_func))
 
@@ -290,7 +300,7 @@ def preprocess(fname, main_name=None):
     importer = Importer(fname)
     ptree = importer.path2ast[importer.base_fname]
 
-    type_check = CheckType(importer.base_fname)
+    type_check = CheckType(importer.base_fname, importer)
     nptree = type_check.visit(ptree)
 
     # Find the main function
@@ -312,7 +322,9 @@ def preprocess(fname, main_name=None):
     if not qglmain:
         sys.exit(1)
 
-    specialize(qglmain, list(), type_check.func_defs)
+    print('TYPE_CHECK DEFS %s' % str(type_check.func_defs))
+
+    specialize(qglmain, list(), type_check.func_defs, importer)
 
     for func_def in sorted(type_check.func_defs.keys()):
         types, node = type_check.func_defs[func_def]
