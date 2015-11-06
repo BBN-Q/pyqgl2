@@ -144,6 +144,11 @@ class Importer(NodeTransformerWithFname):
         sym_prefix = '.'.join(sym_components[:-1])
         sym_suffix = sym_components[-1]
 
+        if sym_prefix == '':
+            if self.path2func_defs[context_name][sym_suffix]:
+                return (context_name, sym_prefix, sym_suffix,
+                        self.path2func_defs[context_name][sym_suffix])
+
         context = self.path2context[context_name]
         for path, name in context:
             if name == sym_prefix:
@@ -296,9 +301,17 @@ class Importer(NodeTransformerWithFname):
             # It would be nice to be able to return a qbit
             # tuple, maybe.
             #
-            if ((type(ret) == ast.Name) and (ret.id == 'qbit')):
+            if ((type(ret) == ast.Str) and (ret.s == 'qbit')):
+                q_return = 'qbit'
+            elif ((type(ret) == ast.Str) and (ret.s == 'classical')):
+                q_return = 'classical'
+            elif ((type(ret) == ast.Name) and (ret.id == 'qbit')):
+                self.warning_msg(node,
+                        'use of \'qbit\' symbol is deprecated')
                 q_return = 'qbit'
             elif ((type(ret) == ast.Name) and (ret.id == 'classical')):
+                self.warning_msg(node,
+                        'use of \'classical\' symbol is deprecated')
                 q_return = 'classical'
             else:
                 self.error_msg(node,
@@ -323,6 +336,15 @@ class Importer(NodeTransformerWithFname):
                         self.error_msg(node,
                                 'unsupported parameter annotation [%s]' %
                                 annotation.id)
+                elif type(annotation) == ast.Str:
+                    if annotation.s == 'qbit':
+                        q_args.append('%s:qbit' % name)
+                    elif annotation.s == 'classical':
+                        q_args.append('%s:classical' % name)
+                    else:
+                        self.error_msg(node,
+                                'unsupported parameter annotation [%s]' %
+                                annotation.s)
                 else:
                     self.error_msg(node,
                             'unsupported parameter annotation [%s]' %
@@ -448,18 +470,25 @@ class Importer(NodeTransformerWithFname):
 
         if node.returns:
             ret_type = node.returns
+            print('RETURN %s' % ast.dump(ret_type))
         else:
             ret_type = None
 
-        # XXX TODO: This is a bit of a hack.  If the return type is an
+        # 
+        # This is a bit of a hack.  If the return type is an
         # ast.Name, and has an id that's in self.PULSE_TYPES, then return
-        # the id string.  Otherwise, return and AST.
+        # the id string.  Otherwise, return an AST.
         #
-        # We should boil the AST down to a meaningful string, not return
-        # the raw AST.
+        if (type(ret_type) == ast.Str) and (ret_type.s in self.PULSE_TYPES):
+            ret_type = ret_type.s
+
+        # In order to be compatible with ordinary python3, we can't
+        # use arbitrary symbols; we need to use literals.  Therefore
+        # this is commented out until we decide how much of Python3
+        # compatibility we want to preserve.
         #
-        if (type(ret_type) == ast.Name) and (ret_type.id in self.PULSE_TYPES):
-            ret_type = ret_type.id
+        # if (type(ret_type) == ast.Name) and (ret_type.id in self.PULSE_TYPES):
+        #     ret_type = ret_type.id
 
         self.path2func_defs[fname][defname] = (node, ret_type)
 
