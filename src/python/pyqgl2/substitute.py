@@ -218,7 +218,8 @@ class SubstituteChannel(NodeTransformerWithFname):
         #
         qbit_defs = list()
         if len(fparams) != len(aparams):
-            self.error_msg('formal and actual param lists differ in length')
+            self.error_msg(node,
+                    'formal and actual param lists differ in length')
             return node
 
         print('MY CONTEXT %s' % str(self.qbit_map))
@@ -334,7 +335,7 @@ def preprocess(fname, main_name=None):
         print('bailing out 1')
         sys.exit(1)
 
-    sym_check = CheckSymtab(fname, type_check.func_defs)
+    sym_check = CheckSymtab(fname, type_check.func_defs, importer)
     nptree2 = sym_check.visit(nptree)
 
     if sym_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
