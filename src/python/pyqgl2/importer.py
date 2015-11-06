@@ -149,6 +149,9 @@ class Importer(NodeTransformerWithFname):
                 return (context_name, sym_prefix, sym_suffix,
                         self.path2func_defs[context_name][sym_suffix])
 
+        print('SEARCHING CONTEXT_NAME [%s] %s' %
+                (context_name, str(self.path2context)))
+
         context = self.path2context[context_name]
         for path, name in context:
             if name == sym_prefix:
@@ -186,24 +189,32 @@ class Importer(NodeTransformerWithFname):
 
         context = self.context_stack[-1]
 
-        # check that the as_name isn't already in use
+        # If the as_name isn't None, then check that it's
+        # not already in use in this context
         #
         # Even though it's fatal if we reuse a namespace,
         # we don't halt immediately, so we can do additional
         # checking before giving up
         #
-        for (old_path, old_as_name) in context:
-            if old_path == path:
-                if old_as_name == as_name:
-                    self.warning_msg(parent,
-                            'repeated import of [%s]' % old_path)
-                else:
-                    self.warning_msg(parent,
+        # If as_name is None, then this isn't an ordinary
+        # import; it's an import-from.  In this case, we
+        # don't update the namespace with the module symbol;
+        # we update the namespace later with the names of
+        # the specified symbols.
+        #
+        if as_name:
+            for (old_path, old_as_name) in context:
+                if old_path == path:
+                    if old_as_name == as_name:
+                        self.warning_msg(parent,
+                                'repeated import of [%s]' % old_path)
+                    else:
+                        self.warning_msg(parent,
                             'multiple imports of [%s]' % old_path)
-            elif old_as_name == as_name:
-                self.error_msg(parent,
-                        'reusing import as-name [%s]' % as_name)
-                break
+                elif old_as_name == as_name:
+                    self.error_msg(parent,
+                            'reusing import as-name [%s]' % as_name)
+                    break
 
         # even if we don't import the file again, we add it to
         # the current context if it's not already there
@@ -228,7 +239,8 @@ class Importer(NodeTransformerWithFname):
             ptree = ast.parse(text, mode='exec')
 
             # label each node with the name of the input file;
-            # this will make error messages much more readable
+            # this will make error messages that reference these
+            # notes much more readable
             #
             for node in ast.walk(ptree):
                 node.qgl_fname = path
@@ -422,9 +434,48 @@ class Importer(NodeTransformerWithFname):
                         self.do_import(stmnt, path, imp.name, imp.asname)
                     else:
                         self.error_msg(stmnt,
-                            'path to [%s] could not be found' % imp.name)
+                                'path to [%s] could not be found' % imp.name)
             elif isinstance(stmnt, ast.ImportFrom):
-                self.error_msg(stmnt, 'import-from unsupported')
+                print('HYE')
+                path = self.resolve_path(stmnt.module)
+                if not path:
+                    self.error_msg(stmnt,
+                            'path to [%s] could not be found' % stmnt.module)
+                    continue
+
+                relpath = os.path.relpath(path)
+                # Give it a bogus asname to mask it from the namespace?
+                #
+                # self.do_import(stmnt, path, imp.name, imp.asname)
+                self.do_import(stmnt, relpath, None, None)
+                print('>> PATH2FUNC_DEFS %s %s' %
+                        (relpath, str(self.path2func_defs)))
+                func_defs = self.path2func_defs[relpath]
+
+                for imp in stmnt.names:
+                    if not imp.asname:
+                        imp.asname = imp.name
+
+                    print('>> ImportFrom: from %s import %s as %s' %
+                            (str(relpath), imp.name, str(imp.asname)))
+
+                    if imp.name not in func_defs:
+                        self.error_msg(stmnt,
+                                ('function [%s] not found in %s' %
+                                    imp.name, stmnt.module))
+                        continue
+
+                    print('>> FOUND %s as %s' %
+                            (imp.name, str(func_defs[imp.name])))
+
+                    thispath = stmnt.qgl_fname
+                    self.path2func_defs[thispath][imp.asname] = \
+                            func_defs[imp.name]
+
+                    print('>> DONE %s' % self.path2func_defs)
+
+                # self.error_msg(stmnt, 'import-from unsupported')
+                print('DEFS: %s' % self.path2func_defs)
 
         return node
 
@@ -532,10 +583,10 @@ if __name__ == '__main__':
         print('BASENAME %s' % importer.base_fname)
         print('FUNC_DEF %s' % importer.path2func_defs)
 
-        print('X a.foo %s' % str(importer.resolve_sym('x.py', 'a.foo')))
-        print('X b.bbb %s' % str(importer.resolve_sym('x.py', 'B.bbb')))
+        # print('X a.foo %s' % str(importer.resolve_sym('x.py', 'a.foo')))
+        # print('X b.bbb %s' % str(importer.resolve_sym('x.py', 'B.bbb')))
 
-        print('Y a.foo %s' % str(importer.is_pulse('x.py', 'a.foo')))
-        print('Y b.bbb %s' % str(importer.is_pulse('x.py', 'B.bbb')))
+        # print('Y a.foo %s' % str(importer.is_pulse('x.py', 'a.foo')))
+        # print('Y b.bbb %s' % str(importer.is_pulse('x.py', 'B.bbb')))
 
     preprocess(sys.argv[1])
