@@ -21,7 +21,7 @@ class CheckSymtab(NodeTransformerWithFname):
     doing earlier)
     """
 
-    def __init__(self, fname, func_defs):
+    def __init__(self, fname, func_defs, importer):
         """
         fname is the name of the input
 
@@ -32,6 +32,7 @@ class CheckSymtab(NodeTransformerWithFname):
         super(CheckSymtab, self).__init__(fname)
         self.func_defs = func_defs
         self.waveforms = dict()
+        self.importer = importer
 
     def is_qbit(self, context_node, name):
         # print('params %s locals %s' %
@@ -69,9 +70,13 @@ class CheckSymtab(NodeTransformerWithFname):
         return True
 
     def visit_Call(self, node):
+        func_name = self.importer.collapse_name(node.func)
+        func_def = self.importer.resolve_sym(node.qgl_fname, func_name)
+        if not func_def:
+            self.error_msg(node, '%s() undefined ' % func_name)
+            return node
 
-        func_name = node.func.id
-
+        """
         if func_name in QGL2Functions.UNI_WAVEFORMS:
             if len(node.args) < 1:
                 self.error_msg(node,
@@ -96,6 +101,8 @@ class CheckSymtab(NodeTransformerWithFname):
             self.check_arg(node, arg2, 'second')
 
         elif func_name in self.func_defs:
+        """
+        if func_name in self.func_defs:
             (fparams, func_def) = self.func_defs[func_name]
 
             if len(fparams) != len(node.args):
