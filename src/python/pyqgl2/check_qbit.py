@@ -108,10 +108,24 @@ class CheckType(NodeTransformerWithFname):
             # It would be nice to be able to return a qbit
             # tuple, maybe.
             #
-            if ((type(ret) == ast.Name) and (ret.id == 'qbit')):
+            if ((type(ret) == ast.Str) and (ret.s == 'qbit')):
+                q_return = 'qbit'
+            elif ((type(ret) == ast.Str) and (ret.s == 'classical')):
+                q_return = 'classical'
+
+            # The symbols 'qbit' and 'classical' are deprecated
+            # because they are not valid Python3, but I haven't
+            # decided whether to remove them yet
+            #
+            elif ((type(ret) == ast.Name) and (ret.id == 'qbit')):
+                self.warning_msg(node,
+                        'use of \'qbit\' symbol is deprecated')
                 q_return = 'qbit'
             elif ((type(ret) == ast.Name) and (ret.id == 'classical')):
+                self.warning_msg(node,
+                        'use of \'classical\' symbol is deprecated')
                 q_return = 'classical'
+
             else:
                 # There are other annotations; we treat them all as
                 # classical.  (we used to treat them as errors)
@@ -130,6 +144,8 @@ class CheckType(NodeTransformerWithFname):
                     q_args.append('%s:classical' % name)
                     continue
 
+                print('ANNO %s' % ast.dump(annotation))
+
                 if type(annotation) == ast.Name:
                     if annotation.id == 'qbit':
                         q_args.append('%s:qbit' % name)
@@ -139,6 +155,15 @@ class CheckType(NodeTransformerWithFname):
                         self.error_msg(node,
                                 'unsupported parameter annotation [%s]' %
                                 annotation.id)
+                elif type(annotation) == ast.Str:
+                    if annotation.s == 'qbit':
+                        q_args.append('%s:qbit' % name)
+                    elif annotation.s == 'classical':
+                        q_args.append('%s:classical' % name)
+                    else:
+                        self.error_msg(node,
+                                'unsupported parameter annotation [%s]' %
+                                annotation.s)
                 else:
                     self.error_msg(node,
                             'unsupported parameter annotation [%s]' %
@@ -172,6 +197,8 @@ class CheckType(NodeTransformerWithFname):
                         target.id))
             return node
 
+        # FIXME: THIS IS BROKEN: permit anything that returns QGL
+        #
         if (type(value) == ast.Call) and (value.func.id == 'Qbit'):
             self._extend_local(target.id)
         elif type(value) == ast.Name:
