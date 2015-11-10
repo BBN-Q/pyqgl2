@@ -11,49 +11,102 @@ import sys
 
 from copy import deepcopy
 
-NODE_ERROR_NONE = 0
-NODE_ERROR_WARNING = 1
-NODE_ERROR_ERROR = 2
-NODE_ERROR_FATAL = 3
+class NodeError(object):
+    """
+    A mix-in to make it simplify the generation of
+    consistent, meaningful error and warning messages
+    within the ast.NodeTransformer and ast.NodeVisitor
+    classes
 
-NODE_ERROR_LEGAL_LEVELS = {
-    NODE_ERROR_NONE : 'diag',
-    NODE_ERROR_WARNING : 'warning',
-    NODE_ERROR_ERROR : 'error',
-    NODE_ERROR_FATAL : 'fatal'
-}
+    Assumes that the node parameter to its methods is
+    an instance of an ast.AST, and has been annotated
+    with the name of the source file (as node.qgl_fname)
 
-MAX_ERR_LEVEL = NODE_ERROR_NONE
+    The methods are implemented with module methods (below)
+    so that they don't need to be called from a
+    Visitor/Transformer.
+    """
 
-# See NodeError below for more description
+    NODE_ERROR_NONE = 0
+    NODE_ERROR_WARNING = 1
+    NODE_ERROR_ERROR = 2
+    NODE_ERROR_FATAL = 3
+
+    NODE_ERROR_LEGAL_LEVELS = {
+        NODE_ERROR_NONE : 'diag',
+        NODE_ERROR_WARNING : 'warning',
+        NODE_ERROR_ERROR : 'error',
+        NODE_ERROR_FATAL : 'fatal'
+    }
+
+    MAX_ERR_LEVEL = NODE_ERROR_NONE
+
+    def __init__(self):
+        # global MAX_ERR_LEVEL
+
+        NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+
+    @staticmethod
+    def diag_msg(node, msg=None):
+        """
+        Print a diagnostic message associated with the given node
+        """
+
+        diag_msg(node, msg)
+
+    @staticmethod
+    def warning_msg(node, msg=None):
+        """
+        Print a warning message associated with the given node
+        """
+
+        warning_msg(node, msg)
+
+    @staticmethod
+    def error_msg(node, msg=None):
+        """
+        Print an error message associated with the given node
+        """
+
+        error_msg(node, msg)
+
+    @staticmethod
+    def fatal_msg(node, msg=None):
+        """
+        Print an fatal error message associated with the given node
+        """
+
+        fatal_msg(node, msg)
+
+# See NodeError above for more description
 
 def diag_msg(node, msg=None):
     """
     Print a diagnostic message associated with the given node
     """
 
-    _make_msg(node, NODE_ERROR_NONE, msg)
+    _make_msg(node, NodeError.NODE_ERROR_NONE, msg)
 
 def warning_msg(node, msg=None):
     """
     Print a warning message associated with the given node
     """
 
-    _make_msg(node, NODE_ERROR_WARNING, msg)
+    _make_msg(node, NodeError.NODE_ERROR_WARNING, msg)
 
 def error_msg(node, msg=None):
     """
     Print an error message associated with the given node
     """
 
-    _make_msg(node, NODE_ERROR_ERROR, msg)
+    _make_msg(node, NodeError.NODE_ERROR_ERROR, msg)
 
 def fatal_msg(node, msg=None):
     """
     Print an fatal error message associated with the given node
     """
 
-    _make_msg(node, NODE_ERROR_FATAL, msg)
+    _make_msg(node, NodeError.NODE_ERROR_FATAL, msg)
 
 def _make_msg(node, level, msg=None):
     """
@@ -67,78 +120,28 @@ def _make_msg(node, level, msg=None):
 
     # Detect improper usage, and bomb out
     assert isinstance(node, ast.AST)
-    assert level in NODE_ERROR_LEGAL_LEVELS
+    assert level in NodeError.NODE_ERROR_LEGAL_LEVELS
 
     if not msg:
         msg = '?'
 
-    global MAX_ERR_LEVEL
+    # global MAX_ERR_LEVEL
 
-    if level > MAX_ERR_LEVEL:
-        MAX_ERR_LEVEL = level
+    if level > NodeError.MAX_ERR_LEVEL:
+        NodeError.MAX_ERR_LEVEL = level
 
-    if level in NODE_ERROR_LEGAL_LEVELS:
-        level_str = NODE_ERROR_LEGAL_LEVELS[level]
+    if level in NodeError.NODE_ERROR_LEGAL_LEVELS:
+        level_str = NodeError.NODE_ERROR_LEGAL_LEVELS[level]
     else:
         level_str = 'weird'
 
-    print ('%s:%d:%d: %s: %s' % (
+    print('%s:%d:%d: %s: %s' % (
         node.qgl_fname, node.lineno, node.col_offset, level_str, msg))
 
     # If we've encountered a fatal error, then there's no
     # point in continuing: exit immediately.
-    if MAX_ERR_LEVEL == NODE_ERROR_FATAL:
+    if NodeError.MAX_ERR_LEVEL == NodeError.NODE_ERROR_FATAL:
         sys.exit(1)
-
-
-class NodeError(object):
-    """
-    A mix-in to make it simplify the generation of
-    consistent, meaningful error and warning messages
-    within the ast.NodeTransformer and ast.NodeVisitor
-    classes
-
-    Assumes that the node parameter to its methods is
-    an instance of an ast.AST, and has been annotated
-    with the name of the source file (as node.qgl_fname)
-    """
-
-    def __init__(self):
-        global MAX_ERR_LEVEL
-
-        MAX_ERR_LEVEL = NODE_ERROR_NONE
-
-    @staticmethod
-    def diag_msg(node, msg=None):
-        """
-        Print a diagnostic message associated with the given node
-        """
-
-        _make_msg(node, NODE_ERROR_NONE, msg)
-
-    @staticmethod
-    def warning_msg(node, msg=None):
-        """
-        Print a warning message associated with the given node
-        """
-
-        _make_msg(node, NODE_ERROR_WARNING, msg)
-
-    @staticmethod
-    def error_msg(node, msg=None):
-        """
-        Print an error message associated with the given node
-        """
-
-        _make_msg(node, NODE_ERROR_ERROR, msg)
-
-    @staticmethod
-    def fatal_msg(node, msg=None):
-        """
-        Print an fatal error message associated with the given node
-        """
-
-        _make_msg(node, NODE_ERROR_FATAL, msg)
 
 
 class NodeTransformerWithFname(ast.NodeTransformer, NodeError):
