@@ -62,12 +62,38 @@ class SubstituteChannel(NodeTransformerWithFname):
 
         return node
 
+    def is_qbit_creation(self, node):
+        """
+        Return True if the node is a call to a Qbit creation
+        method (QGL2.QBIT_ALLOC), False otherwise
+
+        Because of the way the namespace is altered by
+        imports, the only way to know whether the call is to
+        a Qbit creation method is to completely resolve the
+        name of the method being called: the name of the
+        method that appears in the call is only the start of
+        this process.
+        """
+
+        # If it's not a Call at all, then it's certainly
+        # not a call to any method that binds a qbit to
+        # a channel
+        #
+        if not isinstance(node, ast.Call):
+            return False
+
+        func_name = pyqgl2.importer.collapse_name(node.func)
+        func_def = self.importer.resolve_sym(node.qgl_fname, func_name)
+
+        if func_def.name == QGL2.QBIT_ALLOC:
+            return True
+        else:
+            return False
+
     def visit_Assign(self, node):
         print('ASSIGN %s' % ast.dump(node))
 
-        if (isinstance(node.value, ast.Call) and
-                isinstance(node.value.func, ast.Name) and
-                node.value.func.id == QGL2.QBIT_ALLOC):
+        if self.is_qbit_creation(node.value):
             # OK, we got a Qbit.  But we're very fussy about what
             # parameters a Qbit declaration must have: the first
             # parameter must be plain-vanilla integer.  Anything
