@@ -11,6 +11,86 @@ import sys
 
 from copy import deepcopy
 
+NODE_ERROR_NONE = 0
+NODE_ERROR_WARNING = 1
+NODE_ERROR_ERROR = 2
+NODE_ERROR_FATAL = 3
+
+NODE_ERROR_LEGAL_LEVELS = {
+    NODE_ERROR_NONE : 'diag',
+    NODE_ERROR_WARNING : 'warning',
+    NODE_ERROR_ERROR : 'error',
+    NODE_ERROR_FATAL : 'fatal'
+}
+
+MAX_ERR_LEVEL = NODE_ERROR_NONE
+
+# See NodeError below for more description
+
+def diag_msg(node, msg=None):
+    """
+    Print a diagnostic message associated with the given node
+    """
+
+    _make_msg(node, NODE_ERROR_NONE, msg)
+
+def warning_msg(node, msg=None):
+    """
+    Print a warning message associated with the given node
+    """
+
+    _make_msg(node, NODE_ERROR_WARNING, msg)
+
+def error_msg(node, msg=None):
+    """
+    Print an error message associated with the given node
+    """
+
+    _make_msg(node, NODE_ERROR_ERROR, msg)
+
+def fatal_msg(node, msg=None):
+    """
+    Print an fatal error message associated with the given node
+    """
+
+    _make_msg(node, NODE_ERROR_FATAL, msg)
+
+def _make_msg(node, level, msg=None):
+    """
+    Helper function that does all the real work of formatting
+    the messages, updating the max error level observed, and
+    exiting when a fatal error is encountered
+
+    Does basic sanity checking on its inputs to make sure that
+    the function is called correctly
+    """
+
+    # Detect improper usage, and bomb out
+    assert isinstance(node, ast.AST)
+    assert level in NODE_ERROR_LEGAL_LEVELS
+
+    if not msg:
+        msg = '?'
+
+    global MAX_ERR_LEVEL
+
+    if level > MAX_ERR_LEVEL:
+        MAX_ERR_LEVEL = level
+
+    if level in NODE_ERROR_LEGAL_LEVELS:
+        level_str = NODE_ERROR_LEGAL_LEVELS[level]
+    else:
+        level_str = 'weird'
+
+    print ('%s:%d:%d: %s: %s' % (
+        node.qgl_fname, node.lineno, node.col_offset, level_str, msg))
+
+    # If we've encountered a fatal error, then there's no
+    # point in continuing: exit immediately.
+    if MAX_ERR_LEVEL == NODE_ERROR_FATAL:
+        sys.exit(1)
+
+
 class NodeError(object):
     """
     A mix-in to make it simplify the generation of
@@ -19,85 +99,46 @@ class NodeError(object):
     classes
 
     Assumes that the node parameter to its methods is
-    an instance of an ast.AST.
+    an instance of an ast.AST, and has been annotated
+    with the name of the source file (as node.qgl_fname)
     """
 
-    NODE_ERROR_NONE = 0
-    NODE_ERROR_WARNING = 1
-    NODE_ERROR_ERROR = 2
-    NODE_ERROR_FATAL = 3
+    def __init__(self):
+        global MAX_ERR_LEVEL
 
-    NODE_ERROR_LEGAL_LEVELS = {
-        NODE_ERROR_NONE : 'diag',
-        NODE_ERROR_WARNING : 'warning',
-        NODE_ERROR_ERROR : 'error',
-        NODE_ERROR_FATAL : 'fatal'
-    }
+        MAX_ERR_LEVEL = NODE_ERROR_NONE
 
-    def __init__(self, fname):
-        self.fname = fname
-        self.max_err_level = self.NODE_ERROR_NONE
-
-    def diag_msg(self, node, msg=None):
+    @staticmethod
+    def diag_msg(node, msg=None):
         """
         Print a diagnostic message associated with the given node
         """
 
-        self._make_msg(node, self.NODE_ERROR_NONE, msg)
+        _make_msg(node, NODE_ERROR_NONE, msg)
 
-    def warning_msg(self, node, msg=None):
+    @staticmethod
+    def warning_msg(node, msg=None):
         """
         Print a warning message associated with the given node
         """
 
-        self._make_msg(node, self.NODE_ERROR_WARNING, msg)
+        _make_msg(node, NODE_ERROR_WARNING, msg)
 
-    def error_msg(self, node, msg=None):
+    @staticmethod
+    def error_msg(node, msg=None):
         """
         Print an error message associated with the given node
         """
 
-        self._make_msg(node, self.NODE_ERROR_ERROR, msg)
+        _make_msg(node, NODE_ERROR_ERROR, msg)
 
-    def fatal_msg(self, node, msg=None):
+    @staticmethod
+    def fatal_msg(node, msg=None):
         """
         Print an fatal error message associated with the given node
         """
 
-        self._make_msg(node, self.NODE_ERROR_FATAL, msg)
-
-    def _make_msg(self, node, level, msg=None):
-        """
-        Helper function that does all the real work of formatting
-        the messages, updating the max error level observed, and
-        exiting when a fatal error is encountered
-
-        Does basic sanity checking on its inputs to make sure that
-        the function is called correctly
-        """
-
-        # Detect improper usage, and bomb out
-        assert isinstance(node, ast.AST)
-        assert level in self.NODE_ERROR_LEGAL_LEVELS
-
-        if not msg:
-            msg = '?'
-
-        if level > self.max_err_level:
-            self.max_err_level = level
-
-        if level in self.NODE_ERROR_LEGAL_LEVELS:
-            level_str = self.NODE_ERROR_LEGAL_LEVELS[level]
-        else:
-            level_str = 'weird'
-
-        print ('%s:%d:%d: %s: %s' % (
-            node.qgl_fname, node.lineno, node.col_offset, level_str, msg))
-
-        # If we've encountered a fatal error, then there's no
-        # point in continuing: exit immediately.
-        if self.max_err_level == self.NODE_ERROR_FATAL:
-            sys.exit(1)
+        _make_msg(node, NODE_ERROR_FATAL, msg)
 
 
 class NodeTransformerWithFname(ast.NodeTransformer, NodeError):
