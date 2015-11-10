@@ -2,6 +2,8 @@
 
 import ast
 
+import pyqgl2.importer as importer
+
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.ast_util import NodeVisitorWithFname
@@ -29,7 +31,7 @@ class CheckSymtab(NodeTransformerWithFname):
         from a CheckType instance that has 'visit'ed the AST.
         """
 
-        super(CheckSymtab, self).__init__(fname)
+        super(CheckSymtab, self).__init__()
         self.func_defs = func_defs
         self.waveforms = dict()
         self.importer = importer
@@ -70,7 +72,7 @@ class CheckSymtab(NodeTransformerWithFname):
         return True
 
     def visit_Call(self, node):
-        func_name = self.importer.collapse_name(node.func)
+        func_name = importer.collapse_name(node.func)
         func_def = self.importer.resolve_sym(node.qgl_fname, func_name)
         if not func_def:
             self.error_msg(node, '%s() undefined ' % func_name)

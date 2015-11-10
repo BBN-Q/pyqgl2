@@ -22,7 +22,7 @@ class CheckWaveforms(NodeTransformerWithFname):
         from a CheckType instance that has 'visit'ed the AST.
         """
 
-        super(CheckWaveforms, self).__init__(fname)
+        super(CheckWaveforms, self).__init__()
         self.func_defs = func_defs
         self.waveforms = dict()
 
