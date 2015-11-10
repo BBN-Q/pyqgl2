@@ -47,14 +47,14 @@ class NameSpace(object):
         # names known in the namespace.  We use this to detect
         # potential conflicts (often a programmer error)
         #
-        self.all_names = set() 
+        self.all_names = set()
 
     def __repr__(self):
         return self.__str__()
 
     def __str__(self):
-        return 'local %s from_as %s import_as %s' % (
-                str(self.local_defs), str(self.from_as), str(self.import_as))
+        return ('local %s from_as %s import_as %s' %
+                (str(self.local_defs), str(self.from_as), str(self.import_as)))
 
     def check_dups(self, name, def_type='unknown'):
         if name in self.all_names:
@@ -104,7 +104,7 @@ class SymbolDefinition(object):
     Examples:
 
         import x
-        
+
             for each symbol y in x:
                 orig_name = y
                 ptree = parse tree of x.y
@@ -212,7 +212,7 @@ class NameSpaces(object):
     def find(self, path, name):
 
         if path not in self.path2namespace:
-            raise ValueError('cannot find namespace for [%s]' % path) 
+            raise ValueError('cannot find namespace for [%s]' % path)
 
         namespace = self.path2namespace[path]
 
@@ -264,7 +264,7 @@ class NameSpaces(object):
         for stmnt in ptree.body:
             if isinstance(stmnt, ast.FunctionDef):
                 self.add_function(namespace, stmnt.name, stmnt)
-            elif isinstance(stmnt, ast.Import): 
+            elif isinstance(stmnt, ast.Import):
                 for imp in stmnt.names:
                     subpath = resolve_path(imp.name)
                     if subpath:
@@ -275,7 +275,7 @@ class NameSpaces(object):
                         self.node_error.error_msg(stmnt,
                                 ('path to [%s] could not be found' %
                                     imp.name))
-            elif isinstance(stmnt, ast.ImportFrom): 
+            elif isinstance(stmnt, ast.ImportFrom):
                 subpath = resolve_path(stmnt.module)
                 if not subpath:
                     self.node_error.error_msg(stmnt,
@@ -296,7 +296,7 @@ class NameSpaces(object):
     def find_type_decl(self, node):
         """
         Copied from check_qbit.
-        
+
         Both need to be refactored.
         """
 
@@ -694,15 +694,15 @@ class Importer(NodeTransformerWithFname):
             # It would be nice to be able to return a qbit
             # tuple, maybe.
             #
-            if ((type(ret) == ast.Str) and (ret.s == 'qbit')):
+            if (type(ret) == ast.Str) and (ret.s == 'qbit'):
                 q_return = 'qbit'
-            elif ((type(ret) == ast.Str) and (ret.s == 'classical')):
+            elif (type(ret) == ast.Str) and (ret.s == 'classical'):
                 q_return = 'classical'
-            elif ((type(ret) == ast.Name) and (ret.id == 'qbit')):
+            elif (type(ret) == ast.Name) and (ret.id == 'qbit'):
                 self.warning_msg(node,
                         'use of \'qbit\' symbol is deprecated')
                 q_return = 'qbit'
-            elif ((type(ret) == ast.Name) and (ret.id == 'classical')):
+            elif (type(ret) == ast.Name) and (ret.id == 'classical'):
                 self.warning_msg(node,
                         'use of \'classical\' symbol is deprecated')
                 q_return = 'classical'
@@ -906,7 +906,7 @@ class Importer(NodeTransformerWithFname):
         else:
             ret_type = None
 
-        # 
+        #
         # This is a bit of a hack.  If the return type is an
         # ast.Name, and has an id that's in self.PULSE_TYPES, then return
         # the id string.  Otherwise, return an AST.
@@ -940,7 +940,7 @@ if __name__ == '__main__':
 
         If everything succeeded, look through the importer.path2ast
         dictionary to find the AST for each file imported,
-        including the base file.  The base file is identified 
+        including the base file.  The base file is identified
         as importer.module_fname (which might not be the same
         as the base file name, because the paths are normalized
         and/or expressed relatively).
