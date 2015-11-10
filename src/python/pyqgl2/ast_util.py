@@ -42,8 +42,6 @@ class NodeError(object):
     MAX_ERR_LEVEL = NODE_ERROR_NONE
 
     def __init__(self):
-        # global MAX_ERR_LEVEL
-
         NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_NONE
 
     @staticmethod
@@ -125,8 +123,6 @@ def _make_msg(node, level, msg=None):
     if not msg:
         msg = '?'
 
-    # global MAX_ERR_LEVEL
-
     if level > NodeError.MAX_ERR_LEVEL:
         NodeError.MAX_ERR_LEVEL = level
 
@@ -149,8 +145,8 @@ class NodeTransformerWithFname(ast.NodeTransformer, NodeError):
     ast.NodeTransformer with NodeError mixed in
     """
 
-    def __init__(self, fname):
-        super(NodeTransformerWithFname, self).__init__(fname)
+    def __init__(self):
+        super(NodeTransformerWithFname, self).__init__()
 
 
 class NodeVisitorWithFname(ast.NodeVisitor, NodeError):
@@ -158,8 +154,8 @@ class NodeVisitorWithFname(ast.NodeVisitor, NodeError):
     ast.NodeVisitor with NodeError mixed in
     """
 
-    def __init__(self, fname):
-        super(NodeVisitorWithFname, self).__init__(fname)
+    def __init__(self):
+        super(NodeVisitorWithFname, self).__init__()
 
 def copy_node(node):
     """
