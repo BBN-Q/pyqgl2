@@ -35,6 +35,24 @@ def resolve_path(name):
 
     return None
 
+def collapse_name(node):
+    """
+    Given the AST for a symbol reference, collapse it back into
+    the original reference string
+
+    Example, instead of the AST Attribute(Name(id='x'), addr='y')
+    return 'x.y'
+    """
+
+    if type(node) == ast.Name:
+        return node.id
+    elif type(node) == ast.Attribute:
+        return collapse_name(node.value) + '.' + node.attr
+    else:
+        # TODO: handle this more gracefully
+        print('UNEXPECTED')
+        return None
+
 
 class NameSpace(object):
 
@@ -193,23 +211,23 @@ class NameSpaces(object):
 
     def __init__(self, path):
 
-        # The error/warning messages are clearer if we always
-        # use the relpath
+        # map from path to AST
         #
-        self.path = os.path.relpath(path)
-
-        self.path2ptree = dict()
+        self.path2ast = dict()
 
         # map from path to NameSpace
         #
         self.path2namespace = dict()
-        self.importer = Importer(self.path)
 
-        self.node_error = NodeError(self.path)
+        # The error/warning messages are clearer if we always
+        # use the relpath
+        #
+        self.base_fname = os.path.relpath(path)
 
-        self.read_import(self.path)
+        self.read_import(self.base_fname)
 
-    def find(self, path, name):
+    def resolve_sym(self, path, name):
+        print('NNN TRYING TO RESOLVE %s in %s' % (name, path))
 
         if path not in self.path2namespace:
             raise ValueError('cannot find namespace for [%s]' % path)
@@ -217,12 +235,13 @@ class NameSpaces(object):
         namespace = self.path2namespace[path]
 
         if name in namespace.local_defs:
+            print('NNN resolve success (local)')
             return namespace.local_defs[name]
         elif name in namespace.from_as:
             orig_name, from_namespace = namespace.from_as[name]
             # Note: this recursion might never bottom out.
             # TODO: detect a reference loop without blowing up
-            return self.find(from_namespace, orig_name)
+            return self.resolve_sym(from_namespace, orig_name)
 
         # If it's not a local symbol, or a symbol that's
         # imported to appear to be a local symbol, then
@@ -230,7 +249,20 @@ class NameSpaces(object):
         # If so, try finding it there, in that context
         # (possibly renamed with an import-as).
 
-        # TODO: actually do it
+        name_components = name.split('.')
+        print('NNN trying to resolve import-as %s' % name_components)
+
+        for ind in range(len(name_components) - 1):
+            prefix = '.'.join(name_components[:ind + 1])
+            suffix = '.'.join(name_components[ind + 1:])
+            print('NNN ind %d prefix %s suffix %s' % (ind, prefix, suffix))
+
+            if prefix in namespace.import_as:
+                imported_module = namespace.import_as[prefix]
+                print('NNN TRYING prefix %s suffix %s in %s' %
+                        (prefix, suffix, imported_module))
+
+                return self.resolve_sym(imported_module, suffix)
 
         return None
 
@@ -241,13 +273,13 @@ class NameSpaces(object):
 
         # TODO: error/warning/diagnostics
 
-        if path in self.path2ptree:
+        if path in self.path2ast:
             print('NN Already in there [%s]' % path)
-            return self.path2ptree[path]
+            return self.path2ast[path]
 
         text = open(path, 'r').read()
         ptree = ast.parse(text, mode='exec')
-        self.path2ptree[path] = ptree
+        self.path2ast[path] = ptree
 
         # label each node with the name of the input file;
         # this will make error messages that reference these
@@ -265,33 +297,15 @@ class NameSpaces(object):
             if isinstance(stmnt, ast.FunctionDef):
                 self.add_function(namespace, stmnt.name, stmnt)
             elif isinstance(stmnt, ast.Import):
-                for imp in stmnt.names:
-                    subpath = resolve_path(imp.name)
-                    if subpath:
-                        print('NN ADDING import %s' % ast.dump(stmnt))
-                        self.read_import(subpath)
-                        namespace.add_import_as(imp.name, imp.asname)
-                    else:
-                        self.node_error.error_msg(stmnt,
-                                ('path to [%s] could not be found' %
-                                    imp.name))
+                print('NN ADDING import %s' % ast.dump(stmnt))
+                self.add_import_as(namespace, stmnt.names)
             elif isinstance(stmnt, ast.ImportFrom):
-                subpath = resolve_path(stmnt.module)
-                if not subpath:
-                    self.node_error.error_msg(stmnt,
-                            ('path to [%s] could not be found' %
-                                stmnt.module))
-                else:
-                    self.read_import(subpath)
-
-                    print('NN ADDING import-from %s' % ast.dump(stmnt))
-                    for imp in stmnt.names:
-                        namespace.add_from_as(
-                                stmnt.module, imp.name, imp.asname)
+                print('NN ADDING import-from %s' % ast.dump(stmnt))
+                self.add_from_as(namespace, stmnt.module, stmnt.names)
 
         print('NN NAMESPACE %s' % str(self.path2namespace))
 
-        return self.path2ptree[path]
+        return self.path2ast[path]
 
     def find_type_decl(self, node):
         """
@@ -342,11 +356,11 @@ class NameSpaces(object):
                     elif annotation.id == 'qbit_list':
                         q_args.append('%s:qbit_list' % name)
                     else:
-                        self.error_msg(node,
+                        NodeError.error_msg(node,
                                 ('unsupported parameter annotation [%s]' %
                                     annotation.id))
                 else:
-                    self.error_msg(node,
+                    NodeError.error_msg(node,
                             'unsupported parameter annotation [%s]' %
                             ast.dump(annotation))
 
@@ -372,13 +386,36 @@ class NameSpaces(object):
 
         arg_types, return_type = self.find_type_decl(ptree)
 
-        ptree.qgl2_args = arg_types
-        ptree.qgl2_return = return_type
+        print('NN %s arg_types %s' % (ptree.name, arg_types))
+        print('NN %s return_type %s' % (ptree.name, return_type))
 
-    def add_import(self, namespace, module, as_name):
+        ptree.qgl_args = arg_types
+        ptree.qgl_return = return_type
 
-        # TODO: see add_function()
-        pass
+    def add_import_as(self, namespace, names):
+
+        for imp in names:
+            subpath = resolve_path(imp.name)
+            if subpath:
+                namespace.add_import_as(imp.name, imp.asname)
+                self.read_import(subpath)
+            else:
+                NodeError.error_msg(stmnt,
+                        ('path to [%s] could not be found' %
+                                imp.name))
+
+    def add_from_as(self, namespace, module_name, names):
+
+        subpath = resolve_path(module_name)
+        if not subpath:
+            NodeError.error_msg(stmnt,
+                    ('path to [%s] could not be found' % module_name))
+        else:
+            self.read_import(subpath)
+
+            for imp in names:
+                namespace.add_from_as(module_name, imp.name, imp.asname)
+
 
     def add_import_from(self, namespace, ):
 
@@ -420,7 +457,7 @@ class Importer(NodeTransformerWithFname):
     PULSE_TYPES = set(['Pulse'])
 
     def __init__(self, module_name):
-        super(Importer, self).__init__(module_name)
+        super(Importer, self).__init__()
 
         # The argument passed to the constructor must
         # be the path to the file that we parsed
@@ -655,24 +692,6 @@ class Importer(NodeTransformerWithFname):
                         '%sskipping redundant import of [%s] from [%s]' %
                         ('    ' * level, path, parent.qgl_fname))
             # Probably should return something meaningful
-            return None
-
-    def collapse_name(self, node):
-        """
-        Given the AST for a symbol reference, collapse it back into
-        the original reference string
-
-        Example, instead of the AST Attribute(Name(id='x'), addr='y')
-        return 'x.y'
-        """
-
-        if type(node) == ast.Name:
-            return node.id
-        elif type(node) == ast.Attribute:
-            return self.collapse_name(node.value) + '.' + node.attr
-        else:
-            # TODO: handle this more gracefully
-            print('UNEXPECTED')
             return None
 
     def _qbit_decl(self, node):
@@ -947,7 +966,7 @@ if __name__ == '__main__':
         """
 
         importer = Importer(fname)
-        if importer.max_err_level >= NodeError.NODE_ERROR_ERROR:
+        if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
             print('bailing out 1')
             sys.exit(1)
 
@@ -971,7 +990,7 @@ if __name__ == '__main__':
         # print('Y b.bbb %s' % str(importer.is_pulse('x.py', 'B.bbb')))
 
     ff = NameSpaces(sys.argv[1])
-    print('Find bb %s' % ast.dump(ff.find(sys.argv[1], 'bb')))
-    print('Find cc %s' % ast.dump(ff.find(sys.argv[1], 'cc')))
+    print('Find B.bbb %s' % ast.dump(ff.resolve_sym(sys.argv[1], 'B.bbb')))
+    print('Find cc %s' % ast.dump(ff.resolve_sym(sys.argv[1], 'cc')))
 
     preprocess(sys.argv[1])
