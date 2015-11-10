@@ -199,11 +199,32 @@ class CheckType(NodeTransformerWithFname):
                         target.id))
             return node
 
-        # FIXME: THIS IS BROKEN: permit anything that returns QGL
+        print('NNN RHS %s' % ast.dump(value))
+        print('NNN Collapse [%s]' % pyqgl2.importer.collapse_name(value.func))
+
+        func_name = pyqgl2.importer.collapse_name(value.func)
+        func_def = self.importer.resolve_sym(value.qgl_fname, func_name)
+
+        print('NNN FuncDef %s' % ast.dump(func_def))
+
+        if type(value) == ast.Call:
+            print('NNN CALL [%s]' % func_name)
+
+        # When we're figuring out whether something is a call to
+        # the Qbit assignment function, we look at the name of the
+        # function as it is defined (i.e, as func_def), not as it
+        # is imported (i.e., as func_name).
         #
-        if (type(value) == ast.Call) and (value.func.id == 'Qbit'):
+        # This makes the assumption that ANYTHING named 'Qbit'
+        # is a Qbit assignment function, which is lame and should
+        # be more carefully parameterized.  Things to think about:
+        # looking more deeply at its signature and making certain
+        # that it looks like the 'right' function and not something
+        # someone mistakenly named 'Qbit' in an unrelated context.
+        #
+        if isinstance(value, ast.Call) and (func_def.name == 'Qbit'):
             self._extend_local(target.id)
-        elif type(value) == ast.Name:
+        elif isinstance(value, ast.Name):
             # print('CHECKING %s' % str(self._qbit_scope()))
             if (value.id + ':qbit') in self._qbit_scope():
                 self.warning_msg(node,
