@@ -18,6 +18,8 @@ if __name__ == '__main__':
             os.path.abspath(os.path.dirname(sys.argv[0]) or '.'))
     sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
 
+import pyqgl2.importer
+
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.ast_util import NodeVisitorWithFname
@@ -40,7 +42,7 @@ class ClassicalFuncParam(FuncParam):
 class CheckType(NodeTransformerWithFname):
 
     def __init__(self, fname, importer=None):
-        super(CheckType, self).__init__(fname)
+        super(CheckType, self).__init__()
 
         # for each qbit, track where it is created
         #
@@ -285,7 +287,6 @@ class CheckType(NodeTransformerWithFname):
             else:
                 self.diag_msg(node,
                         '%s declared as %s' % (node.name, QGL2.QMAIN))
-                node.fname = self.fname
                 self.qglmain = node
 
         if self.func_level > 0:
@@ -293,9 +294,9 @@ class CheckType(NodeTransformerWithFname):
 
         # So far so good: now actually begin to process this node
 
-        decls = self._qbit_decl(node)
-        # print('GOT %s' % str(decls))
-        if not decls:
+        if hasattr(node, 'qgl_args'):
+            decls = node.qgl_args
+        else:
             decls = list()
 
         # diagnostic only
@@ -321,7 +322,7 @@ class CheckType(NodeTransformerWithFname):
         self.diag_msg(node,
                 'call list %s: %s' %
                 (node.name, str(', '.join([
-                    self.importer.collapse_name(call.func)
+                    pyqgl2.importer.collapse_name(call.func)
                         for call in node.qgl_call_list]))))
         return node
 
@@ -336,7 +337,7 @@ class CheckType(NodeTransformerWithFname):
         # then we think it's a name.
         #
 
-        if not self.importer.collapse_name(node.func):
+        if not pyqgl2.importer.collapse_name(node.func):
             self.error_msg(node, 'function not referenced by name')
             return node
 
