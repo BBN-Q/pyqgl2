@@ -15,6 +15,8 @@ DIRNAME = os.path.normpath(
         os.path.abspath(os.path.dirname(sys.argv[0]) or '.'))
 sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
 
+import pyqgl2.importer
+
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.ast_util import NodeVisitorWithFname
@@ -22,6 +24,7 @@ from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_qbit import CheckType
 from pyqgl2.check_waveforms import CheckWaveforms
 from pyqgl2.importer import Importer
+from pyqgl2.importer import NameSpaces
 from pyqgl2.lang import QGL2
 
 class SubstituteChannel(NodeTransformerWithFname):
@@ -39,7 +42,7 @@ class SubstituteChannel(NodeTransformerWithFname):
     ]
 
     def __init__(self, fname, qbit_bindings, func_defs, importer=None):
-        super(SubstituteChannel, self).__init__(fname)
+        super(SubstituteChannel, self).__init__()
 
         self.qbit_map = {name:chan_no for (name, chan_no) in qbit_bindings}
         self.func_defs = func_defs
@@ -180,7 +183,7 @@ class SubstituteChannel(NodeTransformerWithFname):
         # fname is the full name, including module names
         #
         print('TT0 %s' % ast.dump(node.func))
-        fname = self.importer.collapse_name(node.func)
+        funcname = pyqgl2.importer.collapse_name(node.func)
 
         print('TT1 %s' % ast.dump(node.func))
         # deal with any arguments
@@ -188,27 +191,31 @@ class SubstituteChannel(NodeTransformerWithFname):
             self.visit(arg)
         print('TT2 %s' % ast.dump(node))
 
-        if fname in self.BUILTIN_FUNCS:
+        if funcname in self.BUILTIN_FUNCS:
             return self.handle_builtin(node)
 
         aparams = [arg.id if isinstance(arg, ast.Name) else None
                 for arg in node.args]
-        print('PARAMS %s actual params %s' % (fname, str(aparams)))
+        print('PARAMS %s actual params %s' % (funcname, str(aparams)))
 
         # FIXME: need to substitute the correct value for the QBITs
 
-        print('DBG finding ast for %s' % fname)
+        print('DBG finding ast for %s' % funcname)
 
-        symval = self.importer.resolve_sym(node.qgl_fname, fname)
+        symval = self.importer.resolve_sym(node.qgl_fname, funcname)
         if not symval:
-            self.error_msg(node, 'no definition found for %s' % fname)
+            self.error_msg(node, 'no definition found for %s' % funcname)
             return node
 
         print('SYMVAL %s' % str(symval))
 
-        func_ast = symval[3][0]
-        fparams = self.importer._qbit_decl(func_ast)
-        print('FOUND %s formal params %s' % (fname, str(fparams)))
+        # func_ast = symval[3][0]
+        # fparams = self.importer._qbit_decl(func_ast)
+
+        func_ast = symval
+        fparams = func_ast.qgl_args
+
+        print('FOUND %s formal params %s' % (funcname, str(fparams)))
 
         # map our local bindings to the formal parameters of
         # this function, to create a signature
@@ -298,7 +305,8 @@ def specialize(func_node, qbit_defs, func_defs, importer):
 
 def preprocess(fname, main_name=None):
 
-    importer = Importer(fname)
+    # importer = Importer(fname)
+    importer = NameSpaces(fname)
     ptree = importer.path2ast[importer.base_fname]
 
     type_check = CheckType(importer.base_fname, importer)
@@ -331,21 +339,21 @@ def preprocess(fname, main_name=None):
         types, node = type_check.func_defs[func_def]
         call_list = node.qgl_call_list
 
-    if type_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
+    if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
         print('bailing out 1')
         sys.exit(1)
 
     sym_check = CheckSymtab(fname, type_check.func_defs, importer)
     nptree2 = sym_check.visit(nptree)
 
-    if sym_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
+    if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
         print('bailing out 2')
         sys.exit(1)
 
     wav_check = CheckWaveforms(fname, type_check.func_defs)
     nptree3 = sym_check.visit(nptree2)
 
-    if wav_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
+    if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
         print('bailing out 3')
         sys.exit(1)
 
