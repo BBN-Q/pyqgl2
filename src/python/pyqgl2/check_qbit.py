@@ -552,14 +552,14 @@ class FindQbitReferences(ast.NodeTransformer):
 if __name__ == '__main__':
     import sys
 
-    from pyqgl2.importer import Importer
+    from pyqgl2.importer import NameSpaces
 
     def preprocess(fname):
 
-        importer = Importer(fname)
+        importer = NameSpaces(fname)
         ptree = importer.path2ast[importer.base_fname]
 
-        type_check = CheckType(fname)
+        type_check = CheckType(fname, importer=importer)
 
         nptree = type_check.visit(ptree)
 
@@ -567,21 +567,21 @@ if __name__ == '__main__':
             types, node = type_check.func_defs[func_def]
             call_list = node.qgl_call_list
 
-        if type_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
+        if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
             print('bailing out 1')
             sys.exit(1)
 
-        sym_check = CheckSymtab(fname, type_check.func_defs)
+        sym_check = CheckSymtab(fname, type_check.func_defs, importer)
         nptree2 = sym_check.visit(nptree)
 
-        if sym_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
+        if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
             print('bailing out 2')
             sys.exit(1)
 
         wav_check = CheckWaveforms(fname, type_check.func_defs)
         nptree3 = sym_check.visit(nptree2)
 
-        if wav_check.max_err_level >= NodeError.NODE_ERROR_ERROR:
+        if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
             print('bailing out 3')
             sys.exit(1)
 
