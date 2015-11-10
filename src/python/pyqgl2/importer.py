@@ -11,8 +11,381 @@ import sys
 
 from pyqgl2.ast_util import NodeError
 from pyqgl2.find_pulse import FindPulseMethods
+from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.lang import QGL2
+
+def resolve_path(name):
+    """
+    Find the path to the file that would be imported for the
+    given module name, if any.
+    """
+
+    name_to_path = os.sep.join(name.split('.')) + '.py'
+
+    for dirpath in sys.path:
+        path = os.path.join(dirpath, name_to_path)
+
+        # We don't check whether we can read the file.  It's
+        # not clear from the spec whether the Python interpreter
+        # checks this before trying to use it.  TODO: test
+        #
+        if os.path.isfile(path):
+            return os.path.relpath(path)
+
+    return None
+
+
+class NameSpace(object):
+
+    def __init__(self):
+        self.local_defs = dict()
+        self.from_as = dict()
+        self.import_as = dict()
+
+        # For diagnostic purposes, keep track of all of the
+        # names known in the namespace.  We use this to detect
+        # potential conflicts (often a programmer error)
+        #
+        self.all_names = set() 
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return 'local %s from_as %s import_as %s' % (
+                str(self.local_defs), str(self.from_as), str(self.import_as))
+
+    def check_dups(self, name, def_type='unknown'):
+        if name in self.all_names:
+            raise ValueError(
+                    ('symbol [%s] multiply defined (%s)in namespace' %
+                        (name, def_type)))
+        else:
+            self.all_names.add(name)
+
+    def add_local(self, name, ptree):
+        self.check_dups(name, 'local')
+        self.local_defs[name] = ptree
+
+    def add_from_as(self, module_name, sym_name, as_name=None):
+        if not as_name:
+            as_name = sym_name
+
+        self.check_dups(as_name, 'from-as')
+
+        path = resolve_path(module_name)
+        if not path:
+            raise ValueError('no module found for [%s]' % module_name)
+
+        self.from_as[as_name] = (sym_name, path)
+
+    def add_import_as(self, module_name, as_name=None):
+        if not as_name:
+            as_name = module_name
+
+        self.check_dups(as_name, 'import-as')
+
+        path = resolve_path(module_name)
+        if not path:
+            raise ValueError('no module found for [%s]' % module_name)
+
+        self.import_as[as_name] = path
+
+class SymbolDefinition(object):
+    """
+    A way to find the definition of a symbol (typically a function
+    definition) that may be defined locally or defined elsewhere and
+    imported into the local module (possibly via several levels of
+    indirection)
+    """
+
+    """
+    Examples:
+
+        import x
+        
+            for each symbol y in x:
+                orig_name = y
+                ptree = parse tree of x.y
+                module_prefix = x
+                local_name = x.y
+
+        import x as z
+
+            for each symbol y in x:
+                orig_name = y
+                ptree = parse tree of x.y
+                module_prefix = x
+                local_name = z.y
+
+        from x import y
+
+            orig_name = y
+            ptree = parse tree of x.y
+            module_prefix = x
+            local_name = y
+
+        from x import y as z
+
+            orig_name = y
+            ptree = parse tree of x.y
+            module_prefix = x
+            local_name = z
+    """
+
+    def __init__(self, orig_name, ptree, is_local,
+            module_prefix=None, local_name=None):
+
+        self.orig_name = orig_name
+        self.ptree = ptree
+        self.module_prefix = module_prefix
+        self.local_name = orig_name
+        self.is_local = is_local
+
+
+    @staticmethod
+    def local_sym(name, ptree):
+        """
+        Factory method for a locally-defined symbol
+        """
+
+        return SymbolDefinition(name, ptree, True, None, name)
+
+    @staticmethod
+    def do_import(orig_name, ptree, module_prefix):
+        """
+        Factory method for a symbol imported with a bare "import"
+        """
+
+        return SymbolDefinition(orig_name, ptree, False, module_prefix,
+                '%s.%s' % (module_prefix, orig_name))
+
+    @staticmethod
+    def do_import_as(orig_name, ptree, module_prefix, as_name):
+        """
+        Factory method for a symbol imported with an "import-as"
+        """
+
+        return SymbolDefinition(orig_name, ptree, False, module_prefix,
+                '%s.%s' % (as_name, orig_name))
+
+    @staticmethod
+    def do_from(orig_name, ptree, module_prefix):
+        """
+        Factory method for a symbol imported with a "from" statement
+        """
+
+        return SymbolDefinition(orig_name, ptree, False,
+                module_prefix, orig_name)
+
+    @staticmethod
+    def do_from_as(orig_name, ptree, module_prefix, as_name):
+        """
+        Factory method for a symbol imported with a "from-as" statement
+        """
+
+        return SymbolDefinition(orig_name, ptree, False,
+                module_prefix, as_name)
+
+
+class NameSpaces(object):
+
+    def __init__(self, path):
+
+        # The error/warning messages are clearer if we always
+        # use the relpath
+        #
+        self.path = os.path.relpath(path)
+
+        self.path2ptree = dict()
+
+        # map from path to NameSpace
+        #
+        self.path2namespace = dict()
+        self.importer = Importer(self.path)
+
+        self.node_error = NodeError(self.path)
+
+        self.read_import(self.path)
+
+    def find(self, path, name):
+
+        if path not in self.path2namespace:
+            raise ValueError('cannot find namespace for [%s]' % path) 
+
+        namespace = self.path2namespace[path]
+
+        if name in namespace.local_defs:
+            return namespace.local_defs[name]
+        elif name in namespace.from_as:
+            orig_name, from_namespace = namespace.from_as[name]
+            # Note: this recursion might never bottom out.
+            # TODO: detect a reference loop without blowing up
+            return self.find(from_namespace, orig_name)
+
+        # If it's not a local symbol, or a symbol that's
+        # imported to appear to be a local symbol, then
+        # see if it appears to be a reference to a module.
+        # If so, try finding it there, in that context
+        # (possibly renamed with an import-as).
+
+        # TODO: actually do it
+
+        return None
+
+    def read_import(self, path):
+        """
+        Recursively read the imports from the module at the given path
+        """
+
+        # TODO: error/warning/diagnostics
+
+        if path in self.path2ptree:
+            print('NN Already in there [%s]' % path)
+            return self.path2ptree[path]
+
+        text = open(path, 'r').read()
+        ptree = ast.parse(text, mode='exec')
+        self.path2ptree[path] = ptree
+
+        # label each node with the name of the input file;
+        # this will make error messages that reference these
+        # notes much more readable
+        #
+        for node in ast.walk(ptree):
+            node.qgl_fname = path
+
+        # Populate the namespace
+        #
+        namespace = NameSpace()
+        self.path2namespace[path] = namespace
+
+        for stmnt in ptree.body:
+            if isinstance(stmnt, ast.FunctionDef):
+                self.add_function(namespace, stmnt.name, stmnt)
+            elif isinstance(stmnt, ast.Import): 
+                for imp in stmnt.names:
+                    subpath = resolve_path(imp.name)
+                    if subpath:
+                        print('NN ADDING import %s' % ast.dump(stmnt))
+                        self.read_import(subpath)
+                        namespace.add_import_as(imp.name, imp.asname)
+                    else:
+                        self.node_error.error_msg(stmnt,
+                                ('path to [%s] could not be found' %
+                                    imp.name))
+            elif isinstance(stmnt, ast.ImportFrom): 
+                subpath = resolve_path(stmnt.module)
+                if not subpath:
+                    self.node_error.error_msg(stmnt,
+                            ('path to [%s] could not be found' %
+                                stmnt.module))
+                else:
+                    self.read_import(subpath)
+
+                    print('NN ADDING import-from %s' % ast.dump(stmnt))
+                    for imp in stmnt.names:
+                        namespace.add_from_as(
+                                stmnt.module, imp.name, imp.asname)
+
+        print('NN NAMESPACE %s' % str(self.path2namespace))
+
+        return self.path2ptree[path]
+
+    def find_type_decl(self, node):
+        """
+        Copied from check_qbit.
+        
+        Both need to be refactored.
+        """
+
+        q_args = list()
+        q_return = None
+
+        if node is None:
+            print('NODE IS NONE')
+
+        if type(node) != ast.FunctionDef:
+            print('NOT A FUNCTIONDEF %s' % ast.dump(node))
+            return None
+
+        if node.returns:
+            ret = node.returns
+
+            if type(ret) == ast.Name:
+                if ret.id == 'qbit':
+                    q_return = 'qbit'
+                elif ret.id == 'classical':
+                    q_return = 'classical'
+                elif ret.id == 'qbit_list':
+                    q_return = 'qbit_list'
+                elif ret.id == 'pulse':
+                    q_return = 'pulse'
+                else:
+                    print(
+                            'unsupported return type [%s]' % ast.dump(ret))
+
+        if node.args.args:
+            for arg in node.args.args:
+                # print('>> %s' % ast.dump(arg))
+
+                name = arg.arg
+                annotation = arg.annotation
+                if not annotation:
+                    q_args.append('%s:classical' % name)
+                elif type(annotation) == ast.Name:
+                    if annotation.id == 'qbit':
+                        q_args.append('%s:qbit' % name)
+                    elif annotation.id == 'classical':
+                        q_args.append('%s:classical' % name)
+                    elif annotation.id == 'qbit_list':
+                        q_args.append('%s:qbit_list' % name)
+                    else:
+                        self.error_msg(node,
+                                ('unsupported parameter annotation [%s]' %
+                                    annotation.id))
+                else:
+                    self.error_msg(node,
+                            'unsupported parameter annotation [%s]' %
+                            ast.dump(annotation))
+
+        # node.qgl2_args = q_args
+        # node.qgl2_return = q_return
+
+        print('NN NAME %s (%s) -> %s' %
+                (node.name, str(q_args), str(q_return)))
+
+        return (q_args, q_return)
+
+    def add_function(self, namespace, name, ptree):
+        """
+        Add a locally-defined function to the local namespace
+        """
+
+        # TODO; check whether the name is already defined.
+        # Chide the user about multiple definitions
+
+        namespace.add_local(ptree.name, ptree)
+        print('NN TODO: Annotate the function')
+        print('NN ADDING function %s' % ast.dump(ptree))
+
+        arg_types, return_type = self.find_type_decl(ptree)
+
+        ptree.qgl2_args = arg_types
+        ptree.qgl2_return = return_type
+
+    def add_import(self, namespace, module, as_name):
+
+        # TODO: see add_function()
+        pass
+
+    def add_import_from(self, namespace, ):
+
+        # namespace[name] = SymbolDefinition.do_import_from(name, ptree)
+        pass
+
+
 
 class Importer(NodeTransformerWithFname):
     """
@@ -58,8 +431,12 @@ class Importer(NodeTransformerWithFname):
         # to use resolve_path to find the path to each
         # module.
         #
-
         self.path2ast = dict()
+
+        # maps strings (names in the local namespace) to
+        # ImportedSymbol instances
+        #
+        self.name2def = dict()
 
         # path2context is a mapping for the namespace internal
         # to each module.  For example, if the module xxx contains
@@ -237,6 +614,10 @@ class Importer(NodeTransformerWithFname):
 
             text = open(path, 'r').read()
             ptree = ast.parse(text, mode='exec')
+
+            print('AST MOD %s' % ast.dump(ptree))
+            for x in ptree.body:
+                print('AST MOD X %s' % ast.dump(x))
 
             # label each node with the name of the input file;
             # this will make error messages that reference these
@@ -588,5 +969,9 @@ if __name__ == '__main__':
 
         # print('Y a.foo %s' % str(importer.is_pulse('x.py', 'a.foo')))
         # print('Y b.bbb %s' % str(importer.is_pulse('x.py', 'B.bbb')))
+
+    ff = NameSpaces(sys.argv[1])
+    print('Find bb %s' % ast.dump(ff.find(sys.argv[1], 'bb')))
+    print('Find cc %s' % ast.dump(ff.find(sys.argv[1], 'cc')))
 
     preprocess(sys.argv[1])
