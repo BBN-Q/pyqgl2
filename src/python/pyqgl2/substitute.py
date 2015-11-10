@@ -23,7 +23,6 @@ from pyqgl2.ast_util import NodeVisitorWithFname
 from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_qbit import CheckType
 from pyqgl2.check_waveforms import CheckWaveforms
-from pyqgl2.importer import Importer
 from pyqgl2.importer import NameSpaces
 from pyqgl2.lang import QGL2
 
@@ -331,7 +330,6 @@ def specialize(func_node, qbit_defs, func_defs, importer):
 
 def preprocess(fname, main_name=None):
 
-    # importer = Importer(fname)
     importer = NameSpaces(fname)
     ptree = importer.path2ast[importer.base_fname]
 
