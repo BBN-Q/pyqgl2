@@ -215,7 +215,10 @@ class NameSpaces(object):
 
         namespace = self.path2namespace[path]
 
-        if name in namespace.local_defs:
+        if name in namespace.local_vars:
+            print('NNN resolve success (local)')
+            return namespace.local_vars[name]
+        elif name in namespace.local_defs:
             print('NNN resolve success (local)')
             return namespace.local_defs[name]
         elif name in namespace.from_as:
@@ -286,10 +289,15 @@ class NameSpaces(object):
                 self.add_function(namespace, stmnt.name, stmnt)
             elif isinstance(stmnt, ast.Import):
                 print('NN ADDING import %s' % ast.dump(stmnt))
-                self.add_import_as(namespace, stmnt.names)
+                self.add_import_as(namespace, stmnt)
             elif isinstance(stmnt, ast.ImportFrom):
                 print('NN ADDING import-from %s' % ast.dump(stmnt))
-                self.add_from_as(namespace, stmnt.module, stmnt.names)
+                self.add_from_as(namespace, stmnt.module, stmnt)
+            # We're not doing module-level variables right now; no globals
+            """
+            elif isinstance(stmnt, ast.Assign):
+                print('NN ASSIGN %s' % ast.dump(stmnt))
+            """
 
         print('NN NAMESPACE %s' % str(self.path2namespace))
 
@@ -356,21 +364,28 @@ class NameSpaces(object):
 
         return (q_args, q_return)
 
+    def add_variable(self, namespace, name, ptree):
+        namespace.add_local_var(name, ptree)
+
     def add_function(self, namespace, name, ptree):
         """
         Add a locally-defined function to the local namespace
         """
 
-        # TODO; check whether the name is already defined.
-        # Chide the user about multiple definitions
+        # Parse the decorators for this function.
+        # Even if the function is not declared to be QGL,
+        # we add it to the symbol table because it's useful
+        # later to be able to distinguish between functions
+        # that were defined, but not declared to be QGL
+        # versus functions that were never defined.
+        #
+        self.add_func_decorators(ptree.qgl_fname, ptree)
 
-        namespace.add_local_func(ptree.name, ptree)
         arg_types, return_type = self.find_type_decl(ptree)
-
         ptree.qgl_args = arg_types
         ptree.qgl_return = return_type
 
-        self.add_func_decorators(ptree.qgl_fname, ptree)
+        namespace.add_local_func(ptree.name, ptree)
 
     def add_func_decorators(self, module_name, node):
 
@@ -422,18 +437,19 @@ class NameSpaces(object):
                         node, '%s declared as %s' % (node.name, QGL2.QMAIN))
                 self.qglmain = node
 
-    def add_import_as(self, namespace, names):
+    def add_import_as(self, namespace, stmnt):
 
-        for imp in names:
+        for imp in stmnt.names:
             subpath = resolve_path(imp.name)
             if subpath:
                 namespace.add_import_as(imp.name, imp.asname)
                 self.read_import(subpath)
             else:
+                print('NN IMPORTAS %s' % ast.dump(stmnt))
                 NodeError.error_msg(
                         stmnt, 'path to [%s] could not be found' % imp.name)
 
-    def add_from_as(self, namespace, module_name, names):
+    def add_from_as(self, namespace, module_name, stmnt):
 
         subpath = resolve_path(module_name)
         if not subpath:
@@ -442,7 +458,7 @@ class NameSpaces(object):
         else:
             self.read_import(subpath)
 
-            for imp in names:
+            for imp in stmnt.names:
                 namespace.add_from_as(module_name, imp.name, imp.asname)
 
 
