@@ -104,26 +104,32 @@ class CheckType(NodeTransformerWithFname):
         if not isinstance(target, ast.Name):
             return node
 
-        # print('AS SCOPE %s' % str(self._qbit_scope()))
-
         if target.id in self._qbit_local():
             msg = 'reassignment of qbit \'%s\' forbidden' % target.id
-            self.error_msg(node,
-                    ('reassignment of local qbit \'%s\' forbidden' %
-                        target.id))
+            self.error_msg(node, msg)
             return node
 
         if (target.id + ':qbit') in self._qbit_scope():
-            self.error_msg(node,
-                    ('reassignment of qbit parameter \'%s\' forbidden' %
-                        target.id))
+            msg = 'reassignment of qbit parameter \'%s\' forbidden' % target.id
+            self.error_msg(node, msg)
             return node
-
-        print('NNN RHS %s' % ast.dump(value))
-        print('NNN Collapse [%s]' % pyqgl2.importer.collapse_name(value.func))
 
         func_name = pyqgl2.importer.collapse_name(value.func)
         func_def = self.importer.resolve_sym(value.qgl_fname, func_name)
+
+        # If we can't find the function definition, or it's not declared
+        # to be QGL, then we can't handle it.  Return immediately.
+        #
+        if not func_def:
+            NodeError.error_msg(
+                    value, 'function [%s] not defined' % func_name)
+            return node
+        elif not func_def.qgl_func:
+            NodeError.error_msg(
+                    value, 'function [%s] not declared to be QGL2' % func_name)
+            return node
+
+        print('NNN lookup [%s] got %s' % (func_name, str(func_def)))
 
         print('NNN FuncDef %s' % ast.dump(func_def))
 
