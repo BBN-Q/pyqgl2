@@ -1,0 +1,98 @@
+
+The intent is that QGL2 code can live side-by-side with Python3 code,
+by using the same syntax and, where practical, very similar semantics.
+
+The Namespace
+
+  Python3 defines the namespace within which each symbol name is
+  interpreted using several mechanisms.  QGL2 only supports a subset
+  of these, but we believe that the subset is still expressive enough
+  to be useful.
+
+Import/From Statements
+
+  - QGL2 does not support conditional imports or other forms of
+    programmatic control over imports, such as importlib.  Such
+    imports will be ignored by QGL2, and symbols made accessible to
+    Python via these imports will not be accessible to the
+    preprocessor. 
+
+    Only "import" or "from" statments at the top level of the module
+    are used by the preprocessor.
+
+  - QGL2 does not support mechanisms for modifying the search path for
+    imports.  QGL2 assumes that the import path is defined externally
+    (prior to the execution of the preprocessor) using mechanisms like
+    the commandline control to Python3 or PYTHONPATH.
+
+  - QGL2 does not support the mechanisms for modifying which symbols
+    are visible or "private".
+
+  - QGL2 does not support the "." prefix in imports yet.  This is a
+    new operator in Python3 and does not seem to be widely popular,
+    but we can add it if it becomes important.
+
+  - QGL2 may read through all imports (including system modules) in
+    order to build its symbol tables, although these symbol tables are
+    only used for error checking.  Errors or quirks in system modules
+    may cause the preprocessor to misbehave.
+
+    A simple (but ugly) workaround is to make the import of
+    problematic modules conditional, i.e.:
+
+      if True:
+          import problematic
+
+Examples of Import/From
+
+These examples use three files:
+
+---- file a.py ----
+
+import b
+import b as alt_b
+
+from b import bx
+from b import by as bz
+from b import cz
+from c import cx
+from c import cx as alt_cx
+
+---- file b.py ----
+
+import c
+import c as d
+from c import cy as cz
+
+def bx(): pass # FUNCTION 1
+def by(): pass # FUNCTION 2
+
+---- file c.py ----
+
+def cx(): pass # FUNCTION 3
+def cy(): pass # FUNCTION 4
+
+----
+
+in the context of file a.py:
+
+  # ordinary imports
+  b.bx is FUNCTION 1
+  b.c.cx is FUNCTION 3
+
+  # import b as alt_b
+  alt_b.bx is FUNCTION 1
+  alt_b.c.cx is FUNCTION 3
+
+  bz is FUNCTION 1
+  cz is FUNCTION 4
+
+The last resolution requires several steps:
+
+  1) in b, c.cy is imported as cz
+  2) in a, b.cz is imported as cz
+
+
+
+
+
