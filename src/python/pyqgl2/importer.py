@@ -3,6 +3,27 @@
 """
 Utilities to do an initial parse of the file
 and recursively parse any imports in that file
+
+Builds up the data structures needed to navigate
+the namespace of each file, which in Python is done
+on a file-by-file basis (i.e. resolving the name
+'x.y.z' depends on the namespace of x and the namespace
+of y.
+
+Only attempts to handle a static, semi-functional
+subset of Python3.  Does NOT deal with conditional
+imports, or programatic imports, or any of the other
+mechanisms for futzing with the namespace.
+
+For the purpose of resolution, treats all imports as
+if the happened at the beginning of the file, prior
+to all other statements, and does not attempt to
+detect or handle dynamic redefinitions of the namespace,
+such as on-the-fly changes to the load path.
+
+Only tracks function definitions at the top-level
+of the module namespace; does not handle methods
+within functions, or nested functions of any kind.
 """
 
 import ast
@@ -10,15 +31,14 @@ import os
 import sys
 
 from pyqgl2.ast_util import NodeError
-from pyqgl2.find_pulse import FindPulseMethods
-from pyqgl2.ast_util import NodeError
-from pyqgl2.ast_util import NodeTransformerWithFname
-from pyqgl2.lang import QGL2
 
 def resolve_path(name):
     """
     Find the path to the file that would be imported for the
     given module name, if any.
+
+    Note that paths are used as the keys for several data
+    structures
     """
 
     name_to_path = os.sep.join(name.split('.')) + '.py'
@@ -55,10 +75,24 @@ def collapse_name(node):
 
 
 class NameSpace(object):
+    """
+    Manage the namespace for a single file
+    """
 
     def __init__(self):
+
+        # symbols defined locally
+        #
         self.local_defs = dict()
+
+        # symbols defined elsewhere, but brought into this
+        # namespace via a "from" or "from-as" import
+        #
         self.from_as = dict()
+
+        # prefixes added to the namespace via an "import"
+        # or "import-as"
+        #
         self.import_as = dict()
 
         # For diagnostic purposes, keep track of all of the
@@ -75,9 +109,17 @@ class NameSpace(object):
                 (str(self.local_defs), str(self.from_as), str(self.import_as)))
 
     def check_dups(self, name, def_type='unknown'):
+        """
+        check whether a symbol by the given name is already
+        defined in the namespace (and add it to the namespace
+        if it is not)
+
+        Raises a ValueError if already defined
+        """
+
         if name in self.all_names:
             raise ValueError(
-                    ('symbol [%s] multiply defined (%s)in namespace' %
+                    ('symbol [%s] multiply defined (%s) in namespace' %
                         (name, def_type)))
         else:
             self.all_names.add(name)
