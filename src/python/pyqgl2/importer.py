@@ -31,6 +31,7 @@ import os
 import sys
 
 from pyqgl2.ast_util import NodeError
+from pyqgl2.lang import QGL2
 
 def resolve_path(name):
     """
@@ -81,12 +82,14 @@ class NameSpace(object):
 
     def __init__(self):
 
-        # symbols defined locally
+        # functions and variables defined locally
         #
         self.local_defs = dict()
+        self.local_vars = dict()
 
-        # symbols defined elsewhere, but brought into this
-        # namespace via a "from" or "from-as" import
+        # symbols (which may be functions or variable) defined
+        # elsewhere, but brought into this namespace via a
+        # "from" or "from-as" import
         #
         self.from_as = dict()
 
@@ -124,8 +127,12 @@ class NameSpace(object):
         else:
             self.all_names.add(name)
 
-    def add_local(self, name, ptree):
-        self.check_dups(name, 'local')
+    def add_local_var(self, name, ptree):
+        self.check_dups(name, 'local-variable')
+        self.local_vars[name] = ptree
+
+    def add_local_func(self, name, ptree):
+        self.check_dups(name, 'local-function')
         self.local_defs[name] = ptree
 
     def add_from_as(self, module_name, sym_name, as_name=None):
@@ -155,7 +162,7 @@ class NameSpace(object):
 
 class NameSpaces(object):
 
-    def __init__(self, path):
+    def __init__(self, path, qglmain_name=None):
 
         # map from path to AST
         #
@@ -170,7 +177,35 @@ class NameSpaces(object):
         #
         self.base_fname = os.path.relpath(path)
 
+        # Reference to the main function; initially None because
+        # we haven't read it in yet
+        #
+        self.qglmain = None
+
         self.read_import(self.base_fname)
+
+        # TODO: if the user asks for a specific main, then go
+        # back and use it.  Don't gripe if the user has already defined
+        # one.  Resolve the name with respect to the namespace
+        # of base_fname
+
+        if qglmain_name:
+            qglmain_def = self.resolve_sym(self.base_fname, qglmain_name)
+
+            if not qglmain_def:
+                print('error: no definition for qglmain [%s]' % qglmain_name)
+                sys.exit(1)
+            elif not qglmain_def.qgl_func:
+                print('error: qglmain [%s] not declared QGL' % qglmain_name)
+                sys.exit(1)
+            else:
+                self.qglmain = qglmain_def
+                qglmain_def.qgl_main = True
+
+        if self.qglmain:
+            print('info: using [%s] as qglmain' % self.qglmain.name)
+        else:
+            print('warning: no qglmain declared or chosen')
 
     def resolve_sym(self, path, name):
         print('NNN TRYING TO RESOLVE %s in %s' % (name, path))
@@ -329,11 +364,63 @@ class NameSpaces(object):
         # TODO; check whether the name is already defined.
         # Chide the user about multiple definitions
 
-        namespace.add_local(ptree.name, ptree)
+        namespace.add_local_func(ptree.name, ptree)
         arg_types, return_type = self.find_type_decl(ptree)
 
         ptree.qgl_args = arg_types
         ptree.qgl_return = return_type
+
+        self.add_func_decorators(ptree.qgl_fname, ptree)
+
+    def add_func_decorators(self, module_name, node):
+
+        print('NNN module_name %s ofname %s' % (module_name, self.base_fname))
+
+        qglmain = False
+        qglfunc = False
+        other_decorator = False
+
+        if node.decorator_list:
+            for dec in node.decorator_list:
+                print('NNN DECLIST %s %s' % (node.name, ast.dump(dec)))
+
+                # qglmain implies qglfunc, but it's permitted to
+                # have both
+                #
+                if isinstance(dec, ast.Name) and (dec.id == QGL2.QMAIN):
+                    qglfunc = True
+                    qglmain = True
+                elif isinstance(dec, ast.Name) and (dec.id == QGL2.QDECL):
+                    qglfunc = True
+                else:
+                    other_decorator = True
+
+            if qglmain and other_decorator:
+                NodeError.warning_msg(node,
+                        'unrecognized decorator with %s' % QGL2.QMAIN)
+            elif qglfunc and other_decorator:
+                NodeError.warning_msg(node,
+                        'unrecognized decorator with %s' % QGL2.QDECL)
+
+        print('NNN result %s %s %s' % (node.name, qglfunc, qglmain))
+        node.qgl_func = qglfunc
+        node.qgl_main = qglmain
+
+        # Only assign the qglmain at the root of the namespace
+        # if we're in the base file
+        #
+        if qglmain and (module_name == self.base_fname):
+            if self.qglmain:
+                omain = self.qglmain
+                NodeError.error_msg(
+                        node, 'more than one %s function' % QGL2.QMAIN)
+                NodeError.error_msg(
+                        node, 'previously defined %s:%d:%d' %
+                        (omain.qgl_fname, omain.lineno, omain.col_offset))
+            else:
+                NodeError.diag_msg(
+                        node, '%s declared as %s' % (node.name, QGL2.QMAIN))
+                self.qglmain = node
 
     def add_import_as(self, namespace, names):
 
@@ -371,6 +458,7 @@ if __name__ == '__main__':
         that an error occured during parsing/importing
         """
 
+        # namespaces = NameSpaces(fname, qglmain_name='xxx')
         namespaces = NameSpaces(fname)
         if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
             print('bailing out 1')
@@ -382,8 +470,8 @@ if __name__ == '__main__':
         print('PULSE_CHECK %s' % namespaces.returns_pulse('x.py', 'xxx'))
         print('PULSE_CHECK %s' % namespaces.returns_pulse('x.py', 'xx'))
 
-    ff = NameSpaces(sys.argv[1])
-    print('Find B.bbb %s' % ast.dump(ff.resolve_sym(sys.argv[1], 'B.bbb')))
-    print('Find cc %s' % ast.dump(ff.resolve_sym(sys.argv[1], 'cc')))
+    # ff = NameSpaces(sys.argv[1])
+    # print('Find B.bbb %s' % ast.dump(ff.resolve_sym(sys.argv[1], 'B.bbb')))
+    # print('Find cc %s' % ast.dump(ff.resolve_sym(sys.argv[1], 'cc')))
 
     preprocess(sys.argv[1])
