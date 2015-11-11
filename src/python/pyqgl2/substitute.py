@@ -330,29 +330,16 @@ def specialize(func_node, qbit_defs, func_defs, importer):
 
 def preprocess(fname, main_name=None):
 
-    importer = NameSpaces(fname)
+    importer = NameSpaces(fname, main_name)
     ptree = importer.path2ast[importer.base_fname]
 
     type_check = CheckType(importer.base_fname, importer)
     nptree = type_check.visit(ptree)
 
     # Find the main function
-    qglmain = None
-    if main_name:
-        if main_name in type_check.func_defs:
-            (decls, qglmain) = type_check.func_defs[main_name]
-            print('using requested main function [%s]' % main_name)
-        else:
-            print('requested main function [%s] not found' % main_name)
-    else:
-        if type_check.qglmain:
-            main_name = type_check.qglmain.name
-            print('using declared main function [%s]' % main_name)
-            (decls, qglmain) = type_check.func_defs[main_name]
-        else:
-            print('no function declared to be main')
-
+    qglmain = importer.qglmain
     if not qglmain:
+        print('no function declared to be main')
         sys.exit(1)
 
     print('TYPE_CHECK DEFS %s' % str(type_check.func_defs))
