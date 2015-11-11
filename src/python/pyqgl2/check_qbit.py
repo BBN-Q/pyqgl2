@@ -190,46 +190,6 @@ class CheckType(NodeTransformerWithFname):
         #
         self.qgl_call_stack.append(list())
 
-        qglmain = False
-        qglfunc = False
-        other_decorator = False
-
-        if node.decorator_list:
-            for dec in node.decorator_list:
-
-                # qglmain implies qglfunc, but it's permitted to
-                # have both
-                #
-                if isinstance(dec, ast.Name) and (dec.id == QGL2.QMAIN):
-                    qglmain = True
-                    qglfunc = True
-                elif isinstance(dec, ast.Name) and (dec.id == QGL2.QDECL):
-                    qglfunc = True
-                else:
-                    other_decorator = True
-
-            if qglmain and other_decorator:
-                self.error_msg(node,
-                        'unrecognized decorator with %s' % QGL2.QMAIN)
-            elif qglfunc and other_decorator:
-                self.error_msg(node,
-                        'unrecognized decorator with %s' % QGL2.QDECL)
-
-        if qglmain:
-            if self.qglmain:
-                omain = self.qglmain
-                self.error_msg(node, 'more than one %s function' % QGL2.QMAIN)
-                self.error_msg(node,
-                        'previously defined %s:%d:%d' %
-                        (omain.fname, omain.lineno, omain.col_offset))
-                self._pop_scope()
-                self.qgl_call_stack.pop()
-                return node
-            else:
-                self.diag_msg(node,
-                        '%s declared as %s' % (node.name, QGL2.QMAIN))
-                self.qglmain = node
-
         if self.func_level > 0:
             self.error_msg(node, '%s functions cannot be nested' % QGL2.QDECL)
 
@@ -299,51 +259,6 @@ class CompileQGLFunctions(ast.NodeTransformer):
         self.concur_finder = FindConcurBlocks()
 
     def visit_FunctionDef(self, node):
-        qglmain = False
-        qglfunc = False
-        other_decorator = False
-
-        # print('>>> %s' % ast.dump(node))
-
-        if node.decorator_list:
-            # print('HAS DECO')
-            for dec in node.decorator_list:
-                # print('HAS DECO %s' % str(dec))
-
-                # qglmain implies qglfunc, but it's permitted to
-                # have both
-                #
-                if isinstance(dec, ast.Name) and (dec.id == QGL2.QMAIN):
-                    qglmain = True
-                    qglfunc = True
-                elif isinstance(dec, ast.Name) and (dec.id == QGL2.QDECL):
-                    qglfunc = True
-                else:
-                    other_decorator = True
-
-            if qglmain and other_decorator:
-                self.error_msg(node,
-                        'unrecognized decorator with %s' % QGL2.QMAIN)
-            elif qglfunc and other_decorator:
-                self.error_msg(node,
-                        'unrecognized decorator with %s' % QGL2.QDECL)
-
-        if not qglfunc:
-            return node
-
-        if qglmain:
-            print('%s detected' % QGL2.QDECL)
-            if self.qglmain:
-                omain = self.qglmain
-                self.error_msg(node, 'more than one %s function' % QGL2.QMAIN)
-                self.error_msg(node,
-                        'previous %s %s:%d:%d' %
-                        (QGL2.QMAIN,
-                            omain.fname, omain.lineno, omain.col_offset))
-                return node
-            else:
-                node.fname = self.fname
-                self.qglmain = node
 
         if self.LEVEL > 0:
             self.error_msg(node, 'QGL mode functions cannot be nested')
