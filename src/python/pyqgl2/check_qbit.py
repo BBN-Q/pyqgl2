@@ -96,92 +96,12 @@ class CheckType(NodeTransformerWithFname):
     def _extend_local(self, name):
         self.local[-1].append(name)
 
-    def _qbit_decl(self, node):
-
-        q_args = list()
-        q_return = None
-
-        if type(node) != ast.FunctionDef:
-            return None
-
-        if node.returns:
-            ret = node.returns
-
-            # It would be nice to be able to return a qbit
-            # tuple, maybe.
-            #
-            if ((type(ret) == ast.Str) and (ret.s == 'qbit')):
-                q_return = 'qbit'
-            elif ((type(ret) == ast.Str) and (ret.s == 'classical')):
-                q_return = 'classical'
-
-            # The symbols 'qbit' and 'classical' are deprecated
-            # because they are not valid Python3, but I haven't
-            # decided whether to remove them yet
-            #
-            elif ((type(ret) == ast.Name) and (ret.id == 'qbit')):
-                self.warning_msg(node,
-                        'use of \'qbit\' symbol is deprecated')
-                q_return = 'qbit'
-            elif ((type(ret) == ast.Name) and (ret.id == 'classical')):
-                self.warning_msg(node,
-                        'use of \'classical\' symbol is deprecated')
-                q_return = 'classical'
-
-            else:
-                # There are other annotations; we treat them all as
-                # classical.  (we used to treat them as errors)
-                #
-                # self.error_msg(node,
-                #         'unsupported return annotation [%s]' % ast.dump(ret))
-                q_return = 'classical'
-
-        if node.args.args:
-            for arg in node.args.args:
-                # print('>> %s' % ast.dump(arg))
-
-                name = arg.arg
-                annotation = arg.annotation
-                if not annotation:
-                    q_args.append('%s:classical' % name)
-                    continue
-
-                print('ANNO %s' % ast.dump(annotation))
-
-                if type(annotation) == ast.Name:
-                    if annotation.id == 'qbit':
-                        q_args.append('%s:qbit' % name)
-                    elif annotation.id == 'classical':
-                        q_args.append('%s:classical' % name)
-                    else:
-                        self.error_msg(node,
-                                'unsupported parameter annotation [%s]' %
-                                annotation.id)
-                elif type(annotation) == ast.Str:
-                    if annotation.s == 'qbit':
-                        q_args.append('%s:qbit' % name)
-                    elif annotation.s == 'classical':
-                        q_args.append('%s:classical' % name)
-                    else:
-                        self.error_msg(node,
-                                'unsupported parameter annotation [%s]' %
-                                annotation.s)
-                else:
-                    self.error_msg(node,
-                            'unsupported parameter annotation [%s]' %
-                            ast.dump(annotation))
-
-        node.q_args = q_args
-        node.q_return = q_return
-
-        return q_args
-
     def assign_simple(self, node):
 
         target = node.targets[0]
         value = node.value
 
-        if type(target) != ast.Name:
+        if not isinstance(target, ast.Name):
             return node
 
         # print('AS SCOPE %s' % str(self._qbit_scope()))
@@ -207,7 +127,7 @@ class CheckType(NodeTransformerWithFname):
 
         print('NNN FuncDef %s' % ast.dump(func_def))
 
-        if type(value) == ast.Call:
+        if isinstance(value, ast.Call):
             print('NNN CALL [%s]' % func_name)
 
         # When we're figuring out whether something is a call to
@@ -247,7 +167,7 @@ class CheckType(NodeTransformerWithFname):
         # We only do singleton assignments, not tuples,
         # and not expressions
 
-        if type(node.targets[0]) == ast.Name:
+        if isinstance(node.targets[0], ast.Name):
             self.assign_simple(node)
 
         self.generic_visit(node)
@@ -280,10 +200,10 @@ class CheckType(NodeTransformerWithFname):
                 # qglmain implies qglfunc, but it's permitted to
                 # have both
                 #
-                if (type(dec) == ast.Name) and (dec.id == QGL2.QMAIN):
+                if isinstance(dec, ast.Name) and (dec.id == QGL2.QMAIN):
                     qglmain = True
                     qglfunc = True
-                elif (type(dec) == ast.Name) and (dec.id == QGL2.QDECL):
+                elif isinstance(dec, ast.Name) and (dec.id == QGL2.QDECL):
                     qglfunc = True
                 else:
                     other_decorator = True
@@ -393,10 +313,10 @@ class CompileQGLFunctions(ast.NodeTransformer):
                 # qglmain implies qglfunc, but it's permitted to
                 # have both
                 #
-                if (type(dec) == ast.Name) and (dec.id == QGL2.QMAIN):
+                if isinstance(dec, ast.Name) and (dec.id == QGL2.QMAIN):
                     qglmain = True
                     qglfunc = True
-                elif (type(dec) == ast.Name) and (dec.id == QGL2.QDECL):
+                elif isinstance(dec, ast.Name) and (dec.id == QGL2.QDECL):
                     qglfunc = True
                 else:
                     other_decorator = True
@@ -472,7 +392,7 @@ class FindConcurBlocks(ast.NodeTransformer):
         self.qbit_sets = dict()
 
     def visit_With(self, node):
-        if ((type(node.context_expr) != ast.Name) or
+        if (not isinstance(node.context_expr, ast.Name) or
                 (node.context_expr.id != 'concur')):
             return node
 
