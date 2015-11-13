@@ -7,7 +7,9 @@ In order to be recognized by the compiler, you should include
 the following snipped at the start of each module that uses
 QGL2 constructs:
 
-from qgl2 import concur, qgl2decl, qgl2import, qgl2main
+from qgl2.qgl2 import concur, qgl2decl, qgl2main
+from qgl2.qgl2 import classical, pulse, qbit, qbit_list
+from qgl2.qgl2 import Qbit
 """
 
 class concur(object):
@@ -50,4 +52,16 @@ def qgl2decl(function):
         assert False, 'qgl2decl should not be directly executed'
     return wrapper
 
-qgl2import = False
+# Symbols used for method signature annotation.  Their value has
+# no meaning; they're only assigned a value so that Python considers
+# them to be valid symbols.
+#
+# These names might need to change if they are confused with local symbols
+#
+classical = True
+qbit = True
+qbit_list = True
+pulse = True
+
+def Qbit(chan:classical) -> qbit:
+    pass
