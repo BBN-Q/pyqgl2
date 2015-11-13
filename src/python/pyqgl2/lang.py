@@ -11,8 +11,13 @@ class QGL2(object):
     QCONCUR = 'concur'
     QMAIN = 'qgl2main'
     QDECL = 'qgl2decl'
-    QIMPORT = 'qgl2import'
 
     QMODULE = 'qgl2'
 
     QBIT_ALLOC = 'Qbit'
+
+    CLASSICAL = 'classical'
+    PULSE = 'pulse'
+    QBIT = 'qbit'
+    QBIT_LIST = 'qbit_list'
+
