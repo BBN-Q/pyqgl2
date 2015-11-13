@@ -54,6 +54,13 @@ def resolve_path(name):
         if os.path.isfile(path):
             return os.path.relpath(path)
 
+    # if all else fails, try using the current directory
+    # (I am ambivalent about this)
+
+    path = os.path.join('.', name_to_path)
+    if os.path.isfile(path):
+        return os.path.relpath(path)
+
     return None
 
 def collapse_name(node):
