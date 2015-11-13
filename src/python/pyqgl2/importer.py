@@ -123,26 +123,28 @@ class NameSpace(object):
         check whether a symbol by the given name is already
         defined in the namespace (and add it to the namespace
         if it is not)
-
-        Raises a ValueError if already defined
         """
 
         if name in self.all_names:
-            raise ValueError(
-                    ('symbol [%s] multiply defined (%s) in namespace' %
-                        (name, def_type)))
+            return False
         else:
             self.all_names.add(name)
+            return True
 
     def add_local_var(self, name, ptree):
-        self.check_dups(name, 'local-variable')
+        if not self.check_dups(name, 'local-variable'):
+            NodeError.warning_msg(
+                    ptree, 'redefinition of variable [%s]' % name)
         self.local_vars[name] = ptree
 
     def add_local_func(self, name, ptree):
-        self.check_dups(name, 'local-function')
+        if not self.check_dups(name, 'local-function'):
+            NodeError.warning_msg(
+                    ptree, 'redefinition of function [%s]' % name)
         self.local_defs[name] = ptree
 
     def add_from_as(self, module_name, sym_name, as_name=None):
+        print('SYM module %s name %s' % (module_name, sym_name))
         if not as_name:
             as_name = sym_name
 
@@ -466,8 +468,23 @@ class NameSpaces(object):
             self.read_import(subpath)
 
             for imp in stmnt.names:
-                namespace.add_from_as(module_name, imp.name, imp.asname)
+                if imp.name == '*':
+                    NodeError.warning_msg(stmnt,
+                            ('deprecated wildcard import from [%s]' %
+                                module_name))
+                    self.add_from_wildcard(namespace, module_name, module_name)
+                else:
+                    namespace.add_from_as(module_name, imp.name, imp.asname)
 
+    def add_from_wildcard(self, namespace, module_name, from_name):
+
+        subpath = resolve_path(module_name)
+
+        # TODO: check that subpath is there
+        alt_namespace = self.path2namespace[subpath]
+
+        for sym in alt_namespace.all_names:
+            namespace.add_from_as(module_name, sym)
 
 if __name__ == '__main__':
 
