@@ -65,9 +65,9 @@ def collapse_name(node):
     return 'x.y'
     """
 
-    if type(node) == ast.Name:
+    if isinstance(node, ast.Name):
         return node.id
-    elif type(node) == ast.Attribute:
+    elif isinstance(node, ast.Attribute):
         return collapse_name(node.value) + '.' + node.attr
     else:
         # TODO: handle this more gracefully
@@ -255,7 +255,7 @@ class NameSpaces(object):
         if not sym:
             return False
         else:
-            return sym.qgl_return == 'pulse'
+            return sym.qgl_return == QGL2.PULSE
 
     def read_import(self, path):
         """
@@ -316,22 +316,22 @@ class NameSpaces(object):
         if node is None:
             print('NODE IS NONE')
 
-        if type(node) != ast.FunctionDef:
+        if not isinstance(node, ast.FunctionDef):
             print('NOT A FUNCTIONDEF %s' % ast.dump(node))
             return None
 
         if node.returns:
             ret = node.returns
 
-            if type(ret) == ast.Name:
-                if ret.id == 'qbit':
-                    q_return = 'qbit'
-                elif ret.id == 'classical':
-                    q_return = 'classical'
-                elif ret.id == 'qbit_list':
-                    q_return = 'qbit_list'
-                elif ret.id == 'pulse':
-                    q_return = 'pulse'
+            if isinstance(ret, ast.Name):
+                if ret.id == QGL2.QBIT:
+                    q_return = QGL2.QBIT
+                elif ret.id == QGL2.CLASSICAL:
+                    q_return = QGL2.CLASSICAL
+                elif ret.id == QGL2.QBIT_LIST:
+                    q_return = QGL2.QBIT_LIST
+                elif ret.id == QGL2.PULSE:
+                    q_return = QGL2.PULSE
                 else:
                     print('unsupported return type [%s]' % ast.dump(ret))
 
@@ -342,14 +342,14 @@ class NameSpaces(object):
                 name = arg.arg
                 annotation = arg.annotation
                 if not annotation:
-                    q_args.append('%s:classical' % name)
-                elif type(annotation) == ast.Name:
-                    if annotation.id == 'qbit':
-                        q_args.append('%s:qbit' % name)
-                    elif annotation.id == 'classical':
-                        q_args.append('%s:classical' % name)
-                    elif annotation.id == 'qbit_list':
-                        q_args.append('%s:qbit_list' % name)
+                    q_args.append('%s:%s' % (name, QGL2.CLASSICAL))
+                elif isinstance(annotation, ast.Name):
+                    if annotation.id == QGL2.QBIT:
+                        q_args.append('%s:%s' % (name, QGL2.QBIT))
+                    elif annotation.id == QGL2.CLASSICAL:
+                        q_args.append('%s:%s' % (name, QGL2.CLASSICAL))
+                    elif annotation.id == QGL2.QBIT_LIST:
+                        q_args.append('%s:%s' % (name, QGL2.QBIT_LIST))
                     else:
                         NodeError.error_msg(node,
                                 ('unsupported parameter annotation [%s]' %
