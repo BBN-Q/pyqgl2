@@ -282,8 +282,25 @@ def create_inline_procedure(func_ptree, call_ptree):
     if failed:
         return None
 
+    # We need to annotate the code for setting up each local
+    # with a reasonable line number and file name (even though
+    # it's all fictitious) so that any error messages generated
+    # later make some sense
+    #
+    # We give the source file a name that signifies that it's
+    # rewritten code.  (I'm ambivalent about this)
+    #
+    source_file = '_mod_' + call_ptree.qgl_fname
+    for assignment in setup_locals:
+        for subnode in ast.walk(assignment):
+            subnode.qgl_fname = source_file
+
+            ast.copy_location(assignment, call_ptree)
+            ast.fix_missing_locations(assignment)
+
     for stmnt in func_body:
         new_stmnt = rewriter.rewrite(stmnt)
+        ast.fix_missing_locations(new_stmnt)
         new_func_body.append(new_stmnt)
 
     inlined = setup_locals + new_func_body
