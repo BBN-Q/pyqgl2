@@ -163,7 +163,7 @@ def create_inline_procedure(func_ptree, call_ptree):
     # parameter, and make sure that all the keyword parameters
     # get initialized
     #
-    seen_param_names = set()
+    seen_param_names = dict()
 
     if len(actual_params) > len(formal_params):
         print('error: more actual parameters than formal parameters')
@@ -178,12 +178,34 @@ def create_inline_procedure(func_ptree, call_ptree):
     for param_ind in range(len(actual_params)):
         orig_name = formal_params[param_ind].arg
         actual_param = actual_params[param_ind]
+        seen_param_names[orig_name] = actual_param
+
+    # Potential optimizations: many other possible cases TODO
+    #
+    # 1. If an actual parameter is a reference or a constant, and
+    # isn't reassigned, then we can just pass it in as such;
+    # no need to give it a local name.
+    #
+    # 2. If an actual parameter is reassigned before use,
+    # no need to do the initial ap -> fp assignment.
+    #
+    # There are many possible cases, and their analyses are
+    # complicated.  For now we're going to ignore them and
+    # just treat all actual parameters in the default way.
+    # We can't go wrong this way.
+    #
+    for orig_name in seen_param_names.keys():
+
+        # Here's where we might do something clever:
+        #
+        # if this is the name of a fp we don't need to assign:
+        #    continue
+
         new_name = tmp_names.create_tmp_name(orig_name=orig_name)
         rewriter.add_mapping(orig_name, new_name)
 
         print('ASSIGN %s -> %s' % (new_name, ast.dump(actual_param)))
 
-        seen_param_names.add(orig_name)
         setup_locals.append(ast.Assign(
                 targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
                 value=actual_param))
@@ -210,7 +232,7 @@ def create_inline_procedure(func_ptree, call_ptree):
 
         print('KASSIGN %s -> %s' % (new_name, ast.dump(keyword_param.value)))
 
-        seen_param_names.add(orig_name)
+        seen_param_names[orig_name] = keyword_param.value
         setup_locals.append(ast.Assign(
                     targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
                     value=keyword_param.value))
@@ -240,7 +262,7 @@ def create_inline_procedure(func_ptree, call_ptree):
             print('DASSIGN %s -> %s' %
                     (new_name, ast.dump(defaults[param_ind])))
 
-            seen_param_names.add(orig_name)
+            seen_param_names[orig_name] = defaults[param_ind]
             setup_locals.append(ast.Assign(
                         targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
                         value=defaults[param_ind]))
@@ -376,6 +398,31 @@ foo(1, 2, 3, 4)
         else:
             print('test_3 %d failed' % call)
 
+def test_4():
+    code = """
+def foo(a, b):
+    a = 1
+    dummy(a + b)
+foo(x, y)
+"""
+
+    ptree = ast.parse(code, mode='exec')
+    func_def = ptree.body[0]
+
+    scratch = deepcopy(ptree)
+
+    print('AST:\n%s' % ast.dump(ptree))
+
+    print('CODE:\n%s' % code)
+    for call in range(1, len(ptree.body)):
+        scratch.body = create_inline_procedure(
+                func_def, ptree.body[call].value)
+        if scratch.body:
+            post = meta.asttools.dump_python_source(scratch)
+            print('test_4 %d POST:\n%s' % (call, post))
+        else:
+            print('test_4 %d failed' % call)
+
 
 def main():
     """
@@ -385,6 +432,7 @@ def main():
     test_1()
     test_2()
     test_3()
+    test_4()
 
 
     path = 'it.py'
