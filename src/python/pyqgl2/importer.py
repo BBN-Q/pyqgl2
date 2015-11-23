@@ -144,7 +144,7 @@ class NameSpace(object):
         self.local_defs[name] = ptree
 
     def add_from_as(self, module_name, sym_name, as_name=None):
-        print('SYM module %s name %s' % (module_name, sym_name))
+        # print('SYM module [%s] name [%s]' % (module_name, sym_name))
         if not as_name:
             as_name = sym_name
 
@@ -170,6 +170,12 @@ class NameSpace(object):
 
 
 class NameSpaces(object):
+
+    # FIXME/TODO: this hardcoded path is bogus.  Need to find a
+    # more general way to do this
+    #
+    IGNORE_MODULE_PATH_PREFIX = os.path.relpath(
+            '/opt/local/Library/Frameworks/Python.framework')
 
     def __init__(self, path, qglmain_name=None):
 
@@ -277,7 +283,15 @@ class NameSpaces(object):
             print('NN Already in there [%s]' % path)
             return self.path2ast[path]
 
+        if path.startswith(NameSpaces.IGNORE_MODULE_PATH_PREFIX):
+            return None
+
         text = open(path, 'r').read()
+
+        return self.read_import_str(text, path)
+
+    def read_import_str(self, text, path='<stdin>'):
+
         ptree = ast.parse(text, mode='exec')
         self.path2ast[path] = ptree
 
@@ -297,10 +311,10 @@ class NameSpaces(object):
             if isinstance(stmnt, ast.FunctionDef):
                 self.add_function(namespace, stmnt.name, stmnt)
             elif isinstance(stmnt, ast.Import):
-                print('NN ADDING import %s' % ast.dump(stmnt))
+                # print('NN ADDING import %s' % ast.dump(stmnt))
                 self.add_import_as(namespace, stmnt)
             elif isinstance(stmnt, ast.ImportFrom):
-                print('NN ADDING import-from %s' % ast.dump(stmnt))
+                # print('NN ADDING import-from %s' % ast.dump(stmnt))
                 self.add_from_as(namespace, stmnt.module, stmnt)
             # We're not doing module-level variables right now; no globals
             """
@@ -308,7 +322,7 @@ class NameSpaces(object):
                 print('NN ASSIGN %s' % ast.dump(stmnt))
             """
 
-        print('NN NAMESPACE %s' % str(self.path2namespace))
+        # print('NN NAMESPACE %s' % str(self.path2namespace))
 
         return self.path2ast[path]
 
@@ -342,7 +356,8 @@ class NameSpaces(object):
                 elif ret.id == QGL2.PULSE:
                     q_return = QGL2.PULSE
                 else:
-                    print('unsupported return type [%s]' % ast.dump(ret))
+                    NodeError.error_msg(node,
+                            'unsupported return type [%s]' % ret.id)
 
         if node.args.args:
             for arg in node.args.args:
@@ -359,6 +374,8 @@ class NameSpaces(object):
                         q_args.append('%s:%s' % (name, QGL2.CLASSICAL))
                     elif annotation.id == QGL2.QBIT_LIST:
                         q_args.append('%s:%s' % (name, QGL2.QBIT_LIST))
+                    elif annotation.id == QGL2.PULSE:
+                        q_args.append('%s:%s' % (name, QGL2.PULSE))
                     else:
                         NodeError.error_msg(node,
                                 ('unsupported parameter annotation [%s]' %
@@ -368,8 +385,8 @@ class NameSpaces(object):
                             'unsupported parameter annotation [%s]' %
                             ast.dump(annotation))
 
-        print('NN NAME %s (%s) -> %s' %
-                (node.name, str(q_args), str(q_return)))
+        # print('NN NAME %s (%s) -> %s' %
+        #         (node.name, str(q_args), str(q_return)))
 
         return (q_args, q_return)
 
@@ -398,7 +415,7 @@ class NameSpaces(object):
 
     def add_func_decorators(self, module_name, node):
 
-        print('NNN module_name %s ofname %s' % (module_name, self.base_fname))
+        # print('NNN module_name %s ofname %s' % (module_name, self.base_fname))
 
         qglmain = False
         qglfunc = False
@@ -406,7 +423,7 @@ class NameSpaces(object):
 
         if node.decorator_list:
             for dec in node.decorator_list:
-                print('NNN DECLIST %s %s' % (node.name, ast.dump(dec)))
+                # print('NNN DECLIST %s %s' % (node.name, ast.dump(dec)))
 
                 # qglmain implies qglfunc, but it's permitted to
                 # have both
@@ -426,7 +443,8 @@ class NameSpaces(object):
                 NodeError.warning_msg(node,
                         'unrecognized decorator with %s' % QGL2.QDECL)
 
-        print('NNN result %s %s %s' % (node.name, qglfunc, qglmain))
+        # print('NNN result %s %s %s' % (node.name, qglfunc, qglmain))
+
         node.qgl_func = qglfunc
         node.qgl_main = qglmain
 
@@ -454,8 +472,8 @@ class NameSpaces(object):
                 namespace.add_import_as(imp.name, imp.asname)
                 self.read_import(subpath)
             else:
-                print('NN IMPORTAS %s' % ast.dump(stmnt))
-                NodeError.error_msg(
+                # print('NN IMPORTAS %s' % ast.dump(stmnt))
+                NodeError.warning_msg(
                         stmnt, 'path to [%s] could not be found' % imp.name)
 
     def add_from_as(self, namespace, module_name, stmnt):
