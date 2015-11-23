@@ -474,14 +474,14 @@ class NameSpaces(object):
             else:
                 # print('NN IMPORTAS %s' % ast.dump(stmnt))
                 NodeError.warning_msg(
-                        stmnt, 'path to [%s] could not be found' % imp.name)
+                        stmnt, 'path to [%s] not found' % imp.name)
 
     def add_from_as(self, namespace, module_name, stmnt):
 
         subpath = resolve_path(module_name)
         if not subpath:
             NodeError.error_msg(
-                    stmnt, 'path to [%s] could not be found' % module_name)
+                    stmnt, 'path to [%s] not found' % module_name)
         else:
             self.read_import(subpath)
 
