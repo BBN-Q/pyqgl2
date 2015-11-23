@@ -5,6 +5,9 @@ import meta
 
 from copy import deepcopy
 
+from pyqgl2.ast_util import NodeError
+from pyqgl2.importer import NameSpaces
+
 class InlineReturn(BaseException):
     pass
 
@@ -159,14 +162,15 @@ def create_inline_procedure(func_ptree, call_ptree):
     new_func_body = list()
 
     # parameters that we've already processed (to make sure
-    # that we don't do something as both an ordinary and keywork
+    # that we don't do something as both an ordinary and keyword
     # parameter, and make sure that all the keyword parameters
     # get initialized
     #
     seen_param_names = dict()
 
     if len(actual_params) > len(formal_params):
-        print('error: more actual parameters than formal parameters')
+        NodeError.error_msg(call_ptree,
+                'error: more actual parameters than formal parameters')
         return None
 
     # examine the call, and build the code to assign
@@ -202,9 +206,11 @@ def create_inline_procedure(func_ptree, call_ptree):
         #    continue
 
         new_name = tmp_names.create_tmp_name(orig_name=orig_name)
+        actual_param = seen_param_names[orig_name]
         rewriter.add_mapping(orig_name, new_name)
 
-        print('ASSIGN %s -> %s' % (new_name, ast.dump(actual_param)))
+        NodeError.diag_msg(call_ptree,
+                'ASSIGN %s -> %s' % (new_name, ast.dump(actual_param)))
 
         setup_locals.append(ast.Assign(
                 targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
@@ -222,15 +228,17 @@ def create_inline_procedure(func_ptree, call_ptree):
         # parameter already
         #
         if orig_name in seen_param_names:
-            # TODO: this error message is lame
-            print('error: ALREADY processed param [%s]' % orig_name)
+            NodeError.error_msg(call_ptree,
+                    'more than one value for parameter [%s]' % orig_name)
             failed = True
             continue
 
         new_name = tmp_names.create_tmp_name(orig_name=orig_name)
         rewriter.add_mapping(orig_name, new_name)
 
-        print('KASSIGN %s -> %s' % (new_name, ast.dump(keyword_param.value)))
+        NodeError.diag_msg(call_ptree,
+                ('KASSIGN %s -> %s' %
+                    (new_name, ast.dump(keyword_param.value))))
 
         seen_param_names[orig_name] = keyword_param.value
         setup_locals.append(ast.Assign(
@@ -259,8 +267,9 @@ def create_inline_procedure(func_ptree, call_ptree):
             new_name = tmp_names.create_tmp_name(orig_name=orig_name)
             rewriter.add_mapping(orig_name, new_name)
 
-            print('DASSIGN %s -> %s' %
-                    (new_name, ast.dump(defaults[param_ind])))
+            NodeError.diag_msg(call_ptree,
+                    ('DASSIGN %s -> %s' %
+                        (new_name, ast.dump(defaults[param_ind]))))
 
             seen_param_names[orig_name] = defaults[param_ind]
             setup_locals.append(ast.Assign(
@@ -275,8 +284,8 @@ def create_inline_procedure(func_ptree, call_ptree):
         orig_name = formal_param.arg
 
         if orig_name not in seen_param_names:
-            # TODO: this error message is lame
-            print('error: param [%s] never specified' % orig_name)
+            NodeError.error_msg(call_ptree,
+                    'value for parameter [%s] never specified' % orig_name)
             failed = True
 
     if failed:
@@ -347,15 +356,58 @@ def create_inline_function(ptree, actual_params=None):
 
     pass
 
+def is_qgl_procedure(node):
+    """
+    Return True if the node represents a function that
+    may be treated as a QGL procedure (i.e. it was
+    declared to be a QGL function, and it contains
+    no "return" statements or expressions), False otherwise
+    """
+
+    # First, check that it's a function definition.
+    #
+    if not isinstance(node, ast.FunctionDef):
+        return False
+
+    if not hasattr(node, 'qgl_func'):
+        # unexpected: all FunctionDef nodes should be marked
+        return False
+
+    if not node.qgl_func:
+        return False
+
+    for stmnt in node.body:
+        for subnode in ast.walk(stmnt):
+            if isinstance(subnode, ast.Return):
+                return False
+
+    return True
+
+def inliner(namespace, name):
+    """
+    Recursively expand a function by inlining all the
+    procedure calls it can discover within the function
+
+    In order to be inlined, a method must be declared
+    to be a QGL function, and it must not be a class
+    or instance method (it may be static)
+    """
+
+    pass
+
 def test_1():
     code = """
+@qgl2decl
 def foo(a, b, c):
     dummy(a + b + c)
 foo(1, 2, 3)
 """
 
-    ptree = ast.parse(code, mode='exec')
-    print('test_1 AST:\n%s' % ast.dump(ptree))
+    importer = NameSpaces('<test>', text=code)
+    ptree = importer.path2ast['<test>']
+    func = ptree.body[0]
+
+    print('IS_PROCEDURE: %s' % is_qgl_procedure(func))
 
     func_def = ptree.body[0]
     func_call = ptree.body[1].value
@@ -366,6 +418,7 @@ foo(1, 2, 3)
 
 def test_2():
     code = """
+@qgl2decl
 def foo(a=1, b=2, c=3):
     dummy(a + b + c)
 foo()
@@ -376,7 +429,9 @@ foo(c='c', b='b', a='a')
 foo(c='c', a='a')
 """
 
-    ptree = ast.parse(code, mode='exec')
+    importer = NameSpaces('<test>', text=code)
+    ptree = importer.path2ast['<test>']
+
     func_def = ptree.body[0]
 
     scratch = deepcopy(ptree)
@@ -390,6 +445,7 @@ foo(c='c', a='a')
 
 def test_3():
     code = """
+@qgl2decl
 def foo(a, b, c='c'):
     dummy(a + b + c)
 foo()
@@ -400,7 +456,9 @@ foo(1, 2, 3, c=44)
 foo(1, 2, 3, 4)
 """
 
-    ptree = ast.parse(code, mode='exec')
+    importer = NameSpaces('<test>', text=code)
+    ptree = importer.path2ast['<test>']
+
     func_def = ptree.body[0]
 
     scratch = deepcopy(ptree)
@@ -417,18 +475,19 @@ foo(1, 2, 3, 4)
 
 def test_4():
     code = """
+@qgl2func
 def foo(a, b):
     a = 1
     dummy(a + b)
 foo(x, y)
 """
 
-    ptree = ast.parse(code, mode='exec')
+    importer = NameSpaces('<test>', text=code)
+    ptree = importer.path2ast['<test>']
+
     func_def = ptree.body[0]
 
     scratch = deepcopy(ptree)
-
-    print('AST:\n%s' % ast.dump(ptree))
 
     print('CODE:\n%s' % code)
     for call in range(1, len(ptree.body)):
@@ -440,38 +499,68 @@ foo(x, y)
         else:
             print('test_4 %d failed' % call)
 
+def test_rewriter():
+
+    code = """
+a = 1
+b = 2
+c = a + b
+d = a + b + c
+e = foo(a + b, c + d)
+f = bar(d(a, b) + c(c, d))
+"""
+
+    rewrites = { 'a' : 'alpha',
+            'b' : 'beta',
+            'c' : 'gamma',
+            'd' : 'delta'
+    }
+
+    ptree = ast.parse(code)
+
+    rewriter = NameRewriter()
+    pre = meta.asttools.dump_python_source(ptree)
+    new_ptree = rewriter.rewrite(ptree, rewrites)
+    post = meta.asttools.dump_python_source(new_ptree)
+
+    print('PRE:\n%s' % pre)
+    print('POST:\n%s' % post)
+
+def test_module():
+    code = """
+@qgl2func
+def foo(a, b):
+    a = 1
+    dummy(a + b)
+x = 2
+y = 200
+foo(x, y)
+"""
+
+    importer = NameSpaces('<test>', text=code)
+    ptree = importer.path2ast['<test>']
+
+    func_def = ptree.body[0]
+
+    inlined = create_inline_procedure(ptree.body[0], ptree.body[3].value)
+
+    new_body = list([ptree.body[0]]) + inlined + ptree.body[1:]
+    new_module = ast.Module(body=new_body)
+    # print('NEW BODY\n%s' % ast.dump(new_module))
+    print('AS CODE\n%s' % meta.asttools.dump_python_source(new_module))
+
 
 def main():
     """
     test driver (for very simple tests)
     """
 
+    test_rewriter()
     test_1()
     test_2()
     test_3()
     test_4()
 
-
-    path = 'it.py'
-    text = open(path, 'r').read()
-    ptree = ast.parse(text, mode='exec')
-
-    print('AST:\n%s' % ast.dump(ptree))
-
-    inlined = create_inline_procedure(ptree.body[0], ptree.body[1].value)
-
-    new_body = list([ptree.body[0]]) + inlined + ptree.body[1:]
-    new_module = ast.Module(body=new_body)
-    print('NEW BODY\n%s' % ast.dump(new_module))
-    print('AS CODE\n%s' % meta.asttools.dump_python_source(new_module))
-
-
-    rewriter = NameRewriter()
-    pre = meta.asttools.dump_python_source(ptree)
-    new_ptree = rewriter.rewrite(ptree, mapping)
-    post = meta.asttools.dump_python_source(new_ptree)
-
-    print('PRE:\n%s' % pre)
-    print('POST:\n%s' % post)
+    test_module()
 
 main()
