@@ -182,7 +182,6 @@ def create_inline_procedure(func_ptree, call_ptree):
     # is wrong)
     #
     all_fp_names = [param.arg for param in formal_params]
-    print('ALL_FP_NAMES: %s' % str(all_fp_names))
 
     # examine the call, and build the code to assign
     # the actuals to the formals.
@@ -464,57 +463,62 @@ def inliner(base_call, importer):
     return inlined
 
 
-def test_1():
-    code = """
+class TestInliner(object):
+
+    def init_code(self, text):
+        importer = NameSpaces('<test>', text=text)
+        ptree = importer.path2ast['<test>']
+        func = ptree.body[0]
+
+        return importer, ptree
+
+    CODE1 = """
 @qgl2decl
 def foo(a, b, c):
     dummy(a + b + c)
 foo(1, 2, 3)
 """
 
-    importer = NameSpaces('<test>', text=code)
-    ptree = importer.path2ast['<test>']
-    func = ptree.body[0]
+    def test_1(self):
 
-    print('IS_PROCEDURE: %s' % is_qgl_procedure(func))
+        code = self.CODE1
+        importer, ptree = self.init_code(code)
+        func_def = ptree.body[0]
+        func_call = ptree.body[1].value
 
-    func_def = ptree.body[0]
-    func_call = ptree.body[1].value
+        ptree.body = create_inline_procedure(func_def, func_call)
+        post = meta.asttools.dump_python_source(ptree)
+        print('test_1 POST:\n%s' % post)
 
-    ptree.body = create_inline_procedure(func_def, func_call)
-    post = meta.asttools.dump_python_source(ptree)
-    print('test_1 POST:\n%s' % post)
-
-def test_2():
-    code = """
+    CODE2 = """
 @qgl2decl
 def foo(a=1, b=2, c=3):
     dummy(a + b + c)
 foo()
 foo(x(12))
 foo(d=12)
-# foo(10, 20)
-# foo(10, 20, 30)
-# foo(c='c', b='b', a='a')
-# foo(c='c', a='a')
+foo(10, 20)
+foo(10, 20, 30)
+foo(c='c', b='b', a='a')
+foo(c='c', a='a')
 """
 
-    importer = NameSpaces('<test>', text=code)
-    ptree = importer.path2ast['<test>']
+    def test_2(self):
 
-    func_def = ptree.body[0]
+        code = self.CODE2
+        importer, ptree = self.init_code(code)
+        func_def = ptree.body[0]
 
-    scratch = deepcopy(ptree)
+        scratch = deepcopy(ptree)
 
-    print('CODE:\n%s' % code)
-    for call in range(1, len(ptree.body)):
-        scratch.body = create_inline_procedure(
-                func_def, ptree.body[call].value)
-        post = meta.asttools.dump_python_source(scratch)
-        print('test_2 %d POST:\n%s' % (call, post))
+        print('CODE:\n%s' % code)
+        for call in range(1, len(ptree.body)):
+            scratch.body = create_inline_procedure(
+                    func_def, ptree.body[call].value)
+            post = meta.asttools.dump_python_source(scratch)
+            print('test_2 %d POST:\n%s' % (call, post))
 
-def test_3():
-    code = """
+    CODE3 = """
 @qgl2decl
 def foo(a, b, c='c'):
     dummy(a + b + c)
@@ -526,25 +530,25 @@ foo(1, 2, 3, c=44)
 foo(1, 2, 3, 4)
 """
 
-    importer = NameSpaces('<test>', text=code)
-    ptree = importer.path2ast['<test>']
+    def test_3(self):
 
-    func_def = ptree.body[0]
+        code = self.CODE3
+        importer, ptree = self.init_code(code)
+        func_def = ptree.body[0]
 
-    scratch = deepcopy(ptree)
+        scratch = deepcopy(ptree)
 
-    print('CODE:\n%s' % code)
-    for call in range(1, len(ptree.body)):
-        scratch.body = create_inline_procedure(
-                func_def, ptree.body[call].value)
-        if scratch.body:
-            post = meta.asttools.dump_python_source(scratch)
-            print('test_3 %d POST:\n%s' % (call, post))
-        else:
-            print('test_3 %d failed' % call)
+        print('CODE:\n%s' % code)
+        for call in range(1, len(ptree.body)):
+            scratch.body = create_inline_procedure(
+                    func_def, ptree.body[call].value)
+            if scratch.body:
+                post = meta.asttools.dump_python_source(scratch)
+                print('test_3 %d POST:\n%s' % (call, post))
+            else:
+                print('test_3 %d failed' % call)
 
-def test_4():
-    code = """
+    CODE4 = """
 @qgl2func
 def foo(a, b):
     a = 1
@@ -552,26 +556,25 @@ def foo(a, b):
 foo(x, y)
 """
 
-    importer = NameSpaces('<test>', text=code)
-    ptree = importer.path2ast['<test>']
+    def test_4(self):
+        code = self.CODE4
+        importer, ptree = self.init_code(code)
+        func_def = ptree.body[0]
+        func_def = ptree.body[0]
 
-    func_def = ptree.body[0]
+        scratch = deepcopy(ptree)
 
-    scratch = deepcopy(ptree)
+        print('CODE:\n%s' % code)
+        for call in range(1, len(ptree.body)):
+            scratch.body = create_inline_procedure(
+                    func_def, ptree.body[call].value)
+            if scratch.body:
+                post = meta.asttools.dump_python_source(scratch)
+                print('test_4 %d POST:\n%s' % (call, post))
+            else:
+                print('test_4 %d failed' % call)
 
-    print('CODE:\n%s' % code)
-    for call in range(1, len(ptree.body)):
-        scratch.body = create_inline_procedure(
-                func_def, ptree.body[call].value)
-        if scratch.body:
-            post = meta.asttools.dump_python_source(scratch)
-            print('test_4 %d POST:\n%s' % (call, post))
-        else:
-            print('test_4 %d failed' % call)
-
-def test_rewriter():
-
-    code = """
+    REWRITER_CODE = """
 a = 1
 b = 2
 c = a + b
@@ -580,24 +583,43 @@ e = foo(a + b, c + d)
 f = bar(d(a, b) + c(c, d))
 """
 
-    rewrites = { 'a' : 'alpha',
-            'b' : 'beta',
-            'c' : 'gamma',
-            'd' : 'delta'
-    }
+    def test_rewriter(self):
 
-    ptree = ast.parse(code)
+        rewrites = {
+                'a' : 'alpha',
+                'b' : 'beta',
+                'c' : 'gamma',
+                'd' : 'delta'
+        }
 
-    rewriter = NameRewriter()
-    pre = meta.asttools.dump_python_source(ptree)
-    new_ptree = rewriter.rewrite(ptree, rewrites)
-    post = meta.asttools.dump_python_source(new_ptree)
+        ptree = ast.parse(self.REWRITER_CODE)
 
-    print('PRE:\n%s' % pre)
-    print('POST:\n%s' % post)
+        rewriter = NameRewriter()
+        pre = meta.asttools.dump_python_source(ptree)
+        new_ptree = rewriter.rewrite(ptree, rewrites)
+        post = meta.asttools.dump_python_source(new_ptree)
 
-def test_module():
-    code = """
+        print('PRE:\n%s' % pre)
+        print('POST:\n%s' % post)
+
+    CODE_INLINER = """
+@qgl2decl
+def foo(a, b):
+    dummy(a + b, a - b)
+foo(12, 13)
+"""
+
+    def test_inliner(self):
+
+        code = self.CODE_INLINER
+        importer, ptree = self.init_code(code)
+        ptree = importer.path2ast['<test>']
+
+        call_ptree = ptree.body[1].value
+
+        inliner(call_ptree, importer)
+
+    CODE_MODULE = """
 @qgl2func
 def foo(a, b):
     a = 1
@@ -607,46 +629,32 @@ y = 200
 foo(x, y)
 """
 
-    importer = NameSpaces('<test>', text=code)
-    ptree = importer.path2ast['<test>']
+    def test_module(self):
+        code = self.CODE_MODULE
+        importer, ptree = self.init_code(code)
+        func_def = ptree.body[0]
 
-    func_def = ptree.body[0]
+        inlined = create_inline_procedure(ptree.body[0], ptree.body[3].value)
 
-    inlined = create_inline_procedure(ptree.body[0], ptree.body[3].value)
-
-    new_body = list([ptree.body[0]]) + inlined + ptree.body[1:]
-    new_module = ast.Module(body=new_body)
-    # print('NEW BODY\n%s' % ast.dump(new_module))
-    print('AS CODE\n%s' % meta.asttools.dump_python_source(new_module))
-
-def test_inliner():
-    code = """
-@qgl2decl
-def foo(a, b):
-    dummy(a + b, a - b)
-foo(12, 13)
-"""
-
-    importer = NameSpaces('<test>', text=code)
-    ptree = importer.path2ast['<test>']
-
-    call_ptree = ptree.body[1].value
-
-    inliner(call_ptree, importer)
+        new_body = list([ptree.body[0]]) + inlined + ptree.body[1:]
+        new_module = ast.Module(body=new_body)
+        # print('NEW BODY\n%s' % ast.dump(new_module))
+        print('AS CODE\n%s' % meta.asttools.dump_python_source(new_module))
 
 def main():
     """
     test driver (for very simple tests)
     """
 
-    test_rewriter()
-    test_1()
-    test_2()
-    test_3()
-    test_4()
+    tester = TestInliner()
+    tester.test_rewriter()
+    tester.test_1()
+    tester.test_2()
+    tester.test_3()
+    tester.test_4()
 
-    test_module()
+    tester.test_module()
 
-    test_inliner()
+    tester.test_inliner()
 
 main()
