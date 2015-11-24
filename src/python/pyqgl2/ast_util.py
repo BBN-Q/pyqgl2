@@ -41,8 +41,20 @@ class NodeError(object):
 
     MAX_ERR_LEVEL = NODE_ERROR_NONE
 
+    LAST_DIAG_MSG = ''
+    LAST_WARNING_MSG = ''
+    LAST_ERROR_MSG = ''
+    LAST_FATAL_MSG = ''
+
     def __init__(self):
         NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+
+    @staticmethod
+    def reset():
+        LAST_DIAG_MSG = ''
+        LAST_WARNING_MSG = ''
+        LAST_ERROR_MSG = ''
+        LAST_FATAL_MSG = ''
 
     @staticmethod
     def diag_msg(node, msg=None):
@@ -50,7 +62,8 @@ class NodeError(object):
         Print a diagnostic message associated with the given node
         """
 
-        diag_msg(node, msg)
+        LAST_DIAG_MSG = msg
+        NodeError._make_msg(node, NodeError.NODE_ERROR_NONE, msg)
 
     @staticmethod
     def warning_msg(node, msg=None):
@@ -58,7 +71,8 @@ class NodeError(object):
         Print a warning message associated with the given node
         """
 
-        warning_msg(node, msg)
+        LAST_WARNING_MSG = msg
+        NodeError._make_msg(node, NodeError.NODE_ERROR_WARNING, msg)
 
     @staticmethod
     def error_msg(node, msg=None):
@@ -66,7 +80,8 @@ class NodeError(object):
         Print an error message associated with the given node
         """
 
-        error_msg(node, msg)
+        LAST_ERROR_MSG = msg
+        NodeError._make_msg(node, NodeError.NODE_ERROR_ERROR, msg)
 
     @staticmethod
     def fatal_msg(node, msg=None):
@@ -74,70 +89,72 @@ class NodeError(object):
         Print an fatal error message associated with the given node
         """
 
-        fatal_msg(node, msg)
+        LAST_FATAL_MSG = msg
+        NodeError.fatal_msg(node, msg)
 
-# See NodeError above for more description
+    @staticmethod
+    def _make_msg(node, level, msg=None):
+        """
+        Helper function that does all the real work of formatting
+        the messages, updating the max error level observed, and
+        exiting when a fatal error is encountered
+
+        Does basic sanity checking on its inputs to make sure that
+        the function is called correctly
+        """
+
+        # Detect improper usage, and bomb out
+        assert isinstance(node, ast.AST)
+        assert level in NodeError.NODE_ERROR_LEGAL_LEVELS
+
+        if not msg:
+            msg = '?'
+
+        if level > NodeError.MAX_ERR_LEVEL:
+            NodeError.MAX_ERR_LEVEL = level
+
+        if level in NodeError.NODE_ERROR_LEGAL_LEVELS:
+            level_str = NodeError.NODE_ERROR_LEGAL_LEVELS[level]
+        else:
+            level_str = 'weird'
+
+        print('%s:%d:%d: %s: %s' %
+                (node.qgl_fname, node.lineno,
+                    node.col_offset, level_str, msg))
+
+        # If we've encountered a fatal error, then there's no
+        # point in continuing: exit immediately.
+        if NodeError.MAX_ERR_LEVEL == NodeError.NODE_ERROR_FATAL:
+            sys.exit(1)
+
+
+# See NodeError above for more description.  These methods
+# are deprecated in favor of the NodeError interface, but
+# remain for backward compatibility.
 
 def diag_msg(node, msg=None):
     """
     Print a diagnostic message associated with the given node
     """
-
-    _make_msg(node, NodeError.NODE_ERROR_NONE, msg)
+    NodeError.diag_msg(node, msg)
 
 def warning_msg(node, msg=None):
     """
     Print a warning message associated with the given node
     """
-
-    _make_msg(node, NodeError.NODE_ERROR_WARNING, msg)
+    NodeError.warning_msg(node, msg)
 
 def error_msg(node, msg=None):
     """
     Print an error message associated with the given node
     """
-
-    _make_msg(node, NodeError.NODE_ERROR_ERROR, msg)
+    NodeError.error_msg(node, msg)
 
 def fatal_msg(node, msg=None):
     """
     Print an fatal error message associated with the given node
     """
-
-    _make_msg(node, NodeError.NODE_ERROR_FATAL, msg)
-
-def _make_msg(node, level, msg=None):
-    """
-    Helper function that does all the real work of formatting
-    the messages, updating the max error level observed, and
-    exiting when a fatal error is encountered
-
-    Does basic sanity checking on its inputs to make sure that
-    the function is called correctly
-    """
-
-    # Detect improper usage, and bomb out
-    assert isinstance(node, ast.AST)
-    assert level in NodeError.NODE_ERROR_LEGAL_LEVELS
-
-    if not msg:
-        msg = '?'
-
-    if level > NodeError.MAX_ERR_LEVEL:
-        NodeError.MAX_ERR_LEVEL = level
-
-    if level in NodeError.NODE_ERROR_LEGAL_LEVELS:
-        level_str = NodeError.NODE_ERROR_LEGAL_LEVELS[level]
-    else:
-        level_str = 'weird'
-
-    print('%s:%d:%d: %s: %s' % (
-        node.qgl_fname, node.lineno, node.col_offset, level_str, msg))
-
-    # If we've encountered a fatal error, then there's no
-    # point in continuing: exit immediately.
-    if NodeError.MAX_ERR_LEVEL == NodeError.NODE_ERROR_FATAL:
-        sys.exit(1)
+    NodeError.fatal_msg(node, msg)
 
 
 class NodeTransformerWithFname(ast.NodeTransformer, NodeError):
