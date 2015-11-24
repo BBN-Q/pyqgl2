@@ -55,10 +55,10 @@ class NameRewriter(ast.NodeTransformer):
 
         # A little sanity checking
         #
-        assert isinstance(old_name, str), (
-                'old_name [%s] must be a string' % str(old_name))
-        assert isinstance(new_name, str), (
-                'new_name [%s] must be a string' % str(new_name))
+        assert isinstance(old_name, str), \
+                ('old_name [%s] must be a string' % str(old_name))
+        assert isinstance(new_name, str), \
+                ('new_name [%s] must be a string' % str(new_name))
 
         self.name2name[old_name] = new_name
 
@@ -102,8 +102,6 @@ def create_inline_procedure(func_ptree, call_ptree):
     attempt is made to transform recursive procedures
     into non-recursive procedures, or even detect
     non-recursive procedures.
-
-    NOTE: does not handle keyword parameters yet.
 
     The basic mechanism is:
 
@@ -169,9 +167,22 @@ def create_inline_procedure(func_ptree, call_ptree):
     seen_param_names = dict()
 
     if len(actual_params) > len(formal_params):
+        # Not exactly the same as the Python3 error message,
+        # but close enough
+        #
         NodeError.error_msg(call_ptree,
-                'error: more actual parameters than formal parameters')
+                ('%s() takes %d positional arguments but %d were given' %
+                    (func_ptree.name, len(formal_params), len(actual_params))))
         return None
+
+    # Make a list of all the formal parameter names,
+    # to make sure that no bogus parameters are inserted
+    # into the call.  (they won't have any effect, but
+    # they're almost certainly a symptom that something
+    # is wrong)
+    #
+    all_fp_names = [param.arg for param in formal_params]
+    print('ALL_FP_NAMES: %s' % str(all_fp_names))
 
     # examine the call, and build the code to assign
     # the actuals to the formals.
@@ -221,6 +232,16 @@ def create_inline_procedure(func_ptree, call_ptree):
     for keyword_param in keyword_actual_params:
         orig_name = keyword_param.arg
 
+        # If a named parameter has a name that doesn't match
+        # any of the formal parameters, consider it an error
+        #
+        if orig_name not in all_fp_names:
+            NodeError.error_msg(call_ptree,
+                    ('%s() got an unexpected keyword argument \'%s\'' %
+                        (func_ptree.name, orig_name)))
+            failed = True
+            continue
+
         # TODO: we don't check whether the keyword parameter
         # matches a formal parameter
 
@@ -229,7 +250,8 @@ def create_inline_procedure(func_ptree, call_ptree):
         #
         if orig_name in seen_param_names:
             NodeError.error_msg(call_ptree,
-                    'more than one value for parameter [%s]' % orig_name)
+                    ('%s() got multiple values for argument \'%s\'' %
+                        (func_ptree.name, orig_name)))
             failed = True
             continue
 
@@ -284,8 +306,12 @@ def create_inline_procedure(func_ptree, call_ptree):
         orig_name = formal_param.arg
 
         if orig_name not in seen_param_names:
+            # Not precisely like the standard Python3 error msg
+            # but reasonably close
+            #
             NodeError.error_msg(call_ptree,
-                    'value for parameter [%s] never specified' % orig_name)
+                    ('%s() missing required positional argument: \'%s\'' %
+                        (func_ptree.name, orig_name)))
             failed = True
 
     if failed:
@@ -383,15 +409,23 @@ def is_qgl_procedure(node):
 
     return True
 
-def inliner(namespace, name):
+def inliner(base_call):
     """
     Recursively expand a function by inlining all the
-    procedure calls it can discover within the function
+    procedure calls it can discover within the given
+    call.
 
     In order to be inlined, a method must be declared
     to be a QGL function, and it must not be a class
-    or instance method (it may be static)
+    or instance method (it may be static).
     """
+
+    # find the function being called; try to inline it.
+    # then for each call in the body of the function
+    # (whether or not the body was inlined), try to inline
+    # that call.  Continue until every possible inline
+    # has been exhausted (or the stack blows up) and then
+    # stich all the results together.
 
     pass
 
@@ -422,11 +456,12 @@ def test_2():
 def foo(a=1, b=2, c=3):
     dummy(a + b + c)
 foo()
-foo(10)
-foo(10, 20)
-foo(10, 20, 30)
-foo(c='c', b='b', a='a')
-foo(c='c', a='a')
+foo(x(12))
+foo(d=12)
+# foo(10, 20)
+# foo(10, 20, 30)
+# foo(c='c', b='b', a='a')
+# foo(c='c', a='a')
 """
 
     importer = NameSpaces('<test>', text=code)
