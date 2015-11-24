@@ -409,7 +409,7 @@ def is_qgl_procedure(node):
 
     return True
 
-def inliner(base_call):
+def inliner(base_call, importer):
     """
     Recursively expand a function by inlining all the
     procedure calls it can discover within the given
@@ -418,6 +418,11 @@ def inliner(base_call):
     In order to be inlined, a method must be declared
     to be a QGL function, and it must not be a class
     or instance method (it may be static).
+
+    base_call is the AST for the call to the function.
+    This AST is assumed to be annotated with the QGL2
+    extensions (via the importer) so that the name of
+    the source file, and the namespace, etc, are available.
     """
 
     # find the function being called; try to inline it.
@@ -427,7 +432,37 @@ def inliner(base_call):
     # has been exhausted (or the stack blows up) and then
     # stich all the results together.
 
-    pass
+    if not isinstance(base_call, ast.Call):
+        NodeError.error_msg(base_call, 'not a call')
+        return None
+
+    func_filename = base_call.qgl_fname
+    func_name = base_call.func.id
+
+    func_ptree = importer.resolve_sym(func_filename, func_name)
+    if not func_ptree:
+        # This isn't necessarily an error.  It could be an
+        # innocent library function that we don't have a
+        # definition for, and therefore can't inline it.
+        #
+        NodeError.diag_msg(base_call,
+                'definition for %s() not found' % func_name)
+        return None
+
+    if not is_qgl_procedure(func_ptree):
+        NodeError.diag_msg(base_call,
+                '%s() is not a QGL2 procedure' % func_name)
+        return None
+
+    inlined = create_inline_procedure(func_ptree, base_call)
+    if not inlined:
+        NodeError.diag_msg(base_call, 'inlining of %s() failed' % func_name)
+
+    # TODO: make it easier to stitch the results into the
+    # original code
+
+    return inlined
+
 
 def test_1():
     code = """
@@ -584,6 +619,20 @@ foo(x, y)
     # print('NEW BODY\n%s' % ast.dump(new_module))
     print('AS CODE\n%s' % meta.asttools.dump_python_source(new_module))
 
+def test_inliner():
+    code = """
+@qgl2decl
+def foo(a, b):
+    dummy(a + b, a - b)
+foo(12, 13)
+"""
+
+    importer = NameSpaces('<test>', text=code)
+    ptree = importer.path2ast['<test>']
+
+    call_ptree = ptree.body[1].value
+
+    inliner(call_ptree, importer)
 
 def main():
     """
@@ -597,5 +646,7 @@ def main():
     test_4()
 
     test_module()
+
+    test_inliner()
 
 main()
