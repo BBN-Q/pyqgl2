@@ -11,11 +11,10 @@ during prototyping/debugging.  The real driver is in scripts/qgl2prep
 (although it may be renamed).
 """
 
-import logging
 import os
 import sys
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 # Add the necessary module paths: find the directory that this
 # executable lives in, and then add paths from there to the
@@ -30,29 +29,22 @@ sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
 
 from pyqgl2.importer import NameSpaces
 
+
 def parse_args(argv):
     """
     Parse the parameters from the argv
     """
 
-    parser = OptionParser()
+    parser = ArgumentParser(description='Prototype QGL2 driver')
 
-    parser.add_option('-l', '--log-level',
-            dest='log_level',
-            default=logging.WARNING, type=int,
-            help='Run with the given logging level [default=%default]')
-
-    parser.add_option('-m', '--main-name',
-            dest='main_name',
-            default='', type=str,
+    parser.add_argument(
+            '-m', dest='main_name', default='', type=str, nargs=1,
             metavar='FUNCNAME',
             help='Specify a different QGL main function than the default')
 
-    parser.add_option('-v', '--verbose',
-            dest='verbose',
-            default=False, action="store_true",
+    parser.add_argument(
+            '-v', dest='verbose', default=False, action='store_true',
             help='Run in verbose mode')
-
 
     (options, fnames) = parser.parse_args(argv)
 
@@ -62,38 +54,9 @@ def parse_args(argv):
 
     return options, fnames[1]
 
-def stdout_logger(logprefix, level):
-    """
-    Set up a logger.
-
-    This is just boilerplate right now, because this app generally
-    sends status and error to stdout, not a log
-    """
-
-    logger = logging.getLogger(logprefix)
-    logger.setLevel(level)
-
-    formatter = logging.Formatter(
-            '%(asctime)s %(name)s %(module)s:%(lineno)d %(funcName)s ' +
-            '%(levelname)s: %(message)s')
-
-    handler = logging.StreamHandler(stream=sys.stdout)
-
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-
-    return logger
 
 def main():
     (opts, input_fname) = parse_args(sys.argv)
-
-    # do something with the opts
-
-    # We're NOT using the logger right now, so don't even bother
-    # to create it, because it will litter this directory with
-    # empty log files.
-    #
-    # logger = stdout_logger('qgl2prep', opts.log_level)
 
     # Process imports in the input file, and find the main.
     # If there's no main, then bail out right away.
