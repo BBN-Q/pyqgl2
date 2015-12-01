@@ -287,17 +287,24 @@ class FindWaveforms(ast.NodeTransformer):
         super(FindWaveforms, self).__init__(*args, **kwargs)
 
         self.seq = list()
+        self.namespace = None # must be set later
+
+    def set_namespace(self, namespace):
+        self.namespace = namespace
 
     def visit_Call(self, node):
 
         # This is just a sketch
 
-        if node.func.id == 'MEAS':
-            self.seq.append('MEAS ' + ast.dump(node))
-        elif node.func.id == 'X90':
-            self.seq.append('X90 ' + ast.dump(node))
-        elif node.func.id == 'Y90':
-            self.seq.append('Y90 ' + ast.dump(node))
+        # find the name of the function being called,
+        # and then resolve it in the context of the local
+        # namespace, and see if it returns a pulse
+        #
+        localname = node.func.id
+        localfilename = node.qgl_fname
+
+        if self.namespace.returns_pulse(localfilename, localname):
+            print('GOT PULSE [%s:%s]' % (localfilename, localname))
 
         return node
 
