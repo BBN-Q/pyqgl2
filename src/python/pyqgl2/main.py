@@ -38,30 +38,28 @@ def parse_args(argv):
     parser = ArgumentParser(description='Prototype QGL2 driver')
 
     parser.add_argument(
-            '-m', dest='main_name', default='', type=str, nargs=1,
-            metavar='FUNCNAME',
+            '-m', dest='main_name', default='', type=str, metavar='FUNCNAME',
             help='Specify a different QGL main function than the default')
 
     parser.add_argument(
             '-v', dest='verbose', default=False, action='store_true',
             help='Run in verbose mode')
 
-    (options, fnames) = parser.parse_args(argv)
+    parser.add_argument('filename', type=str, metavar='FILENAME',
+            help='input filename')
 
-    if len(fnames) != 2:
-        print('Error: a single input file is required')
-        sys.exit(1)
+    options = parser.parse_args(argv)
 
-    return options, fnames[1]
+    return options
 
 
 def main():
-    (opts, input_fname) = parse_args(sys.argv)
+    opts = parse_args(sys.argv[1:])
 
     # Process imports in the input file, and find the main.
     # If there's no main, then bail out right away.
 
-    importer = NameSpaces(input_fname, opts.main_name)
+    importer = NameSpaces(opts.filename, opts.main_name)
     if not importer.qglmain:
         print('error: no function declared as qglmain')
         sys.exit(1)
