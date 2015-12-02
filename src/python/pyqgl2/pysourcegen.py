@@ -695,7 +695,7 @@ class SourceGen(ExprSourceGen):
                     self.visit(expr)
             else:
                 self.print('pass\n')
-    # End BBN changes to deal with Python3
+    # End BBN changes
 
     def visitGlobal(self, node):
         self.print('global ')
@@ -753,6 +753,16 @@ class SourceGen(ExprSourceGen):
     def visitReturn(self, node):
         if node.value is not None:
             self.print('return {:node}\n', node.value)
+
+    # Begin BBN changes to deal with Python3 "try" statements.
+    #
+    # The normal way of converting node type names to methods
+    # doesn't work for the Python3 AST; we need to redirect
+    # calls to "visitTry" to "visitTryExcept"
+    #
+    def visitTry(self, node):
+        self.visitTryExcept(node)
+    # End BBN changes
 
     def visitTryExcept(self, node):
         self.print('try:')
