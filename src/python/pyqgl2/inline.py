@@ -7,6 +7,7 @@ from copy import deepcopy
 
 from pyqgl2.ast_util import NodeError
 from pyqgl2.importer import NameSpaces
+import pyqgl2.ast_util
 
 class InlineReturn(BaseException):
     pass
@@ -408,7 +409,90 @@ def is_qgl_procedure(node):
 
     return True
 
-def inliner(base_call, importer):
+class Inliner(ast.NodeTransformer):
+
+    def __init__(self, importer):
+        super(Inliner, self).__init__()
+
+        self.importer = importer
+        self.change_count = 0
+
+    def reset_change_count(self):
+        self.change_count = 0
+
+    def inline_body(self, body):
+        """
+        inline a list of expressions or other statements
+        (e.g. the body of a "for" loop) and return a
+        corresponding list of expressions (which might be
+        the same list, if there were no changes)
+
+        Increments self.change_count if the new body is
+        different than the original body.  The exact
+        value of self.change_count should not be
+        interpreted as the number of "changes" made
+        (because this concept is not defined) but
+        increases when changes are made.  If a ptree
+        is visited and the change_count is not changed,
+        then no changes were made.
+        """
+
+        new_body = list()
+
+        for stmnt_ind in range(len(body)):
+            stmnt = body[stmnt_ind]
+
+            if not isinstance(stmnt, ast.Expr):
+                new_body.append(stmnt)
+                continue
+            
+            if not isinstance(stmnt.value, ast.Call):
+                new_body.append(stmnt)
+                continue
+
+            call_ptree = stmnt.value
+
+            inlined = inline_call(call_ptree, self.importer)
+            if inlined is call_ptree:
+                new_body.append(stmnt)
+                continue
+
+            self.change_count += 1
+
+            NodeError.diag_msg(call_ptree,
+                    'inlined call to %s()' % call_ptree.func.id)
+            for expr in inlined:
+                new_body.append(expr)
+
+        return new_body
+
+    def visit_For(self, node):
+        node.body = self.inline_body(node.body)
+        node.orelse = self.inline_body(node.orelse)
+        return node
+
+    def visit_While(self, node):
+        node.body = self.inline_body(node.body)
+        node.orelse = self.inline_body(node.orelse)
+        return node
+
+    def visit_If(self, node):
+        node.body = self.inline_body(node.body)
+        node.orelse = self.inline_body(node.orelse)
+        return node
+
+    def visit_With(self, node):
+        new_body = self.inline_body(node.body)
+        return node
+
+    def visit_Try(self, node):
+        new_body = self.inline_body(node.body)
+        new_orelse = self.inline_body(node.orelse)
+        new_finalbody = self.inline_body(node.finalbody)
+        return node
+
+
+def inline_call(base_call, importer):
     """
     Recursively expand a function by inlining all the
     procedure calls it can discover within the given
@@ -429,11 +513,11 @@ def inliner(base_call, importer):
     # (whether or not the body was inlined), try to inline
     # that call.  Continue until every possible inline
     # has been exhausted (or the stack blows up) and then
-    # stich all the results together.
+    # stitch all the results together.
 
     if not isinstance(base_call, ast.Call):
         NodeError.error_msg(base_call, 'not a call')
-        return None
+        return base_call
 
     func_filename = base_call.qgl_fname
     func_name = base_call.func.id
@@ -446,16 +530,17 @@ def inliner(base_call, importer):
         #
         NodeError.diag_msg(base_call,
                 'definition for %s() not found' % func_name)
-        return None
+        return base_call
 
     if not is_qgl_procedure(func_ptree):
         NodeError.diag_msg(base_call,
                 '%s() is not a QGL2 procedure' % func_name)
-        return None
+        return base_call
 
     inlined = create_inline_procedure(func_ptree, base_call)
     if not inlined:
         NodeError.diag_msg(base_call, 'inlining of %s() failed' % func_name)
+        return base_call
 
     # TODO: make it easier to stitch the results into the
     # original code
@@ -641,12 +726,39 @@ foo(x, y)
         # print('NEW BODY\n%s' % ast.dump(new_module))
         print('AS CODE\n%s' % meta.asttools.dump_python_source(new_module))
 
+    CODE_FORLOOP = """
+@qgl2decl
+def foobar(x, y, z):
+    print('%d' % (x + y + z))
+
+while foo:
+    foobar(x=1, y=2, z=3)
+    foobar(10, 11, 12)
+"""
+
+    def test_forloop(self):
+        code = self.CODE_FORLOOP
+        importer, ptree = self.init_code(code)
+
+        print('AST %s' % ast.dump(ptree))
+        print('INPUT CODE\n%s' % pyqgl2.ast_util.ast2str(ptree))
+
+        inline_worker = Inliner(importer)
+        inline_worker.generic_visit(ptree)
+
+        print('RESULT CODE\n%s' % pyqgl2.ast_util.ast2str(ptree))
+
+
 def main():
     """
     test driver (for very simple tests)
     """
 
     tester = TestInliner()
+
+    tester.test_forloop()
+    exit(0)
+
     tester.test_rewriter()
     tester.test_1()
     tester.test_2()
