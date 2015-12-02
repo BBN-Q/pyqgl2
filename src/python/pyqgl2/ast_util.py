@@ -7,9 +7,12 @@ transform, or create a Python parse tree
 """
 
 import ast
+import meta
 import sys
 
 from copy import deepcopy
+
+from pyqgl2.pysourcegen import python_source, dump_python_source
 
 class NodeError(object):
     """
@@ -185,3 +188,10 @@ def copy_node(node):
 
     return deepcopy(node)
 
+def ast2str(ptree):
+    """
+    Given an AST parse tree, return the equivalent code
+    (as a string)
+    """
+
+    return dump_python_source(ptree)
