@@ -443,18 +443,21 @@ class Inliner(ast.NodeTransformer):
             stmnt = body[stmnt_ind]
 
             if not isinstance(stmnt, ast.Expr):
-                new_body.append(stmnt)
+                new_stmnt = self.visit(stmnt)
+                new_body.append(new_stmnt)
                 continue
             
             if not isinstance(stmnt.value, ast.Call):
-                new_body.append(stmnt)
+                new_stmnt = self.visit(stmnt)
+                new_body.append(new_stmnt)
                 continue
 
             call_ptree = stmnt.value
 
             inlined = inline_call(call_ptree, self.importer)
             if inlined is call_ptree:
-                new_body.append(stmnt)
+                new_stmnt = self.visit(stmnt)
+                new_body.append(new_stmnt)
                 continue
 
             self.change_count += 1
@@ -734,6 +737,9 @@ def foobar(x, y, z):
 while foo:
     foobar(x=1, y=2, z=3)
     foobar(10, 11, 12)
+
+    if x:
+        foobar(4, 5, 6)
 """
 
     def test_forloop(self):
