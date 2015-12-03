@@ -73,7 +73,7 @@ class NameRewriter(ast.NodeTransformer):
         #
         assert isinstance(old_name, str), \
                 ('old_name [%s] must be a string' % str(old_name))
-        assert isinstance(new_name, ast.Node), \
+        assert isinstance(value_ptree, ast.AST), \
                 ('value_ptree [%s] must be an AST node ' %
                         str(type(value_ptree)))
 
@@ -89,6 +89,9 @@ class NameRewriter(ast.NodeTransformer):
                 ('new_name [%s] must be a string' % str(new_name))
 
         self.name2name[old_name] = new_name
+
+    def get_mapping(self, name):
+        return self.name2name[name]
 
     def rewrite(self, ptree, mapping=None, constants=None):
         """
@@ -342,6 +345,33 @@ def create_inline_procedure(func_ptree, call_ptree):
     if failed:
         return None
 
+    # Now rescan the list of locals, looking for any we might
+    # be able to reduce to constants.
+    #
+    constants = list()
+    new_setup_locals = list()
+
+    for name in seen_param_names:
+        actual = seen_param_names[name]
+
+        # TODO: only considering the most basic cases right now.
+        # There are many other cases we could potentially handle.
+        #
+        if isinstance(actual, ast.Num) or isinstance(actual, ast.Str):
+            if is_static_ref(func_ptree, name):
+                rewriter.add_constant(name, actual)
+            else:
+                new_name = rewriter.get_mapping(name)
+                new_setup_locals.append(ast.Assign(
+                        targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
+                        value=actual))
+
+        print('ARG %s = %s' %
+                (name, pyqgl2.ast_util.ast2str(actual)))
+        print('ARG %s = %s' % (name, ast.dump(actual)))
+
+    setup_locals = new_setup_locals
+
     # We need to annotate the code for setting up each local
     # with a reasonable line number and file name (even though
     # it's all fictitious) so that any error messages generated
@@ -366,6 +396,70 @@ def create_inline_procedure(func_ptree, call_ptree):
     inlined = setup_locals + new_func_body
 
     return inlined
+
+def name_in_ptree(name, ptree):
+    """
+    Return True if an ast.Name node with the given name as its id
+    appears anywhere in the ptree, False otherwise
+    """
+
+    for node in ast.walk(ptree):
+        if isinstance(node, ast.Name) and (node.id == name):
+            return True
+
+    return False
+
+def is_static_ref(ptree, name):
+    """
+    Scan the given ptree to see whether the given name can be replaced
+    with a static reference (to a value, or to a more complex expression)
+
+    Names can be replaced if they are not reassigned.
+    (there are other cases, but we're doing the simple case first)
+
+    A return of False doesn't necessarily imply that we need to hang
+    on to the variable, but it means that we've been unable to prove
+    that we can discard it, so we should keep it.
+    """
+
+    # Wander through the tree, looking for any place where the
+    # symbol is used as the target of an assignment.  This is more
+    # complicated than it sounds, because there are many places
+    # where implicit assignments can be hidden (and I'm probably
+    # missing some), such as loop variables.  Most of these should
+    # be flagged as warnings (for example, using a loop variable
+    # that overshadows a formal parameter is virtually always a
+    # programming error) but we don't attempt to judge here.
+    #
+    for node in ast.walk(ptree):
+        if isinstance(node, ast.Assign):
+            if name_in_ptree(name, node.targets[0]):
+                return False
+
+        elif isinstance(node, ast.For):
+            if name_in_ptree(name, node.target):
+                # TODO: let's print a warning.
+                return False
+
+        elif isinstance(node, ast.With):
+            for item in node.items:
+                if name_in_ptree(name, item.optional_vars):
+                    # TODO: let's print a warning.
+                    return False
+
+        elif isinstance(node, ast.Try):
+            # check all the handlers; the way these
+            # are represented isn't like the other constructs
+            # so we can't just look for ast.Names
+            #
+            for handler in node.handlers:
+                if handler.name == name:
+                    # TODO: let's print a warning.
+                    return False
+
+    # If the name survived all of those checks, then return True.
+    #
+    return True
 
 def create_inline_function(ptree, actual_params=None):
     """
@@ -756,16 +850,19 @@ foo(x, y)
 
     CODE_FORLOOP = """
 @qgl2decl
-def foobar(x, y, z):
+def foobar(x, y=88, z=89):
+    x, foo = 2 * x, 23
+    # x = 2 * x
     print('%d' % (x + y + z))
 
 while foo:
     foobar(x=1, y=2, z=3)
     foobar(10, 11, 12)
 
-    if x:
-        with 1:
-            foobar(4, 5, 6)
+    try:
+        foobar('4')
+    except BaseException as xx:
+        pass
 """
 
     def test_forloop(self):
