@@ -434,17 +434,25 @@ def is_static_ref(ptree, name):
     for node in ast.walk(ptree):
         if isinstance(node, ast.Assign):
             if name_in_ptree(name, node.targets[0]):
+                # This isn't an error, but it's something we'd
+                # like to deprecate, because it hinders optimization
+                NodeError.warning_msg(node,
+                        ('parameter [%s] overwritten by assignment ' % name))
                 return False
 
         elif isinstance(node, ast.For):
             if name_in_ptree(name, node.target):
-                # TODO: let's print a warning.
+                NodeError.warning_msg(node,
+                        ('parameter [%s] overshadowed by loop variable' %
+                            name))
                 return False
 
         elif isinstance(node, ast.With):
             for item in node.items:
                 if name_in_ptree(name, item.optional_vars):
-                    # TODO: let's print a warning.
+                    NodeError.warning_msg(item,
+                            ('parameter [%s] overshadowed by "as" variable' %
+                                name))
                     return False
 
         elif isinstance(node, ast.Try):
@@ -454,7 +462,9 @@ def is_static_ref(ptree, name):
             #
             for handler in node.handlers:
                 if handler.name == name:
-                    # TODO: let's print a warning.
+                    NodeError.warning_msg(handler,
+                            ('parameter [%s] overshadowed by "as" variable' %
+                                name))
                     return False
 
     # If the name survived all of those checks, then return True.
@@ -851,18 +861,20 @@ foo(x, y)
     CODE_FORLOOP = """
 @qgl2decl
 def foobar(x, y=88, z=89):
-    x, foo = 2 * x, 23
-    # x = 2 * x
-    print('%d' % (x + y + z))
+    for x in [1, 2, 3]:
+        print('%d' % (x + y + z))
 
-while foo:
-    foobar(x=1, y=2, z=3)
-    foobar(10, 11, 12)
+if foo:
+    with abc as x:
+        foobar(x=1, y=2, z=3)
 
     try:
         foobar('4')
-    except BaseException as xx:
+    except BaseException as x:
         pass
+else:
+    foobar(2, 3, 4)
+
 """
 
     def test_forloop(self):
