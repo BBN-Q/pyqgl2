@@ -51,6 +51,33 @@ class NameRewriter(ast.NodeTransformer):
 
     def __init__(self):
         self.name2name = dict()
+        self.name2const = dict()
+
+    def visit_Name(self, node):
+        """
+        If we can absorb this name into a constant, do so.
+        Otherwise, see if the name has been remapped to a local temp,
+        and use that name.
+        """
+
+        if node.id in self.name2const:
+            node = self.name2const[node.id]
+        elif node.id in self.name2name:
+            node.id = self.name2name[node.id]
+
+        return node
+
+    def add_constant(self, old_name, value_ptree):
+
+        # A little sanity checking
+        #
+        assert isinstance(old_name, str), \
+                ('old_name [%s] must be a string' % str(old_name))
+        assert isinstance(new_name, ast.Node), \
+                ('value_ptree [%s] must be an AST node ' %
+                        str(type(value_ptree)))
+
+        self.name2const[old_name] = value_ptree
 
     def add_mapping(self, old_name, new_name):
 
@@ -63,13 +90,7 @@ class NameRewriter(ast.NodeTransformer):
 
         self.name2name[old_name] = new_name
 
-    def visit_Name(self, node):
-        if node.id in self.name2name:
-            node.id = self.name2name[node.id]
-
-        return node
-
-    def rewrite(self, ptree, mapping=None):
+    def rewrite(self, ptree, mapping=None, constants=None):
         """
         Write all the Name nodes in the given AST parse tree
         according to the current name2name mapping, and return
@@ -82,9 +103,13 @@ class NameRewriter(ast.NodeTransformer):
             for name in mapping.keys():
                 self.add_mapping(name, mapping[name])
 
+            for name in constants.keys():
+                self.add_constant(name, constants[name])
+
         new_ptree = self.visit(ptree)
 
         return new_ptree
+
 
 def create_inline_procedure(func_ptree, call_ptree):
     """
@@ -485,13 +510,13 @@ class Inliner(ast.NodeTransformer):
         return node
 
     def visit_With(self, node):
-        new_body = self.inline_body(node.body)
+        node.body = self.inline_body(node.body)
         return node
 
     def visit_Try(self, node):
-        new_body = self.inline_body(node.body)
-        new_orelse = self.inline_body(node.orelse)
-        new_finalbody = self.inline_body(node.finalbody)
+        node.body = self.inline_body(node.body)
+        node.orelse = self.inline_body(node.orelse)
+        node.finalbody = self.inline_body(node.finalbody)
         return node
 
 
@@ -739,7 +764,8 @@ while foo:
     foobar(10, 11, 12)
 
     if x:
-        foobar(4, 5, 6)
+        with 1:
+            foobar(4, 5, 6)
 """
 
     def test_forloop(self):
