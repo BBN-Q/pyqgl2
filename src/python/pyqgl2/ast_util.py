@@ -49,6 +49,8 @@ class NodeError(object):
     LAST_ERROR_MSG = ''
     LAST_FATAL_MSG = ''
 
+    ALL_PRINTED = set()
+
     def __init__(self):
         NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_NONE
 
@@ -121,9 +123,17 @@ class NodeError(object):
         else:
             level_str = 'weird'
 
-        print('%s:%d:%d: %s: %s' %
+        text = ('%s:%d:%d: %s: %s' %
                 (node.qgl_fname, node.lineno,
                     node.col_offset, level_str, msg))
+
+        # Keep track of what we've printed, so we don't
+        # print it over and over again (for repeated
+        # substitions, inlining, or loop unrolling)
+        #
+        if text not in NodeError.ALL_PRINTED:
+            print('%s' % text)
+            NodeError.ALL_PRINTED.add(text)
 
         # If we've encountered a fatal error, then there's no
         # point in continuing: exit immediately.
