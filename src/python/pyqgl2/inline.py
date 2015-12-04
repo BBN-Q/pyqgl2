@@ -367,11 +367,25 @@ def create_inline_procedure(func_ptree, call_ptree):
                         targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
                         value=actual))
 
-        print('ARG %s = %s' %
-                (name, pyqgl2.ast_util.ast2str(actual)))
-        print('ARG %s = %s' % (name, ast.dump(actual)))
+        # print('ARG %s = %s' %
+        #         (name, pyqgl2.ast_util.ast2str(actual)))
+        # print('ARG %s = %s' % (name, ast.dump(actual)))
 
     setup_locals = new_setup_locals
+
+    # Now rewrite any local variable names to avoid conflicting
+    # with other names in the in-lined scope
+    #
+    local_names = find_local_names(func_ptree)
+    new_local_names = set()
+    for name in local_names:
+        # if it's not a parameter, then we haven't
+        # already set up a new name for it, so do so here
+        #
+        if name not in seen_param_names:
+            new_local_names.add(name)
+            new_name = tmp_names.create_tmp_name(orig_name=name)
+            rewriter.add_mapping(name, new_name)
 
     # We need to annotate the code for setting up each local
     # with a reasonable line number and file name (even though
@@ -398,7 +412,23 @@ def create_inline_procedure(func_ptree, call_ptree):
 
     return inlined
 
-def name_in_ptree(name, ptree):
+def names_in_ptree(ptree):
+    """
+    Return a set of all of the Name strings in ptree
+
+    Useful for finding the names of symbols defined via
+    assignment in expressions, particulary tuples, which
+    may be nested arbitrarily deeply.
+    """
+
+    names = set()
+    for node in ast.walk(ptree):
+        if isinstance(node, ast.Name):
+            names.add(node.id)
+
+    return names
+
+def is_name_in_ptree(name, ptree):
     """
     Return True if an ast.Name node with the given name as its id
     appears anywhere in the ptree, False otherwise
@@ -434,7 +464,7 @@ def is_static_ref(ptree, name):
     #
     for node in ast.walk(ptree):
         if isinstance(node, ast.Assign):
-            if name_in_ptree(name, node.targets[0]):
+            if is_name_in_ptree(name, node.targets[0]):
                 # This isn't an error, but it's something we'd
                 # like to deprecate, because it hinders optimization
                 NodeError.warning_msg(node,
@@ -442,7 +472,7 @@ def is_static_ref(ptree, name):
                 return False
 
         elif isinstance(node, ast.For):
-            if name_in_ptree(name, node.target):
+            if is_name_in_ptree(name, node.target):
                 NodeError.warning_msg(node,
                         ('parameter [%s] overshadowed by loop variable' %
                             name))
@@ -450,7 +480,7 @@ def is_static_ref(ptree, name):
 
         elif isinstance(node, ast.With):
             for item in node.items:
-                if name_in_ptree(name, item.optional_vars):
+                if is_name_in_ptree(name, item.optional_vars):
                     NodeError.warning_msg(item,
                             ('parameter [%s] overshadowed by "as" variable' %
                                 name))
@@ -538,6 +568,62 @@ def is_qgl_procedure(node):
                 return False
 
     return True
+
+def find_local_names(ptree, preserve_set=None):
+    """
+    Find and return a set of all of the "local names"
+    in the given ptree.  These are the names of variables
+    that may be brought into existence within the context of this
+    ptree.
+
+    Unfortunately, the most we can say is that they *may* be
+    created this way.  They may have been created in a surrounding
+    context (i.e. a nested function definition, or a lambda, etc).
+    We get confused about these right now.
+
+    TODO: mark the tree as we go, so we can deal with nested
+    constructs, closures, etc.
+    """
+
+    local_names = set()
+
+    for node in ast.walk(ptree):
+        # look for "local" and "global" declarations
+        # and process them
+        pass
+
+    # We don't do any checking here for things like duplicate
+    # names (for loop variables, etc).
+    # We could check for multiple definitions, but we wouldn't
+    # know which one came "first" the way we do for overshadowed
+    # parameters.
+    #
+    # TODO: we could add some diagnostic for duplicate names
+    #
+    for node in ast.walk(ptree):
+        if isinstance(node, ast.Assign):
+            # find all variables, possibly buried in tuples
+            new_names = names_in_ptree(node.targets[0])
+        elif isinstance(node, ast.For):
+            # find all the loop variables
+            new_names = names_in_ptree(node.target)
+        elif isinstance(node, ast.With):
+            # find all of the "as" variables in node.items
+            new_names = set()
+            for item in node.items:
+                new_names.update(names_in_ptree(item.optional_vars))
+        elif isinstance(node, ast.Try):
+            # find all of the "as" variables in node.handlers
+            new_names = set()
+            for handler in node.handlers:
+                new_names.add(handler.name)
+        else:
+            continue
+
+        local_names.update(new_names)
+
+    return local_names
+
 
 class Inliner(ast.NodeTransformer):
 
@@ -862,7 +948,8 @@ foo(x, y)
     CODE_FORLOOP = """
 @qgl2decl
 def foobar(x, y=88, z=89):
-    for x in [1, 2, 3]:
+    for zz in [1, 2, 3]:
+        qqq = 3
         print('%d' % (x + y + z))
 
 if foo:
@@ -891,6 +978,7 @@ else:
         print('RESULT CODE\n%s' % pyqgl2.ast_util.ast2str(ptree))
 
 
+
 def main():
     """
     test driver (for very simple tests)
@@ -899,6 +987,7 @@ def main():
     tester = TestInliner()
 
     tester.test_forloop()
+    exit(0)
 
     tester.test_rewriter()
     tester.test_1()
