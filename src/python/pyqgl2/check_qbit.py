@@ -321,10 +321,12 @@ class FindConcurBlocks(ast.NodeTransformer):
 
     def visit_With(self, node):
         if (not isinstance(node.context_expr, ast.Name) or
-                (node.context_expr.id != 'concur')):
+                (node.context_expr.id != QGL2.QCONCUR)):
             return node
 
+
         if self.LEVEL > 0:
+            # need to fix this so we can squash multiple levels of concurs
             self.error_msg(node, 'nested concur blocks are not supported')
 
         self.LEVEL += 1
@@ -427,7 +429,7 @@ if __name__ == '__main__':
             sys.exit(1)
 
         wav_check = CheckWaveforms(fname, type_check.func_defs)
-        nptree3 = sym_check.visit(nptree2)
+        nptree3 = wav_check.visit(nptree2)
 
         if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
             print('bailing out 3')
