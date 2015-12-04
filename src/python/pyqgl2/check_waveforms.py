@@ -26,23 +26,60 @@ class CheckWaveforms(NodeTransformerWithFname):
         self.func_defs = func_defs
         self.waveforms = dict()
 
+    def check_arg(self, call_node, arg, argpos):
+        if type(arg) != ast.Name:
+            self.error_msg(call_node, '%s param to %s must be a symbol' %
+                    (argpos, call_node.func.id))
+            return False
+
+        if not self.is_qbit(call_node, arg.id):
+            self.error_msg(call_node, '%s param to %s must qbit or channel' %
+                    (argpos, call_node.func.id))
+            return False
+
+        return True
+
+    def is_qbit(self, context_node, name):
+        # print('params %s locals %s' %
+        #         (str(context_node.qgl_scope), str(context_node.qgl_local)))
+
+        qbit_name = '%s:qbit' % name
+        qchan_name = '%s:qchan' % name
+
+        # TODO: need to check for qchan references in the local context
+        #
+        # TODO: everything in the local context is a "qbit" of some kind
+        # but we should distinguish between qbits, channels, and classical
+        # types; all will be useful soon
+        #
+        if name in context_node.qgl_local:
+            return True
+        elif qbit_name in context_node.qgl_scope:
+            return True
+        elif qchan_name in context_node.qgl_scope:
+            return True
+        else:
+            return False
+
     def visit_Call(self, node):
 
         print('xxxxx xxxxxxxxxxx HERE')
         func_name = node.func.id
 
         if func_name in QGL2Functions.UNI_WAVEFORMS:
+            print('CASE 1')
             if len(node.args) < 1:
                 self.error_msg(node,
                         '%s requires a qbit parameter' % func_name)
                 return node
 
             first_arg = node.args[0]
-            self.check_arg(node, first_arg, 'first')
+            # self.check_arg(node, first_arg, 'first')
 
             self.gen_waveform(func_name, node.args, node.keywords)
 
         elif func_name in QGL2Functions.BI_OPS:
+            print('CASE 2')
             if len(node.args) < 2:
                 self.error_msg(node,
                         '%s requires two qbit parameters' % func_name)
@@ -55,7 +92,10 @@ class CheckWaveforms(NodeTransformerWithFname):
             self.check_arg(node, arg2, 'second')
 
         elif func_name in self.func_defs:
+            print('CASE 3 [%s]' % func_name)
             (fparams, func_def) = self.func_defs[func_name]
+
+            print('FPARAMS %s' % str(fparams))
 
             if len(fparams) != len(node.args):
                 self.diag_msg(node,
