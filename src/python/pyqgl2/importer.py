@@ -177,7 +177,7 @@ class NameSpaces(object):
     IGNORE_MODULE_PATH_PREFIX = os.path.relpath(
             '/opt/local/Library/Frameworks/Python.framework')
 
-    def __init__(self, path, qglmain_name=None):
+    def __init__(self, path, qglmain_name=None, text=None):
 
         # map from path to AST
         #
@@ -197,7 +197,10 @@ class NameSpaces(object):
         #
         self.qglmain = None
 
-        self.read_import(self.base_fname)
+        if text:
+            self.read_import_str(text, self.base_fname)
+        else:
+            self.read_import(self.base_fname)
 
         # TODO: if the user asks for a specific main, then go
         # back and use it.  Don't gripe if the user has already defined
@@ -442,8 +445,6 @@ class NameSpaces(object):
             elif qglfunc and other_decorator:
                 NodeError.warning_msg(node,
                         'unrecognized decorator with %s' % QGL2.QDECL)
-
-        # print('NNN result %s %s %s' % (node.name, qglfunc, qglmain))
 
         node.qgl_func = qglfunc
         node.qgl_main = qglmain
