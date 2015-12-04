@@ -135,8 +135,8 @@ def create_inline_procedure(func_ptree, call_ptree):
 
     The basic mechanism is:
 
-    1. Create names for local variables to correspond
-        to the formal parameters of the function
+    1. Create a list of new local variables, one for each
+        of the formal parameters of the function
 
         These local variables are drawn from a namespace
         that will not conflict with other variables in the
@@ -148,15 +148,30 @@ def create_inline_procedure(func_ptree, call_ptree):
         parameters
 
         Steps 1 and 2 are complicated by needing to handle
-        keyword arguments
+        keyword arguments.  Note: we DO NOT handle *args
+        and **kwargs right now.
+
+        Note: as a special case, "constant" actual parameters
+        may be substituted as-is for their formal parameters,
+        without using local variables.  These variables
+        are removed from the list of new local variables.
 
     3. Create a copy of the body of the original function
 
-    4. Rewrite all references to the formal parameters in the
-        copy of the body to be references to the local variables
-        that represent the formal parameters
+    4. Find all "local" variables created in the body of
+        the original function, not including the formal
+        parameters.  Create a new name for each of these
+        variables (based on each original name)
 
-    5. Append the list from #2 and the list from #4 and return it.
+        This is done to avoid conflicts with variables of
+        the same name in the new scope of the body.
+
+    5. Rewrite all references to the formal parameters and
+        local variables in the
+        copy of the body to be references to the local variables
+        with the new names.
+
+    6. Append the list from #2 and the list from #5 and return it.
     """
 
     failed = False
@@ -662,7 +677,7 @@ class Inliner(ast.NodeTransformer):
                 new_stmnt = self.visit(stmnt)
                 new_body.append(new_stmnt)
                 continue
-            
+
             if not isinstance(stmnt.value, ast.Call):
                 new_stmnt = self.visit(stmnt)
                 new_body.append(new_stmnt)
