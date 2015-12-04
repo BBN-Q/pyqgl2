@@ -106,6 +106,7 @@ class NameRewriter(ast.NodeTransformer):
             for name in mapping.keys():
                 self.add_mapping(name, mapping[name])
 
+        if constants:
             for name in constants.keys():
                 self.add_constant(name, constants[name])
 
@@ -834,7 +835,7 @@ foo(12, 13)
 
         call_ptree = ptree.body[1].value
 
-        inliner(call_ptree, importer)
+        inline_call(call_ptree, importer)
 
     CODE_MODULE = """
 @qgl2func
@@ -898,7 +899,6 @@ def main():
     tester = TestInliner()
 
     tester.test_forloop()
-    exit(0)
 
     tester.test_rewriter()
     tester.test_1()
