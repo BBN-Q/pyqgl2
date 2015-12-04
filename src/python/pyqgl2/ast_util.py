@@ -60,6 +60,7 @@ class NodeError(object):
         LAST_WARNING_MSG = ''
         LAST_ERROR_MSG = ''
         LAST_FATAL_MSG = ''
+        ALL_PRINTED = set()
 
     @staticmethod
     def diag_msg(node, msg=None):
