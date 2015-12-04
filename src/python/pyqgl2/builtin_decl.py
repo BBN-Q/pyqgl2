@@ -13,8 +13,12 @@ class QGL2Functions(object):
     # (I'm not sure whether these are even correct, or
     # meaningful, but they're good enough for test cases)
     #
-    UNI_WAVEFORMS = set(
-            ['MEAS', 'Y90', 'Y180', 'X90', 'X180', 'Z90', 'Z180', 'UTheta'])
+    UNI_WAVEFORMS = set([
+        'MEAS',
+        'X', 'X90', 'X180',
+        'Y', 'Y90', 'Y180',
+        'Z', 'Z90', 'Z180',
+        'UTheta'])
 
     # Like UNI_WAVEFORMS, BI_OPS is fictitious
     #
