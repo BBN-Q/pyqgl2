@@ -373,14 +373,15 @@ def create_inline_procedure(func_ptree, call_ptree):
         # TODO: only considering the most basic cases right now.
         # There are many other cases we could potentially handle.
         #
-        if isinstance(actual, ast.Num) or isinstance(actual, ast.Str):
-            if is_static_ref(func_ptree, name):
-                rewriter.add_constant(name, actual)
-            else:
-                new_name = rewriter.get_mapping(name)
-                new_setup_locals.append(ast.Assign(
-                        targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
-                        value=actual))
+        if ((isinstance(actual, ast.Num) or isinstance(actual, ast.Str) or
+                isinstance(actual, ast.Name)) and
+                is_static_ref(func_ptree, name)):
+            rewriter.add_constant(name, actual)
+        else:
+            new_name = rewriter.get_mapping(name)
+            new_setup_locals.append(ast.Assign(
+                    targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
+                    value=actual))
 
         # print('ARG %s = %s' %
         #         (name, pyqgl2.ast_util.ast2str(actual)))
@@ -437,6 +438,9 @@ def names_in_ptree(ptree):
     """
 
     names = set()
+    if not ptree:
+        return names
+
     for node in ast.walk(ptree):
         if isinstance(node, ast.Name):
             names.add(node.id)
@@ -448,6 +452,9 @@ def is_name_in_ptree(name, ptree):
     Return True if an ast.Name node with the given name as its id
     appears anywhere in the ptree, False otherwise
     """
+
+    if not ptree:
+        return False
 
     for node in ast.walk(ptree):
         if isinstance(node, ast.Name) and (node.id == name):
@@ -602,8 +609,11 @@ def find_local_names(ptree, preserve_set=None):
 
     local_names = set()
 
+    if not ptree:
+        return local_names
+
     for node in ast.walk(ptree):
-        # look for "local" and "global" declarations
+        # TODO: look for "local" and "global" declarations
         # and process them
         pass
 
@@ -700,6 +710,10 @@ class Inliner(ast.NodeTransformer):
 
         return new_body
 
+    def visit_FunctionDef(self, node):
+        node.body = self.inline_body(node.body)
+        return node
+
     def visit_For(self, node):
         node.body = self.inline_body(node.body)
         node.orelse = self.inline_body(node.orelse)
@@ -724,6 +738,16 @@ class Inliner(ast.NodeTransformer):
         node.orelse = self.inline_body(node.orelse)
         node.finalbody = self.inline_body(node.finalbody)
         return node
+
+
+def expand(ptree):
+    """
+    Recursively expand a function by inlining as many of its
+    calls as possible.
+    """
+
+    pass
+
 
 
 def inline_call(base_call, importer):
@@ -765,6 +789,8 @@ def inline_call(base_call, importer):
         NodeError.diag_msg(base_call,
                 'definition for %s() not found' % func_name)
         return base_call
+
+    func_ptree = deepcopy(func_ptree)
 
     if not is_qgl_procedure(func_ptree):
         NodeError.diag_msg(base_call,
@@ -962,22 +988,25 @@ foo(x, y)
 
     CODE_FORLOOP = """
 @qgl2decl
+def aaa(a, b, c):
+    bbb(a, a + b, a + c)
+@qgl2decl
+def bbb(a, b, c):
+    ccc(a, a + b, a + c)
+
+@qgl2decl
+def ccc(a, b, c):
+    print(a, b, c)
+
+@qgl2decl
 def foobar(x, y=88, z=89):
     for zz in [1, 2, 3]:
         qqq = 3
-        print('%d' % (x + y + z))
+        aaa(x, y, z)
 
-if foo:
-    with abc as x:
-        foobar(x=1, y=2, z=3)
-
-    try:
-        foobar('4')
-    except BaseException as x:
-        pass
-else:
-    foobar(2, 3, 4)
-
+@qglmain
+def main():
+    foobar(x=1, y=2, z=3)
 """
 
     def test_forloop(self):
@@ -987,31 +1016,36 @@ else:
         print('AST %s' % ast.dump(ptree))
         print('INPUT CODE\n%s' % pyqgl2.ast_util.ast2str(ptree))
 
+        new_ptree = deepcopy(ptree)
         inline_worker = Inliner(importer)
-        inline_worker.generic_visit(ptree)
+        inline_worker.generic_visit(new_ptree)
 
-        print('RESULT CODE\n%s' % pyqgl2.ast_util.ast2str(ptree))
+        print('RESULT CODE\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
+
+        print('ORIG foobar\n%s' % pyqgl2.ast_util.ast2str(
+                importer.path2ast[importer.base_fname]))
 
 
+if __name__ == '__main__':
 
-def main():
-    """
-    test driver (for very simple tests)
-    """
+    def main():
+        """
+        test driver (for very simple tests)
+        """
 
-    tester = TestInliner()
+        tester = TestInliner()
 
-    tester.test_forloop()
-    exit(0)
+        tester.test_forloop()
+        exit(0)
 
-    tester.test_rewriter()
-    tester.test_1()
-    tester.test_2()
-    tester.test_3()
-    tester.test_4()
+        tester.test_rewriter()
+        tester.test_1()
+        tester.test_2()
+        tester.test_3()
+        tester.test_4()
 
-    tester.test_module()
+        tester.test_module()
 
-    tester.test_inliner()
+        tester.test_inliner()
 
-main()
+    main()
