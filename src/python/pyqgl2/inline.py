@@ -52,10 +52,14 @@ class NameRewriter(ast.NodeTransformer):
 
     def visit_Name(self, node):
         """
-        If we can absorb this name into a constant, do so.
-        Otherwise, see if the name has been remapped to a local temp,
-        and use that name.
+        Rewrite a Name node to replace it with a "constant"
+        (which may be another name) or to replace it with
+        a reference to a different name, if possible.
         """
+
+        # If we can absorb this name into a constant, do so.
+        # Otherwise, see if the name has been remapped to a
+        # local temp, and use that name.
 
         if node.id in self.name2const:
             node = self.name2const[node.id]
@@ -65,6 +69,10 @@ class NameRewriter(ast.NodeTransformer):
         return node
 
     def add_constant(self, old_name, value_ptree):
+        """
+        Add a mapping from a name to a "constant" value that
+        can replace that name in the current context
+        """
 
         # A little sanity checking
         #
@@ -77,6 +85,11 @@ class NameRewriter(ast.NodeTransformer):
         self.name2const[old_name] = value_ptree
 
     def add_mapping(self, old_name, new_name):
+        """
+        Add a mapping from a name to another name (typically
+        the name of a temporary variable that replaces a
+        formal parameter when a function is inlined).
+        """
 
         # A little sanity checking
         #
