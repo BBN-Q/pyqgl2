@@ -15,6 +15,7 @@ import os
 import sys
 
 from argparse import ArgumentParser
+from copy import deepcopy
 
 # Add the necessary module paths: find the directory that this
 # executable lives in, and then add paths from there to the
@@ -27,7 +28,12 @@ DIRNAME = os.path.normpath(
         os.path.abspath(os.path.dirname(sys.argv[0]) or '.'))
 sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
 
+import pyqgl2.ast_util
+import pyqgl2.inline
+
+from pyqgl2.ast_util import NodeError
 from pyqgl2.importer import NameSpaces
+from pyqgl2.inline import Inliner
 
 
 def parse_args(argv):
@@ -50,6 +56,12 @@ def parse_args(argv):
 
     options = parser.parse_args(argv)
 
+    # for the sake of consistency and brevity, convert the path
+    # to a relative path, so that the diagnostic messages match
+    # the internal representation
+
+    options.filename = os.path.relpath(options.filename)
+
     return options
 
 
@@ -61,10 +73,37 @@ def main():
 
     importer = NameSpaces(opts.filename, opts.main_name)
     if not importer.qglmain:
-        print('error: no function declared as qglmain')
-        sys.exit(1)
+        NodeError.fatal_msg('no qglmain function found')
 
-    ptree = importer.path2ast[importer.base_fname]
+    ptree = importer.qglmain
+    new_ptree = deepcopy(ptree)
+
+    print('-- -- -- -- --')
+    print('ORIGINAL CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
+
+    new_ptree = pyqgl2.inline.inline_expand(ptree, importer)
+    print('MODIFIED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
+
+    """
+    inline_worker = Inliner(importer)
+    while True:
+        inline_worker.reset_change_count()
+        new_body = inline_worker.inline_body(new_ptree.body)
+        if not new_body:
+            print('NOT NEW BODY')
+            break
+
+        if inline_worker.change_count == 0:
+            break
+
+        new_ptree.body = new_body
+        print('MODIFIED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
+    """
+
+    print('-- -- -- -- --')
+    print('LAST CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
+    print('-- -- -- -- --')
+    print('ORIG CODE:\n%s' % pyqgl2.ast_util.ast2str(ptree))
 
 if __name__ == '__main__':
     main()

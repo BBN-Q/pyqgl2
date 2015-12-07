@@ -740,14 +740,34 @@ class Inliner(ast.NodeTransformer):
         return node
 
 
-def expand(ptree):
+def inline_expand(ptree, importer):
     """
-    Recursively expand a function by inlining as many of its
+    Iteratively expand a ptree by inlining as many of its
     calls as possible.
+
+    This would be more elegant to do recursively, but we use
+    ast.walk() in a few places, and it can't tolerate having
+    the ptree change out from under it.
     """
 
-    pass
+    inline_worker = Inliner(importer)
+    new_ptree = deepcopy(ptree)
 
+    while True:
+        inline_worker.reset_change_count()
+        new_body = inline_worker.inline_body(new_ptree.body)
+        if not new_body:
+            print('NOT NEW BODY')
+            break
+
+        if inline_worker.change_count == 0:
+            print('NO CHANGES')
+            break
+
+        new_ptree.body = new_body
+        print('MODIFIED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
+
+    return new_ptree
 
 
 def inline_call(base_call, importer):
