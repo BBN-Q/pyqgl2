@@ -9,9 +9,6 @@ from pyqgl2.ast_util import NodeError
 from pyqgl2.importer import NameSpaces
 import pyqgl2.ast_util
 
-class InlineReturn(BaseException):
-    pass
-
 class TempVarManager(object):
 
     NAME2REF = dict()
@@ -27,7 +24,7 @@ class TempVarManager(object):
         self.index = None
 
     @staticmethod
-    def create_temp_var_manager(name_prefix='__qgl2__tmp'):
+    def create_temp_var_manager(name_prefix='__qgl2_tmp'):
         if name_prefix in TempVarManager.NAME2REF:
             return TempVarManager.NAME2REF[name_prefix]
 
@@ -43,7 +40,7 @@ class TempVarManager(object):
 
         base = '%s_%.3d' % (self.name_prefix, self.index)
         if orig_name:
-            return '%s_%s' % (base, orig_name)
+            return '%s_%s' % (orig_name, base)
         else:
             return base
 
