@@ -661,6 +661,41 @@ class Inliner(ast.NodeTransformer):
     def reset_change_count(self):
         self.change_count = 0
 
+    def inline_function(self, funcdef):
+        """
+        Iteratively expand a ptree that represents a function
+        definition by expanding as many of the calls it makes
+        as possible, and then return the resulting function
+        definition.
+
+        This would be more elegant to do recursively, but we use
+        ast.walk() in a few places, and it can't tolerate having
+        the ptree change out from under it.
+        """
+
+        if not isinstance(funcdef, ast.FunctionDef):
+            NodeError.fatal_msg(funcdef,
+                    'expected ast.FunctionDef got [%s]' % str(type(funcdef)))
+
+        new_ptree = deepcopy(funcdef)
+
+        while True:
+            change_count = self.change_count
+            new_body = self.inline_body(new_ptree.body)
+            if not new_body:
+                # This shouldn't happen?
+                break
+
+            # If we didn't make any changes, then we're finished
+            #
+            if change_count == self.change_count:
+                break
+
+            new_ptree.body = new_body
+            # print('MODIFIED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
+
+        return new_ptree
+
     def inline_body(self, body):
         """
         inline a list of expressions or other statements
@@ -738,36 +773,6 @@ class Inliner(ast.NodeTransformer):
         node.orelse = self.inline_body(node.orelse)
         node.finalbody = self.inline_body(node.finalbody)
         return node
-
-
-def inline_expand(ptree, importer):
-    """
-    Iteratively expand a ptree by inlining as many of its
-    calls as possible.
-
-    This would be more elegant to do recursively, but we use
-    ast.walk() in a few places, and it can't tolerate having
-    the ptree change out from under it.
-    """
-
-    inline_worker = Inliner(importer)
-    new_ptree = deepcopy(ptree)
-
-    while True:
-        inline_worker.reset_change_count()
-        new_body = inline_worker.inline_body(new_ptree.body)
-        if not new_body:
-            print('NOT NEW BODY')
-            break
-
-        if inline_worker.change_count == 0:
-            print('NO CHANGES')
-            break
-
-        new_ptree.body = new_body
-        print('MODIFIED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
-
-    return new_ptree
 
 
 def inline_call(base_call, importer):
