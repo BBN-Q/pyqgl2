@@ -224,8 +224,11 @@ def create_inline_procedure(func_ptree, call_ptree):
 
     tmp_names = TempVarManager.create_temp_var_manager()
 
-    func_body = deepcopy(func_ptree.body)
-    formal_params = deepcopy(func_ptree.args.args)
+    func_ptree = deepcopy(func_ptree)
+
+    func_body = func_ptree.body
+    formal_params = func_ptree.args.args
+
     actual_params = deepcopy(call_ptree.args)
     keyword_actual_params = deepcopy(call_ptree.keywords)
 
@@ -759,9 +762,10 @@ class Inliner(ast.NodeTransformer):
             call_ptree = stmnt.value
 
             inlined = inline_call(call_ptree, self.importer)
-            if inlined is call_ptree:
-                new_stmnt = self.visit(stmnt)
-                new_body.append(new_stmnt)
+            if isinstance(inlined, ast.Call):
+                # new_stmnt = self.visit(stmnt)
+                stmnt.value = inlined
+                new_body.append(stmnt)
                 continue
 
             self.change_count += 1
@@ -843,22 +847,42 @@ def inline_call(base_call, importer):
                 'definition for %s() not found' % func_name)
         return base_call
 
-    func_ptree = deepcopy(func_ptree)
-
     if not is_qgl_procedure(func_ptree):
         NodeError.diag_msg(base_call,
                 '%s() is not a QGL2 procedure' % func_name)
+        # we can't inline this call, because it doesn't
+        # appear to be a QGL2 procedure.  But if we have
+        # the definition of the function, we can try to
+        # optimize it by inlining its calls.
+
+        # If we haven't already inlined this, then try to
+        # do so here, and then stash the inlined version
+        # of the function with the function definition
+        #
+        if not hasattr(func_ptree, 'qgl_inlined'):
+            inliner = Inliner(importer)
+            new_func = inliner.inline_function(func_ptree)
+
+            temp_manager = TempVarManager.create_temp_var_manager()
+            new_name = temp_manager.create_tmp_name(func_ptree.name)
+            new_func.name = new_name
+
+            func_ptree.qgl_inlined = new_func
+
+        # make a copy of the call, and then edit it to call
+        # the new function.
+        # new_call = deepcopy(base_call)
+        #ew_call.func.id = func_ptree.qgl_inlined.name
+
         return base_call
 
-    inlined = create_inline_procedure(func_ptree, base_call)
-    if not inlined:
-        NodeError.diag_msg(base_call, 'inlining of %s() failed' % func_name)
-        return base_call
+    else:
+        inlined = create_inline_procedure(func_ptree, base_call)
+        if not inlined:
+            NodeError.diag_msg(base_call, 'inlining of %s() failed' % func_name)
+            return base_call
 
-    # TODO: make it easier to stitch the results into the
-    # original code
-
-    return inlined
+        return inlined
 
 
 class TestInliner(object):
