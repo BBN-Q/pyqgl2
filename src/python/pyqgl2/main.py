@@ -32,8 +32,11 @@ import pyqgl2.ast_util
 import pyqgl2.inline
 
 from pyqgl2.ast_util import NodeError
+from pyqgl2.check_qbit import CheckType
+from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import Inliner
+from pyqgl2.substitute import specialize
 
 
 def parse_args(argv):
@@ -78,16 +81,47 @@ def main():
     ptree = importer.qglmain
 
     print('-- -- -- -- --')
-    print('ORIGINAL CODE:\n%s' % pyqgl2.ast_util.ast2str(ptree))
+    ast_text_orig = pyqgl2.ast_util.ast2str(ptree)
+    print('ORIGINAL CODE:\n%s' % ast_text_orig)
 
     inliner = Inliner(importer)
     new_ptree = inliner.inline_function(ptree)
     print('MODIFIED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
 
     print('-- -- -- -- --')
-    print('FINAL CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
+    print('INLINED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
     print('-- -- -- -- --')
-    print('ORIG CODE:\n%s' % pyqgl2.ast_util.ast2str(ptree))
+
+    # make sure that we didn't clobber anything while we did
+    # the processing (this is an incomplete test--it doesn't
+    # check anything except the qglmain)
+    #
+    ast_text_orig2 = pyqgl2.ast_util.ast2str(ptree)
+    if ast_text_orig != ast_text_orig2:
+        print('error: the original definition was clobbered')
+
+    base_namespace = importer.path2namespace[opts.filename]
+    text = base_namespace.pretty_print()
+    print(text)
+
+    type_check = CheckType(opts.filename, importer=importer)
+    new_ptree2 = type_check.visit(new_ptree)
+
+    print('CHECKED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree2))
+
+
+    sym_check = CheckSymtab(opts.filename, type_check.func_defs, importer)
+    new_ptree3 = sym_check.visit(new_ptree2)
+
+    print('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree3))
+
+    new_ptree4 = specialize(new_ptree3, list(), type_check.func_defs, importer)
+
+    print('Final CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree4))
+
+    base_namespace = importer.path2namespace[opts.filename]
+    text = base_namespace.pretty_print()
+    print(text)
 
 if __name__ == '__main__':
     main()
