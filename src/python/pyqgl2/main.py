@@ -76,32 +76,16 @@ def main():
         NodeError.fatal_msg('no qglmain function found')
 
     ptree = importer.qglmain
-    new_ptree = deepcopy(ptree)
 
     print('-- -- -- -- --')
-    print('ORIGINAL CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
+    print('ORIGINAL CODE:\n%s' % pyqgl2.ast_util.ast2str(ptree))
 
-    new_ptree = pyqgl2.inline.inline_expand(ptree, importer)
+    inliner = Inliner(importer)
+    new_ptree = inliner.inline_function(ptree)
     print('MODIFIED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
 
-    """
-    inline_worker = Inliner(importer)
-    while True:
-        inline_worker.reset_change_count()
-        new_body = inline_worker.inline_body(new_ptree.body)
-        if not new_body:
-            print('NOT NEW BODY')
-            break
-
-        if inline_worker.change_count == 0:
-            break
-
-        new_ptree.body = new_body
-        print('MODIFIED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
-    """
-
     print('-- -- -- -- --')
-    print('LAST CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
+    print('FINAL CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
     print('-- -- -- -- --')
     print('ORIG CODE:\n%s' % pyqgl2.ast_util.ast2str(ptree))
 
