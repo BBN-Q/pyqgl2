@@ -10,6 +10,20 @@ from pyqgl2.importer import NameSpaces
 import pyqgl2.ast_util
 
 class TempVarManager(object):
+    """
+    Manages the state needed to create variable names
+    that are (with high probability) unique across
+    the entire program
+
+    These variable names are typically used to create
+    temporary variable names, needed to serve as local
+    variables in the place of formal parameters after
+    a function is inlined.
+    """
+
+    # There may be more than one TempVarManager, with different
+    # rules for constructing names.  This is the map from
+    # base names to instances of TempVarManager
 
     NAME2REF = dict()
 
@@ -43,6 +57,7 @@ class TempVarManager(object):
             return '%s_%s' % (orig_name, base)
         else:
             return base
+
 
 class NameRewriter(ast.NodeTransformer):
 
@@ -202,6 +217,9 @@ def create_inline_procedure(func_ptree, call_ptree):
                 ast.dump(call_ptree))
         return None
 
+    # TODO: check that the name of the called function
+    # matches the function definition?
+
     rewriter = NameRewriter()
 
     tmp_names = TempVarManager.create_temp_var_manager()
@@ -274,8 +292,8 @@ def create_inline_procedure(func_ptree, call_ptree):
         actual_param = seen_param_names[orig_name]
         rewriter.add_mapping(orig_name, new_name)
 
-        NodeError.diag_msg(call_ptree,
-                'ASSIGN %s -> %s' % (new_name, ast.dump(actual_param)))
+        # NodeError.diag_msg(call_ptree,
+        #         'ASSIGN %s -> %s' % (new_name, ast.dump(actual_param)))
 
         setup_locals.append(ast.Assign(
                 targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
@@ -312,9 +330,9 @@ def create_inline_procedure(func_ptree, call_ptree):
         new_name = tmp_names.create_tmp_name(orig_name=orig_name)
         rewriter.add_mapping(orig_name, new_name)
 
-        NodeError.diag_msg(call_ptree,
-                ('KASSIGN %s -> %s' %
-                    (new_name, ast.dump(keyword_param.value))))
+        # NodeError.diag_msg(call_ptree,
+        #         ('KASSIGN %s -> %s' %
+        #             (new_name, ast.dump(keyword_param.value))))
 
         seen_param_names[orig_name] = keyword_param.value
         setup_locals.append(ast.Assign(
@@ -343,9 +361,9 @@ def create_inline_procedure(func_ptree, call_ptree):
             new_name = tmp_names.create_tmp_name(orig_name=orig_name)
             rewriter.add_mapping(orig_name, new_name)
 
-            NodeError.diag_msg(call_ptree,
-                    ('DASSIGN %s -> %s' %
-                        (new_name, ast.dump(defaults[param_ind]))))
+            # NodeError.diag_msg(call_ptree,
+            #         ('DASSIGN %s -> %s' %
+            #             (new_name, ast.dump(defaults[param_ind]))))
 
             seen_param_names[orig_name] = defaults[param_ind]
             setup_locals.append(ast.Assign(
@@ -1039,7 +1057,7 @@ def foobar(x, y=88, z=89):
         qqq = 3
         aaa(x, y, z)
 
-@qglmain
+@qgl2main
 def main():
     foobar(x=1, y=2, z=3)
 """
@@ -1051,9 +1069,12 @@ def main():
         print('AST %s' % ast.dump(ptree))
         print('INPUT CODE\n%s' % pyqgl2.ast_util.ast2str(ptree))
 
-        new_ptree = deepcopy(ptree)
-        inline_worker = Inliner(importer)
-        inline_worker.generic_visit(new_ptree)
+        if not importer.qglmain:
+            print('error: no qglmain??')
+            return
+
+        inliner = Inliner(importer)
+        new_ptree = inliner.inline_function(importer.qglmain)
 
         print('RESULT CODE\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
 
