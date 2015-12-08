@@ -813,9 +813,17 @@ def inline_call(base_call, importer):
     procedure calls it can discover within the given
     call.
 
+    Returns either a call (if the call can't
+    be inlined) or a list of expressions that
+    should replace the call.  The call may be
+    the original call (or a copy of it) or it
+    may be a call to an optimized version of
+    the function originally called.
+
     In order to be inlined, a method must be declared
     to be a QGL function, and it must not be a class
-    or instance method (it may be static).
+    or instance method (it may be static), and it must
+    be a "procedure" (no return statements).
 
     base_call is the AST for the call to the function.
     This AST is assumed to be annotated with the QGL2
@@ -869,17 +877,23 @@ def inline_call(base_call, importer):
 
             func_ptree.qgl_inlined = new_func
 
+            # add the new func to the namespace
+            namespace = importer.path2namespace[func_ptree.qgl_fname]
+            importer.add_function(namespace, new_name, new_func)
+
         # make a copy of the call, and then edit it to call
         # the new function.
-        # new_call = deepcopy(base_call)
-        #ew_call.func.id = func_ptree.qgl_inlined.name
+        #
+        new_call = deepcopy(base_call)
+        new_call.func.id = func_ptree.qgl_inlined.name
 
-        return base_call
+        return new_call
 
     else:
         inlined = create_inline_procedure(func_ptree, base_call)
         if not inlined:
-            NodeError.diag_msg(base_call, 'inlining of %s() failed' % func_name)
+            NodeError.diag_msg(base_call,
+                    'inlining of %s() failed' % func_name)
             return base_call
 
         return inlined
