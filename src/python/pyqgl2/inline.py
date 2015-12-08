@@ -699,6 +699,9 @@ class Inliner(ast.NodeTransformer):
         as possible, and then return the resulting function
         definition.
 
+        Also places a copy of the function (with a new name)
+        in the same namespace as the original function.
+
         This would be more elegant to do recursively, but we use
         ast.walk() in a few places, and it can't tolerate having
         the ptree change out from under it.
@@ -724,6 +727,18 @@ class Inliner(ast.NodeTransformer):
 
             new_ptree.body = new_body
             # print('MODIFIED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
+
+        # Create a new version of this function, with a new name,
+        # and add it to the namespace of the original function
+        #
+        temp_manager = TempVarManager.create_temp_var_manager()
+        new_name = temp_manager.create_tmp_name(new_ptree.name)
+        new_ptree.name = new_name
+
+        namespace = self.importer.path2namespace[funcdef.qgl_fname]
+        self.importer.add_function(namespace, new_name, new_ptree)
+
+        funcdef.qgl_inlined = new_ptree
 
         return new_ptree
 
@@ -870,16 +885,6 @@ def inline_call(base_call, importer):
         if not hasattr(func_ptree, 'qgl_inlined'):
             inliner = Inliner(importer)
             new_func = inliner.inline_function(func_ptree)
-
-            temp_manager = TempVarManager.create_temp_var_manager()
-            new_name = temp_manager.create_tmp_name(func_ptree.name)
-            new_func.name = new_name
-
-            func_ptree.qgl_inlined = new_func
-
-            # add the new func to the namespace
-            namespace = importer.path2namespace[func_ptree.qgl_fname]
-            importer.add_function(namespace, new_name, new_func)
 
         # make a copy of the call, and then edit it to call
         # the new function.
