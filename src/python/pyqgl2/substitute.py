@@ -291,13 +291,15 @@ class SubstituteChannel(NodeTransformerWithFname):
         func_copy = deepcopy(func_ast)
         specialized_func = specialize(func_copy, qbit_defs, self.func_defs,
                 self.importer)
-        print('SPECIALIZED %s' % ast.dump(specialized_func))
+        # print('SPECIALIZED %s' % ast.dump(specialized_func))
+        print('WOULD CALL %s' % specialized_func.name)
+        print('CALL %s' % ast.dump(node))
+        new_call = deepcopy(node)
+        new_call.func.id = specialized_func.name
 
-        # replace this call with a call to the new function
-        #
         # return the resulting node
         #
-        return node
+        return new_call
 
 def specialize(func_node, qbit_defs, func_defs, importer):
     """
@@ -313,7 +315,7 @@ def specialize(func_node, qbit_defs, func_defs, importer):
     """
 
     print('SPECIALIZE %s' % qbit_defs)
-    print('INITIAL AST %s' % ast.dump(func_node))
+    # print('INITIAL AST %s' % ast.dump(func_node))
 
     # needs more mangling?
     refs = '_'.join([str(phys_chan) for (fp_name, phys_chan) in qbit_defs])
@@ -321,10 +323,22 @@ def specialize(func_node, qbit_defs, func_defs, importer):
 
     print('MANGLED NAME %s' % mangled_name)
 
+    specialized_func_def = importer.resolve_sym(
+            func_node.qgl_fname, mangled_name)
+    if specialized_func_def:
+        return specialized_func_def
+
     sub_chan = SubstituteChannel(func_node.qgl_fname, qbit_defs, func_defs,
             importer)
     new_func = sub_chan.visit(func_node)
-    print('SPECIALIZED %s' % ast.dump(new_func))
+    new_func.name = mangled_name
+
+    # add the specialized version of the function to the namespace
+    #
+    namespace = importer.path2namespace[func_node.qgl_fname]
+    importer.add_function(namespace, mangled_name, new_func)
+
+    print('SPECIALIZED %s' % pyqgl2.ast_util.ast2str(new_func))
 
     return new_func
 
