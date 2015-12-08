@@ -33,6 +33,8 @@ import sys
 from pyqgl2.ast_util import NodeError
 from pyqgl2.lang import QGL2
 
+import pyqgl2
+
 def resolve_path(name):
     """
     Find the path to the file that would be imported for the
@@ -111,6 +113,20 @@ class NameSpace(object):
         #
         self.all_names = set()
 
+        # In order to pretty-print things in a more intuitive
+        # manner, we keep track of the order in which things were
+        # added to this namespace, and print them out in the same
+        # order.  Each item in this list is a tuple whose first
+        # element is one of ['D', 'V', 'F', 'I'] (for definitions,
+        # variables, from-as, and import-as statements), and whose
+        # second element is a reference to the statement.
+        #
+        # Note: if an item is redefined, the order only depends on
+        # where the item was FIRST defined, not the definition that
+        # came last.
+        #
+        self.order_added = list()
+
     def __repr__(self):
         return self.__str__()
 
@@ -135,13 +151,37 @@ class NameSpace(object):
         if not self.check_dups(name, 'local-variable'):
             NodeError.warning_msg(
                     ptree, 'redefinition of variable [%s]' % name)
+        else:
+            self.order_added.append(('V', ptree))
+
         self.local_vars[name] = ptree
 
     def add_local_func(self, name, ptree):
         if not self.check_dups(name, 'local-function'):
             NodeError.warning_msg(
                     ptree, 'redefinition of function [%s]' % name)
+        else:
+            self.order_added.append(('D', ptree))
+
         self.local_defs[name] = ptree
+
+    def add_from_as_stmnt(self, ptree):
+        """
+        Add a from-as statement to the list of statements seen.
+        This DOES NOT update the namespace; use add_from_as()
+        to do that
+        """
+
+        self.order_added.append(('F', ptree))
+
+    def add_import_as_stmnt(self, ptree):
+        """
+        Add an import-as statement to the list of statements seen.
+        This DOES NOT update the namespace; use add_import_as()
+        to do that
+        """
+
+        self.order_added.append(('I', ptree))
 
     def add_from_as(self, module_name, sym_name, as_name=None):
         # print('SYM module [%s] name [%s]' % (module_name, sym_name))
@@ -156,7 +196,7 @@ class NameSpace(object):
 
         self.from_as[as_name] = (sym_name, path)
 
-    def add_import_as(self, module_name, as_name=None):
+    def add_import_as(self, module_name, as_name=None, ptree=None):
         if not as_name:
             as_name = module_name
 
@@ -167,6 +207,52 @@ class NameSpace(object):
             raise ValueError('no module found for [%s]' % module_name)
 
         self.import_as[as_name] = path
+
+    def namespace2ast(self):
+        """
+        Create an AST representation of this namespace as
+        a module, by making a list of the order_added AST
+        elements and then constructing an ast.Module for
+        them.
+
+        NOTE: if the module is empty, then the qgl_fname
+        of the root node of the module will not be assigned.
+        TODO: it might be better to return None if the
+        module is empty, rather than an empty module.
+        """
+
+        body = list()
+        for stmnt_type, stmnt_value in self.order_added:
+            body.append(stmnt_value)
+
+        module = ast.Module(body=body)
+
+        # if there are any elements at all, then set the modules
+        # qgl_fname to the qgl_fname of the first element
+        #
+        if len(self.order_added) > 0:
+            module.qgl_fname = self.order_added[0][1].qgl_fname
+
+        return module
+
+    def pretty_print(self):
+        """
+        Return a string representing the contents of this namespace,
+        as Python3 code
+
+        Doing this element by element (from order_added) adds
+        an extra newline after each element, which looks better
+        than converting the namespace back to a module (via
+        namespace2ast) and then doing the pretty-printing on
+        the entire module at once.
+        """
+
+        text = ''
+        for item_type, item_value in self.order_added:
+            if item_type in ['D', 'V', 'I', 'F']:
+                text += pyqgl2.ast_util.ast2str(item_value)
+
+        return text
 
 
 class NameSpaces(object):
@@ -467,6 +553,8 @@ class NameSpaces(object):
 
     def add_import_as(self, namespace, stmnt):
 
+        namespace.add_import_as_stmnt(stmnt)
+
         for imp in stmnt.names:
             subpath = resolve_path(imp.name)
             if subpath:
@@ -478,6 +566,8 @@ class NameSpaces(object):
                         stmnt, 'path to [%s] not found' % imp.name)
 
     def add_from_as(self, namespace, module_name, stmnt):
+
+        namespace.add_from_as_stmnt(stmnt)
 
         subpath = resolve_path(module_name)
         if not subpath:
