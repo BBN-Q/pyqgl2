@@ -11,9 +11,10 @@ from copy import deepcopy
 # Find the directory that this executable lives in;
 # munge the path to look within the parent module
 #
-DIRNAME = os.path.normpath(
-        os.path.abspath(os.path.dirname(sys.argv[0]) or '.'))
-sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
+if __name__ == '__main__':
+    DIRNAME = os.path.normpath(
+            os.path.abspath(os.path.dirname(sys.argv[0]) or '.'))
+    sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
 
 import pyqgl2.importer
 
@@ -151,7 +152,7 @@ class SubstituteChannel(NodeTransformerWithFname):
 
         TODO:
         Eventually we'll have to deal with everything,
-        not just the body, and this will have to be
+        not just the body
         """
 
         node.body = [self.visit(stmnt) for stmnt in node.body]
