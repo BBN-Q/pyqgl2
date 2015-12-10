@@ -324,7 +324,7 @@ def can_specialize(func_node):
         return True
 
 
-def specialize(orig_func_node, qbit_defs, func_defs, importer):
+def specialize(func_node, qbit_defs, func_defs, importer):
     """
     qbit_defs is a list of (fp_name, qref) mappings
     (where fp_name is the name of the formal parameter
@@ -337,33 +337,25 @@ def specialize(orig_func_node, qbit_defs, func_defs, importer):
     works with that qbit definition.
     """
 
-    func_node = deepcopy(orig_func_node) # move later
-
-    print('SPECIALIZE %s' % qbit_defs)
-    # print('INITIAL AST %s' % ast.dump(func_node))
-
     # needs more mangling?
     refs = '_'.join([str(phys_chan) for (fp_name, phys_chan) in qbit_defs])
     mangled_name = func_node.name + '___' + refs
 
-    print('MANGLED NAME %s' % mangled_name)
-
     specialized_func_def = importer.resolve_sym(
             func_node.qgl_fname, mangled_name)
     if specialized_func_def:
-        print('FOUND SPECIALIZED %s' % mangled_name)
         return specialized_func_def
-    else:
-        print('UNFOUND SPECIALIZED %s' % mangled_name)
 
-    sub_chan = SubstituteChannel(func_node.qgl_fname, qbit_defs, func_defs,
-            importer)
-    new_func = sub_chan.visit(func_node)
+    new_func_node = deepcopy(func_node)
+
+    sub_chan = SubstituteChannel(
+            new_func_node.qgl_fname, qbit_defs, func_defs, importer)
+    new_func = sub_chan.visit(new_func_node)
     new_func.name = mangled_name
 
     # add the specialized version of the function to the namespace
     #
-    namespace = importer.path2namespace[func_node.qgl_fname]
+    namespace = importer.path2namespace[new_func_node.qgl_fname]
     importer.add_function(namespace, mangled_name, new_func)
 
     print('SPECIALIZED %s' % pyqgl2.ast_util.ast2str(new_func))
