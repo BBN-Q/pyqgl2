@@ -139,6 +139,15 @@ class NameRewriter(ast.NodeTransformer):
 
         return new_ptree
 
+def is_qgl2_def(node):
+    """
+    Return True if the node has been marked as the
+    definition of a QGL2 function, False otherwise
+
+    Note: doesn't do any sanity checking on node.
+    """
+
+    return (hasattr(node, 'qgl_func') and node.qgl_func)
 
 def create_inline_procedure(func_ptree, call_ptree):
     """
@@ -216,6 +225,11 @@ def create_inline_procedure(func_ptree, call_ptree):
         print('error: second arg needs to be a Call %s' %
                 ast.dump(call_ptree))
         return None
+
+    if not is_qgl2_def(func_ptree):
+        print('SKIP FUNC NAME %s' % func_ptree.name)
+        return None
+    print('FUNC NAME %s' % func_ptree.name)
 
     # TODO: check that the name of the called function
     # matches the function definition?
@@ -608,9 +622,9 @@ def is_qgl_procedure(node):
     if not isinstance(node, ast.FunctionDef):
         return False
 
-    if not hasattr(node, 'qgl_func'):
-        # unexpected: all FunctionDef nodes should be marked
+    if not is_qgl2_def(node):
         return False
+    print('FUNC NAME %s' % node.name)
 
     if not node.qgl_func:
         return False
@@ -710,6 +724,10 @@ class Inliner(ast.NodeTransformer):
         if not isinstance(funcdef, ast.FunctionDef):
             NodeError.fatal_msg(funcdef,
                     'expected ast.FunctionDef got [%s]' % str(type(funcdef)))
+
+        if not is_qgl2_def(funcdef):
+            # unexpected: all FunctionDef nodes should be marked
+            return funcdef
 
         new_ptree = deepcopy(funcdef)
 
@@ -885,14 +903,22 @@ def inline_call(base_call, importer):
         if not hasattr(func_ptree, 'qgl_inlined'):
             inliner = Inliner(importer)
             new_func = inliner.inline_function(func_ptree)
+        else:
+            new_func = func_ptree.qgl_inlined
 
-        # make a copy of the call, and then edit it to call
-        # the new function.
+        # if we didn't change the function, then we don't
+        # need to change the call either
         #
-        new_call = deepcopy(base_call)
-        new_call.func.id = func_ptree.qgl_inlined.name
+        if new_func == func_ptree:
+            return base_call
+        else:
+            # make a copy of the call, and then edit it to call
+            # the new function.
+            #
+            new_call = deepcopy(base_call)
+            new_call.func.id = func_ptree.qgl_inlined.name
 
-        return new_call
+            return new_call
 
     else:
         inlined = create_inline_procedure(func_ptree, base_call)
@@ -1135,7 +1161,6 @@ if __name__ == '__main__':
         tester = TestInliner()
 
         tester.test_forloop()
-        exit(0)
 
         tester.test_rewriter()
         tester.test_1()

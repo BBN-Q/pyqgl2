@@ -53,12 +53,20 @@ class SubstituteChannel(NodeTransformerWithFname):
     def visit_Name(self, node):
         print('VISITING NAME %s' % ast.dump(node))
 
-        if node.id in self.qbit_map:
+        if hasattr(node, 'qgl_is_qbit') and node.qgl_is_qbit:
+            # This name is already marked as being a reference
+            # to a qbit, so no need to do anything else
+            #
+            pass
+
+        elif node.id in self.qbit_map:
             new_id = self.qbit_map[node.id]
-            print('CHANGING %s to %s' % (node.id, new_id))
+            print('TST marking %s as qbit %s' % (node.id, new_id))
             node.id = new_id
+            node.qgl_is_qbit = True
         else:
-            print('QBIT NOT CHANGING NAME %s' % node.id)
+            print('TST not marking %s as a qbit' % node.id)
+            node.qgl_is_qbit = False
 
         return node
 
@@ -128,6 +136,8 @@ class SubstituteChannel(NodeTransformerWithFname):
                         'assignment of Qbit must be to a symbol')
                 return node
 
+            target.qgl_is_qbit = True
+
             target_name = target.id
 
             if target_name in self.qbit_map:
@@ -158,27 +168,32 @@ class SubstituteChannel(NodeTransformerWithFname):
         node.body = [self.visit(stmnt) for stmnt in node.body]
         return node
 
-    def find_qbit(self, name):
+    def find_qbit(self, node):
+
+        if not isinstance(node, ast.Name):
+            print('SUB not a name')
+            return None
+
+        name = node.id
+
         if not name:
             print('Find(%s): None' % name)
             return None
+
+        elif node.qgl_is_qbit:
+            print('TST FOUND QBIT DECL %s' % name)
+            return name
+
         elif name in self.qbit_map:
-            print('Find(%s): found in local qbit_map %s' %
+            print('TST Find(%s): found in local qbit_map %s' %
                     (name, self.qbit_map[name]))
             return self.qbit_map[name]
         elif name in self.GLOBAL_QBITS:
-            print('Find(%s): found in global qbit_map %s' %
+            print('TST Find(%s): found in global qbit_map %s' %
                     (name, self.GLOBAL_QBITS[name]))
             return self.GLOBAL_QBITS[name]
 
-        # This is a hack: it should be in the global context, not
-        # found lexically
-        #
-        elif name.startswith('QBIT_'):
-            print('Find: found %s based on name' % name)
-            return name
-
-        print('Find(%s): struck out' % name)
+        print('TST Find(%s): struck out' % name)
         return None
 
     def handle_builtin(self, node):
@@ -198,50 +213,43 @@ class SubstituteChannel(NodeTransformerWithFname):
         print('BUILTIN %s' % text)
         return node
 
-    def visit_Call(self, node):
+    def visit_Call(self, orig_node):
         # Now we have to map our parameters to this call
 
-        # Find the definition for the function
-        #
-        # TODO: we're only looking in the current file,
-        # not using modules
+        # print('TT1 %s' % ast.dump(orig_node.func))
 
-        # fname is the full name, including module names
+        # replace any references to qbits in the call with references
+        # to the 'global' qbit names for those qbits.
         #
-        print('TT0 %s' % ast.dump(node.func))
-        funcname = pyqgl2.importer.collapse_name(node.func)
-
-        print('TT1 %s' % ast.dump(node.func))
-        # deal with any arguments
+        node = deepcopy(orig_node)
         for arg in node.args:
             self.visit(arg)
-        print('TT2 %s' % ast.dump(node))
 
-        if funcname in self.BUILTIN_FUNCS:
-            return self.handle_builtin(node)
-
-        aparams = [arg.id if isinstance(arg, ast.Name) else None
-                for arg in node.args]
-        print('PARAMS %s actual params %s' % (funcname, str(aparams)))
-
-        # FIXME: need to substitute the correct value for the QBITs
-
-        print('DBG finding ast for %s' % funcname)
-
-        symval = self.importer.resolve_sym(node.qgl_fname, funcname)
-        if not symval:
+        # Find the definition for the function, and see whether
+        # it is a function that we can specialize.  If we can't
+        # specialize it, then return the new node (with possibly
+        # rewritten args)
+        #
+        funcname = pyqgl2.importer.collapse_name(node.func)
+        func_ast = self.importer.resolve_sym(node.qgl_fname, funcname)
+        if not func_ast:
             self.error_msg(node, 'no definition found for %s' % funcname)
             return node
 
-        print('SYMVAL %s' % str(symval))
+        if not can_specialize(func_ast):
+            return node
 
-        # func_ast = symval[3][0]
-        # fparams = self.importer._qbit_decl(func_ast)
-
-        func_ast = symval
         fparams = func_ast.qgl_args
 
-        print('FOUND %s formal params %s' % (funcname, str(fparams)))
+        if funcname in self.BUILTIN_FUNCS:
+            print('TT3 builtin %s' % ast.dump(node))
+            # return self.handle_builtin(node)
+            pass
+
+        aparams = [arg if isinstance(arg, ast.Name) else None
+                for arg in node.args]
+
+        # print('FOUND %s formal params %s' % (funcname, str(fparams)))
 
         # map our local bindings to the formal parameters of
         # this function, to create a signature
@@ -269,11 +277,11 @@ class SubstituteChannel(NodeTransformerWithFname):
             qbit_ref = self.find_qbit(aparam)
             if (fparam_type == 'qbit') and not qbit_ref:
                 self.error_msg(node,
-                        'assigned non-qbit to qbit param %s' % fparam_name)
+                        'SUB assigned non-qbit to qbit param %s' % fparam_name)
                 return node
             elif (fparam_type != 'qbit') and qbit_ref:
                 self.error_msg(node,
-                        'assigned qbit to non-qbit param %s' % fparam_name)
+                        'SUB assigned qbit to non-qbit param %s' % fparam_name)
                 return node
 
             if qbit_ref:
@@ -281,28 +289,42 @@ class SubstituteChannel(NodeTransformerWithFname):
 
         print('MAPPING FOR QBITS %s' % str(qbit_defs))
 
-        # see whether we already have a function that matches
-        # the signature.  If we do, then peel off a copy and use
-        # it here.  If not, create one and add it to the
+        # TODO: see whether we already have a function that matches
+        # the signature.  If we do, then get a reference to it, and
+        # use it here.  If not, create one and add it to the
         # symbol table
-        #
-        # TODO: we don't keep track of the functions we've created,
-        # but create new ones each time.
 
-        func_copy = deepcopy(func_ast)
-        specialized_func = specialize(func_copy, qbit_defs, self.func_defs,
-                self.importer)
-        # print('SPECIALIZED %s' % ast.dump(specialized_func))
-        print('WOULD CALL %s' % specialized_func.name)
-        print('CALL %s' % ast.dump(node))
-        new_call = deepcopy(node)
-        new_call.func.id = specialized_func.name
+        if can_specialize(func_ast):
+            func_copy = deepcopy(func_ast)
+            specialized_func = specialize(
+                    func_copy, qbit_defs, self.func_defs, self.importer)
+            # print('SPECIALIZED %s' % ast.dump(specialized_func))
+            print('WOULD CALL %s' % specialized_func.name)
+            print('CALL %s' % ast.dump(node))
 
-        # return the resulting node
-        #
-        return new_call
+            new_call = deepcopy(node)
+            new_call.func.id = specialized_func.name
 
-def specialize(func_node, qbit_defs, func_defs, importer):
+            return new_call
+        else:
+            return node
+
+def can_specialize(func_node):
+    """
+    Determine whether this function definition can/should be
+    specialized.  This is only true if the function has been
+    marked as being QGL2.
+
+    This attribute should have been determined by the importer.
+    """
+
+    if not hasattr(func_node, 'qgl_func') or not func_node.qgl_func:
+        return False
+    else:
+        return True
+
+
+def specialize(orig_func_node, qbit_defs, func_defs, importer):
     """
     qbit_defs is a list of (fp_name, qref) mappings
     (where fp_name is the name of the formal parameter
@@ -314,6 +336,8 @@ def specialize(func_node, qbit_defs, func_defs, importer):
     for a "specialized" version of the function that
     works with that qbit definition.
     """
+
+    func_node = deepcopy(orig_func_node) # move later
 
     print('SPECIALIZE %s' % qbit_defs)
     # print('INITIAL AST %s' % ast.dump(func_node))
@@ -327,7 +351,10 @@ def specialize(func_node, qbit_defs, func_defs, importer):
     specialized_func_def = importer.resolve_sym(
             func_node.qgl_fname, mangled_name)
     if specialized_func_def:
+        print('FOUND SPECIALIZED %s' % mangled_name)
         return specialized_func_def
+    else:
+        print('UNFOUND SPECIALIZED %s' % mangled_name)
 
     sub_chan = SubstituteChannel(func_node.qgl_fname, qbit_defs, func_defs,
             importer)
