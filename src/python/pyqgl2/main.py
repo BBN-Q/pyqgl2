@@ -34,6 +34,7 @@ import pyqgl2.inline
 from pyqgl2.ast_util import NodeError
 from pyqgl2.check_qbit import CheckType
 from pyqgl2.check_symtab import CheckSymtab
+from pyqgl2.check_waveforms import CheckWaveforms
 from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import Inliner
 from pyqgl2.substitute import specialize
@@ -122,6 +123,12 @@ def main():
     base_namespace = importer.path2namespace[opts.filename]
     text = base_namespace.pretty_print()
     print(text)
+
+    type_check = CheckType(opts.filename, importer=importer)
+    new_ptree5 = type_check.visit(new_ptree4)
+
+    wav_check = CheckWaveforms(opts.filename, type_check.func_defs)
+    new_ptree6 = wav_check.visit(new_ptree5)
 
 if __name__ == '__main__':
     main()
