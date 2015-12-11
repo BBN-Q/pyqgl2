@@ -149,7 +149,9 @@ class CheckType(NodeTransformerWithFname):
                     # have a wandering variable that we know is a qbit,
                     # but we never know which one.
                     #
+                    print('XX EXTENDING LOCAL (%s)' % target.id)
                     self._extend_local(target.id)
+                    target.qgl_is_qbit = True
 
             if not func_def.qgl_func:
                 # TODO: this seems bogus.  We should be able to call
@@ -337,10 +339,12 @@ class FindConcurBlocks(ast.NodeTransformer):
         self.qbit_sets = dict()
 
     def visit_With(self, node):
-        if (not isinstance(node.context_expr, ast.Name) or
-                (node.context_expr.id != QGL2.QCONCUR)):
-            return node
 
+        item = node.items[0]
+        print('WITH %s' % ast.dump(node))
+        if (not isinstance(item.context_expr, ast.Name) or
+                (item.context_expr.id != QGL2.QCONCUR)):
+            return node
 
         if self.LEVEL > 0:
             # need to fix this so we can squash multiple levels of concurs
@@ -361,10 +365,12 @@ class FindConcurBlocks(ast.NodeTransformer):
 
         # check_conflicts will halt the program if it detects an error
         #
-        qbits_referenced = self.check_conflicts(node.lineno)
+        qbits_referenced = self.check_conflicts(node)
         print('qbits in concur block (line: %d): %s' % (
                 node.lineno, str(qbits_referenced)))
 
+        """
+        # TO BE REPLACED
         for ind in range(len(body)):
             stmnt = body[ind]
             find_waveforms = FindWaveforms()
@@ -372,8 +378,11 @@ class FindConcurBlocks(ast.NodeTransformer):
 
             for waveform in find_waveforms.seq:
                 print('concur %d: WAVEFORM: %s' % (stmnt.lineno, waveform))
+        """
 
-    def check_conflicts(self, lineno):
+        return node
+
+    def check_conflicts(self, node):
 
         all_seen = set()
 
@@ -392,11 +401,12 @@ class FindQbitReferences(ast.NodeTransformer):
     """
     Find all the references to qbits in a node
 
-    Assumes that all qbits are referenced by variables with
-    names that start with 'qbit', rather than arbitrary expressions
+    Assumes that all qbits are referenced by variables that
+    have been marked as being qbits rather than arbitrary expressions
 
     For example, if you do something like
 
+        qbit1 = Qbit(1) # Create a new qbit; qbit1 is marked
         arr[ind] = qbit1
         foo = arr[ind]
 
@@ -411,8 +421,14 @@ class FindQbitReferences(ast.NodeTransformer):
         self.qbit_refs = set()
 
     def visit_Name(self, node):
-        if node.id.startswith('qbit'):
+
+        if node.id in self.qbit_refs:
+            node.qgl_is_qbit = True
+        elif hasattr(node, 'qgl_is_qbit') and node.qgl_is_qbit:
+            print('XX GOT qbit %s' % node.id)
             self.qbit_refs.add(node.id)
+        else:
+            print('XX NOT qbit %s' % node.id)
 
         return node
 
