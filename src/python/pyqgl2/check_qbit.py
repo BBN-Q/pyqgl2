@@ -101,6 +101,7 @@ class CheckType(NodeTransformerWithFname):
         target = node.targets[0]
         value = node.value
 
+        print('XX qbit_scope %s %s' % (str(self._qbit_scope()), ast.dump(node)))
         if not isinstance(target, ast.Name):
             return node
 
@@ -114,57 +115,71 @@ class CheckType(NodeTransformerWithFname):
             self.error_msg(node, msg)
             return node
 
-        func_name = pyqgl2.importer.collapse_name(value.func)
-        func_def = self.importer.resolve_sym(value.qgl_fname, func_name)
+        print('XX qbit_scope %s %s' % (str(self._qbit_scope()), ast.dump(node)))
 
-        # If we can't find the function definition, or it's not declared
-        # to be QGL, then we can't handle it.  Return immediately.
-        #
-        if not func_def:
-            NodeError.error_msg(
-                    value, 'function [%s] not defined' % func_name)
-            return node
-        elif not func_def.qgl_func:
-            NodeError.error_msg(
-                    value, 'function [%s] not declared to be QGL2' % func_name)
-            return node
-
-        print('NNN lookup [%s] got %s' % (func_name, str(func_def)))
-
-        print('NNN FuncDef %s' % ast.dump(func_def))
-
-        if isinstance(value, ast.Call):
-            print('NNN CALL [%s]' % func_name)
-
-        # When we're figuring out whether something is a call to
-        # the Qbit assignment function, we look at the name of the
-        # function as it is defined (i.e, as func_def), not as it
-        # is imported (i.e., as func_name).
-        #
-        # This makes the assumption that ANYTHING named 'Qbit'
-        # is a Qbit assignment function, which is lame and should
-        # be more carefully parameterized.  Things to think about:
-        # looking more deeply at its signature and making certain
-        # that it looks like the 'right' function and not something
-        # someone mistakenly named 'Qbit' in an unrelated context.
-        #
-        if isinstance(value, ast.Call) and (func_def.name == 'Qbit'):
-            self._extend_local(target.id)
-        elif isinstance(value, ast.Name):
+        if isinstance(value, ast.Name):
             # print('CHECKING %s' % str(self._qbit_scope()))
             if (value.id + ':qbit') in self._qbit_scope():
                 self.warning_msg(node,
                         'aliasing qbit parameter \'%s\' as \'%s\'' %
                         (value.id, target.id))
+                self._extend_local(target.id)
             elif value.id in self._qbit_local():
                 self.warning_msg(node,
                         'aliasing local qbit \'%s\' as \'%s\'' %
                         (value.id, target.id))
-            self._extend_local(target.id)
-        else:
-            return node
+                self._extend_local(target.id)
 
-        # print('qbit scope %s' % str(self._qbit_scope()))
+        elif isinstance(value, ast.Call):
+            func_name = pyqgl2.importer.collapse_name(value.func)
+            func_def = self.importer.resolve_sym(value.qgl_fname, func_name)
+
+            # If we can't find the function definition, or it's not declared
+            # to be QGL, then we can't handle it.  Return immediately.
+            #
+            if not func_def:
+                NodeError.error_msg(
+                        value, 'function [%s] not defined' % func_name)
+                return node
+
+            if func_def.returns:
+                rtype = func_def.returns
+                if (isinstance(rtype, ast.Name) and rtype.id == QGL2.QBIT):
+                    # Not sure what happens if we get here: we might
+                    # have a wandering variable that we know is a qbit,
+                    # but we never know which one.
+                    #
+                    self._extend_local(target.id)
+
+            if not func_def.qgl_func:
+                # TODO: this seems bogus.  We should be able to call
+                # out to non-QGL functions
+                #
+                NodeError.error_msg(
+                        value, 'function [%s] not declared to be QGL2' %
+                            func_name)
+                return node
+
+            print('NNN lookup [%s] got %s' % (func_name, str(func_def)))
+            print('NNN FuncDef %s' % ast.dump(func_def))
+            print('NNN CALL [%s]' % func_name)
+
+            # When we're figuring out whether something is a call to
+            # the Qbit assignment function, we look at the name of the
+            # function as it is defined (i.e, as func_def), not as it
+            # is imported (i.e., as func_name).
+            #
+            # This makes the assumption that ANYTHING named 'Qbit'
+            # is a Qbit assignment function, which is lame and should
+            # be more carefully parameterized.  Things to think about:
+            # looking more deeply at its signature and making certain
+            # that it looks like the 'right' function and not something
+            # someone mistakenly named 'Qbit' in an unrelated context.
+            #
+            if isinstance(value, ast.Call) and (func_def.name == 'Qbit'):
+                self._extend_local(target.id)
+                print('XX EXTENDED to include %s %s' %
+                        (target.id, str(self._qbit_local())))
 
         return node
 
@@ -172,6 +187,8 @@ class CheckType(NodeTransformerWithFname):
 
         # We only do singleton assignments, not tuples,
         # and not expressions
+        #
+        # TODO: fix this to handle arbitrary assignments
 
         if isinstance(node.targets[0], ast.Name):
             self.assign_simple(node)
@@ -428,7 +445,7 @@ if __name__ == '__main__':
             print('bailing out 2')
             sys.exit(1)
 
-        wav_check = CheckWaveforms(fname, type_check.func_defs)
+        wav_check = CheckWaveforms(type_check.func_defs, importer)
         nptree3 = wav_check.visit(nptree2)
 
         if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:

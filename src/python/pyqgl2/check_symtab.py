@@ -60,12 +60,12 @@ class CheckSymtab(NodeTransformerWithFname):
 
     def check_arg(self, call_node, arg, argpos):
         if type(arg) != ast.Name:
-            self.error_msg(call_node, '%s param to %s must be a symbol' %
+            self.error_msg(call_node, 'x %s param to %s must be a symbol' %
                     (argpos, call_node.func.id))
             return False
 
         if not self.is_qbit(call_node, arg.id):
-            self.error_msg(call_node, '%s param to %s must qbit or channel' %
+            self.error_msg(call_node, 'x %s param to %s must qbit or channel' %
                     (argpos, call_node.func.id))
             return False
 

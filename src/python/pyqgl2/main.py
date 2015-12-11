@@ -127,7 +127,7 @@ def main():
     type_check = CheckType(opts.filename, importer=importer)
     new_ptree5 = type_check.visit(new_ptree4)
 
-    wav_check = CheckWaveforms(opts.filename, type_check.func_defs)
+    wav_check = CheckWaveforms(type_check.func_defs, importer)
     new_ptree6 = wav_check.visit(new_ptree5)
 
 if __name__ == '__main__':
