@@ -541,9 +541,13 @@ class NameSpaces(object):
         if qglmain and (module_name == self.base_fname):
             if self.qglmain:
                 omain = self.qglmain
-                NodeError.error_msg(
+
+                # This is not an error; optimized versions of
+                # the qglmain can be added without error
+                #
+                NodeError.diag_msg(
                         node, 'more than one %s function' % QGL2.QMAIN)
-                NodeError.error_msg(
+                NodeError.diag_msg(
                         node, 'previously defined %s:%d:%d' %
                         (omain.qgl_fname, omain.lineno, omain.col_offset))
             else:
