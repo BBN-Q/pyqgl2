@@ -75,7 +75,10 @@ class CheckSymtab(NodeTransformerWithFname):
         func_name = importer.collapse_name(node.func)
         func_def = self.importer.resolve_sym(node.qgl_fname, func_name)
         if not func_def:
-            self.error_msg(node, '%s() undefined ' % func_name)
+            # This is not necessarily an error.  It might be
+            # defined somewhere outside the scope of the importer
+            #
+            self.diag_msg(node, 'no definition for %s()' % func_name)
             return node
 
         """
