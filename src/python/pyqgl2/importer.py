@@ -80,7 +80,7 @@ def collapse_name(node):
         return collapse_name(node.value) + '.' + node.attr
     else:
         # TODO: handle this more gracefully
-        print('UNEXPECTED')
+        print('XX UNEXPECTED %s' % ast.dump(node))
         return None
 
 
