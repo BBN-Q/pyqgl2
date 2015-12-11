@@ -2,10 +2,13 @@
 
 import ast
 
+import pyqgl2.importer as importer
+
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.ast_util import NodeVisitorWithFname
 from pyqgl2.builtin_decl import QGL2Functions
+from pyqgl2.lang import QGL2
 
 class CheckWaveforms(NodeTransformerWithFname):
     """
@@ -14,7 +17,7 @@ class CheckWaveforms(NodeTransformerWithFname):
     channel and can generate and consolidate waveforms
     """
 
-    def __init__(self, fname, func_defs):
+    def __init__(self, func_defs, importer):
         """
         fname is the name of the input
 
@@ -24,17 +27,26 @@ class CheckWaveforms(NodeTransformerWithFname):
 
         super(CheckWaveforms, self).__init__()
         self.func_defs = func_defs
+        self.importer = importer
+
         self.waveforms = dict()
 
     def check_arg(self, call_node, arg, argpos):
+
+        func_name = importer.collapse_name(call_node.func)
+
+        # If it's not a symbol, then it's definitely not a qbit
+        #
         if type(arg) != ast.Name:
-            self.error_msg(call_node, '%s param to %s must be a symbol' %
-                    (argpos, call_node.func.id))
+            self.error_msg(
+                    arg, 'param %s to %s() must be a qbit or channel' %
+                        (argpos, func_name))
             return False
 
         if not self.is_qbit(call_node, arg.id):
-            self.error_msg(call_node, '%s param to %s must qbit or channel' %
-                    (argpos, call_node.func.id))
+            self.error_msg(
+                    arg, 'param %s to %s() must be a qbit or channel' %
+                        (argpos, func_name))
             return False
 
         return True
@@ -63,39 +75,26 @@ class CheckWaveforms(NodeTransformerWithFname):
 
     def visit_Call(self, node):
 
-        print('xxxxx xxxxxxxxxxx HERE')
-        func_name = node.func.id
+        func_name = importer.collapse_name(node.func)
+        func_def = self.importer.resolve_sym(node.qgl_fname, func_name)
+        if not func_def:
+            return node
 
-        if func_name in QGL2Functions.UNI_WAVEFORMS:
-            print('CASE 1')
-            if len(node.args) < 1:
-                self.error_msg(node,
-                        '%s requires a qbit parameter' % func_name)
-                return node
+        print('XX2 func_def %s' % ast.dump(func_def))
 
-            first_arg = node.args[0]
-            # self.check_arg(node, first_arg, 'first')
+        # find the definition of the function, and check
+        # whether it's a pulse or a QGL2 function
+        #
+        # pulses are a special case: they don't need to be
+        # defined as QGL2 functions, but they behave as if they
+        # are in some ways.
+        #
+        is_pulse = self.importer.returns_pulse(node.qgl_fname, func_name)
 
-            self.gen_waveform(func_name, node.args, node.keywords)
+        if func_def.qgl_func:
+            fparams = func_def.args.args
 
-        elif func_name in QGL2Functions.BI_OPS:
-            print('CASE 2')
-            if len(node.args) < 2:
-                self.error_msg(node,
-                        '%s requires two qbit parameters' % func_name)
-                return node
-
-            arg1 = node.args[0]
-            arg2 = node.args[1]
-
-            self.check_arg(node, arg1, 'first')
-            self.check_arg(node, arg2, 'second')
-
-        elif func_name in self.func_defs:
-            print('CASE 3 [%s]' % func_name)
-            (fparams, func_def) = self.func_defs[func_name]
-
-            print('FPARAMS %s' % str(fparams))
+            # TODO doesn't know what to do about keyword args!
 
             if len(fparams) != len(node.args):
                 self.diag_msg(node,
@@ -106,10 +105,14 @@ class CheckWaveforms(NodeTransformerWithFname):
             else:
                 for ind in range(len(node.args)):
                     arg = node.args[ind]
-                    fparam = fparams[ind]
+                    fparam_name = fparams[ind].arg
+                    fparam_type = fparams[ind].annotation
 
-                    if fparam.endswith(':qbit'):
-                        self.check_arg(node, arg, fparam)
+                    if (fparam_type != None) and (fparam_type.id == QGL2.QBIT):
+                        self.check_arg(node, arg, fparam_name)
+
+        elif is_pulse:
+            self.gen_waveform(func_name, node.args, node.keywords)
 
         else:
             # If it's a function that we don't know about, then
@@ -139,7 +142,7 @@ class CheckWaveforms(NodeTransformerWithFname):
         if type(expr) == ast.Name:
             return expr.id
         elif type(expr) == ast.Num:
-            return expr.num
+            return expr.n
 
 
     def gen_waveform(self, name, args, kwargs):
