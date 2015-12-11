@@ -91,9 +91,17 @@ class SubstituteChannel(NodeTransformerWithFname):
             return False
 
         func_name = pyqgl2.importer.collapse_name(node.func)
+        print('XX func_name %s' % func_name)
         func_def = self.importer.resolve_sym(node.qgl_fname, func_name)
+        print('XX func_def %s' % str(func_def))
 
-        if func_def.name == QGL2.QBIT_ALLOC:
+        # If we don't have a definition for it, we must assume
+        # that it's not Qbit definition.  We can't do anything
+        # with it
+        #
+        if not func_def:
+            return False
+        elif func_def.name == QGL2.QBIT_ALLOC:
             return True
         else:
             return False
@@ -395,7 +403,7 @@ def preprocess(fname, main_name=None):
         print('bailing out 2')
         sys.exit(1)
 
-    wav_check = CheckWaveforms(fname, type_check.func_defs)
+    wav_check = CheckWaveforms(type_check.func_defs, importer)
     nptree3 = sym_check.visit(nptree2)
 
     if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
