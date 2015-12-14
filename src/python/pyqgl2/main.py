@@ -81,6 +81,8 @@ def main():
     if not importer.qglmain:
         NodeError.fatal_msg('no qglmain function found')
 
+    NodeError.halt_on_error()
+
     ptree = importer.qglmain
 
     print('-- -- -- -- --')
@@ -89,6 +91,8 @@ def main():
 
     inliner = Inliner(importer)
     new_ptree = inliner.inline_function(ptree)
+    NodeError.halt_on_error()
+
     print('MODIFIED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
 
     print('-- -- -- -- --')
@@ -110,15 +114,20 @@ def main():
     type_check = CheckType(opts.filename, importer=importer)
     new_ptree2 = type_check.visit(new_ptree)
 
-    print('CHECKED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree2))
+    NodeError.halt_on_error()
 
+    print('CHECKED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree2))
 
     sym_check = CheckSymtab(opts.filename, type_check.func_defs, importer)
     new_ptree3 = sym_check.visit(new_ptree2)
 
+    NodeError.halt_on_error()
+
     print('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree3))
 
     new_ptree4 = specialize(new_ptree3, list(), type_check.func_defs, importer)
+
+    NodeError.halt_on_error()
 
     print('Final CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree4))
 
@@ -129,8 +138,12 @@ def main():
     type_check = CheckType(opts.filename, importer=importer)
     new_ptree5 = type_check.visit(new_ptree4)
 
+    NodeError.halt_on_error()
+
     wav_check = CheckWaveforms(type_check.func_defs, importer)
     new_ptree6 = wav_check.visit(new_ptree5)
+
+    NodeError.halt_on_error()
 
     """
     stmnt_list = base_namespace.namespace2ast().body
