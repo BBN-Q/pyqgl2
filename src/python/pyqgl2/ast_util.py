@@ -63,6 +63,21 @@ class NodeError(object):
         ALL_PRINTED = set()
 
     @staticmethod
+    def halt_on_error():
+        """
+        The ordinary use of NodeError is to continue on after encountering
+        an error (in the hope of getting useful additional diagnostics).
+        
+        At certain points in the program, however, it makes little sense
+        to continue if there has been an error in an earlier part of
+        the program.  Use halt_on_error() to detect this condition and
+        halt.
+        """
+
+        if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
+            sys.exit(1)
+
+    @staticmethod
     def diag_msg(node, msg=None):
         """
         Print a diagnostic message associated with the given node
