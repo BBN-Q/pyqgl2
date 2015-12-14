@@ -241,7 +241,7 @@ class SubstituteChannel(NodeTransformerWithFname):
         funcname = pyqgl2.importer.collapse_name(node.func)
         func_ast = self.importer.resolve_sym(node.qgl_fname, funcname)
         if not func_ast:
-            self.error_msg(node, 'no definition found for %s' % funcname)
+            self.diag_msg(node, 'no definition found for %s' % funcname)
             return node
 
         if not can_specialize(func_ast):
