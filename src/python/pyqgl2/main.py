@@ -33,6 +33,8 @@ import pyqgl2.inline
 
 from pyqgl2.ast_util import NodeError
 from pyqgl2.check_qbit import CheckType
+from pyqgl2.check_qbit import CompileQGLFunctions
+from pyqgl2.check_qbit import FindTypes
 from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_waveforms import CheckWaveforms
 from pyqgl2.importer import NameSpaces
@@ -129,6 +131,19 @@ def main():
 
     wav_check = CheckWaveforms(type_check.func_defs, importer)
     new_ptree6 = wav_check.visit(new_ptree5)
+
+    """
+    stmnt_list = base_namespace.namespace2ast().body
+    for stmnt in stmnt_list:
+        concur_checker = CompileQGLFunctions()
+        concur_checker.visit(stmnt)
+    """
+
+    find_types = FindTypes(importer)
+    find_types.visit(new_ptree6)
+    print('PARAMS %s ' % find_types.parameter_names)
+    print('LOCALS %s ' % find_types.local_names)
+
 
 if __name__ == '__main__':
     main()
