@@ -129,11 +129,13 @@ def main():
 
     NodeError.halt_on_error()
 
-    print('Final CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree4))
+    print('Final qglmain: %s' % new_ptree4.name)
+    print('Final CODE:\n-- -- -- -- --')
 
     base_namespace = importer.path2namespace[opts.filename]
     text = base_namespace.pretty_print()
     print(text)
+    print('-- -- -- -- --')
 
     type_check = CheckType(opts.filename, importer=importer)
     new_ptree5 = type_check.visit(new_ptree4)
