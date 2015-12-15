@@ -139,9 +139,11 @@ class NodeError(object):
         else:
             level_str = 'weird'
 
-        text = ('%s:%d:%d: %s: %s' %
-                (node.qgl_fname, node.lineno,
-                    node.col_offset, level_str, msg))
+        if node:
+            text = ('%s:%d:%d: ' %
+                    (node.qgl_fname, node.lineno, node.col_offset))
+
+        text += ('%s: %s' % (level_str, msg))
 
         # Keep track of what we've printed, so we don't
         # print it over and over again (for repeated
