@@ -7,6 +7,7 @@ from copy import deepcopy
 
 from pyqgl2.ast_util import NodeError
 from pyqgl2.importer import NameSpaces
+from pyqgl2.importer import collapse_name
 import pyqgl2.ast_util
 
 class TempVarManager(object):
@@ -804,7 +805,8 @@ class Inliner(ast.NodeTransformer):
             self.change_count += 1
 
             NodeError.diag_msg(call_ptree,
-                    'inlined call to %s()' % call_ptree.func.id)
+                    ('inlined call to %s()' %
+                        collapse_name(call_ptree.func)))
             for expr in inlined:
                 new_body.append(expr)
 
@@ -876,7 +878,7 @@ def inline_call(base_call, importer):
         return base_call
 
     func_filename = base_call.qgl_fname
-    func_name = base_call.func.id
+    func_name = collapse_name(base_call.func)
 
     func_ptree = importer.resolve_sym(func_filename, func_name)
     if not func_ptree:
@@ -916,6 +918,15 @@ def inline_call(base_call, importer):
             # the new function.
             #
             new_call = deepcopy(base_call)
+
+            # TODO: check what namespace the inlined function
+            # lives in, and make sure that it gets put back
+            # there.  For example, if new_call.func is an
+            # Attribute instead of a Name, this probably fails.
+            #
+            if not isinstance(new_call, ast.Name):
+                NodeError.diag_msg(new_call,
+                        'unexpected attribute')
             new_call.func.id = func_ptree.qgl_inlined.name
 
             return new_call
