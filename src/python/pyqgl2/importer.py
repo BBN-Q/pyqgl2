@@ -263,6 +263,13 @@ class NameSpaces(object):
     IGNORE_MODULE_PATH_PREFIX = os.path.relpath(
             '/opt/local/Library/Frameworks/Python.framework')
 
+    # maximum number of redirections per symbol.
+    #
+    # This number is guess; it seems reasonable.  Adjust as
+    # appropriate.
+    #
+    MAX_DEPTH = 16
+
     def __init__(self, path, qglmain_name=None, text=None):
 
         # map from path to AST
@@ -311,25 +318,75 @@ class NameSpaces(object):
         else:
             print('warning: no qglmain declared or chosen')
 
-    def resolve_sym(self, path, name):
-        print('NNN TRYING TO RESOLVE %s in %s' % (name, path))
+    def resolve_sym(self, path, name, depth=0):
+        """
+        Attempt to resolve the symbol with the given name within
+        the namespace denoted by the given path
+        """
 
-        if path not in self.path2namespace:
-            raise ValueError('cannot find namespace for [%s]' % path)
+        # keep a copy of the starting name and context,
+        # before we start to chase it through other modules,
+        # so we can print meaningful diagnostics
+        #
+        start_name = name
+        start_path = path
 
-        namespace = self.path2namespace[path]
+        # This is a fairly awful loop, but it's not obvious how to
+        # improve it.
+        #
+        # If depth is greater than self.MAX_DEPTH, assume that something
+        # has gone wrong, and raise an error.  This probably means that
+        # we're chasing our tail.
+        #
+        # If we can't find the matching namespace, something has
+        # definitely gone wrong; raise an error.
+        #
+        # Try looking in the local namespace, with the following
+        # precedence: local variables, local function defs, and
+        # local aliases (created via from-as) for symbols that
+        # may be elsewhere.  In the latter case, find the corresponding
+        # namespace and search there.  This may require iteration
+        # because the thing that's being aliased may itself be an alias,
+        # ad nauseum.  (this could also be expressed recursively, but
+        # then we'd lose start_name and start_path)
+        #
+        # If we can't find anything that matches in the local
+        # namespace, then see if it's a reference to something
+        # in another module (referenced by module name, not
+        # "aliased" via from-as).  If so, recursively attempt
+        # resolution relative to that namespace for each module
+        # prefix.
 
-        if name in namespace.local_vars:
-            print('NNN resolve success (local)')
-            return namespace.local_vars[name]
-        elif name in namespace.local_defs:
-            print('NNN resolve success (local)')
-            return namespace.local_defs[name]
-        elif name in namespace.from_as:
-            orig_name, from_namespace = namespace.from_as[name]
-            # Note: this recursion might never bottom out.
-            # TODO: detect a reference loop without blowing up
-            return self.resolve_sym(from_namespace, orig_name)
+        while True:
+            # if the depth of the recursion is more than permitted,
+            # assume that we have an infinite or goofy redirection loop
+            #
+            if depth > self.MAX_DEPTH:
+                raise ValueError(
+                        ('redirection loop detected for \'%s\' in \'%s\'' %
+                            (start_name, start_path)))
+                return None
+
+            if path not in self.path2namespace:
+                raise ValueError('cannot find namespace for \'%s\'' % path)
+
+            namespace = self.path2namespace[path]
+
+            if name in namespace.local_vars:
+                return namespace.local_vars[name]
+            elif name in namespace.local_defs:
+                return namespace.local_defs[name]
+            elif name in namespace.from_as:
+                name, path = namespace.from_as[name]
+                depth += 1
+            else:
+                # If it's not in any of the lists for this namespace
+                # (not a local variable, not a local def, not something
+                # imported via from-as) then maybe it's a reference
+                # to a module element.  Bail out of this look to find
+                # out.
+                #
+                break
 
         # If it's not a local symbol, or a symbol that's
         # imported to appear to be a local symbol, then
@@ -338,19 +395,14 @@ class NameSpaces(object):
         # (possibly renamed with an import-as).
 
         name_components = name.split('.')
-        print('NNN trying to resolve import-as %s' % name_components)
 
         for ind in range(len(name_components) - 1):
             prefix = '.'.join(name_components[:ind + 1])
             suffix = '.'.join(name_components[ind + 1:])
-            print('NNN ind %d prefix %s suffix %s' % (ind, prefix, suffix))
 
             if prefix in namespace.import_as:
                 imported_module = namespace.import_as[prefix]
-                print('NNN TRYING prefix %s suffix %s in %s' %
-                        (prefix, suffix, imported_module))
-
-                return self.resolve_sym(imported_module, suffix)
+                return self.resolve_sym(imported_module, suffix, depth + 1)
 
         return None
 
