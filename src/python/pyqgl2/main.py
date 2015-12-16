@@ -68,6 +68,13 @@ def parse_args(argv):
 
     options.filename = os.path.relpath(options.filename)
 
+    # If the file we're sourcing is not in the current
+    # directory, add its directory to the search path
+    #
+    source_dir = os.path.dirname(options.filename)
+    if not source_dir:
+        sys.path.append(os.path.normpath(source_dir))
+
     return options
 
 
