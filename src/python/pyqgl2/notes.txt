@@ -1,0 +1,13 @@
+
+Need to think about CNOT:
+
+    CNOT(a, b)
+        expands to something like
+
+            (Pulse(a) * Pulse(b)) + Pulse(cr(a, b))
+
+        where 
+
+            cr(a, b) is the channel that connects a, b
+
+        (and then there's more)
