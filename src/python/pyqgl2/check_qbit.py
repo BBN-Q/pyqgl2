@@ -903,7 +903,7 @@ class FindConcurBlocks(ast.NodeTransformer):
         for refs in self.qbit_sets.values():
             if not refs.isdisjoint(all_seen):
                 conflict = refs.intersection(all_seen)
-                self.error_msg(node,
+                NodeError.error_msg(node,
                         '%s appear in multiple concurrent statements' %
                         str(', '.join(list(conflict))))
 
