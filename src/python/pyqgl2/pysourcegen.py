@@ -227,15 +227,25 @@ class ExprSourceGen(Visitor):
 
             for kw in node.keywords:
                 print_comma(i)
-                self.print('{:node}', kw)
+                # BBN: special case for Python 3.5: a parameter with an
+                # arg of None indicates that it's a kwarg instead of a
+                # normal parameter
+                #
+                if kw.arg == None:
+                    self.print('**{:node}', kw.value)
+                else:
+                    self.print('{:node}', kw)
                 i += 1
 
-            if node.starargs:
+            # BBN: Python 3.4 has 'starargs' and 'kwargs', but
+            # Python 3.5 does not.
+            #
+            if hasattr(node, 'starargs') and node.starargs:
                 print_comma(i)
                 self.print('*{:node}', node.starargs)
                 i += 1
 
-            if node.kwargs:
+            if hasattr(node, 'kwargs') and node.kwargs:
                 print_comma(i)
                 self.print('**{:node}', node.kwargs)
                 i += 1
@@ -498,6 +508,13 @@ class ExprSourceGen(Visitor):
         if node.annotation:
             with self.no_indent:
                 self.print(':{0:node}', node.annotation)
+
+    # Begin BBN changes to deal with Python3.5 "Starred" nodes.
+    #
+    @py3op
+    def visitStarred(self, node):
+        self.print('*{0:node}', node.value)
+    # End BBN changes
     
 def visit_expr(node):
     gen = ExprSourceGen()
@@ -887,12 +904,15 @@ class SourceGen(ExprSourceGen):
                     base = keywords.pop(0)
                     self.print(", {0:node}", keyword)
             
-            if node.starargs:
+            # BBN: Python 3.4 has 'starargs' and 'kwargs', but
+            # Python 3.5 does not.
+            #
+            if hasattr(node, 'starargs') and node.starargs:
                 if i: self.print(', ')
                 i += 1
                 self.print("*{0:node}", node.starargs)
 
-            if node.kwargs:
+            if hasattr(node, 'kwargs') and node.kwargs:
                 if i: self.print(', ')
                 i += 1
                 self.print("*{0:node}", node.kwargs)
