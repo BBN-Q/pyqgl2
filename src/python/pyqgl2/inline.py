@@ -214,9 +214,6 @@ def create_inline_procedure(func_ptree, call_ptree):
     # sanity checking: this has to start with a FunctionDef
     # and a Call.  Otherwise, we can't do anything with it.
     #
-    # Note: this returns the original ptree, not a copy.
-    # TODO: think about whether it should be a copy.
-    #
     if not isinstance(func_ptree, ast.FunctionDef):
         print('error: first arg needs to be a FunctionDef %s' %
                 type(func_ptree))
