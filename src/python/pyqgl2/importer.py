@@ -44,24 +44,35 @@ def resolve_path(name):
     structures
     """
 
-    name_to_path = os.sep.join(name.split('.')) + '.py'
+    # At most of one of these will resolve correctly; either
+    # it's a directory or a file
+    #
+    name_to_fpath = os.sep.join(name.split('.')) + '.py'
+    name_to_dpath = os.path.join(os.sep.join(name.split('.')), '__init__.py')
 
     for dirpath in sys.path:
-        path = os.path.join(dirpath, name_to_path)
+        fpath = os.path.join(dirpath, name_to_fpath)
+        dpath = os.path.join(dirpath, name_to_dpath)
 
         # We don't check whether we can read the file.  It's
         # not clear from the spec whether the Python interpreter
         # checks this before trying to use it.  TODO: test
         #
-        if os.path.isfile(path):
-            return os.path.relpath(path)
+        if os.path.isfile(fpath):
+            return os.path.relpath(fpath)
+        elif os.path.isfile(dpath):
+            return os.path.relpath(dpath)
 
     # if all else fails, try using the current directory
     # (I am ambivalent about this)
 
-    path = os.path.join('.', name_to_path)
-    if os.path.isfile(path):
-        return os.path.relpath(path)
+    fpath = os.path.join('.', name_to_fpath)
+    dpath = os.path.join('.', name_to_dpath)
+
+    if os.path.isfile(fpath):
+        return os.path.relpath(fpath)
+    elif os.path.isfile(dpath):
+        return os.path.relpath(dpath)
 
     return None
 
@@ -427,6 +438,13 @@ class NameSpaces(object):
         if path.startswith(NameSpaces.IGNORE_MODULE_PATH_PREFIX):
             return None
 
+        # TODO: this doesn't do anything graceful if the file
+        # can't be opened, or doesn't exist, or anything else goes
+        # wrong.  We just assume that Python will raise an exception
+        # that includes a useful error message.  FIXME we should
+        # be more proactive about making sure that the user
+        # gets the info necessary to diagnose the problem.
+        #
         text = open(path, 'r').read()
 
         return self.read_import_str(text, path)
