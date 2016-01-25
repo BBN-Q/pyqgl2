@@ -646,10 +646,10 @@ class NameSpaces(object):
         # placeholder
         subpath = None
 
-        # Deal with relative imports: these have a level of 1 or higher
-        #
         if stmnt.level > 0:
-
+            # Deal with relative imports: these have a level of 1
+            # or higher
+            #
             # Find the directory by peeling the last component off
             # of stmnt.qgl_fname and keeping the rest.
             #
@@ -662,15 +662,15 @@ class NameSpaces(object):
             # from Python notation to path notation, and adding the
             # suffix).
             #
-            # TODO:
-            # do we need to do relative paths to directories?
-            # if so, then we need to look for __init__.py also
-            #
             dir_name = stmnt.qgl_fname.rpartition(os.sep)[0]
             dir_name += os.sep + os.sep.join(['..'] * (stmnt.level - 1))
 
             name_to_fpath = os.sep.join(module_name.split('.')) + '.py'
+            name_to_dpath = os.path.join(
+                    os.sep.join(module_name.split('.')), '__init__.py')
+
             fpath = os.path.join(dir_name, name_to_fpath)
+            dpath = os.path.join(dir_name, name_to_dpath)
 
             # If the resulting path is a file, then canonicalize the
             # path and use it as subpath.  Otherwise, leave the subpath
@@ -678,7 +678,11 @@ class NameSpaces(object):
             #
             if os.path.isfile(fpath):
                 subpath = os.path.relpath(fpath)
+            elif os.path.isfile(dpath):
+                subpath = os.path.relpath(dpath)
         else:
+            # use normal resolution to find the location of module
+            #
             subpath = resolve_path(module_name)
 
         if not subpath:
