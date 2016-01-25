@@ -24,8 +24,12 @@ from copy import deepcopy
 # This path is relative and must be be modified if this script
 # is moved
 #
+# Note: the "realpath" makes this work even if the script is named
+# by a symlink instead of its true location.
+#
 DIRNAME = os.path.normpath(
-        os.path.abspath(os.path.dirname(sys.argv[0]) or '.'))
+        os.path.realpath(
+            os.path.abspath(os.path.dirname(sys.argv[0]) or '.')))
 sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
 
 import pyqgl2.ast_util

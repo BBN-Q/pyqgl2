@@ -44,24 +44,35 @@ def resolve_path(name):
     structures
     """
 
-    name_to_path = os.sep.join(name.split('.')) + '.py'
+    # At most of one of these will resolve correctly; either
+    # it's a directory or a file
+    #
+    name_to_fpath = os.sep.join(name.split('.')) + '.py'
+    name_to_dpath = os.path.join(os.sep.join(name.split('.')), '__init__.py')
 
     for dirpath in sys.path:
-        path = os.path.join(dirpath, name_to_path)
+        fpath = os.path.join(dirpath, name_to_fpath)
+        dpath = os.path.join(dirpath, name_to_dpath)
 
         # We don't check whether we can read the file.  It's
         # not clear from the spec whether the Python interpreter
         # checks this before trying to use it.  TODO: test
         #
-        if os.path.isfile(path):
-            return os.path.relpath(path)
+        if os.path.isfile(fpath):
+            return os.path.relpath(fpath)
+        elif os.path.isfile(dpath):
+            return os.path.relpath(dpath)
 
     # if all else fails, try using the current directory
     # (I am ambivalent about this)
 
-    path = os.path.join('.', name_to_path)
-    if os.path.isfile(path):
-        return os.path.relpath(path)
+    fpath = os.path.join('.', name_to_fpath)
+    dpath = os.path.join('.', name_to_dpath)
+
+    if os.path.isfile(fpath):
+        return os.path.relpath(fpath)
+    elif os.path.isfile(dpath):
+        return os.path.relpath(dpath)
 
     return None
 
@@ -427,6 +438,13 @@ class NameSpaces(object):
         if path.startswith(NameSpaces.IGNORE_MODULE_PATH_PREFIX):
             return None
 
+        # TODO: this doesn't do anything graceful if the file
+        # can't be opened, or doesn't exist, or anything else goes
+        # wrong.  We just assume that Python will raise an exception
+        # that includes a useful error message.  FIXME we should
+        # be more proactive about making sure that the user
+        # gets the info necessary to diagnose the problem.
+        #
         text = open(path, 'r').read()
 
         return self.read_import_str(text, path)
@@ -625,10 +643,52 @@ class NameSpaces(object):
 
         namespace.add_from_as_stmnt(stmnt)
 
-        subpath = resolve_path(module_name)
+        # placeholder
+        subpath = None
+
+        if stmnt.level > 0:
+            # Deal with relative imports: these have a level of 1
+            # or higher
+            #
+            # Find the directory by peeling the last component off
+            # of stmnt.qgl_fname and keeping the rest.
+            #
+            # Then append the right number of '..' components (level - 1)
+            # to either look in the same directory, or a parent directory.
+            # The resulting path is hideous and non-canonical, but we'll
+            # fix that later.
+            #
+            # Finally, add the relative component (after translating it
+            # from Python notation to path notation, and adding the
+            # suffix).
+            #
+            dir_name = stmnt.qgl_fname.rpartition(os.sep)[0]
+            dir_name += os.sep + os.sep.join(['..'] * (stmnt.level - 1))
+
+            name_to_fpath = os.sep.join(module_name.split('.')) + '.py'
+            name_to_dpath = os.path.join(
+                    os.sep.join(module_name.split('.')), '__init__.py')
+
+            fpath = os.path.join(dir_name, name_to_fpath)
+            dpath = os.path.join(dir_name, name_to_dpath)
+
+            # If the resulting path is a file, then canonicalize the
+            # path and use it as subpath.  Otherwise, leave the subpath
+            # as None, which will be handled below.
+            #
+            if os.path.isfile(fpath):
+                subpath = os.path.relpath(fpath)
+            elif os.path.isfile(dpath):
+                subpath = os.path.relpath(dpath)
+        else:
+            # use normal resolution to find the location of module
+            #
+            subpath = resolve_path(module_name)
+
         if not subpath:
             NodeError.error_msg(
-                    stmnt, 'path to [%s] not found' % module_name)
+                    stmnt, ('path to [%s%s] not found' %
+                        ('.' * stmnt.level, module_name)))
         else:
             self.read_import(subpath)
 
