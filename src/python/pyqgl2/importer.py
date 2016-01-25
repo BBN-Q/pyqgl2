@@ -643,10 +643,48 @@ class NameSpaces(object):
 
         namespace.add_from_as_stmnt(stmnt)
 
-        subpath = resolve_path(module_name)
+        # placeholder
+        subpath = None
+
+        # Deal with relative imports: these have a level of 1 or higher
+        #
+        if stmnt.level > 0:
+
+            # Find the directory by peeling the last component off
+            # of stmnt.qgl_fname and keeping the rest.
+            #
+            # Then append the right number of '..' components (level - 1)
+            # to either look in the same directory, or a parent directory.
+            # The resulting path is hideous and non-canonical, but we'll
+            # fix that later.
+            #
+            # Finally, add the relative component (after translating it
+            # from Python notation to path notation, and adding the
+            # suffix).
+            #
+            # TODO:
+            # do we need to do relative paths to directories?
+            # if so, then we need to look for __init__.py also
+            #
+            dir_name = stmnt.qgl_fname.rpartition(os.sep)[0]
+            dir_name += os.sep + os.sep.join(['..'] * (stmnt.level - 1))
+
+            name_to_fpath = os.sep.join(module_name.split('.')) + '.py'
+            fpath = os.path.join(dir_name, name_to_fpath)
+
+            # If the resulting path is a file, then canonicalize the
+            # path and use it as subpath.  Otherwise, leave the subpath
+            # as None, which will be handled below.
+            #
+            if os.path.isfile(fpath):
+                subpath = os.path.relpath(fpath)
+        else:
+            subpath = resolve_path(module_name)
+
         if not subpath:
             NodeError.error_msg(
-                    stmnt, 'path to [%s] not found' % module_name)
+                    stmnt, ('path to [%s%s] not found' %
+                        ('.' * stmnt.level, module_name)))
         else:
             self.read_import(subpath)
 
