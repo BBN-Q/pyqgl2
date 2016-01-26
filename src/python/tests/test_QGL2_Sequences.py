@@ -4,13 +4,14 @@ Variant of test_Sequences.py that uses the QGL2 compiled versions of the basic s
 built-in versions.
 
 Requires python3 anaconda, cppy, atom 1.0.0, latest QGL repo, and the latest
-JSONLibraryUtils repo cloned as a sub-dir to QGL.
+JSONLibraryUtils repo cloned as a sub-dir to QGL (if use the
+--recurse-submodules arg when cloning QGL, you get it for free).
 E.G.
 pip install cppy; pip install
 git+https://github.com/nucleic/atom.git@1.0.0-dev
 git clone <QGL>
 cd QGL
-git clone <JSONLibraryUtils>
+git submodule update, or git clone <JSONLibraryUtils>
 
 You MUST write the QGL2 versions of your classes into a QGL2 module on the pythonpath, such that
 
@@ -51,7 +52,8 @@ if __name__ == "__main__":
         from qgl2.basic_sequences import *
         print("Re-defined basic sequences from qgl2.basic_sequences")
     except Exception as e:
-        sys.exit("Failed to redefine sequences from qgl2.basic_sequences: %s" % e)
+        import traceback
+        sys.exit("Failed to redefine sequences from qgl2.basic_sequences: %s. %s" % (e, traceback.format_exc()))
 
     # Now must redefine all the methods here.
     # I'd like to do something like this:
