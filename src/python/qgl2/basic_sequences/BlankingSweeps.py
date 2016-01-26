@@ -3,6 +3,9 @@
 """
 Sequences for optimizing gating timing.
 """
+
+from qgl2.qgl2 import qgl2decl, qbit
+
 @qgl2decl
 def sweep_gateDelay(qubit: qbit, sweepPts):
     """

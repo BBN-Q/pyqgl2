@@ -1,5 +1,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
+from qgl2.qgl2 import qgl2decl, qbit
+
 @qgl2decl
 def InversionRecovery(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=False):
     """

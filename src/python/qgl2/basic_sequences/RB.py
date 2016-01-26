@@ -1,12 +1,16 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
+from qgl2.qgl2 import qgl2decl, qbit, qbit_list
+
+@qgl2decl
 def create_RB_seqs(numQubits, lengths, repeats=32, interleaveGate=None):
     """
     Create a list of lists of Clifford gates to implement RB.
     """
     raise Exception("Not implemented")
 
-def SingleQubitRB(qubit, seqs, showPlot=False):
+@qgl2decl
+def SingleQubitRB(qubit: qbit, seqs, showPlot=False):
     """
 
     Single qubit randomized benchmarking using 90 and 180 generators. 
@@ -23,7 +27,8 @@ def SingleQubitRB(qubit, seqs, showPlot=False):
     """	
     raise Exception("Not implemented")
 
-def TwoQubitRB(q1, q2, seqs, showPlot=False, suffix=""):
+@qgl2decl
+def TwoQubitRB(q1: qbit, q2: qbit, seqs, showPlot=False, suffix=""):
     """
 
     Two qubit randomized benchmarking using 90 and 180 single qubit generators and ZX90 
@@ -40,7 +45,8 @@ def TwoQubitRB(q1, q2, seqs, showPlot=False, suffix=""):
     """	
     raise Exception("Not implemented")
 
-def SingleQubitRB_AC(qubit, seqs, showPlot=False):
+@qgl2decl
+def SingleQubitRB_AC(qubit: qbit, seqs, showPlot=False):
     """
 
     Single qubit randomized benchmarking using atomic Clifford pulses. 
@@ -57,7 +63,8 @@ def SingleQubitRB_AC(qubit, seqs, showPlot=False):
     """	
     raise Exception("Not implemented")
 
-def SingleQubitIRB_AC(qubit, seqFile, showPlot=False):
+@qgl2decl
+def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
     """
 
     Single qubit interleaved randomized benchmarking using atomic Clifford pulses. 
@@ -74,7 +81,9 @@ def SingleQubitIRB_AC(qubit, seqFile, showPlot=False):
     """	
     raise Exception("Not implemented")
 
-def SingleQubitRBT(qubit, seqFileDir, analyzedPulse, showPlot=False):
+# FIXME: is analyzedPulse a pulse?
+@qgl2decl
+def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse, showPlot=False):
     """
 
     Single qubit randomized benchmarking using atomic Clifford pulses. 
@@ -91,7 +100,8 @@ def SingleQubitRBT(qubit, seqFileDir, analyzedPulse, showPlot=False):
     """	
     raise Exception("Not implemented")
 
-def SimultaneousRB_AC(qubits, seqs, showPlot=False):
+@qgl2decl
+def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
     """
 
     Simultaneous randomized benchmarking on multiple qubits using atomic Clifford pulses. 

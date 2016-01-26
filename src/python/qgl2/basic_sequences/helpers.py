@@ -1,7 +1,9 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
+from qgl2.qgl2 import qgl2decl, qbit_list
+
 @qgl2decl
-def create_cal_seqs(qubits: qbit_list, numRepeats, measChans=None: qbit_list, waitcmp=False):
+def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, waitcmp=False):
     """
     Helper function to create a set of calibration sequences.
 

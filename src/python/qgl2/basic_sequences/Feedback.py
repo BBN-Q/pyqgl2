@@ -1,6 +1,10 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-def Reset(qubits, measDelay = 1e-6, signVec = None, doubleRound = True, buf = 30e-9, showPlot=False, measChans=None, docals=True, calRepeats=2):
+from qgl2.qgl2 import qgl2decl, qbit_list
+
+@qgl2decl
+def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
+          doubleRound = True, buf = 30e-9, showPlot=False, measChans: qbit_list = None, docals=True, calRepeats=2):
     """
 
     Variable amplitude Rabi nutation experiment for an arbitrary number of qubits simultaneously

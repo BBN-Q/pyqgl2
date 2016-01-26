@@ -1,6 +1,9 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
+
+from qgl2.qgl2 import qgl2decl, qbit
+
 @qgl2decl
-def HahnEcho(qubit, pulseSpacings, periods = 0, calRepeats=2, showPlot=False):
+def HahnEcho(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=False):
     """
     A single pulse Hahn echo with variable phase of second pi/2 pulse. 
     
@@ -19,7 +22,7 @@ def HahnEcho(qubit, pulseSpacings, periods = 0, calRepeats=2, showPlot=False):
     raise Exception("Not implemented")
 
 @qgl2decl
-def CPMG(qubit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
+def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     """
     CPMG pulse train with fixed pulse spacing. Note this pulse spacing is centre to centre,
     i.e. it accounts for the pulse width

@@ -1,6 +1,9 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-def FlipFlop(qubit, dragParamSweep, maxNumFFs=10, showPlot=False):
+from qgl2.qgl2 import qgl2decl, qbit
+
+@qgl2decl
+def FlipFlop(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     """
 
     Flip-flop sequence (X90-X90m)**n to determine off-resonance or DRAG parameter optimization.

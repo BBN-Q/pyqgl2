@@ -1,6 +1,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 import QGL.PulseShapes
+from qgl2.qgl2 import qgl2decl, qbit, qbit_list
 
 @qgl2decl
 def RabiAmp(qubit: qbit, amps, phase=0, showPlot=False):
@@ -42,7 +43,8 @@ def RabiWidth(qubit: qbit, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh
     raise Exception("Not implemented")
 
 @qgl2decl
-def RabiAmp_NQubits(qubits: qbit_list, amps, phase=0, showPlot=False, measChans=None: qbit_list, docals=False, calRepeats=2):
+def RabiAmp_NQubits(qubits: qbit_list, amps, phase=0, showPlot=False,
+                    measChans: qbit_list = None, docals=False, calRepeats=2):
     """
 
     Variable amplitude Rabi nutation experiment for an arbitrary number of qubits simultaneously
