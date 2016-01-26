@@ -2,6 +2,16 @@
 '''
 Variant of test_Sequences.py that uses the QGL2 compiled versions of the basic sequences, instead of the 
 built-in versions.
+
+Requires python3 anaconda, cppy, atom 1.0.0, latest QGL repo, and the latest
+JSONLibraryUtils repo cloned as a sub-dir to QGL.
+E.G.
+pip install cppy; pip install
+git+https://github.com/nucleic/atom.git@1.0.0-dev
+git clone <QGL>
+cd QGL
+git clone <JSONLibraryUtils>
+
 You MUST write the QGL2 versions of your classes into a QGL2 module on the pythonpath, such that
 
    from qgl2.basic_sequences import *
