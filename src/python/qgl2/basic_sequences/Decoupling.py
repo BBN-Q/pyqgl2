@@ -6,7 +6,7 @@ from qgl2.qgl2 import qgl2decl, qbit
 def HahnEcho(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=False):
     """
     A single pulse Hahn echo with variable phase of second pi/2 pulse. 
-    
+
     Parameters
     ----------
     qubit : logical channel to implement sequence (LogicalChannel) 
@@ -26,7 +26,7 @@ def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     """
     CPMG pulse train with fixed pulse spacing. Note this pulse spacing is centre to centre,
     i.e. it accounts for the pulse width
-    
+
     Parameters
     ----------
     qubit : logical channel to implement sequence (LogicalChannel) 

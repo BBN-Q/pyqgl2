@@ -18,5 +18,5 @@ def FlipFlop(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     Returns
     -------
     plotHandle : handle to plot window to prevent destruction
-    """	
+    """
     raise Exception("Not implemented")

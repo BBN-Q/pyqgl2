@@ -70,120 +70,120 @@ if __name__ == "__main__":
         print("Redefined AllXY from QGL2")
     except:
         print("Did not redefine AllXY")
-        
+
     try:
         tests.test_Sequences.PiRabi = PiRabi
         print("Redefined PiRabi from QGL2")
     except:
         print("Did not redefine PiRabi")
-        
+
     try:
         tests.test_Sequences.EchoCRLen = EchoCRLen
         print("Redefined EchoCRLen from QGL2")
     except:
         print("Did not redefine EchoCRLen")
-        
+
     try:
         tests.test_Sequences.EchoCRPhase = EchoCRPhase
         print("Redefined EchoCRPhase from QGL2")
     except:
         print("Did not redefine EchoCRPhase")
-        
+
     try:
         tests.test_Sequences.HahnEcho = HahnEcho
         print("Redefined HahnEcho from QGL2")
     except:
         print("Did not redefine HahnEcho")
-        
+
     try:
         tests.test_Sequences.CPMG = CPMG
         print("Redefined CPMG from QGL2")
     except:
         print("Did not redefine CPMG")
-        
+
     try:
         tests.test_Sequences.FlipFlop = FlipFlop
         print("Redefined FlipFlop from QGL2")
     except:
         print("Did not redefine FlipFlop")
-        
+
     try:
         tests.test_Sequences.InversionRecovery = InversionRecovery
         print("Redefined InversionRecovery from QGL2")
     except:
         print("Did not redefine InversionRecovery")
-        
+
     try:
         tests.test_Sequences.Ramsey = Ramsey
         print("Redefined Ramsey from QGL2")
     except:
         print("Did not redefine Ramsey")
-        
+
     try:
         tests.test_Sequences.SPAM = SPAM
         print("Redefined SPAM from QGL2")
     except:
         print("Did not redefine SPAM")
-        
+
     try:
         tests.test_Sequences.RabiAmp = RabiAmp
         print("Redefined RabiAmp from QGL2")
     except:
         print("Did not redefine RabiAmp")
-        
+
     try:
         tests.test_Sequences.RabiWidth = RabiWidth
         print("Redefined RabiWidth from QGL2")
     except:
         print("Did not redefine RabiWidth")
-        
+
     try:
         tests.test_Sequences.RabiAmp_NQubits = RabiAmp_NQubits
         print("Redefined RabiAmp_NQubits from QGL2")
     except:
         print("Did not redefine RabiAmp_NQubits")
-        
+
     try:
         tests.test_Sequences.RabiAmpPi = RabiAmpPi
         print("Redefined RabiAmpPi from QGL2")
     except:
         print("Did not redefine RabiAmpPi")
-        
+
     try:
         tests.test_Sequences.SingleShot = SingleShot
         print("Redefined SingleShot from QGL2")
     except:
         print("Did not redefine SingleShot")
-        
+
     try:
         tests.test_Sequences.PulsedSpec = PulsedSpec
         print("Redefined PulsedSpec from QGL2")
     except:
         print("Did not redefine PulsedSpec")
-        
+
     try:
         tests.test_Sequences.SingleQubitRB = SingleQubitRB
         print("Redefined SingleQubitRB from QGL2")
     except:
         print("Did not redefine SingleQubitRB")
-        
+
     try:
         tests.test_Sequences.create_RB_seqs = create_RB_seqs
         print("Redefined create_RB_seqs from QGL2")
     except:
         print("Did not redefine create_RB_seqs")
-        
+
     try:
         tests.test_Sequences.TwoQubitRB = TwoQubitRB
         print("Redefined TwoQubitRB from QGL2")
     except:
         print("Did not redefine TwoQubitRB")
-        
+
     try:
         tests.test_Sequences.SimultaneousRB_AC = SimultaneousRB_AC
         print("Redefined SimultaneousRB_AC from QGL2")
     except:
         print("Did not redefine SimultaneousRB_AC")
-        
+
     # Having re-defined the basic methods, run the basic QGL1 sequence unit tests
     unittest.main(module=tests.test_Sequences, argv=[sys.argv[0]])
