@@ -6,4 +6,4 @@ from qgl2.qgl2 import qgl2decl, qbit
 @qgl2decl
 def AllXY(q: qbit, showPlot = False):
     #return QGL1AllXY(q, showPlot)
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")

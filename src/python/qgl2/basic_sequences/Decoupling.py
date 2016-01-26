@@ -19,7 +19,7 @@ def HahnEcho(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=Fal
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 @qgl2decl
 def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
@@ -39,5 +39,5 @@ def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 

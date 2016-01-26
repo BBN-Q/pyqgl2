@@ -7,7 +7,7 @@ def create_RB_seqs(numQubits, lengths, repeats=32, interleaveGate=None):
     """
     Create a list of lists of Clifford gates to implement RB.
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 @qgl2decl
 def SingleQubitRB(qubit: qbit, seqs, showPlot=False):
@@ -25,7 +25,7 @@ def SingleQubitRB(qubit: qbit, seqs, showPlot=False):
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 @qgl2decl
 def TwoQubitRB(q1: qbit, q2: qbit, seqs, showPlot=False, suffix=""):
@@ -43,7 +43,7 @@ def TwoQubitRB(q1: qbit, q2: qbit, seqs, showPlot=False, suffix=""):
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 @qgl2decl
 def SingleQubitRB_AC(qubit: qbit, seqs, showPlot=False):
@@ -61,7 +61,7 @@ def SingleQubitRB_AC(qubit: qbit, seqs, showPlot=False):
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 @qgl2decl
 def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
@@ -79,7 +79,7 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 # FIXME: is analyzedPulse a pulse?
 @qgl2decl
@@ -98,7 +98,7 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse, showPlot=False):
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 @qgl2decl
 def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
@@ -120,5 +120,5 @@ def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
     >>> seqs2 = create_RB_seqs(1, [2, 4, 8, 16])
     >>> SimultaneousRB_AC((q1, q2), (seqs1, seqs2), showPlot=False)
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 

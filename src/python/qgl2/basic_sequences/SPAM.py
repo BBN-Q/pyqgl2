@@ -19,5 +19,5 @@ def SPAM(qubit: qbit, angleSweep, maxSpamBlocks=10, showPlot=False):
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 

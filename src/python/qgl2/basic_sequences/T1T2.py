@@ -18,7 +18,7 @@ def InversionRecovery(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 @qgl2decl
 def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2, suffix=False):
@@ -37,5 +37,5 @@ def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2,
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 

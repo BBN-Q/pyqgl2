@@ -20,7 +20,7 @@ def RabiAmp(qubit: qbit, amps, phase=0, showPlot=False):
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 @qgl2decl
 def RabiWidth(qubit: qbit, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh, showPlot=False):
@@ -40,7 +40,7 @@ def RabiWidth(qubit: qbit, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 @qgl2decl
 def RabiAmp_NQubits(qubits: qbit_list, amps, phase=0, showPlot=False,
@@ -62,7 +62,7 @@ def RabiAmp_NQubits(qubits: qbit_list, amps, phase=0, showPlot=False,
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 @qgl2decl
 def RabiAmpPi(qubit: qbit, mqubit: qbit, amps, phase=0, showPlot=False):
@@ -81,21 +81,21 @@ def RabiAmpPi(qubit: qbit, mqubit: qbit, amps, phase=0, showPlot=False):
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 @qgl2decl
 def SingleShot(qubit: qbit, showPlot = False):
     """
     2-segment sequence with qubit prepared in |0> and |1>, useful for single-shot fidelity measurements and kernel calibration
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 @qgl2decl
 def PulsedSpec(qubit: qbit, specOn = True, showPlot = False):
     """
     Measurement preceded by a qubit pulse if specOn = True
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 
 @qgl2decl
 def Swap(qubit: qbit, mqubit: qbit, delays, showPlot=False):
@@ -114,5 +114,5 @@ def Swap(qubit: qbit, mqubit: qbit, delays, showPlot=False):
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 

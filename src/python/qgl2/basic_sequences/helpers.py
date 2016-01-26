@@ -13,5 +13,5 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
     numRepeats = number of times to repeat calibration sequences (int)
     waitcmp = True if the sequence contains branching
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")
 

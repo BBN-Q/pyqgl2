@@ -17,4 +17,4 @@ def sweep_gateDelay(qubit: qbit, sweepPts):
     qubit : logical qubit to create sequences for
     sweepPts : iterable to sweep the gate delay over.
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")

@@ -23,4 +23,4 @@ def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     -------
     plotHandle : handle to plot window to prevent destruction
     """
-    raise Exception("Not implemented")
+    raise NotImplementedError("Not implemented")

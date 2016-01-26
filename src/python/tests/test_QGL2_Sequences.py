@@ -66,124 +66,364 @@ if __name__ == "__main__":
     # But that doesn't quite work. So instead, this uglier version
 
     try:
+        old = tests.test_Sequences.AllXY
         tests.test_Sequences.AllXY = AllXY
+        tests.test_Sequences.AllXY(None)
         print("Redefined AllXY from QGL2")
-    except:
-        print("Did not redefine AllXY")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.AllXY = old
+        print("Did not redefine AllXY - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.AllXY = old
+        print("Have no QGL2 implementation of AllXY - use QGL1")
+    except Exception as e:
+        print("Did not redefine AllXY: %s" % e)
 
     try:
+        old = tests.test_Sequences.PiRabi
         tests.test_Sequences.PiRabi = PiRabi
+        tests.test_Sequences.PiRabi(None, None, None)
         print("Redefined PiRabi from QGL2")
-    except:
-        print("Did not redefine PiRabi")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.PiRabi = old
+        print("Did not redefine PiRabi - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.PiRabi = old
+        print("Have no QGL2 implementation of PiRabi - use QGL1")
+    except Exception as e:
+        print("Did not redefine PiRabi: %s" % e)
 
     try:
+        old = tests.test_Sequences.EchoCRLen
         tests.test_Sequences.EchoCRLen = EchoCRLen
+        tests.test_Sequences.EchoCRLen(None, None, None)
         print("Redefined EchoCRLen from QGL2")
-    except:
-        print("Did not redefine EchoCRLen")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.EchoCRLen = old
+        print("Did not redefine EchoCRLen - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.EchoCRLen = old
+        print("Have no QGL2 implementation of EchoCRLen - use QGL1")
+    except Exception as e:
+        print("Did not redefine EchoCRLen: %s" % e)
 
     try:
+        old = tests.test_Sequences.EchoCRPhase
         tests.test_Sequences.EchoCRPhase = EchoCRPhase
+        tests.test_Sequences.EchoCRPhase(None, None, None)
         print("Redefined EchoCRPhase from QGL2")
-    except:
-        print("Did not redefine EchoCRPhase")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.EchoCRPhase = old
+        print("Did not redefine EchoCRPhase - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.EchoCRPhase = old
+        print("Have no QGL2 implementation of EchoCRPhase - use QGL1")
+    except Exception as e:
+        print("Did not redefine EchoCRPhase: %s" % e)
 
     try:
+        old = tests.test_Sequences.HahnEcho
         tests.test_Sequences.HahnEcho = HahnEcho
+        tests.test_Sequences.HahnEcho(None, None)
         print("Redefined HahnEcho from QGL2")
-    except:
-        print("Did not redefine HahnEcho")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.HahnEcho = old
+        print("Did not redefine HahnEcho - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.HahnEcho = old
+        print("Have no QGL2 implementation of HahnEcho - use QGL1")
+    except Exception as e:
+        print("Did not redefine HahnEcho: %s" % e)
 
     try:
+        old = tests.test_Sequences.CPMG
         tests.test_Sequences.CPMG = CPMG
+        tests.test_Sequences.CPMG(None, None, None)
         print("Redefined CPMG from QGL2")
-    except:
-        print("Did not redefine CPMG")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.CPMG = old
+        print("Did not redefine CPMG - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.CPMG = old
+        print("Have no QGL2 implementation of CPMG - use QGL1")
+    except Exception as e:
+        print("Did not redefine CPMG: %s" % e)
 
     try:
+        old = tests.test_Sequences.FlipFlop
         tests.test_Sequences.FlipFlop = FlipFlop
+        tests.test_Sequences.FlipFlop(None, None)
         print("Redefined FlipFlop from QGL2")
-    except:
-        print("Did not redefine FlipFlop")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.FlipFlop = old
+        print("Did not redefine FlipFlop - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.FlipFlop = old
+        print("Have no QGL2 implementation of FlipFlop - use QGL1")
+    except Exception as e:
+        print("Did not redefine FlipFlop: %s" % e)
 
     try:
+        old = tests.test_Sequences.InversionRecovery
         tests.test_Sequences.InversionRecovery = InversionRecovery
+        tests.test_Sequences.InversionRecovery(None, None)
         print("Redefined InversionRecovery from QGL2")
-    except:
-        print("Did not redefine InversionRecovery")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.InversionRecovery = old
+        print("Did not redefine InversionRecovery - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.InversionRecovery = old
+        print("Have no QGL2 implementation of InversionRecovery - use QGL1")
+    except Exception as e:
+        print("Did not redefine InversionRecovery: %s" % e)
 
     try:
+        old = tests.test_Sequences.Ramsey
         tests.test_Sequences.Ramsey = Ramsey
+        tests.test_Sequences.Ramsey(None, None)
         print("Redefined Ramsey from QGL2")
-    except:
-        print("Did not redefine Ramsey")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.Ramsey = old
+        print("Did not redefine Ramsey - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.Ramsey = old
+        print("Have no QGL2 implementation of Ramsey - use QGL1")
+    except Exception as e:
+        print("Did not redefine Ramsey: %s" % e)
 
     try:
+        old = tests.test_Sequences.SPAM
         tests.test_Sequences.SPAM = SPAM
+        tests.test_Sequences.SPAM(None, None)
         print("Redefined SPAM from QGL2")
-    except:
-        print("Did not redefine SPAM")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.SPAM = old
+        print("Did not redefine SPAM - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.SPAM = old
+        print("Have no QGL2 implementation of SPAM - use QGL1")
+    except Exception as e:
+        print("Did not redefine SPAM: %s" % e)
 
     try:
+        old = tests.test_Sequences.RabiAmp
         tests.test_Sequences.RabiAmp = RabiAmp
+        tests.test_Sequences.RabiAmp(None, None)
         print("Redefined RabiAmp from QGL2")
-    except:
-        print("Did not redefine RabiAmp")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.RabiAmp = old
+        print("Did not redefine RabiAmp - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.RabiAmp = old
+        print("Have no QGL2 implementation of RabiAmp - use QGL1")
+    except Exception as e:
+        print("Did not redefine RabiAmp: %s" % e)
 
     try:
+        old = tests.test_Sequences.RabiWidth
         tests.test_Sequences.RabiWidth = RabiWidth
+        tests.test_Sequences.RabiWidth(None, None)
         print("Redefined RabiWidth from QGL2")
-    except:
-        print("Did not redefine RabiWidth")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.RabiWidth = old
+        print("Did not redefine RabiWidth - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.RabiWidth = old
+        print("Have no QGL2 implementation of RabiWidth - use QGL1")
+    except Exception as e:
+        print("Did not redefine RabiWidth: %s" % e)
 
     try:
+        old = tests.test_Sequences.RabiAmp_NQubits
         tests.test_Sequences.RabiAmp_NQubits = RabiAmp_NQubits
+        tests.test_Sequences.RabiAmp_NQubits(None, None)
         print("Redefined RabiAmp_NQubits from QGL2")
-    except:
-        print("Did not redefine RabiAmp_NQubits")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.RabiAmp_NQubits = old
+        print("Did not redefine RabiAmp_NQubits - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.RabiAmp_NQubits = old
+        print("Have no QGL2 implementation of RabiAmp_NQubits - use QGL1")
+    except Exception as e:
+        print("Did not redefine RabiAmp_NQubits: %s" % e)
 
     try:
+        old = tests.test_Sequences.RabiAmpPi
         tests.test_Sequences.RabiAmpPi = RabiAmpPi
+        tests.test_Sequences.RabiAmpPi(None, None, None)
         print("Redefined RabiAmpPi from QGL2")
-    except:
-        print("Did not redefine RabiAmpPi")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.RabiAmpPi = old
+        print("Did not redefine RabiAmpPi - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.RabiAmpPi = old
+        print("Have no QGL2 implementation of RabiAmpPi - use QGL1")
+    except Exception as e:
+        print("Did not redefine RabiAmpPi: %s" % e)
 
     try:
+        old = tests.test_Sequences.SingleShot
         tests.test_Sequences.SingleShot = SingleShot
+        tests.test_Sequences.SingleShot(None)
         print("Redefined SingleShot from QGL2")
-    except:
-        print("Did not redefine SingleShot")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.SingleShot = old
+        print("Did not redefine SingleShot - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.SingleShot = old
+        print("Have no QGL2 implementation of SingleShot - use QGL1")
+    except Exception as e:
+        print("Did not redefine SingleShot: %s" % e)
 
     try:
+        old = tests.test_Sequences.PulsedSpec
         tests.test_Sequences.PulsedSpec = PulsedSpec
+        tests.test_Sequences.PulsedSpec(None)
         print("Redefined PulsedSpec from QGL2")
-    except:
-        print("Did not redefine PulsedSpec")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.PulsedSpec = old
+        print("Did not redefine PulsedSpec - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.PulsedSpec = old
+        print("Have no QGL2 implementation of PulsedSpec - use QGL1")
+    except Exception as e:
+        print("Did not redefine PulsedSpec: %s" % e)
 
     try:
+        old = tests.test_Sequences.SingleQubitRB
         tests.test_Sequences.SingleQubitRB = SingleQubitRB
+        tests.test_Sequences.SingleQubitRB(None, None)
         print("Redefined SingleQubitRB from QGL2")
-    except:
-        print("Did not redefine SingleQubitRB")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.SingleQubitRB = old
+        print("Did not redefine SingleQubitRB - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.SingleQubitRB = old
+        print("Have no QGL2 implementation of SingleQubitRB - use QGL1")
+    except Exception as e:
+        print("Did not redefine SingleQubitRB: %s" % e)
 
     try:
+        old = tests.test_Sequences.create_RB_seqs
         tests.test_Sequences.create_RB_seqs = create_RB_seqs
+        tests.test_Sequences.create_RB_seqs(None, None)
         print("Redefined create_RB_seqs from QGL2")
-    except:
-        print("Did not redefine create_RB_seqs")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.create_RB_seqs = old
+        print("Did not redefine create_RB_seqs - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.create_RB_seqs = old
+        print("Have no QGL2 implementation of create_RB_seqs - use QGL1")
+    except Exception as e:
+        print("Did not redefine create_RB_seqs: %s" % e)
 
     try:
+        old = tests.test_Sequences.TwoQubitRB
         tests.test_Sequences.TwoQubitRB = TwoQubitRB
+        tests.test_Sequences.TwoQubitRB(None, None, None)
         print("Redefined TwoQubitRB from QGL2")
-    except:
-        print("Did not redefine TwoQubitRB")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.TwoQubitRB = old
+        print("Did not redefine TwoQubitRB - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.TwoQubitRB = old
+        print("Have no QGL2 implementation of TwoQubitRB - use QGL1")
+    except Exception as e:
+        print("Did not redefine TwoQubitRB: %s" % e)
 
     try:
+        old = tests.test_Sequences.SimultaneousRB_AC
         tests.test_Sequences.SimultaneousRB_AC = SimultaneousRB_AC
+        tests.test_Sequences.SimultaneousRB_AC(None, None)
         print("Redefined SimultaneousRB_AC from QGL2")
-    except:
-        print("Did not redefine SimultaneousRB_AC")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.SimultaneousRB_AC = old
+        print("Did not redefine SimultaneousRB_AC - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.SimultaneousRB_AC = old
+        print("Have no QGL2 implementation of SimultaneousRB_AC - use QGL1")
+    except Exception as e:
+        print("Did not redefine SimultaneousRB_AC: %s" % e)
 
     # Having re-defined the basic methods, run the basic QGL1 sequence unit tests
     unittest.main(module=tests.test_Sequences, argv=[sys.argv[0]])
