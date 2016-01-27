@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qbit_list
+from qgl2.qgl2 import qgl2decl, qbit, qbit_list, pulse
 
 @qgl2decl
 def create_RB_seqs(numQubits, lengths, repeats=32, interleaveGate=None):
@@ -81,9 +81,8 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
     """
     raise NotImplementedError("Not implemented")
 
-# FIXME: is analyzedPulse a pulse?
 @qgl2decl
-def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse, showPlot=False):
+def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False):
     """
 
     Single qubit randomized benchmarking using atomic Clifford pulses. 
