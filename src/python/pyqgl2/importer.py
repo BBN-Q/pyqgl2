@@ -703,7 +703,7 @@ class NameSpaces(object):
 
     def add_from_wildcard(self, namespace, path, from_name):
 
-        for sym in alt_namespace.all_names:
+        for sym in namespace.all_names:
             namespace.add_from_as_path(path, sym)
 
 if __name__ == '__main__':
