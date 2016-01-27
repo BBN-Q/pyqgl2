@@ -194,14 +194,13 @@ class NameSpace(object):
 
         self.order_added.append(('I', ptree))
 
-    def add_from_as(self, module_name, sym_name, as_name=None):
+    def add_from_as_path(self, path, sym_name, as_name=None):
         # print('SYM module [%s] name [%s]' % (module_name, sym_name))
         if not as_name:
             as_name = sym_name
 
         self.check_dups(as_name, 'from-as')
 
-        path = resolve_path(module_name)
         if not path:
             raise ValueError('no module found for [%s]' % module_name)
 
@@ -662,6 +661,7 @@ class NameSpaces(object):
             # from Python notation to path notation, and adding the
             # suffix).
             #
+
             dir_name = stmnt.qgl_fname.rpartition(os.sep)[0]
             dir_name += os.sep + os.sep.join(['..'] * (stmnt.level - 1))
 
@@ -697,19 +697,14 @@ class NameSpaces(object):
                     NodeError.warning_msg(stmnt,
                             ('deprecated wildcard import from [%s]' %
                                 module_name))
-                    self.add_from_wildcard(namespace, module_name, module_name)
+                    self.add_from_wildcard(namespace, subpath, module_name)
                 else:
-                    namespace.add_from_as(module_name, imp.name, imp.asname)
+                    namespace.add_from_as_path(subpath, imp.name, imp.asname)
 
-    def add_from_wildcard(self, namespace, module_name, from_name):
-
-        subpath = resolve_path(module_name)
-
-        # TODO: check that subpath is there
-        alt_namespace = self.path2namespace[subpath]
+    def add_from_wildcard(self, namespace, path, from_name):
 
         for sym in alt_namespace.all_names:
-            namespace.add_from_as(module_name, sym)
+            namespace.add_from_as_path(path, sym)
 
 if __name__ == '__main__':
 
