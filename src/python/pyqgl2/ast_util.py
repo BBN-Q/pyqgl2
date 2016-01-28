@@ -125,7 +125,9 @@ class NodeError(object):
         """
 
         # Detect improper usage, and bomb out
-        assert isinstance(node, ast.AST)
+        if node:
+            assert isinstance(node, ast.AST)
+
         assert level in NodeError.NODE_ERROR_LEGAL_LEVELS
 
         if not msg:
@@ -142,6 +144,8 @@ class NodeError(object):
         if node:
             text = ('%s:%d:%d: ' %
                     (node.qgl_fname, node.lineno, node.col_offset))
+        else:
+            text = ''
 
         text += ('%s: %s' % (level_str, msg))
 
