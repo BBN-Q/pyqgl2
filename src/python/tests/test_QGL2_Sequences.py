@@ -50,7 +50,7 @@ from qgl2.qgl2 import Qbit
 if __name__ == "__main__":
     try:
         from qgl2.basic_sequences import *
-        print("Re-defined basic sequences from qgl2.basic_sequences")
+        print("Re-defining basic sequences from qgl2.basic_sequences")
     except Exception as e:
         import traceback
         sys.exit("Failed to redefine sequences from qgl2.basic_sequences: %s. %s" % (e, traceback.format_exc()))
@@ -68,7 +68,15 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.AllXY
         tests.test_Sequences.AllXY = AllXY
-        tests.test_Sequences.AllXY(None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.AllXY(None)
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined AllXY from QGL2")
         old = None
     except AssertionError as ae:
@@ -81,12 +89,21 @@ if __name__ == "__main__":
             tests.test_Sequences.AllXY = old
         print("Have no QGL2 implementation of AllXY - use QGL1")
     except Exception as e:
-        print("Did not redefine AllXY: %s" % e)
+        import traceback
+        print("Did not redefine AllXY: %s. %s" % (e, traceback.format_exc()))
 
     try:
         old = tests.test_Sequences.PiRabi
         tests.test_Sequences.PiRabi = PiRabi
-        tests.test_Sequences.PiRabi(None, None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.PiRabi(None, None, [])
+        except ValueError as e2:
+            if "Edge (None, None) not found" not in str(e2):
+                raise
         print("Redefined PiRabi from QGL2")
         old = None
     except AssertionError as ae:
@@ -104,7 +121,15 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.EchoCRLen
         tests.test_Sequences.EchoCRLen = EchoCRLen
-        tests.test_Sequences.EchoCRLen(None, None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.EchoCRLen(None, None, [])
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined EchoCRLen from QGL2")
         old = None
     except AssertionError as ae:
@@ -122,7 +147,15 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.EchoCRPhase
         tests.test_Sequences.EchoCRPhase = EchoCRPhase
-        tests.test_Sequences.EchoCRPhase(None, None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.EchoCRPhase(None, None, [])
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined EchoCRPhase from QGL2")
         old = None
     except AssertionError as ae:
@@ -140,7 +173,15 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.HahnEcho
         tests.test_Sequences.HahnEcho = HahnEcho
-        tests.test_Sequences.HahnEcho(None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.HahnEcho(None, [])
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined HahnEcho from QGL2")
         old = None
     except AssertionError as ae:
@@ -158,7 +199,15 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.CPMG
         tests.test_Sequences.CPMG = CPMG
-        tests.test_Sequences.CPMG(None, None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.CPMG(None, 0, 0)
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined CPMG from QGL2")
         old = None
     except AssertionError as ae:
@@ -176,7 +225,15 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.FlipFlop
         tests.test_Sequences.FlipFlop = FlipFlop
-        tests.test_Sequences.FlipFlop(None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.FlipFlop(None, [])
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined FlipFlop from QGL2")
         old = None
     except AssertionError as ae:
@@ -194,7 +251,15 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.InversionRecovery
         tests.test_Sequences.InversionRecovery = InversionRecovery
-        tests.test_Sequences.InversionRecovery(None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.InversionRecovery(None, [])
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined InversionRecovery from QGL2")
         old = None
     except AssertionError as ae:
@@ -212,7 +277,18 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.Ramsey
         tests.test_Sequences.Ramsey = Ramsey
-        tests.test_Sequences.Ramsey(None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.Ramsey(None, [])
+        except TypeError as e3:
+            if "can't multiply sequence by non-int of type 'float'" not in str(e3):
+                raise
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined Ramsey from QGL2")
         old = None
     except AssertionError as ae:
@@ -225,12 +301,21 @@ if __name__ == "__main__":
             tests.test_Sequences.Ramsey = old
         print("Have no QGL2 implementation of Ramsey - use QGL1")
     except Exception as e:
-        print("Did not redefine Ramsey: %s" % e)
+        import traceback
+        print("Did not redefine Ramsey: %s: %s" % (e, traceback.format_exc()))
 
     try:
         old = tests.test_Sequences.SPAM
         tests.test_Sequences.SPAM = SPAM
-        tests.test_Sequences.SPAM(None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.SPAM(None, [])
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined SPAM from QGL2")
         old = None
     except AssertionError as ae:
@@ -248,7 +333,18 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.RabiAmp
         tests.test_Sequences.RabiAmp = RabiAmp
-        tests.test_Sequences.RabiAmp(None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.RabiAmp(None, [])
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
+        except KeyError as ke:
+            if "'slaveTrig'" not in str(ke):
+                raise
         print("Redefined RabiAmp from QGL2")
         old = None
     except AssertionError as ae:
@@ -261,12 +357,24 @@ if __name__ == "__main__":
             tests.test_Sequences.RabiAmp = old
         print("Have no QGL2 implementation of RabiAmp - use QGL1")
     except Exception as e:
-        print("Did not redefine RabiAmp: %s" % e)
+        import traceback
+        print("Did not redefine RabiAmp: %s: %s" % (e, traceback.format_exc()))
 
     try:
         old = tests.test_Sequences.RabiWidth
         tests.test_Sequences.RabiWidth = RabiWidth
-        tests.test_Sequences.RabiWidth(None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.RabiWidth(None, [])
+        except KeyError as ke:
+            if "'slaveTrig'" not in str(ke):
+                raise
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined RabiWidth from QGL2")
         old = None
     except AssertionError as ae:
@@ -284,7 +392,18 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.RabiAmp_NQubits
         tests.test_Sequences.RabiAmp_NQubits = RabiAmp_NQubits
-        tests.test_Sequences.RabiAmp_NQubits(None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.RabiAmp_NQubits([], [])
+        except KeyError as ke:
+            if "'slaveTrig'" not in str(ke):
+                raise
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined RabiAmp_NQubits from QGL2")
         old = None
     except AssertionError as ae:
@@ -302,7 +421,18 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.RabiAmpPi
         tests.test_Sequences.RabiAmpPi = RabiAmpPi
-        tests.test_Sequences.RabiAmpPi(None, None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.RabiAmpPi(None, None, [])
+        except KeyError as ke:
+            if "'slaveTrig'" not in str(ke):
+                raise
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined RabiAmpPi from QGL2")
         old = None
     except AssertionError as ae:
@@ -320,7 +450,15 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.SingleShot
         tests.test_Sequences.SingleShot = SingleShot
-        tests.test_Sequences.SingleShot(None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.SingleShot(None)
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined SingleShot from QGL2")
         old = None
     except AssertionError as ae:
@@ -338,7 +476,15 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.PulsedSpec
         tests.test_Sequences.PulsedSpec = PulsedSpec
-        tests.test_Sequences.PulsedSpec(None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.PulsedSpec(None)
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined PulsedSpec from QGL2")
         old = None
     except AssertionError as ae:
@@ -356,7 +502,15 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.SingleQubitRB
         tests.test_Sequences.SingleQubitRB = SingleQubitRB
-        tests.test_Sequences.SingleQubitRB(None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.SingleQubitRB(None, [])
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined SingleQubitRB from QGL2")
         old = None
     except AssertionError as ae:
@@ -374,7 +528,15 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.create_RB_seqs
         tests.test_Sequences.create_RB_seqs = create_RB_seqs
-        tests.test_Sequences.create_RB_seqs(None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.create_RB_seqs(1, [])
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined create_RB_seqs from QGL2")
         old = None
     except AssertionError as ae:
@@ -392,7 +554,15 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.TwoQubitRB
         tests.test_Sequences.TwoQubitRB = TwoQubitRB
-        tests.test_Sequences.TwoQubitRB(None, None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.TwoQubitRB(None, None, [])
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined TwoQubitRB from QGL2")
         old = None
     except AssertionError as ae:
@@ -410,7 +580,18 @@ if __name__ == "__main__":
     try:
         old = tests.test_Sequences.SimultaneousRB_AC
         tests.test_Sequences.SimultaneousRB_AC = SimultaneousRB_AC
-        tests.test_Sequences.SimultaneousRB_AC(None, None)
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.SimultaneousRB_AC([], [])
+        except TypeError as e3:
+            if "reduce() of empty sequence with no initial value" not in str(e3):
+                raise
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
         print("Redefined SimultaneousRB_AC from QGL2")
         old = None
     except AssertionError as ae:
@@ -423,7 +604,8 @@ if __name__ == "__main__":
             tests.test_Sequences.SimultaneousRB_AC = old
         print("Have no QGL2 implementation of SimultaneousRB_AC - use QGL1")
     except Exception as e:
-        print("Did not redefine SimultaneousRB_AC: %s" % e)
+        import traceback
+        print("Did not redefine SimultaneousRB_AC: %s: %s" % (e, traceback.format_exc()))
 
     # Having re-defined the basic methods, run the basic QGL1 sequence unit tests
     unittest.main(module=tests.test_Sequences, argv=[sys.argv[0]])
