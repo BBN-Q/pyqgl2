@@ -27,6 +27,7 @@ within functions, or nested functions of any kind.
 """
 
 import ast
+import inspect
 import os
 import sys
 
@@ -34,6 +35,46 @@ from pyqgl2.ast_util import NodeError
 from pyqgl2.lang import QGL2
 
 import pyqgl2
+
+SYS_PATH_PREFIX = None
+
+def find_sys_path_prefix():
+    """
+    Find the prefix of the path to the "system" libraries,
+    which we want to exclude from importing and searching
+    for QGL stuff.
+
+    Where these are located depends on where Python was
+    installed on the local system (and which version of
+    Python, etc).  The heuristic we use is to search through
+    the include path for 'ast' and assume that the path
+    we has the prefix we want to omit.
+
+    This is a hack.  In Python3, modules can be loaded
+    directly out of zip files, in which case they don't
+    have a "file".  We use 'ast' because it typically does,
+    but there's no guarantee that this will work in
+    all cases.
+    """
+
+    global SYS_PATH_PREFIX
+
+    if SYS_PATH_PREFIX:
+        return SYS_PATH_PREFIX
+
+    try:
+        path = inspect.getfile(ast)
+    except TypeError as exc:
+        print('ERROR: cannot find path to system modules')
+        sys.exit(1)
+
+    relpath = os.path.relpath(path)
+
+    path_prefix = relpath.rpartition(os.sep)[0]
+
+    SYS_PATH_PREFIX = path_prefix
+
+    return path_prefix
 
 def resolve_path(name):
     """
@@ -44,6 +85,8 @@ def resolve_path(name):
     structures
     """
 
+    sys_path_prefix = find_sys_path_prefix()
+
     # At most of one of these will resolve correctly; either
     # it's a directory or a file
     #
@@ -51,6 +94,13 @@ def resolve_path(name):
     name_to_dpath = os.path.join(os.sep.join(name.split('.')), '__init__.py')
 
     for dirpath in sys.path:
+        dirpath = os.path.relpath(dirpath)
+
+        # Ignore the system directory
+        #
+        if dirpath.startswith(sys_path_prefix):
+            continue
+
         fpath = os.path.join(dirpath, name_to_fpath)
         dpath = os.path.join(dirpath, name_to_dpath)
 
@@ -703,7 +753,9 @@ class NameSpaces(object):
 
     def add_from_wildcard(self, namespace, path, from_name):
 
-        for sym in namespace.all_names:
+        alt_namespace = self.path2namespace[path]
+
+        for sym in alt_namespace.all_names:
             namespace.add_from_as_path(path, sym)
 
 if __name__ == '__main__':
