@@ -37,17 +37,10 @@ import unittest
 # NOTE: Assuming anything defined in PulsePrimitives we do not need to redo / separately test
 # Note that CNOT_CR is potentially multiple pulses so might want to do that one in QGL2
 
-#import QGL2AC as AC
-#import QGL2ZX90_CR as ZX90_CR
-#import QGL2CNOT_CR as CNOT_CR
+from qgl2.qgl2 import qgl2decl, qgl2main
 
-
-#from qgl2.qgl2 import *
-from qgl2.qgl2 import concur, qgl2decl, qgl2main
-from qgl2.qgl2 import classical, pulse, qbit, qbit_list
-from qgl2.qgl2 import Qbit
-
-if __name__ == "__main__":
+@qgl2main
+def main():
     try:
         from qgl2.basic_sequences import *
         print("Re-defining basic sequences from qgl2.basic_sequences")
@@ -609,3 +602,7 @@ if __name__ == "__main__":
 
     # Having re-defined the basic methods, run the basic QGL1 sequence unit tests
     unittest.main(module=tests.test_Sequences, argv=[sys.argv[0]])
+
+if __name__ == "__main__":
+    main()
+    
