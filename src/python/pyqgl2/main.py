@@ -90,7 +90,7 @@ def main():
 
     importer = NameSpaces(opts.filename, opts.main_name)
     if not importer.qglmain:
-        NodeError.fatal_msg('no qglmain function found')
+        NodeError.fatal_msg(None, 'no qglmain function found')
 
     NodeError.halt_on_error()
 
