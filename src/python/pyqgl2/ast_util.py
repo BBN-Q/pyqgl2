@@ -111,7 +111,7 @@ class NodeError(object):
         """
 
         LAST_FATAL_MSG = msg
-        NodeError.fatal_msg(node, msg)
+        NodeError._make_msg(node, NodeError.NODE_ERROR_FATAL, msg)
 
     @staticmethod
     def _make_msg(node, level, msg=None):
