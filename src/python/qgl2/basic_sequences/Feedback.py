@@ -2,6 +2,17 @@
 
 from qgl2.qgl2 import qgl2decl, qbit_list
 
+from QGL.PulsePrimitives import Id, MEAS
+from QGL.Compiler import compile_to_hardware
+from QGL.PulseSequencePlotter import plot_pulse_files
+from QGL.ControlFlow import qif, qwait
+
+from .helpers import create_cal_seqs
+
+from functools import reduce
+from itertools import product
+import operator
+
 # Note that measChans should have a default value that is identical to qubits
 @qgl2decl
 def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
@@ -25,3 +36,32 @@ def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     plotHandle : handle to plot window to prevent destruction
     """
     raise NotImplementedError("Not implemented")
+
+    # Original:
+    # if measChans is None:
+    #     measChans = qubits
+
+    # if signVec == None:
+    #     signVec = [0]*len(qubits)
+
+    # states = create_cal_seqs(qubits,1,measChans=measChans)
+    # FbSet = [Id, X]
+    # FbSet2 = [X, Id]
+    # FbGates = []
+
+    # for count in range(len(qubits)):
+    #     FbGates += [FbSet] if signVec[count]==0 else [FbSet2]
+    # FbSeq = [reduce(operator.mul, [p(q) for p,q in zip(pulseSet, qubits)]) for pulseSet in product(*FbGates)]
+    # seqs = [state + [MEAS(*measChans), Id(qubits[0],measDelay), qwait('CMP'), Id(qubits[0],buf)] + [branch for b in [qif(fbcount,[FbSeq[count]]) for fbcount in range(len(states))] for branch in b] + [MEAS(*measChans)] for count, state in enumerate(states)]
+
+    # if doubleRound:
+    #     seqs = [seq + [Id(qubits[0],measDelay), qwait('CMP'), Id(qubits[0],buf)] + [branch for b in [qif(fbcount,[FbSeq[count]]) for fbcount in range(2**len(qubits))] for branch in b] + [MEAS(*measChans)] for seq in seqs]
+    # print(seqs[0])
+    # if docals:
+    #     seqs += create_cal_seqs(qubits, calRepeats, measChans=measChans)
+
+    # fileNames = compile_to_hardware(seqs, 'Reset/Reset')
+
+    # if showPlot:
+    #     plot_pulse_files(fileNames)
+    
