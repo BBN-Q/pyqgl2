@@ -39,14 +39,24 @@ import unittest
 
 from qgl2.qgl2 import qgl2decl, qgl2main
 
+try:
+    from qgl2.basic_sequences import RabiAmp, RabiWidth, RabiAmpPi, RabiAmp_NQubits, PulsedSpec, SingleShot
+    from qgl2.basic_sequences import Ramsey, InversionRecovery, FlipFlop, SPAM
+    from qgl2.basic_sequences import create_RB_seqs, SingleQubitRB, SingleQubitRB_AC, SingleQubitIRB_AC, SimultaneousRB_AC, SingleQubitRBT, TwoQubitRB
+    from qgl2.basic_sequences import HahnEcho, CPMG, create_cal_seqs, AllXY
+    from qgl2.basic_sequences import Reset, EchoCRPhase, EchoCRLen, PiRabi
+    # These next are never used
+    # from qgl2.basic_sequences import Swap, sweep_gateDelay
+    # I would do an import *, but this is more explicit to show what we're testing
+
+    print("Re-defining basic sequences from qgl2.basic_sequences")
+except Exception as e:
+    import traceback
+    sys.exit("Failed to redefine sequences from qgl2.basic_sequences: %s. %s" % (e, traceback.format_exc()))
+
+# For testing as vanilla unit test, must comment out next line
 @qgl2main
 def main():
-    try:
-        from qgl2.basic_sequences import *
-        print("Re-defining basic sequences from qgl2.basic_sequences")
-    except Exception as e:
-        import traceback
-        sys.exit("Failed to redefine sequences from qgl2.basic_sequences: %s. %s" % (e, traceback.format_exc()))
 
     # Now must redefine all the methods here.
     # I'd like to do something like this:
@@ -110,6 +120,32 @@ def main():
         print("Have no QGL2 implementation of PiRabi - use QGL1")
     except Exception as e:
         print("Did not redefine PiRabi: %s" % e)
+
+    try:
+        old = tests.test_Sequences.Reset
+        tests.test_Sequences.Reset = Reset
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.Reset([])
+        except ValueError as e2:
+            if "Edge (None, None) not found" not in str(e2):
+                raise
+        print("Redefined Reset from QGL2")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.Reset = old
+        print("Did not redefine Reset - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.Reset = old
+        print("Have no QGL2 implementation of Reset - use QGL1")
+    except Exception as e:
+        print("Did not redefine Reset: %s" % e)
 
     try:
         old = tests.test_Sequences.EchoCRLen
@@ -214,6 +250,32 @@ def main():
         print("Have no QGL2 implementation of CPMG - use QGL1")
     except Exception as e:
         print("Did not redefine CPMG: %s" % e)
+
+    try:
+        old = tests.test_Sequences.create_cal_seqs
+        tests.test_Sequences.create_cal_seqs = create_cal_seqs
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.create_cal_seqs([], 0)
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
+        print("Redefined create_cal_seqs from QGL2")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.create_cal_seqs = old
+        print("Did not redefine create_cal_seqs - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.create_cal_seqs = old
+        print("Have no QGL2 implementation of create_cal_seqs - use QGL1")
+    except Exception as e:
+        print("Did not redefine create_cal_seqs: %s" % e)
 
     try:
         old = tests.test_Sequences.FlipFlop
@@ -517,6 +579,84 @@ def main():
         print("Have no QGL2 implementation of SingleQubitRB - use QGL1")
     except Exception as e:
         print("Did not redefine SingleQubitRB: %s" % e)
+
+    try:
+        old = tests.test_Sequences.SingleQubitRB_AC
+        tests.test_Sequences.SingleQubitRB_AC = SingleQubitRB_AC
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.SingleQubitRB_AC(None, [])
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
+        print("Redefined SingleQubitRB_AC from QGL2")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.SingleQubitRB_AC = old
+        print("Did not redefine SingleQubitRB_AC - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.SingleQubitRB_AC = old
+        print("Have no QGL2 implementation of SingleQubitRB_AC - use QGL1")
+    except Exception as e:
+        print("Did not redefine SingleQubitRB_AC: %s" % e)
+
+    try:
+        old = tests.test_Sequences.SingleQubitIRB_AC
+        tests.test_Sequences.SingleQubitIRB_AC = SingleQubitIRB_AC
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.SingleQubitIRB_AC(None, None)
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
+        print("Redefined SingleQubitIRB_AC from QGL2")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.SingleQubitIRB_AC = old
+        print("Did not redefine SingleQubitIRB_AC - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.SingleQubitIRB_AC = old
+        print("Have no QGL2 implementation of SingleQubitIRB_AC - use QGL1")
+    except Exception as e:
+        print("Did not redefine SingleQubitIRB_AC: %s" % e)
+
+    try:
+        old = tests.test_Sequences.SingleQubitRBT
+        tests.test_Sequences.SingleQubitRBT = SingleQubitRBT
+        # Try invoking the function
+        # If that raises an AssertionError or NotImplementedError
+        # then we know it isn't ready
+        # But since we're calling with Nones, we expect certain Attribute Errors
+        try:
+            tests.test_Sequences.SingleQubitRBT(None, None, None)
+        except AttributeError as eN:
+            if "'NoneType' object has no attribute" not in str(eN):
+                raise
+        print("Redefined SingleQubitRBT from QGL2")
+        old = None
+    except AssertionError as ae:
+        # That function was never compiled - not redefining
+        tests.test_Sequences.SingleQubitRBT = old
+        print("Did not redefine SingleQubitRBT - found it but it isn't compiled yet")
+    except NotImplementedError as ne:
+        # have no qgl2 implementation yet, so use the qgl1 version
+        if old:
+            tests.test_Sequences.SingleQubitRBT = old
+        print("Have no QGL2 implementation of SingleQubitRBT - use QGL1")
+    except Exception as e:
+        print("Did not redefine SingleQubitRBT: %s" % e)
 
     try:
         old = tests.test_Sequences.create_RB_seqs
