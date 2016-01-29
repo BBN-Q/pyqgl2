@@ -116,7 +116,11 @@ class ConcurUnroller(ast.NodeTransformer):
         vals = for_node.iter.elts
         for index in range(len(vals)):
 
-            bindings = self.make_bindings(for_node.target, vals[index])
+            try:
+                bindings = self.make_bindings(for_node.target, vals[index])
+            except TypeError as exc:
+                NodeError.error_msg(vals[index], str(exc))
+                return new_stmnts # return partial results; bail out later
 
             # Things to think about: should all the statements that
             # come from the expansion of one pass through the loop
@@ -142,20 +146,46 @@ class ConcurUnroller(ast.NodeTransformer):
         up the values to the names in the tuple.
 
         There are a lot of things that could go wrong here, but we
-        don't detect/handle many of them yet TODO: fix this
+        don't detect/handle many of them yet
+
+        There's some deliberate sloppiness permitted: the loop target
+        can be a list (which is weird style) and the parameters can
+        be a combination of lists and tuples.  As long as the target
+        and each element of the values can be indexed, things will
+        work out.  We could be stricter, because if these types are
+        mixed it's almost certainly an error of some kind.
         """
 
         bindings = dict()
 
         if isinstance(targets, ast.Name):
             bindings[targets.id] = values
-        elif isinstance(targets, ast.Tuple):
+        elif isinstance(targets, ast.Tuple) or isinstance(targets, ast.List):
+
+            # If the target is a list or tuple, then the values must
+            # be as well
+            #
+            if (not isinstance(values, ast.List) and
+                    not isinstance(values, ast.Tuple)):
+                NodeError.error_msg(values,
+                        'if loop vars are a tuple, params must be list/tuple')
+                return bindings
+
+            # The target and the values must be the same length
+            #
+            if len(targets.elts) != len(values.elts):
+                NodeError.error_msg(values,
+                        'mismatch between length of loop variables and params')
+                return bindings
+
             for index in range(len(targets.elts)):
-                # TODO: check!
-                bindings[targets.elts[index].id] = values[index]
+                name = targets.elts[index].id
+                value = values.elts[index]
+
+                bindings[name] = value
         else:
-            # TODO: oopsy!
-            pass
+            NodeError.error_msg(targets,
+                    'loop target variable must be a name or tuple')
 
         return bindings
 
