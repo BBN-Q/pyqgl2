@@ -26,28 +26,34 @@ class ConcurUnroller(ast.NodeTransformer):
     def __init__(self):
 
         self.bindings_stack = list()
+        self.change_cnt = 0
 
     def visit_With(self, node):
 
         if not self.is_concur(node):
-            print('NOT CONCUR') # debug
             return self.visit(node) # check
 
-        print('CONCUR') # debug
+        while True:
+            old_change_cnt = self.change_cnt
 
-        # for now, we're going to address only the simplest case:
-        # for loops at the top level of the block.
+            new_outer_body = list()
 
-        new_outer_body = list()
+            for outer_stmnt in node.body:
+                if isinstance(outer_stmnt, ast.For): 
+                    unrolled = self.for_unroller(outer_stmnt)
+                    new_outer_body += unrolled
+                else:
+                    new_outer_body.append(outer_stmnt)
 
-        for outer_stmnt in node.body:
-            if isinstance(outer_stmnt, ast.For): 
-                unrolled = self.for_unroller(outer_stmnt)
-                new_outer_body += unrolled
-            else:
-                new_outer_body.append(outer_stmnt)
+            node.body = new_outer_body
 
-        node.body = new_outer_body
+            # If we made changes in the last iteration,
+            # then the resulting code might have more changes
+            # we can make.  Keep trying until we manage to
+            # iterate without making any changes.
+            #
+            if self.change_cnt == old_change_cnt:
+                break
 
         return node
 
@@ -61,6 +67,7 @@ class ConcurUnroller(ast.NodeTransformer):
 
         for ind in range(len(self.bindings_stack) -1, -1, -1):
             if name_id in self.bindings_stack[ind]:
+                self.change_cnt += 1
                 return self.bindings_stack[ind][name_id]
 
         return node
@@ -115,8 +122,6 @@ class ConcurUnroller(ast.NodeTransformer):
             # come from the expansion of one pass through the loop
             # be grouped in some way (such as a 'with seq' block)?
             # Or should they just be dumped onto the end, as we do now?
-
-            print('BINDINGS %s' % str(bindings))
 
             self.bindings_stack.append(bindings)
 
