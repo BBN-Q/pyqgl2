@@ -9,8 +9,13 @@ import ast
 import os
 import sys
 
+from copy import deepcopy
+
+import pyqgl2.ast_util
+
 from pyqgl2.ast_util import NodeError
 from pyqgl2.lang import QGL2
+
 
 class ConcurUnroller(ast.NodeTransformer):
     """
@@ -19,12 +24,16 @@ class ConcurUnroller(ast.NodeTransformer):
     """
 
     def __init__(self):
-        pass
+
+        self.bindings_stack = list()
 
     def visit_With(self, node):
 
-        if not is_concur(node):
+        if not self.is_concur(node):
+            print('NOT CONCUR') # debug
             return self.visit(node) # check
+
+        print('CONCUR') # debug
 
         # for now, we're going to address only the simplest case:
         # for loops at the top level of the block.
@@ -33,7 +42,7 @@ class ConcurUnroller(ast.NodeTransformer):
 
         for outer_stmnt in node.body:
             if isinstance(outer_stmnt, ast.For): 
-                unrolled = self.for_unroller(outer_smnt)
+                unrolled = self.for_unroller(outer_stmnt)
                 new_outer_body += unrolled
             else:
                 new_outer_body.append(outer_stmnt)
@@ -41,6 +50,39 @@ class ConcurUnroller(ast.NodeTransformer):
         node.body = new_outer_body
 
         return node
+
+    def visit_Name(self, node):
+        """
+        If the name has a binding in any local scope (which may
+        be nested), then substitute that binding
+        """
+
+        name_id = node.id
+
+        for ind in range(len(self.bindings_stack) -1, -1, -1):
+            if name_id in self.bindings_stack[ind]:
+                return self.bindings_stack[ind][name_id]
+
+        return node
+
+    def is_concur(self, node):
+        """
+        Return True if the node is a with-concur block,
+        otherwise False
+        """
+
+        if not node:
+            return False
+
+        if not isinstance(node, ast.With):
+            return False
+
+        for item in node.items:
+            if (isinstance(item.context_expr, ast.Name) and
+                    (item.context_expr.id == QGL2.QCONCUR)):
+                return True
+
+        return False
 
     def for_unroller(self, for_node):
 
@@ -65,7 +107,7 @@ class ConcurUnroller(ast.NodeTransformer):
         new_stmnts = list()
 
         vals = for_node.iter.elts
-        for index in range(len(elts)):
+        for index in range(len(vals)):
 
             bindings = self.make_bindings(for_node.target, vals[index])
 
@@ -74,7 +116,15 @@ class ConcurUnroller(ast.NodeTransformer):
             # be grouped in some way (such as a 'with seq' block)?
             # Or should they just be dumped onto the end, as we do now?
 
-            new_stmnts += self.replace_bindings(bindings, for_node.body)
+            print('BINDINGS %s' % str(bindings))
+
+            self.bindings_stack.append(bindings)
+
+            new_body = deepcopy(for_node.body)
+
+            new_stmnts += self.replace_bindings(bindings, new_body)
+
+            self.bindings_stack.pop()
 
         return new_stmnts
 
@@ -100,8 +150,19 @@ class ConcurUnroller(ast.NodeTransformer):
                 bindings[targets.elts[index].id] = values[index]
         else:
             # TODO: oopsy!
+            pass
 
         return bindings
+
+    def replace_bindings(self, bindings, stmnts):
+        
+        new_stmnts = list()
+
+        for stmnt in stmnts:
+            new_stmnt = self.visit(stmnt)
+            new_stmnts.append(new_stmnt)
+
+        return new_stmnts
 
 if __name__ == '__main__':
 
@@ -109,7 +170,12 @@ if __name__ == '__main__':
         text = open(fname, 'r').read()
         ptree = ast.parse(text, mode='exec')
 
-        print('INITIAL PTREE: %s' % ast.dump(ptree))
+        print('INITIAL PTREE:\n%s' % pyqgl2.ast_util.ast2str(ptree))
+
+        unroller = ConcurUnroller()
+        new_ptree = unroller.visit(ptree)
+
+        print('NEW PTREE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
 
         # Now do the transformation
 
