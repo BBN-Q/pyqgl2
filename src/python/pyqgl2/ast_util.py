@@ -142,8 +142,13 @@ class NodeError(object):
             level_str = 'weird'
 
         if node:
+            if hasattr(node, 'qgl_fname'):
+                qgl_fname = node.qgl_fname
+            else:
+                qgl_fname = '<unknown>'
+
             text = ('%s:%d:%d: ' %
-                    (node.qgl_fname, node.lineno, node.col_offset))
+                    (qgl_fname, node.lineno, node.col_offset))
         else:
             text = ''
 
