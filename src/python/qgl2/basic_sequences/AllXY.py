@@ -6,65 +6,22 @@ from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
 from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
+from .new_helpers import addMeasPulses, repeatSequences, compileAndPlot
+
 @qgl2decl
 def AllXY(q: qbit, showPlot = False):
-    # firstPulses: 21 of them
-    firstPulses = [
-        Id(q),
-        X(q),
-        Y(q),
-        X(q),
-        Y(q),
-        X90(q),
-        Y90(q),
-        X90(q),
-        Y90(q),
-        X90(q),
-        Y90(q),
-        X(q),
-        Y(q),
-        X90(q),
-        X(q),
-        Y90(q),
-        Y(q),
-        X(q),
-        Y(q),
-        X90(q),
-        Y90(q)]
+    # Revised basic sequence test to try to be more readable
 
-    # secondPulses: 21 of them
-    secondPulses = [
-        Id(q),
-        X(q),
-        Y(q),
-        Y(q),
-        X(q),
-        Id(q),
-        Id(q),
-        Y90(q),
-        X90(q),
-        Y(q),
-        X(q),
-        Y90(q),
-        X90(q),
-        X(q),
-        X90(q),
-        Y(q),
-        Y90(q),
-        Id(q),
-        Id(q),
-        X90(q),
-        Y90(q)]
-
+    # Original calculated 2 separate lists of 21 pulses intended to be done together
     # Here we merge the lists together manually first, to be more clear / explicit
     firstAndSecondPulses = [
-        # these produce the state |0>
+        # These produce the state |0>
         [ Id(q),  Id(q)], # no pulses
         [ X(q),   X(q)], # pulsing around the same axis
         [ Y(q),   Y(q)],
         [ X(q),   Y(q)], # pulsing around orthogonal axes
         [ Y(q),   X(q)],
-        # these next create a |+> or |i> state (equal superposition of |0> + |1>)
+        # These next create a |+> or |i> state (equal superposition of |0> + |1>)
         [ X90(q), Id(q)], # single pulses
         [ Y90(q), Id(q)],
         [ X90(q), Y90(q)], # pulse pairs around orthogonal axes with 1e error sensitivity
@@ -77,60 +34,19 @@ def AllXY(q: qbit, showPlot = False):
         [ X(q),   X90(q)],
         [ Y90(q), Y(q)],
         [ Y(q),   Y90(q)],
-        # these next create the |1> state
+        # These next create the |1> state
         [ X(q),   Id(q)], # single pulses
         [ Y(q),   Id(q)],
         [ X90(q), X90(q)], # pulse pairs
         [ Y90(q), Y90(q)]
     ]
 
-    # If the goal were simply all permutations, then we could compute all the permutations of our pulses.
-    # However, the order is special to allow eyeballing errors. See comments above.
+    # Add a MEAS to each sequence and repeat each sequence
+    seqs = repeatSequences(addMeasPulses(firstAndSecondPulses, [q]))
 
-    # Any of these produces what we want:
-    #   [[f0,s0, M], [f0, s0, M], [f1, s1, M], [f1, s1, M], ....., [f20, s20, M], [f20, S20, M]]
-    # 1:
-    # seqs = [[firstPulses[ind], secondPulses[ind], MEAS(q)] for ind in range(len(firstPulses)) for i in range(2)]
+    # Result is something like:
+#        [ Id(q),  Id(q), MEAS(q)], # no pulses
+#        [ Id(q),  Id(q), MEAS(q)], # no pulses
+#        ....
 
-    # 2:
-    # seqs = []
-    # for ind in range(len(firstPulses)):
-    #     seqs += [[firstPulses[ind], secondPulses[ind], MEAS(q)] for i in range(2)]
-
-    # 3: (This one uses the pre interpolated lists)
-    seqs = [firstAndSecondPulses[ind] + [MEAS(q)] for ind in range(len(firstAndSecondPulses)) for i in range(2)]
-
-    def addMeasPulse(listOfSequencesOn1Qubit, q: qbit):
-        return [listOfSequencesOn1Qubit[ind] + [MEAS(q)] for ind in range(len(listOfSequencesOn1Qubit))]
-    # Elsewhere code does this:
-    # # Add the measurement to all sequences
-    # for seq in seqsBis:
-    #     seq.append(functools.reduce(operator.mul, [MEAS(q) for q in qubits]))
-
-    def repeatSequences(listOfSequences, repeat=2):
-        return [listOfSequences[ind] for ind in range(len(listOfSequences)) for i in range(repeat)]
-
-    def compileAndPlot(listOfSequences, filePrefix, showPlot=False):
-        fileNames = compile_to_hardware(listOfSequences, filePrefix)
-        print(fileNames)
-
-        if showPlot:
-            plot_pulse_files(fileNames)
-
-    # FIXME: Should that be a tuple or explicitly 1 qbit or 2?
-    def addCalibration(listOfSequences, tupleOfQubits: qbit_list, numRepeats=2):
-	# Tack on the calibration sequences
-        listOfSequences += create_cal_seqs((tupleOfQubits), numRepeats)
-        return listOfSequences
-                
-    # 4: Using helpers
-    # FIXME: This seems to give to more unit test failures
-    # seqs = repeatSequences(addMeasPulse(firstAndSecondPulses, q))
-
-    # Boilerplate / unmodified
-    filenames = compile_to_hardware(seqs, 'AllXY/AllXY')
-    print(filenames)
-    
-    if showPlot:
-        plot_pulse_files(filenames)
-#    raise NotImplementedError("Not implemented")
+    compileAndPlot(seqs, 'AllXY/AllXY', showPlot)
