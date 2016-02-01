@@ -159,7 +159,7 @@ def SingleQubitRB_AC(qubit: qbit, seqs, showPlot=False):
 
     # if showPlot:
     #     plot_pulse_files(fileNames)
-                
+
 @qgl2decl
 def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
     """
