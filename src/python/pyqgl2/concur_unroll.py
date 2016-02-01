@@ -1,7 +1,7 @@
 # Copyright 2015 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 """
-Unroll for loops (and possibly other conditional/iterative statements) 
+Unroll for loops (and possibly other conditional/iterative statements)
 within a "with concur" block.
 """
 
@@ -39,7 +39,7 @@ class ConcurUnroller(ast.NodeTransformer):
             new_outer_body = list()
 
             for outer_stmnt in node.body:
-                if isinstance(outer_stmnt, ast.For): 
+                if isinstance(outer_stmnt, ast.For):
                     unrolled = self.for_unroller(outer_stmnt)
                     new_outer_body += unrolled
                 else:
@@ -190,7 +190,7 @@ class ConcurUnroller(ast.NodeTransformer):
         return bindings
 
     def replace_bindings(self, bindings, stmnts):
-        
+
         new_stmnts = list()
 
         for stmnt in stmnts:
@@ -200,6 +200,186 @@ class ConcurUnroller(ast.NodeTransformer):
         return new_stmnts
 
 if __name__ == '__main__':
+
+    basic_tests = [
+            [ """ Basic test """,
+"""
+with concur:
+    for x in [1, 2, 3]:
+        foo(x)
+""",
+"""
+with concur:
+    foo(1)
+    foo(2)
+    foo(3)
+"""
+            ],
+
+            [ """ Double Nested loops """,
+"""
+with concur:
+    for x in [1, 2, 3]:
+        for y in [4, 5, 6]:
+            foo(x, y)
+""",
+"""
+with concur:
+    foo(1, 4)
+    foo(1, 5)
+    foo(1, 6)
+    foo(2, 4)
+    foo(2, 5)
+    foo(2, 6)
+    foo(3, 4)
+    foo(3, 5)
+    foo(3, 6)
+"""
+            ],
+
+            [ """ Triple Nested loops """,
+"""
+with concur:
+    for x in [1, 2]:
+        for y in [3, 4]:
+            for z in [5, 6]:
+                foo(x, y, z)
+""",
+"""
+with concur:
+    foo(1, 3, 5)
+    foo(1, 3, 6)
+    foo(1, 4, 5)
+    foo(1, 4, 6)
+    foo(2, 3, 5)
+    foo(2, 3, 6)
+    foo(2, 4, 5)
+    foo(2, 4, 6)
+"""
+            ],
+            [ """ Basic compound test """,
+"""
+with concur:
+    for x in [1, 2, 3]:
+        foo(x)
+        bar(x)
+""",
+"""
+with concur:
+    foo(1)
+    bar(1)
+    foo(2)
+    bar(2)
+    foo(3)
+    bar(3)
+"""
+            ],
+            [ """ Nested compound test """,
+"""
+with concur:
+    for x in [1, 2]:
+        for y in [3, 4]:
+            foo(x)
+            bar(y)
+""",
+"""
+with concur:
+    foo(1)
+    bar(3)
+    foo(1)
+    bar(4)
+    foo(2)
+    bar(3)
+    foo(2)
+    bar(4)
+"""
+            ],
+            [ """ Simple tuple test """,
+"""
+with concur:
+    for x, y in [(1, 2), (3, 4)]:
+        foo(x, y)
+""",
+"""
+with concur:
+    foo(1, 2)
+    foo(3, 4)
+"""
+            ],
+            [ """ Simple tuple test 2 """,
+"""
+with concur:
+    for x, y in [(1, 2), (3, 4)]:
+        foo(x)
+        foo(y)
+""",
+"""
+with concur:
+    foo(1)
+    foo(2)
+    foo(3)
+    foo(4)
+"""
+            ],
+            [ """ Compound test 2 """,
+"""
+with concur:
+    for x in [1, 2]:
+        for y in [3, 4]:
+            foo(x, y)
+
+            for z in [5, 6]:
+                bar(x, y, z)
+""",
+"""
+with concur:
+    foo(1, 3)
+    bar(1, 3, 5)
+    bar(1, 3, 6)
+    foo(1, 4)
+    bar(1, 4, 5)
+    bar(1, 4, 6)
+    foo(2, 3)
+    bar(2, 3, 5)
+    bar(2, 3, 6)
+    foo(2, 4)
+    bar(2, 4, 5)
+    bar(2, 4, 6)
+"""
+            ],
+
+            [ """ expression test """,
+"""
+with concur:
+    for x in [1, 2]:
+        for y in [3, 4]:
+            foo(x + y)
+""",
+# extra level of parens needed for the pretty-printer
+"""
+with concur:
+    foo((1 + 3))
+    foo((1 + 4))
+    foo((2 + 3))
+    foo((2 + 4))
+"""
+            ],
+
+        ]
+
+    def test_case(description, in_txt, out_txt):
+        ptree = ast.parse(in_txt, mode='exec')
+        unroller = ConcurUnroller()
+        new_ptree = unroller.visit(ptree)
+        new_txt = pyqgl2.ast_util.ast2str(new_ptree)
+
+        if out_txt.strip() != new_txt.strip():
+            print('FAILURE: %s\n:[%s]\n----\n[%s]' %
+                    (description, out_txt, new_txt))
+            return False
+        else:
+            print('SUCCESS: %s' % description)
+            return True
 
     def preprocess(fname):
         text = open(fname, 'r').read()
@@ -214,4 +394,12 @@ if __name__ == '__main__':
 
         # Now do the transformation
 
-    preprocess(sys.argv[1])
+    def main():
+        for (description, in_txt, out_txt) in basic_tests:
+            test_case(description, in_txt, out_txt)
+
+        if len(sys.argv) > 1:
+            for fname in sys.argv[1:]:
+                preprocess(fname)
+
+    main()
