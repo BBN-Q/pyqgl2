@@ -143,6 +143,8 @@ class CheckWaveforms(NodeTransformerWithFname):
             return expr.id
         elif type(expr) == ast.Num:
             return expr.n
+        elif type(expr) == ast.NameConstant:
+            return expr.value
 
 
     def gen_waveform(self, name, args, kwargs):
