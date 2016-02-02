@@ -116,6 +116,11 @@ class ExprSourceGen(Visitor):
 
     def visitName(self, node):
         self.print(node.id)
+
+    # BBN: special case for Python 3.5
+    def visitNameConstant(self, node):
+        self.print(str(node.value))
+    # End BBN changes
     
     @py2op
     def visitarguments(self, node):
