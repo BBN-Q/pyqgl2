@@ -258,6 +258,9 @@ class FindTypes(NodeVisitor):
                 elif isinstance(actual_val, ast.Str):
                     type_bindings[name] = 'classical'
 
+                elif isinstance(actual_val, ast.NameConstant):
+                    type_bindings[name] = 'classical'
+
                 elif isinstance(actual_val, ast.Name):
                     if actual_val.id in scope_types:
                         type_bindings[name] = scope_types[actual_val.id]

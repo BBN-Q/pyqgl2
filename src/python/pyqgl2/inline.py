@@ -528,8 +528,10 @@ def create_inline_procedure(func_ptree, call_ptree):
         # TODO: only considering the most basic cases right now.
         # There are many other cases we could potentially handle.
         #
-        if ((isinstance(actual, ast.Num) or isinstance(actual, ast.Str) or
-                isinstance(actual, ast.Name)) and
+        if ((isinstance(actual, ast.Num) or
+                isinstance(actual, ast.Str) or
+                isinstance(actual, ast.Name) or
+                isinstance(actual, ast.NameConstant)) and
                 is_static_ref(func_ptree, name)):
             rewriter.add_constant(name, actual)
         else:
@@ -590,6 +592,10 @@ def names_in_ptree(ptree):
     Useful for finding the names of symbols defined via
     assignment in expressions, particulary tuples, which
     may be nested arbitrarily deeply.
+
+    Skips NameConstants, because these values can't be
+    overridden by assignment (or at least they really
+    shouldn't be).
     """
 
     names = set()
