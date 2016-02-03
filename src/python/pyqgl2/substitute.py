@@ -213,6 +213,8 @@ class SubstituteChannel(NodeTransformerWithFname):
                 literal_args.append("'" + arg.s + "'")
             elif isinstance(arg, ast.Num):
                 literal_args.append(str(arg.n))
+            elif isinstance(arg, ast.NameConstant):
+                literal_args.append(str(arg.value))
 
         print('LITERAL %s' % literal_args)
 
