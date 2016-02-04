@@ -711,25 +711,39 @@ class NameSpaces(object):
             # from Python notation to path notation, and adding the
             # suffix).
             #
-
             dir_name = stmnt.qgl_fname.rpartition(os.sep)[0]
-            dir_name += os.sep + os.sep.join(['..'] * (stmnt.level - 1))
 
-            name_to_fpath = os.sep.join(module_name.split('.')) + '.py'
-            name_to_dpath = os.path.join(
-                    os.sep.join(module_name.split('.')), '__init__.py')
+            if stmnt.level > 1:
+                dir_name += os.sep + os.sep.join(['..'] * (stmnt.level - 1))
 
-            fpath = os.path.join(dir_name, name_to_fpath)
-            dpath = os.path.join(dir_name, name_to_dpath)
+            # (We're going to convert the entire path to a relative path
+            # later, but doing it for the directory prefix makes things
+            # more legible while debugging)
+            #
+            dir_name = os.path.relpath(dir_name)
+
+            # if there's a module name, prepare to test whether it's
+            # a file or a directory.  If there's not then the dir_name
+            # is the dpath, and there is no fpath
+            #
+            if module_name:
+                mod_path = os.sep.join(module_name.split('.'))
+
+                fpath = os.path.join(dir_name, mod_path + '.py')
+                dpath = os.path.join(dir_name, mod_path, '__init__.py')
+            else:
+                fpath = None
+                dpath = dir_name
 
             # If the resulting path is a file, then canonicalize the
             # path and use it as subpath.  Otherwise, leave the subpath
             # as None, which will be handled below.
             #
-            if os.path.isfile(fpath):
+            if fpath and os.path.isfile(fpath):
                 subpath = os.path.relpath(fpath)
-            elif os.path.isfile(dpath):
+            elif dpath and os.path.isfile(dpath):
                 subpath = os.path.relpath(dpath)
+
         else:
             # use normal resolution to find the location of module
             #
