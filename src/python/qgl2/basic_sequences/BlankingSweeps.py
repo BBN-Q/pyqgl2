@@ -22,6 +22,7 @@ def sweep_gateDelay(qubit: qbit, sweepPts):
     """
     raise NotImplementedError("Not implemented")
 
+    # Not apparently used?
     # Original:
 #    generator = qubit.physChan.generator
 #    oldDelay = generator.gateDelay

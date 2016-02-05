@@ -44,6 +44,9 @@ def AllXY(q: qbit, showPlot = False):
     # Add a MEAS to each sequence and repeat each sequence
     seqs = repeatSequences(addMeasPulses(firstAndSecondPulses, [q]))
 
+    # You would think that the ControlFlow.repeatall would do the same thing, but it doesn't seem to
+    # seqs = repeatall(2, addMeasPulses(firstAndSecondPulses, [q]))
+
     # Result is something like:
 #        [ Id(q),  Id(q), MEAS(q)], # no pulses
 #        [ Id(q),  Id(q), MEAS(q)], # no pulses
