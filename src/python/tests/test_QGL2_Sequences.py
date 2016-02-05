@@ -159,6 +159,9 @@ def main():
         except AttributeError as eN:
             if "'NoneType' object has no attribute" not in str(eN):
                 raise
+        except UnboundLocalError as e3:
+            if "'channelName' referenced before " not in str(e3):
+                raise
         print("Redefined EchoCRLen from QGL2")
         old = None
     except AssertionError as ae:
@@ -171,7 +174,8 @@ def main():
             tests.test_Sequences.EchoCRLen = old
         print("Have no QGL2 implementation of EchoCRLen - use QGL1")
     except Exception as e:
-        print("Did not redefine EchoCRLen: %s" % e)
+        import traceback
+        print("Did not redefine EchoCRLen: %s: %s" % (e, traceback.format_exc()))
 
     try:
         old = tests.test_Sequences.EchoCRPhase
@@ -745,4 +749,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+

@@ -30,7 +30,7 @@ def HahnEcho(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=Fal
 
     # Original:
     # seqs=[];
-    # for k in range(len(pulseSpacings)):	
+    # for k in range(len(pulseSpacings)):
     #     seqs.append([X90(qubit), Id(qubit, pulseSpacings[k]), Y(qubit), Id(qubit,pulseSpacings[k]), \
     #                  U90(qubit,phase=2*pi*periods/len(pulseSpacings)*k), MEAS(qubit)])
 
