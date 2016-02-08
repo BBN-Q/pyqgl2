@@ -689,8 +689,40 @@ class NameSpaces(object):
                         stmnt, 'path to [%s] not found' % imp.name)
 
     def add_from_as(self, namespace, module_name, stmnt):
+        """
+        Process a "from import as" statement (where the "as" is
+        optional).
+
+        The rules for how this works in Python are complicated,
+        not particularly well specified (from the docs I can find),
+        and more than we're attempting to do.  Here's what we do:
+
+        Given a statement with one of the following forms:
+
+            from X import A as Z
+            from X import A, B
+            from X import *
+
+        X is referred to here as the module name, but it is not
+        required (as of Python 3.4) to refer to a module; it may
+        refer to a package, or (as of 3.4) a directory containing
+        other packages or modules but is not itself a package.
+
+        Note: it is not legal for A to be a compound thing, i.e.
+        "from os import path.sep" is invalid syntax.
+
+        After converting X from Python notation (including relative
+        paths) into a file system path XP, we check to see whether
+        it resolves to a module (with name XP + ".py"), or a package
+        (with name XP + '/__init__.py') or a directory (with name XP).
+
+        """
 
         namespace.add_from_as_stmnt(stmnt)
+
+        print('NX orig statement [%s]' % ast.dump(stmnt))
+        print('NX orig statement [%s]' %
+                pyqgl2.ast_util.ast2str(stmnt).strip())
 
         # placeholder
         subpath = None
@@ -713,36 +745,52 @@ class NameSpaces(object):
             #
             dir_name = stmnt.qgl_fname.rpartition(os.sep)[0]
 
+            print('NX dirname of current module [%s]' % dir_name)
+
+            # If the relative path is for a parent directory, add
+            # the proper number of '..' components.  A single '.',
+            # however, represents this directory.
+            #
             if stmnt.level > 1:
                 dir_name += os.sep + os.sep.join(['..'] * (stmnt.level - 1))
 
-            # (We're going to convert the entire path to a relative path
-            # later, but doing it for the directory prefix makes things
-            # more legible while debugging)
-            #
-            dir_name = os.path.relpath(dir_name)
+                # We're going to convert the entire path to a relative path
+                # later, but doing it for the directory prefix makes things
+                # more legible while debugging
+                #
+                dir_name = os.path.relpath(dir_name)
+
+            print('NX dirname with relative [%s]' % dir_name)
 
             # if there's a module name, prepare to test whether it's
             # a file or a directory.  If there's not then the dir_name
             # is the dpath, and there is no fpath
             #
             if module_name:
+                print('NX module_name is [%s]' % module_name)
                 mod_path = os.sep.join(module_name.split('.'))
-
-                fpath = os.path.join(dir_name, mod_path + '.py')
-                dpath = os.path.join(dir_name, mod_path, '__init__.py')
+                from_path = os.path.join(dir_name, mod_path)
             else:
-                fpath = None
-                dpath = dir_name
+                from_path = dir_name
 
-            # If the resulting path is a file, then canonicalize the
-            # path and use it as subpath.  Otherwise, leave the subpath
-            # as None, which will be handled below.
-            #
-            if fpath and os.path.isfile(fpath):
-                subpath = os.path.relpath(fpath)
-            elif dpath and os.path.isfile(dpath):
-                subpath = os.path.relpath(dpath)
+            print('NX from_path is [%s]' % from_path)
+
+            # Now figure out what kind of thing is at the end of that
+            # path: a module, a package, or a directory:
+
+            module_path = from_path + '.py'
+            package_path = os.path.join(from_path, '__init__.py')
+            dir_path = from_path
+
+            if os.path.isfile(module_path):
+                subpath = module_path
+                print('NX module [%s]' % subpath)
+            elif os.path.isfile(package_path):
+                subpath = package_path
+                print('NX package [%s]' % subpath)
+            elif os.path.isdir(dir_path):
+                subpath = from_path
+                print('NX directory [%s]' % subpath)
 
         else:
             # use normal resolution to find the location of module
