@@ -76,6 +76,11 @@ def find_sys_path_prefix():
 
     return path_prefix
 
+def is_system_file(path):
+    relpath = os.path.relpath(path)
+
+    return relpath.startswith(find_sys_path_prefix())
+
 def resolve_path(name):
     """
     Find the path to the file that would be imported for the
@@ -83,23 +88,24 @@ def resolve_path(name):
 
     Note that paths are used as the keys for several data
     structures
+
+    Returns the relative path to the file, if the file resolved,
+    or None if the name cannot be resolved at all.
     """
 
-    sys_path_prefix = find_sys_path_prefix()
-
     # At most of one of these will resolve correctly; either
-    # it's a directory or a file
+    # it's a directory (package) or a file (module)
     #
     name_to_fpath = os.sep.join(name.split('.')) + '.py'
     name_to_dpath = os.path.join(os.sep.join(name.split('.')), '__init__.py')
 
-    for dirpath in sys.path:
+    # loop through sys.path.
+    #
+    # if all else fails, try using the current directory
+    # (I am ambivalent about this)
+    #
+    for dirpath in sys.path + ['.']:
         dirpath = os.path.relpath(dirpath)
-
-        # Ignore the system directory
-        #
-        if dirpath.startswith(sys_path_prefix):
-            continue
 
         fpath = os.path.join(dirpath, name_to_fpath)
         dpath = os.path.join(dirpath, name_to_dpath)
@@ -109,20 +115,38 @@ def resolve_path(name):
         # checks this before trying to use it.  TODO: test
         #
         if os.path.isfile(fpath):
-            return os.path.relpath(fpath)
+            candidate = fpath
         elif os.path.isfile(dpath):
-            return os.path.relpath(dpath)
+            candidate = dpath
+        else:
+            candidate = None
 
-    # if all else fails, try using the current directory
-    # (I am ambivalent about this)
+        if candidate:
+            return os.path.relpath(candidate)
 
-    fpath = os.path.join('.', name_to_fpath)
-    dpath = os.path.join('.', name_to_dpath)
+    return None
 
-    if os.path.isfile(fpath):
-        return os.path.relpath(fpath)
-    elif os.path.isfile(dpath):
-        return os.path.relpath(dpath)
+def resolve_dpath(name):
+    """
+    Like resolve_path, but finds a directory with the given name.
+
+    In recent versions of Python, it is legal to import a name
+    from a directory (not a package) as long as the name is
+    a package or module.  This function finds a directory that
+    matches the given name, or None if there are none to find.
+
+    Does not handle relative paths; these are handled elsewhere.
+    """
+
+    name_to_path = os.sep.join(name.split('.'))
+
+    for dirpath in sys.path + ['.']:
+        dirpath = os.path.relpath(dirpath)
+
+        candidate = os.path.join(dirpath, name_to_path)
+
+        if os.path.isdir(candidate):
+            return os.path.relpath(candidate)
 
     return None
 
@@ -266,7 +290,8 @@ class NameSpace(object):
         if not path:
             raise ValueError('no module found for [%s]' % module_name)
 
-        self.import_as[as_name] = path
+        if not is_system_file(path):
+            self.import_as[as_name] = path
 
     def namespace2ast(self):
         """
@@ -680,17 +705,60 @@ class NameSpaces(object):
 
         for imp in stmnt.names:
             subpath = resolve_path(imp.name)
-            if subpath:
-                namespace.add_import_as(imp.name, imp.asname)
-                self.read_import(subpath)
-            else:
-                # print('NN IMPORTAS %s' % ast.dump(stmnt))
+            if not subpath:
                 NodeError.warning_msg(
                         stmnt, 'path to [%s] not found' % imp.name)
+            elif is_system_file(subpath):
+                # TODO not sure if we should flag this,
+                # or make any attempt to handle it.
+                continue
+            else:
+                namespace.add_import_as(imp.name, imp.asname)
+                self.read_import(subpath)
 
     def add_from_as(self, namespace, module_name, stmnt):
+        """
+        Process a "from import as" statement (where the "as" is
+        optional).
+
+        The rules for how this works in Python are complicated,
+        not particularly well specified (from the docs I can find),
+        and more than we're attempting to do.  Here's what we do:
+
+        Given a statement with one of the following forms:
+
+            from X import A as Z
+            from X import A, B
+            from X import *
+
+        X is referred to here as the module name, but it is not
+        required (as of Python 3.4) to refer to a module; it may
+        refer to a package, or (as of 3.4) a directory containing
+        other packages or modules but is not itself a package.
+
+        Note: it is not legal for A to be a compound thing, i.e.
+        "from os import path.sep" is invalid syntax.
+
+        After converting X from Python notation (including relative
+        paths) into a file system path XP, we check to see whether
+        it resolves to a module (with name XP + ".py"), or a package
+        (with name XP + '/__init__.py') or a directory (with name XP).
+
+        In Python 3.4/3.5, there is a new feature of being able
+        to do a from-import of a module from a directory, i.e.
+
+            from X import A
+
+        where A is a module, rather than a symbol inside module or
+        package X.  We DO NOT support this feature yet.
+
+        """
 
         namespace.add_from_as_stmnt(stmnt)
+
+        print('NX orig statement [%s]' % ast.dump(stmnt))
+        print('NX orig statement [%s]' %
+                pyqgl2.ast_util.ast2str(stmnt).strip())
 
         # placeholder
         subpath = None
@@ -711,33 +779,74 @@ class NameSpaces(object):
             # from Python notation to path notation, and adding the
             # suffix).
             #
-
             dir_name = stmnt.qgl_fname.rpartition(os.sep)[0]
-            dir_name += os.sep + os.sep.join(['..'] * (stmnt.level - 1))
 
-            name_to_fpath = os.sep.join(module_name.split('.')) + '.py'
-            name_to_dpath = os.path.join(
-                    os.sep.join(module_name.split('.')), '__init__.py')
+            print('NX dirname of current module [%s]' % dir_name)
 
-            fpath = os.path.join(dir_name, name_to_fpath)
-            dpath = os.path.join(dir_name, name_to_dpath)
-
-            # If the resulting path is a file, then canonicalize the
-            # path and use it as subpath.  Otherwise, leave the subpath
-            # as None, which will be handled below.
+            # If the relative path is for a parent directory, add
+            # the proper number of '..' components.  A single '.',
+            # however, represents this directory.
             #
-            if os.path.isfile(fpath):
-                subpath = os.path.relpath(fpath)
-            elif os.path.isfile(dpath):
-                subpath = os.path.relpath(dpath)
+            if stmnt.level > 1:
+                dir_name += os.sep + os.sep.join(['..'] * (stmnt.level - 1))
+
+                # We're going to convert the entire path to a relative path
+                # later, but doing it for the directory prefix makes things
+                # more legible while debugging
+                #
+                dir_name = os.path.relpath(dir_name)
+
+            print('NX dirname with relative [%s]' % dir_name)
+
+            # if there's a module name, prepare to test whether it's
+            # a file or a directory.  If there's not then the dir_name
+            # is the dpath, and there is no fpath
+            #
+            if module_name:
+                print('NX module_name is [%s]' % module_name)
+                mod_path = os.sep.join(module_name.split('.'))
+                from_path = os.path.join(dir_name, mod_path)
+            else:
+                from_path = dir_name
+
+            print('NX from_path is [%s]' % from_path)
+
+            # Now figure out what kind of thing is at the end of that
+            # path: a module, a package, or a directory:
+
+            module_path = from_path + '.py'
+            package_path = os.path.join(from_path, '__init__.py')
+            dir_path = from_path
+
+            if os.path.isfile(module_path):
+                subpath = module_path
+                print('NX module [%s]' % subpath)
+            elif os.path.isfile(package_path):
+                subpath = package_path
+                print('NX package [%s]' % subpath)
+            elif os.path.isdir(dir_path):
+                subpath = from_path
+                print('NX directory [%s]' % subpath)
+
         else:
             # use normal resolution to find the location of module
             #
             subpath = resolve_path(module_name)
 
-        if not subpath:
-            NodeError.error_msg(
+        # There are a lot of reasons why we might not be able
+        # to resolve a module name; it could be in a binary file
+        # or a zip file, or obscured in some other way, so that
+        # the ordinary Python interpreter can find it but we cannot.
+        # So we can't treat this as an error, even though it might
+        # be one.
+        #
+        if subpath is None:
+            NodeError.diag_msg(
                     stmnt, ('path to [%s%s] not found' %
+                        ('.' * stmnt.level, module_name)))
+        elif is_system_file(subpath):
+            NodeError.diag_msg(
+                    stmnt, ('import of [%s%s] ignored' %
                         ('.' * stmnt.level, module_name)))
         else:
             self.read_import(subpath)

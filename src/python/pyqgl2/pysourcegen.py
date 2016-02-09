@@ -644,8 +644,19 @@ class SourceGen(ExprSourceGen):
         self.print('\n')
 
     def visitImportFrom(self, node):
+        # BBN change: add rel_from for dots for relative imports
+        rel_from = '.' * node.level
+
+        # BBN change: add module_name to deal with imports that might
+        # not have a module
+        if not node.module:
+            module_name = ''
+        else:
+            module_name = str(node.module)
+
         for name in node.names:
-            self.print("from {0} import {1:node}\n", node.module, name)
+            self.print("from {0}{1} import {2:node}\n",
+                    rel_from, module_name, name)
 
     def visitImport(self, node):
         for name in node.names:
