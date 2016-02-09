@@ -126,6 +126,30 @@ def resolve_path(name):
 
     return None
 
+def resolve_dpath(name):
+    """
+    Like resolve_path, but finds a directory with the given name.
+
+    In recent versions of Python, it is legal to import a name
+    from a directory (not a package) as long as the name is
+    a package or module.  This function finds a directory that
+    matches the given name, or None if there are none to find.
+
+    Does not handle relative paths; these are handled elsewhere.
+    """
+
+    name_to_path = os.sep.join(name.split('.'))
+
+    for dirpath in sys.path + ['.']:
+        dirpath = os.path.relpath(dirpath)
+
+        candidate = os.path.join(dirpath, name_to_path)
+
+        if os.path.isdir(candidate):
+            return os.path.relpath(candidate)
+
+    return None
+
 def collapse_name(node):
     """
     Given the AST for a symbol reference, collapse it back into
@@ -719,6 +743,14 @@ class NameSpaces(object):
         paths) into a file system path XP, we check to see whether
         it resolves to a module (with name XP + ".py"), or a package
         (with name XP + '/__init__.py') or a directory (with name XP).
+
+        In Python 3.4/3.5, there is a new feature of being able
+        to do a from-import of a module from a directory, i.e.
+
+            from X import A
+
+        where A is a module, rather than a symbol inside module or
+        package X.  We DO NOT support this feature yet.
 
         """
 
