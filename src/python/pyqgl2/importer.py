@@ -76,6 +76,11 @@ def find_sys_path_prefix():
 
     return path_prefix
 
+def is_system_file(path):
+    relpath = os.path.relpath(path)
+
+    return relpath.startswith(find_sys_path_prefix())
+
 def resolve_path(name):
     """
     Find the path to the file that would be imported for the
@@ -83,23 +88,24 @@ def resolve_path(name):
 
     Note that paths are used as the keys for several data
     structures
+
+    Returns the relative path to the file, if the file resolved,
+    or None if the name cannot be resolved at all.
     """
 
-    sys_path_prefix = find_sys_path_prefix()
-
     # At most of one of these will resolve correctly; either
-    # it's a directory or a file
+    # it's a directory (package) or a file (module)
     #
     name_to_fpath = os.sep.join(name.split('.')) + '.py'
     name_to_dpath = os.path.join(os.sep.join(name.split('.')), '__init__.py')
 
-    for dirpath in sys.path:
+    # loop through sys.path.
+    #
+    # if all else fails, try using the current directory
+    # (I am ambivalent about this)
+    #
+    for dirpath in sys.path + ['.']:
         dirpath = os.path.relpath(dirpath)
-
-        # Ignore the system directory
-        #
-        if dirpath.startswith(sys_path_prefix):
-            continue
 
         fpath = os.path.join(dirpath, name_to_fpath)
         dpath = os.path.join(dirpath, name_to_dpath)
@@ -109,20 +115,14 @@ def resolve_path(name):
         # checks this before trying to use it.  TODO: test
         #
         if os.path.isfile(fpath):
-            return os.path.relpath(fpath)
+            candidate = fpath
         elif os.path.isfile(dpath):
-            return os.path.relpath(dpath)
+            candidate = dpath
+        else:
+            candidate = None
 
-    # if all else fails, try using the current directory
-    # (I am ambivalent about this)
-
-    fpath = os.path.join('.', name_to_fpath)
-    dpath = os.path.join('.', name_to_dpath)
-
-    if os.path.isfile(fpath):
-        return os.path.relpath(fpath)
-    elif os.path.isfile(dpath):
-        return os.path.relpath(dpath)
+        if candidate:
+            return os.path.relpath(candidate)
 
     return None
 
@@ -266,7 +266,8 @@ class NameSpace(object):
         if not path:
             raise ValueError('no module found for [%s]' % module_name)
 
-        self.import_as[as_name] = path
+        if not is_system_file(path):
+            self.import_as[as_name] = path
 
     def namespace2ast(self):
         """
@@ -680,13 +681,16 @@ class NameSpaces(object):
 
         for imp in stmnt.names:
             subpath = resolve_path(imp.name)
-            if subpath:
-                namespace.add_import_as(imp.name, imp.asname)
-                self.read_import(subpath)
-            else:
-                # print('NN IMPORTAS %s' % ast.dump(stmnt))
+            if not subpath:
                 NodeError.warning_msg(
                         stmnt, 'path to [%s] not found' % imp.name)
+            elif is_system_file(subpath):
+                # TODO not sure if we should flag this,
+                # or make any attempt to handle it.
+                continue
+            else:
+                namespace.add_import_as(imp.name, imp.asname)
+                self.read_import(subpath)
 
     def add_from_as(self, namespace, module_name, stmnt):
         """
@@ -797,9 +801,20 @@ class NameSpaces(object):
             #
             subpath = resolve_path(module_name)
 
-        if not subpath:
-            NodeError.error_msg(
+        # There are a lot of reasons why we might not be able
+        # to resolve a module name; it could be in a binary file
+        # or a zip file, or obscured in some other way, so that
+        # the ordinary Python interpreter can find it but we cannot.
+        # So we can't treat this as an error, even though it might
+        # be one.
+        #
+        if subpath is None:
+            NodeError.diag_msg(
                     stmnt, ('path to [%s%s] not found' %
+                        ('.' * stmnt.level, module_name)))
+        elif is_system_file(subpath):
+            NodeError.diag_msg(
+                    stmnt, ('import of [%s%s] ignored' %
                         ('.' * stmnt.level, module_name)))
         else:
             self.read_import(subpath)
