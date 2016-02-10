@@ -100,7 +100,8 @@ class ConcurUnroller(ast.NodeTransformer):
         #
         # Right now we need it to consist of literals (possibly grouped
         # in tuples or similar simple structures).  Hopefully we'll relax
-        # this.
+        # this to include things like range() expressions where the
+        # parameters are known.
 
         if for_node.orelse:
             print('WARNING: cannot expand for with orelse') # FIXME
@@ -198,6 +199,84 @@ class ConcurUnroller(ast.NodeTransformer):
             new_stmnts.append(new_stmnt)
 
         return new_stmnts
+
+
+    @staticmethod
+    def group_stmnts(stmnts, find_qbits_func=None):
+        """
+        Return a list of statement lists, where each list contains
+        statements that reference qbits that are "independent" of the
+        other lists.
+
+        TODO: Independence is defined ad-hoc here, and will need
+        to be something more sophisticated that understands the
+        interdependencies between qbits/channels.
+
+        For example, assuming that "x", "y", and "z" refer to
+        qbits on non-conflicting channels, the statements:
+
+                X90(x)
+                Y90(y)
+                Id(z)
+                Y90(x)
+                X180(z)
+
+        can be grouped into:
+
+                [ [ X90(x), Y90(x) ], [ Y90(y) ], [ Id(z), X180(z) ] ]
+
+        If there are operations over multiple qbits, then the
+        partitioning may fail.
+        """
+
+        if find_qbits_func is None:
+            find_qbits_func = ConcurUnroller.find_qbits
+
+        qbit2list = dict()
+
+        for stmnt in stmnts:
+            qbits_referenced = find_qbits_func(stmnt)
+
+            if len(qbits_referenced) == 0:
+                print('unexpected: no qbit referenced')
+
+            elif len(qbits_referenced) == 1:
+                qbit = qbits_referenced[0]
+                if qbit not in qbit2list:
+                    qbit2list[qbit] = list([stmnt])
+                else:
+                    qbit2list[qbit].append(stmnt)
+            else:
+                # There are multiple qbits referenced by the stmnt,
+                # then we need to find any other stmnt lists that
+                # we've built up for each of the qbits, and combine
+                # them into one sequence of statments, and then
+                # map each qbit to the resulting sequence.
+                #
+                # This would be more elegant if we could have a set
+                # of lists, but in Python lists aren't hashable,
+                # so we need to fake a set implementation with a list.
+                #
+                stmnt_set = list()
+                stmnt_list = list()
+
+                for qbit in qbits_referenced:
+                    if qbit in qbit2list:
+                        curr_list = qbit2list[qbit]
+
+                        if curr_list not in stmnt_set:
+                            stmnt_set.append(curr_list)
+
+                for seq in stmnt_set:
+                    stmnt_list += seq
+
+                for qbit in qbits_referenced:
+                    qbit2list[qbit] = stmnt_list
+
+        # TODO: neaten this up to eliminate duplicates;
+        # present the result in a more useful manner
+
+        return qbit2list
 
 if __name__ == '__main__':
 
@@ -367,6 +446,7 @@ with concur:
 
         ]
 
+
     def test_case(description, in_txt, out_txt):
         ptree = ast.parse(in_txt, mode='exec')
         unroller = ConcurUnroller()
@@ -394,7 +474,43 @@ with concur:
 
         # Now do the transformation
 
+    def test_grouping1():
+
+        def simple_find_qbits(stmnt):
+            """
+            debugging impl of find_qbits, for simple quasi-statements.
+
+            Assumes that the stmnt is a tuple consisting of a list
+            (of qbit numbers) and a string (the description of the statement)
+            So finding the qbits is done by returning the first element
+            of the tuple.
+
+            See simple_stmnt_list below for an example.
+            """
+
+            return stmnt[0]
+
+        simple_stmnt_list = [
+                ( [1], 'one-1' ),
+                ( [1], 'one-2' ),
+                ( [2], 'two-1' ),
+                ( [1], 'one-3' ),
+                ( [2], 'two-2' ),
+                ( [3], 'three-1' ),
+                ( [4], 'four-1' ),
+                ( [3, 4], 'threefour-1' )
+                ]
+
+        res = ConcurUnroller.group_stmnts(simple_stmnt_list,
+                find_qbits_func=simple_find_qbits)
+
+        for stmnt_list in res.values():
+            print('STMNT_LIST %s' % stmnt_list)
+
     def main():
+
+        test_grouping1()
+
         for (description, in_txt, out_txt) in basic_tests:
             test_case(description, in_txt, out_txt)
 
