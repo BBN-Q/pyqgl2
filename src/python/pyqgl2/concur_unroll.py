@@ -202,6 +202,32 @@ class ConcurUnroller(ast.NodeTransformer):
 
 
     @staticmethod
+    def find_qbits(stmnt):
+
+        qbits = set()
+
+        for node in ast.walk(stmnt):
+            if isinstance(node, ast.Name):
+
+                # This is an ad-hoc way to find QBITS, which
+                # requires that the substituter has already run
+                #
+                # TODO: mark names as qbits (and with channel info)
+                # without rewriting the names, or keep the original
+                # names after rewriting: keep both the original name
+                # intact and the qbit assignment so that both can
+                # be observed.  This requires changes in the substituter,
+                # as well as here.
+                #
+                if node.id.startswith('QBIT_'):
+                    qbits.add(node.id)
+
+        print('FOUND QBITS [%s] %s' %
+                (pyqgl2.ast_util.ast2str(stmnt).strip(), str(qbits)))
+
+        return list(qbits)
+
+    @staticmethod
     def group_stmnts(stmnts, find_qbits_func=None):
         """
         Return a list of statement lists, where each list contains
@@ -239,6 +265,15 @@ class ConcurUnroller(ast.NodeTransformer):
 
             if len(qbits_referenced) == 0:
                 print('unexpected: no qbit referenced')
+
+                # Not sure whether this is always an error;
+                # for now we'll add this to a special 'no qbit'
+                # bucket.
+
+                if 'no_qbit' not in qbit2list:
+                    qbit2list['no_qbit'] = list([stmnt])
+                else:
+                    qbit2list['no_qbit'].append(stmnt)
 
             elif len(qbits_referenced) == 1:
                 qbit = qbits_referenced[0]
@@ -388,22 +423,22 @@ with concur:
             [ """ Simple tuple test 2 """,
 """
 with concur:
-    for x, y in [(1, 2), (3, 4)]:
+    for x, y in [(QBIT_1, QBIT_2), (QBIT_3, QBIT_4)]:
         foo(x)
         foo(y)
 """,
 """
 with concur:
-    foo(1)
-    foo(2)
-    foo(3)
-    foo(4)
+    foo(QBIT_1)
+    foo(QBIT_2)
+    foo(QBIT_3)
+    foo(QBIT_4)
 """
             ],
             [ """ Compound test 2 """,
 """
 with concur:
-    for x in [1, 2]:
+    for x in [QBIT_1, QBIT_2]:
         for y in [3, 4]:
             foo(x, y)
 
@@ -412,18 +447,18 @@ with concur:
 """,
 """
 with concur:
-    foo(1, 3)
-    bar(1, 3, 5)
-    bar(1, 3, 6)
-    foo(1, 4)
-    bar(1, 4, 5)
-    bar(1, 4, 6)
-    foo(2, 3)
-    bar(2, 3, 5)
-    bar(2, 3, 6)
-    foo(2, 4)
-    bar(2, 4, 5)
-    bar(2, 4, 6)
+    foo(QBIT_1, 3)
+    bar(QBIT_1, 3, 5)
+    bar(QBIT_1, 3, 6)
+    foo(QBIT_1, 4)
+    bar(QBIT_1, 4, 5)
+    bar(QBIT_1, 4, 6)
+    foo(QBIT_2, 3)
+    bar(QBIT_2, 3, 5)
+    bar(QBIT_2, 3, 6)
+    foo(QBIT_2, 4)
+    bar(QBIT_2, 4, 5)
+    bar(QBIT_2, 4, 6)
 """
             ],
 
@@ -452,6 +487,16 @@ with concur:
         unroller = ConcurUnroller()
         new_ptree = unroller.visit(ptree)
         new_txt = pyqgl2.ast_util.ast2str(new_ptree)
+
+        body = new_ptree.body[0].body
+        # print('body %s' % ast.dump(body))
+
+        partitions = unroller.group_stmnts(body)
+        print('partitions: %s' % str(partitions))
+        # for pid in partitions:
+        #     print('[%s]\n%s' %
+        #             (pid, pyqgl2.ast_util.ast2str(partitions[pid]).strip()))
+
 
         if out_txt.strip() != new_txt.strip():
             print('FAILURE: %s\n:[%s]\n----\n[%s]' %
