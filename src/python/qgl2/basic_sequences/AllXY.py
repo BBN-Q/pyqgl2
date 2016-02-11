@@ -7,9 +7,328 @@ from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 from .new_helpers import addMeasPulses, repeatSequences, compileAndPlot
+from .new_helpers import IdId, XX, YY, XY, YX, X90Id, Y90Id, X90Y90, Y90X90, X90Y, Y90X, \
+    XY90, YX90, X90X, XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90
+
+from .new_helpers import myPrint
 
 @qgl2decl
-def AllXY(q: qbit, showPlot = False):
+def AllXY_full_unrolled(q: qbit, showPlot = False):
+    # Dan says for now, the compiler doesn't understand function references. So I can's use IdId for example
+    # And it also doesn't do the for loops yet
+    # So this may be what I have to do for now
+
+    # These produce the state |0>
+    # No pulses
+    Id(q)
+    Id(q)
+    MEAS(q)
+
+    Id(q)
+    Id(q)
+    MEAS(q)
+
+    # Pulsing around the same axis
+    X(q)
+    X(q)
+    MEAS(q)
+
+    X(q)
+    X(q)
+    MEAS(q)
+
+    Y(q)
+    Y(q)
+    MEAS(q)
+
+    Y(q)
+    Y(q)
+    MEAS(q)
+
+    # Pulsing around orthogonal axes
+    X(q)
+    Y(q)
+    MEAS(q)
+
+    X(q)
+    Y(q)
+    MEAS(q)
+
+    Y(q)
+    X(q)
+    MEAS(q)
+
+    Y(q)
+    X(q)
+    MEAS(q)
+
+    # These next create a |+> or |i> state (equal superposition of |0> + |1>)
+    # single pulses
+    X90(q)
+    Id(q)
+    MEAS(q)
+
+    X90(q)
+    Id(q)
+    MEAS(q)
+
+    Y90(q)
+    Id(q)
+    MEAS(q)
+
+    Y90(q)
+    Id(q)
+    MEAS(q)
+
+    # Pulse pairs around orthogonal axes with 1e error sensitivity
+    X90(q)
+    Y90(q)
+    MEAS(q)
+
+    X90(q)
+    Y90(q)
+    MEAS(q)
+
+    Y90(q)
+    X90(q)
+    MEAS(q)
+
+    Y90(q)
+    X90(q)
+    MEAS(q)
+
+    # Pulse pairs with 2e erro sensitivity
+    X90(q)
+    Y(q)
+    MEAS(q)
+
+    X90(q)
+    Y(q)
+    MEAS(q)
+
+    Y90(q)
+    X(q)
+    MEAS(q)
+
+    Y90(q)
+    X(q)
+    MEAS(q)
+
+    X(q)
+    Y90(q)
+    MEAS(q)
+
+    X(q)
+    Y90(q)
+    MEAS(q)
+
+    Y(q)
+    X90(q)
+    MEAS(q)
+
+    Y(q)
+    X90(q)
+    MEAS(q)
+
+    # Pulse pairs around common axis with 3e error sensitivity
+    X90(q)
+    X(q)
+    MEAS(q)
+
+    X90(q)
+    X(q)
+    MEAS(q)
+
+    X(q)
+    X90(q)
+    MEAS(q)
+
+    X(q)
+    X90(q)
+    MEAS(q)
+
+    Y90(q)
+    Y(q)
+    MEAS(q)
+
+    Y90(q)
+    Y(q)
+    MEAS(q)
+
+    Y(q)
+    Y90(q)
+    MEAS(q)
+
+    Y(q)
+    Y90(q)
+    MEAS(q)
+
+    # These next create the |1> state
+    # single pulses
+    X(q)
+    Id(q)
+    MEAS(q)
+
+    X(q)
+    Id(q)
+    MEAS(q)
+
+    Y(q)
+    Id(q)
+    MEAS(q)
+
+    Y(q)
+    Id(q)
+    MEAS(q)
+
+    # Pulse pairs
+    X90(q)
+    X90(q)
+    MEAS(q)
+
+    X90(q)
+    X90(q)
+    MEAS(q)
+
+    Y90(q)
+    Y90(q)
+    MEAS(q)
+
+    Y90(q)
+    Y90(q)
+    MEAS(q)
+
+    compileAndPlot('AllXY/AllXY', showPlot)
+
+@qgl2decl
+def AllXYq2_loop_unrolling(q: qbit, showPlot = False):
+    # Dan says for now, the compiler doesn't understand function references. So I can's use IdId for example
+    # So here is a slightly degraded version
+
+    # These produce the state |0>
+    # No pulses
+    for _ in range(2):
+        Id(q)
+        Id(q)
+        MEAS(q)
+
+    # Pulsing around the same axis
+    for _ in range(2):
+        X(q)
+        X(q)
+        MEAS(q)
+    for _ in range(2):
+        Y(q)
+        Y(q)
+        MEAS(q)
+
+    # Pulsing around orthogonal axes
+    for _ in range(2):
+        X(q)
+        Y(q)
+        MEAS(q)
+    for _ in range(2):
+        Y(q)
+        X(q)
+        MEAS(q)
+
+    # These next create a |+> or |i> state (equal superposition of |0> + |1>)
+    # single pulses
+    for _ in range(2):
+        X90(q)
+        Id(q)
+        MEAS(q)
+    for _ in range(2):
+        Y90(q)
+        Id(q)
+        MEAS(q)
+
+    # Pulse pairs around orthogonal axes with 1e error sensitivity
+    for _ in range(2):
+        X90(q)
+        Y90(q)
+        MEAS(q)
+    for _ in range(2):
+        Y90(q)
+        X90(q)
+        MEAS(q)
+
+    # Pulse pairs with 2e erro sensitivity
+    for _ in range(2):
+        X90(q)
+        Y(q)
+        MEAS(q)
+    for _ in range(2):
+        Y90(q)
+        X(q)
+        MEAS(q)
+    for _ in range(2):
+        X(q)
+        Y90(q)
+        MEAS(q)
+    for _ in range(2):
+        Y(q)
+        X90(q)
+        MEAS(q)
+
+    # Pulse pairs around common axis with 3e error sensitivity
+    for _ in range(2):
+        X90(q)
+        X(q)
+        MEAS(q)
+    for _ in range(2):
+        X(q)
+        X90(q)
+        MEAS(q)
+    for _ in range(2):
+        Y90(q)
+        Y(q)
+        MEAS(q)
+    for _ in range(2):
+        Y(q)
+        Y90(q)
+        MEAS(q)
+
+    # These next create the |1> state
+    # single pulses
+    for _ in range(2):
+        X(q)
+        Id(q)
+        MEAS(q)
+    for _ in range(2):
+        Y(q)
+        Id(q)
+        MEAS(q)
+
+    # Pulse pairs
+    for _ in range(2):
+        X90(q)
+        X90(q)
+        MEAS(q)
+    for _ in range(2):
+        Y90(q)
+        Y90(q)
+        MEAS(q)
+
+    compileAndPlot('AllXY/AllXY', showPlot)
+
+@qgl2decl
+def AllXYq2(q: qbit, showPlot = False):
+    # This is the kind of thing that I would like to work in QGL2, but doesn't
+    twentyOnepulseFuncs = [IdId, XX, YY, XY, YX, X90Id, Y90Id,
+                           X90Y90, Y90X90, X90Y, Y90X, XY90, YX90, X90X,
+                           XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90]
+
+    # For each of the 21 pulse pairs
+    for func in twentyOnepulseFuncs:
+        # Repeat it twice and do a MEAS at the end of each
+        for i in range(2):
+            func(q)
+            MEAS(q)
+
+    compileAndPlot('AllXY/AllXY', showPlot)
+
+def AllXYq1(q: qbit, showPlot = False):
     # Revised basic sequence test to try to be more readable
 
     # Original calculated 2 separate lists of 21 pulses intended to be done together
