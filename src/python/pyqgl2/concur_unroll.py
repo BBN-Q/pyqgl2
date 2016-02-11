@@ -222,17 +222,21 @@ class ConcurUnroller(ast.NodeTransformer):
                 if node.id.startswith('QBIT_'):
                     qbits.add(node.id)
 
-        print('FOUND QBITS [%s] %s' %
-                (pyqgl2.ast_util.ast2str(stmnt).strip(), str(qbits)))
+        # print('FOUND QBITS [%s] %s' %
+        #         (pyqgl2.ast_util.ast2str(stmnt).strip(), str(qbits)))
 
         return list(qbits)
 
     @staticmethod
     def group_stmnts(stmnts, find_qbits_func=None):
         """
-        Return a list of statement lists, where each list contains
-        statements that reference qbits that are "independent" of the
-        other lists.
+        Return a list of statement groups, where each group is a tuple
+        (qbit_list, stmnt_list) where qbit_list is a list of all of
+        the qbits referenced in the statements in stmnt_list.
+
+        The stmnts list is partitioned such that each qbit is referenced
+        by statements in exactly one partition (with a special partition
+        for statements that don't reference any qbits).
 
         TODO: Independence is defined ad-hoc here, and will need
         to be something more sophisticated that understands the
@@ -251,6 +255,10 @@ class ConcurUnroller(ast.NodeTransformer):
 
                 [ [ X90(x), Y90(x) ], [ Y90(y) ], [ Id(z), X180(z) ] ]
 
+        which would result in a returned value of:
+
+        [ ([x], [X90(x), Y90(x)]), ([y], [Y90(y)]), ([z], [Id(z), X180(z)]) ]
+
         If there are operations over multiple qbits, then the
         partitioning may fail.
         """
@@ -264,9 +272,9 @@ class ConcurUnroller(ast.NodeTransformer):
             qbits_referenced = find_qbits_func(stmnt)
 
             if len(qbits_referenced) == 0:
-                print('unexpected: no qbit referenced')
+                # print('unexpected: no qbit referenced')
 
-                # Not sure whether this is always an error;
+                # Not sure whether this should be an error;
                 # for now we'll add this to a special 'no qbit'
                 # bucket.
 
@@ -308,10 +316,26 @@ class ConcurUnroller(ast.NodeTransformer):
                 for qbit in qbits_referenced:
                     qbit2list[qbit] = stmnt_list
 
-        # TODO: neaten this up to eliminate duplicates;
+        # neaten up qbit2list to eliminate duplicates;
         # present the result in a more useful manner
 
-        return qbit2list
+        tmp_groups = dict()
+
+        for qbit in qbit2list.keys():
+            # this is gross, but we can't use a mutable object as a key
+            # in a table, so we use a string representation
+
+            stmnts_str = str(qbit2list[qbit])
+            if stmnts_str in tmp_groups:
+                (qbits, stmnts) = tmp_groups[stmnts_str]
+                qbits.append(qbit)
+            else:
+                tmp_groups[stmnts_str] = (list([qbit]), qbit2list[qbit])
+
+        groups = [ (sorted(tmp_groups[key][0]), tmp_groups[key][1])
+                for key in tmp_groups.keys() ]
+
+        return sorted(groups)
 
 if __name__ == '__main__':
 
@@ -319,73 +343,73 @@ if __name__ == '__main__':
             [ """ Basic test """,
 """
 with concur:
-    for x in [1, 2, 3]:
+    for x in [QBIT_1, QBIT_2, QBIT_3]:
         foo(x)
 """,
 """
 with concur:
-    foo(1)
-    foo(2)
-    foo(3)
+    foo(QBIT_1)
+    foo(QBIT_2)
+    foo(QBIT_3)
 """
             ],
 
             [ """ Double Nested loops """,
 """
 with concur:
-    for x in [1, 2, 3]:
+    for x in [QBIT_1, QBIT_2, QBIT_3]:
         for y in [4, 5, 6]:
             foo(x, y)
 """,
 """
 with concur:
-    foo(1, 4)
-    foo(1, 5)
-    foo(1, 6)
-    foo(2, 4)
-    foo(2, 5)
-    foo(2, 6)
-    foo(3, 4)
-    foo(3, 5)
-    foo(3, 6)
+    foo(QBIT_1, 4)
+    foo(QBIT_1, 5)
+    foo(QBIT_1, 6)
+    foo(QBIT_2, 4)
+    foo(QBIT_2, 5)
+    foo(QBIT_2, 6)
+    foo(QBIT_3, 4)
+    foo(QBIT_3, 5)
+    foo(QBIT_3, 6)
 """
             ],
 
             [ """ Triple Nested loops """,
 """
 with concur:
-    for x in [1, 2]:
-        for y in [3, 4]:
+    for x in [QBIT_1, QBIT_2]:
+        for y in [QBIT_3, QBIT_4]:
             for z in [5, 6]:
                 foo(x, y, z)
 """,
 """
 with concur:
-    foo(1, 3, 5)
-    foo(1, 3, 6)
-    foo(1, 4, 5)
-    foo(1, 4, 6)
-    foo(2, 3, 5)
-    foo(2, 3, 6)
-    foo(2, 4, 5)
-    foo(2, 4, 6)
+    foo(QBIT_1, QBIT_3, 5)
+    foo(QBIT_1, QBIT_3, 6)
+    foo(QBIT_1, QBIT_4, 5)
+    foo(QBIT_1, QBIT_4, 6)
+    foo(QBIT_2, QBIT_3, 5)
+    foo(QBIT_2, QBIT_3, 6)
+    foo(QBIT_2, QBIT_4, 5)
+    foo(QBIT_2, QBIT_4, 6)
 """
             ],
             [ """ Basic compound test """,
 """
 with concur:
-    for x in [1, 2, 3]:
+    for x in [QBIT_1, QBIT_2, QBIT_3]:
         foo(x)
         bar(x)
 """,
 """
 with concur:
-    foo(1)
-    bar(1)
-    foo(2)
-    bar(2)
-    foo(3)
-    bar(3)
+    foo(QBIT_1)
+    bar(QBIT_1)
+    foo(QBIT_2)
+    bar(QBIT_2)
+    foo(QBIT_3)
+    bar(QBIT_3)
 """
             ],
             [ """ Nested compound test """,
@@ -549,8 +573,8 @@ with concur:
         res = ConcurUnroller.group_stmnts(simple_stmnt_list,
                 find_qbits_func=simple_find_qbits)
 
-        for stmnt_list in res.values():
-            print('STMNT_LIST %s' % stmnt_list)
+        for stmnt_list in res:
+            print('STMNT_LIST %s' % str(stmnt_list))
 
     def main():
 
