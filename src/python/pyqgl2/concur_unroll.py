@@ -16,6 +16,25 @@ import pyqgl2.ast_util
 from pyqgl2.ast_util import NodeError
 from pyqgl2.lang import QGL2
 
+def is_concur(node):
+    """
+    Return True if the node is a with-concur block,
+    otherwise False
+    """
+
+    if not node:
+        return False
+
+    if not isinstance(node, ast.With):
+        return False
+
+    for item in node.items:
+        if (isinstance(item.context_expr, ast.Name) and
+                (item.context_expr.id == QGL2.QCONCUR)):
+            return True
+
+    return False
+
 
 class ConcurUnroller(ast.NodeTransformer):
     """
@@ -30,7 +49,7 @@ class ConcurUnroller(ast.NodeTransformer):
 
     def visit_With(self, node):
 
-        if not self.is_concur(node):
+        if not is_concur(node):
             return self.visit(node) # check
 
         while True:
@@ -71,25 +90,6 @@ class ConcurUnroller(ast.NodeTransformer):
                 return self.bindings_stack[ind][name_id]
 
         return node
-
-    def is_concur(self, node):
-        """
-        Return True if the node is a with-concur block,
-        otherwise False
-        """
-
-        if not node:
-            return False
-
-        if not isinstance(node, ast.With):
-            return False
-
-        for item in node.items:
-            if (isinstance(item.context_expr, ast.Name) and
-                    (item.context_expr.id == QGL2.QCONCUR)):
-                return True
-
-        return False
 
     def for_unroller(self, for_node):
 
@@ -201,6 +201,40 @@ class ConcurUnroller(ast.NodeTransformer):
         return new_stmnts
 
 
+class QbitGrouper(ast.NodeTransformer):
+    """
+    TODO: this is just a prototype and needs some refactoring
+    """
+
+    def __init__(self):
+        pass
+
+    def visit_With(self, node):
+
+        if not is_concur(node):
+            return self.visit(node) # check
+
+        print('WITH %s' % ast.dump(node))
+
+        # Hackish way to create a seq node to use
+        seq_item_node = deepcopy(node.items[0])
+        seq_item_node.context_expr.id = 'seq'
+        seq_node = ast.With(items=list([seq_item_node]), body=list())
+
+        groups = self.group_stmnts(node.body)
+        new_body = list()
+
+        for qbits, stmnts in groups:
+            new_seq = deepcopy(seq_node)
+            new_seq.body = stmnts
+            new_body.append(new_seq)
+
+        node.body = new_body
+
+        print('Final:\n%s' % pyqgl2.ast_util.ast2str(node))
+
+        return node
+
     @staticmethod
     def find_qbits(stmnt):
 
@@ -264,7 +298,7 @@ class ConcurUnroller(ast.NodeTransformer):
         """
 
         if find_qbits_func is None:
-            find_qbits_func = ConcurUnroller.find_qbits
+            find_qbits_func = QbitGrouper.find_qbits
 
         qbit2list = dict()
 
@@ -515,7 +549,10 @@ with concur:
         body = new_ptree.body[0].body
         # print('body %s' % ast.dump(body))
 
-        partitions = unroller.group_stmnts(body)
+        grouper = QbitGrouper()
+        redo = grouper.visit(new_ptree)
+
+        partitions = grouper.group_stmnts(body)
         print('partitions: %s' % str(partitions))
         # for pid in partitions:
         #     print('[%s]\n%s' %
@@ -570,7 +607,7 @@ with concur:
                 ( [3, 4], 'threefour-1' )
                 ]
 
-        res = ConcurUnroller.group_stmnts(simple_stmnt_list,
+        res = QbitGrouper.group_stmnts(simple_stmnt_list,
                 find_qbits_func=simple_find_qbits)
 
         for stmnt_list in res:
