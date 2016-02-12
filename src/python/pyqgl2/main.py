@@ -41,6 +41,8 @@ from pyqgl2.check_qbit import CompileQGLFunctions
 from pyqgl2.check_qbit import FindTypes
 from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_waveforms import CheckWaveforms
+from pyqgl2.concur_unroll import ConcurUnroller
+from pyqgl2.concur_unroll import QbitGrouper
 from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import Inliner
 from pyqgl2.substitute import specialize
@@ -140,7 +142,21 @@ def main():
 
     NodeError.halt_on_error()
 
-    print('Final qglmain: %s' % new_ptree4.name)
+    print('SPECIALIZED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree4))
+
+    unroller = ConcurUnroller()
+    new_ptree5 = unroller.visit(new_ptree4)
+
+    print('UNROLL CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5))
+
+    grouper = QbitGrouper()
+    new_ptree6 = grouper.visit(new_ptree5)
+
+    print('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6))
+
+
+
+    print('Final qglmain: %s' % new_ptree6.name)
     print('Final CODE:\n-- -- -- -- --')
 
     base_namespace = importer.path2namespace[opts.filename]
@@ -148,15 +164,17 @@ def main():
     print(text)
     print('-- -- -- -- --')
 
+    """
     type_check = CheckType(opts.filename, importer=importer)
-    new_ptree5 = type_check.visit(new_ptree4)
+    new_ptree7 = type_check.visit(new_ptree6)
 
     NodeError.halt_on_error()
 
     wav_check = CheckWaveforms(type_check.func_defs, importer)
-    new_ptree6 = wav_check.visit(new_ptree5)
+    new_ptree8 = wav_check.visit(new_ptree7)
 
     NodeError.halt_on_error()
+    """
 
     """
     stmnt_list = base_namespace.namespace2ast().body
@@ -165,10 +183,12 @@ def main():
         concur_checker.visit(stmnt)
     """
 
+    """
     find_types = FindTypes(importer)
     find_types.visit(new_ptree6)
     print('PARAMS %s ' % find_types.parameter_names)
     print('LOCALS %s ' % find_types.local_names)
+    """
 
 
 if __name__ == '__main__':
