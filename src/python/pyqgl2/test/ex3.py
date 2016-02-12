@@ -1,4 +1,6 @@
 
+# Copyright 2016 by Raytheon BBN Technologies Corp. All Rights Reserved.
+
 # Pull in the symbols that QGL2 uses to embellish the
 # Python3 syntax.  This must be done in every Python
 # file that uses any of these symbols.
