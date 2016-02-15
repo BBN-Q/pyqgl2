@@ -50,7 +50,7 @@ class ConcurUnroller(ast.NodeTransformer):
     def visit_With(self, node):
 
         if not is_concur(node):
-            return self.visit(node) # check
+            return self.generic_visit(node) # check
 
         while True:
             old_change_cnt = self.change_cnt
@@ -212,7 +212,7 @@ class QbitGrouper(ast.NodeTransformer):
     def visit_With(self, node):
 
         if not is_concur(node):
-            return self.visit(node) # check
+            return self.generic_visit(node) # check
 
         print('WITH %s' % ast.dump(node))
 
@@ -231,7 +231,7 @@ class QbitGrouper(ast.NodeTransformer):
 
         node.body = new_body
 
-        print('Final:\n%s' % pyqgl2.ast_util.ast2str(node))
+        # print('Final:\n%s' % pyqgl2.ast_util.ast2str(node))
 
         return node
 
@@ -346,6 +346,8 @@ class QbitGrouper(ast.NodeTransformer):
 
                 for seq in stmnt_set:
                     stmnt_list += seq
+
+                stmnt_list.append(stmnt)
 
                 for qbit in qbits_referenced:
                     qbit2list[qbit] = stmnt_list
