@@ -6,6 +6,7 @@ from QGL.PulsePrimitives import X90, Id, Y, U90, MEAS, X90
 from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 from .helpers import create_cal_seqs
+from .new_helpers import addCalibration, compileAndPlot
 
 from math import pi
 
@@ -21,12 +22,7 @@ def HahnEcho(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=Fal
     periods: number of artificial oscillations
     calRepeats : how many times to repeat calibration scalings (default 2)
     showPlot : whether to plot (boolean)
-
-    Returns
-    -------
-    plotHandle : handle to plot window to prevent destruction
     """
-    raise NotImplementedError("Not implemented")
 
     # Original:
     # seqs=[];
@@ -43,6 +39,65 @@ def HahnEcho(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=Fal
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
+    for k in range(len(pulseSpacings)):
+        X90(qubit)
+        Id(qubit, pulseSpacings[k])
+        Y(qubit)
+        Id(qubit, pulseSpacings[k])
+        U90(qubit, phase=2*pi*periods/len(pulseSpacings)*k)
+        MEAS(qubit)
+
+    create_cal_seqs((qubit,), calRepeats)
+
+    # Here we rely on the QGL compiler to pass in the sequence it
+    # generates to compileAndPlot
+    compileAndPlot('Echo/Echo', showPlot)
+
+def HahnEchoq1(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=False):
+    """
+    A single pulse Hahn echo with variable phase of second pi/2 pulse. 
+
+    Parameters
+    ----------
+    qubit : logical channel to implement sequence (LogicalChannel) 
+    pulseSpacings : pulse spacings to sweep over; the t in 90-t-180-t-180 (iterable)
+    periods: number of artificial oscillations
+    calRepeats : how many times to repeat calibration scalings (default 2)
+    showPlot : whether to plot (boolean)
+    """
+
+    # Original:
+    # seqs=[];
+    # for k in range(len(pulseSpacings)):
+    #     seqs.append([X90(qubit), Id(qubit, pulseSpacings[k]), Y(qubit), Id(qubit,pulseSpacings[k]), \
+    #                  U90(qubit,phase=2*pi*periods/len(pulseSpacings)*k), MEAS(qubit)])
+
+    # # Tack on the calibration scalings
+    # seqs += create_cal_seqs((qubit,), calRepeats)
+
+    # fileNames = compile_to_hardware(seqs, 'Echo/Echo')
+    # print(fileNames)
+
+    # if showPlot:
+    #     plot_pulse_files(fileNames)
+
+    seqs = []
+    for k in range(len(pulseSpacings)):
+        idpulse = Id(qubit, pulseSpacings[k])
+        seqs.append([
+            X90(qubit),
+            idpulse,
+            Y(qubit),
+            idpulse,
+            U90(qubit, phase=2*pi*periods/len(pulseSpacings)*k),
+            MEAS(qubit)
+        ])
+    seqs = addCalibration(seqs, (qubit,), calRepeats)
+
+    # Be sure to un-decorate this function to make it work without the
+    # QGL2 compiler
+    compileAndPlot(seqs, 'Echo/Echo', showPlot)
+
 @qgl2decl
 def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     """
@@ -56,12 +111,7 @@ def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     pulseSpacing : spacing between the 180's (seconds)
     calRepeats : how many times to repeat calibration scalings (default 2)
     showPlot : whether to plot (boolean)
-
-    Returns
-    -------
-    plotHandle : handle to plot window to prevent destruction
     """
-    raise NotImplementedError("Not implemented")
 
     # Original:
     # # First setup the t-180-t block
@@ -78,4 +128,79 @@ def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
 
     # if showPlot:
     #     plot_pulse_files(fileNames)
+
+    @qgl2decl
+    def idPulse(qubit: qbit):
+        Id(qubit, (pulseSpacing - qubit.pulseParams['length'])/2)
+
+    # Create numPulses sequences
+    for rep in numPulses:
+        X90(qubit)
+        # Repeat the t-180-t block rep times
+        for _ in range(rep):
+            idPulse(qubit)
+            Y(qubit)
+            idPulse(qubit)
+        X90(qubit)
+        MEAS(qubit)
+
+    # Tack on calibration
+    create_cal_seqs((qubit,), calRepeats)
+
+    # Here we rely on the QGL compiler to pass in the sequence it
+    # generates to compileAndPlot
+    compileAndPlot('CPMG/CPMG', showPlot)
+
+def CPMGq1(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
+    """
+    CPMG pulse train with fixed pulse spacing. Note this pulse spacing is centre to centre,
+    i.e. it accounts for the pulse width
+
+    Parameters
+    ----------
+    qubit : logical channel to implement sequence (LogicalChannel) 
+    numPulses : number of 180 pulses; should be even (iterable)
+    pulseSpacing : spacing between the 180's (seconds)
+    calRepeats : how many times to repeat calibration scalings (default 2)
+    showPlot : whether to plot (boolean)
+    """
+
+    # Original:
+    # # First setup the t-180-t block
+    # CPMGBlock = [Id(qubit, (pulseSpacing-qubit.pulseParams['length'])/2),
+    #              Y(qubit), Id(qubit, (pulseSpacing-qubit.pulseParams['length'])/2)]
+
+    # seqs = [[X90(qubit)] + CPMGBlock*rep + [X90(qubit), MEAS(qubit)] for rep in numPulses]
+
+    # # Tack on the calibration scalings
+    # seqs += create_cal_seqs((qubit,), calRepeats)
+
+    # fileNames = compile_to_hardware(seqs, 'CPMG/CPMG')
+    # print(fileNames)
+
+    # if showPlot:
+    #     plot_pulse_files(fileNames)
+
+    # First setup the t-180-t block
+    idPulse = Id(qubit, (pulseSpacing - qubit.pulseParams['length'])/2)
+    CPMGBlock = [
+        idPulse,
+        Y(qubit),
+        idPulse
+    ]
+
+    seqs = []
+    for rep in numPulses:
+        seqs.append(
+            [X90(qubit)] +
+            CPMGBlock * rep +
+            [X90(qubit), MEAS(qubit)]
+        )
+
+    # Tack on calibration
+    seqs = addCalibration(seqs, (qubit,), calRepeats)
+
+    # Be sure to un-decorate this function to make it work without the
+    # QGL2 compiler
+    compileAndPlot(seqs, 'CPMG/CPMG', showPlot)
 
