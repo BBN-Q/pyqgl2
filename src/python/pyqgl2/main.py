@@ -154,8 +154,7 @@ def main():
 
     print('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6))
 
-
-
+    """
     print('Final qglmain: %s' % new_ptree6.name)
     print('Final CODE:\n-- -- -- -- --')
 
@@ -163,6 +162,7 @@ def main():
     text = base_namespace.pretty_print()
     print(text)
     print('-- -- -- -- --')
+    """
 
     """
     type_check = CheckType(opts.filename, importer=importer)
