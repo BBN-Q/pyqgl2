@@ -10,13 +10,11 @@ from .new_helpers import addMeasPulses, repeatSequences, compileAndPlot
 from .new_helpers import IdId, XX, YY, XY, YX, X90Id, Y90Id, X90Y90, Y90X90, X90Y, Y90X, \
     XY90, YX90, X90X, XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90
 
-from .new_helpers import myPrint
-
 @qgl2decl
-def AllXY_full_unrolled(q: qbit, showPlot = False):
+def AllXY(q: qbit, showPlot = False):
     # Dan says for now, the compiler doesn't understand function references. So I can's use IdId for example
     # And it also doesn't do the for loops yet
-    # So this may be what I have to do for now
+    # So this may be what I have to do for now - completely unrolled / explicit
 
     # These produce the state |0>
     # No pulses
@@ -198,6 +196,8 @@ def AllXY_full_unrolled(q: qbit, showPlot = False):
     Y90(q)
     MEAS(q)
 
+    # Here we rely on the QGL compiler to pass in the sequence it
+    # generates to compileAndPlot
     compileAndPlot('AllXY/AllXY', showPlot)
 
 @qgl2decl
@@ -310,11 +310,14 @@ def AllXYq2_loop_unrolling(q: qbit, showPlot = False):
         Y90(q)
         MEAS(q)
 
+    # Here we rely on the QGL compiler to pass in the sequence it
+    # generates to compileAndPlot
     compileAndPlot('AllXY/AllXY', showPlot)
 
 @qgl2decl
 def AllXYq2(q: qbit, showPlot = False):
-    # This is the kind of thing that I would like to work in QGL2, but doesn't
+    # This is the kind of thing that I would like to work in QGL2, but
+    # doesn't yet
     twentyOnepulseFuncs = [IdId, XX, YY, XY, YX, X90Id, Y90Id,
                            X90Y90, Y90X90, X90Y, Y90X, XY90, YX90, X90X,
                            XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90]
@@ -326,10 +329,13 @@ def AllXYq2(q: qbit, showPlot = False):
             func(q)
             MEAS(q)
 
+    # Here we rely on the QGL compiler to pass in the sequence it
+    # generates to compileAndPlot
     compileAndPlot('AllXY/AllXY', showPlot)
 
 def AllXYq1(q: qbit, showPlot = False):
-    # Revised basic sequence test to try to be more readable
+    # Revised basic sequence test to try to be more readable, but
+    # fundamentally a QGL1 version
 
     # Original calculated 2 separate lists of 21 pulses intended to be done together
     # Here we merge the lists together manually first, to be more clear / explicit
@@ -362,9 +368,6 @@ def AllXYq1(q: qbit, showPlot = False):
 
     # Add a MEAS to each sequence and repeat each sequence
     seqs = repeatSequences(addMeasPulses(firstAndSecondPulses, [q]))
-
-    # You would think that the ControlFlow.repeatall would do the same thing, but it doesn't seem to
-    # seqs = repeatall(2, addMeasPulses(firstAndSecondPulses, [q]))
 
     # Result is something like:
 #        [ Id(q),  Id(q), MEAS(q)], # no pulses
