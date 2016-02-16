@@ -201,6 +201,235 @@ class ConcurUnroller(ast.NodeTransformer):
         return new_stmnts
 
 
+class Unroller(ast.NodeTransformer):
+    """
+    A more general form of the ConcurUnroller, which knows how to
+    "unroll" FOR loops and IF statements in more general contexts.
+
+    TODO: document the subset of all possible cases that this
+    code actually recognizes/handles
+    """
+
+    def __init__(self):
+
+        self.bindings_stack = list()
+        self.change_cnt = 0
+
+    def unroll_body(self, body):
+        """
+        Look through the body of a block statement, and expand
+        whatever statements can be expanded/unrolled within the block
+
+        TODO: combine with the logic for inlining functions
+        """
+
+        while True:
+            old_change_cnt = self.change_cnt
+
+            new_outer_body = list()
+
+            for outer_stmnt in body:
+                if isinstance(outer_stmnt, ast.For):
+                    unrolled = self.for_unroller(outer_stmnt)
+                    new_outer_body += unrolled
+                elif isinstance(outer_stmnt, ast.If):
+                    unrolled = self.if_unroller(outer_stmnt)
+                    new_outer_body += unrolled
+
+                # TODO: add cases for handling other things we
+                # can unroll, like ifs or possibly list comprehensions:
+                # basically any control flow where we can anticipate
+                # exactly what's going to happen
+
+                else:
+                    new_outer_body.append(self.visit(outer_stmnt))
+
+            body = new_outer_body
+
+            # If we made changes in the last iteration,
+            # then the resulting code might have more changes
+            # we can make.  Keep trying until we manage to
+            # iterate without making any changes.
+            #
+            if self.change_cnt == old_change_cnt:
+                break
+
+        return body
+
+    def visit_While(self, node):
+        node.body = self.unroll_body(node.body)
+        return node
+
+    def visit_With(self, node):
+        node.body = self.unroll_body(node.body)
+        return node
+
+    def visit_FunctionDef(self, node):
+        node.body = self.unroll_body(node.body)
+        return node
+
+    def visit_Name(self, node):
+        """
+        If the name has a binding in any local scope (which may
+        be nested), then substitute that binding
+        """
+
+        name_id = node.id
+
+        for ind in range(len(self.bindings_stack) -1, -1, -1):
+            if name_id in self.bindings_stack[ind]:
+                self.change_cnt += 1
+                return self.bindings_stack[ind][name_id]
+
+        return node
+
+    def if_unroller(self, if_node):
+        print('IF %s' % ast.dump(if_node))
+
+        # Figure out whether we have a constant predicate (of the
+        # types of constants we understant) and then what the value
+        # of the predicate is:
+        #
+        # If the test is a Num, check whether it is non-zero.
+        # If the test is a NameConstant, then check whether its
+        # value is True, False, or None.
+        # If the test is a String, then check whether it's the
+        # empty string.
+        #
+        if isinstance(if_node.test, ast.Num):
+            const_predicate = True
+            predicate = if_node.test.n
+        elif isinstance(if_node.test, ast.NameConstant):
+            const_predicate = True
+            predicate = if_node.test.value
+        elif isinstance(if_node.test, ast.Str):
+            const_predicate = True
+            predicate = if_node.test.s
+        else:
+            const_predicate = False
+
+        if const_predicate:
+            if predicate:
+                return self.unroll_body(if_node.body)
+            else:
+                return self.unroll_body(if_node.orelse)
+        else:
+            if_node.body = self.unroll_body(if_node.body)
+            if_node.orelse = self.unroll_body(if_node.orelse)
+
+            return list([if_node])
+
+    def for_unroller(self, for_node):
+
+        # The iter has to be an ordinary ast.List.  It is not enough
+        # for it to be an expression that evaluates to a list or
+        # collection--it has to be a real, naked list, so we know
+        # exactly how long it is.
+        #
+        # Right now we need it to consist of literals (possibly grouped
+        # in tuples or similar simple structures).  Hopefully we'll relax
+        # this to include things like range() expressions where the
+        # parameters are known.
+
+        if for_node.orelse:
+            print('WARNING: cannot expand for with orelse') # FIXME
+            return list([for_node])
+
+        if not isinstance(for_node.iter, ast.List):
+            return list([for_node])
+
+        # TODO more checking for consistency/fit
+
+        new_stmnts = list()
+
+        vals = for_node.iter.elts
+        for index in range(len(vals)):
+
+            try:
+                bindings = self.make_bindings(for_node.target, vals[index])
+            except TypeError as exc:
+                NodeError.error_msg(vals[index], str(exc))
+                return new_stmnts # return partial results; bail out later
+
+            # Things to think about: should all the statements that
+            # come from the expansion of one pass through the loop
+            # be grouped in some way (such as a 'with seq' block)?
+            # Or should they just be dumped onto the end, as we do now?
+
+            self.bindings_stack.append(bindings)
+
+            new_body = deepcopy(for_node.body)
+
+            new_stmnts += self.replace_bindings(bindings, new_body)
+
+            self.bindings_stack.pop()
+
+        return new_stmnts
+
+    def make_bindings(self, targets, values):
+        """
+        make a dictionary of bindings for the "loop variables"
+
+        If the target is a single name, then just assign the values
+        to it as a tuple.  If the target is a tuple, then try to match
+        up the values to the names in the tuple.
+
+        There are a lot of things that could go wrong here, but we
+        don't detect/handle many of them yet
+
+        There's some deliberate sloppiness permitted: the loop target
+        can be a list (which is weird style) and the parameters can
+        be a combination of lists and tuples.  As long as the target
+        and each element of the values can be indexed, things will
+        work out.  We could be stricter, because if these types are
+        mixed it's almost certainly an error of some kind.
+        """
+
+        bindings = dict()
+
+        if isinstance(targets, ast.Name):
+            bindings[targets.id] = values
+        elif isinstance(targets, ast.Tuple) or isinstance(targets, ast.List):
+
+            # If the target is a list or tuple, then the values must
+            # be as well
+            #
+            if (not isinstance(values, ast.List) and
+                    not isinstance(values, ast.Tuple)):
+                NodeError.error_msg(values,
+                        'if loop vars are a tuple, params must be list/tuple')
+                return bindings
+
+            # The target and the values must be the same length
+            #
+            if len(targets.elts) != len(values.elts):
+                NodeError.error_msg(values,
+                        'mismatch between length of loop variables and params')
+                return bindings
+
+            for index in range(len(targets.elts)):
+                name = targets.elts[index].id
+                value = values.elts[index]
+
+                bindings[name] = value
+        else:
+            NodeError.error_msg(targets,
+                    'loop target variable must be a name or tuple')
+
+        return bindings
+
+    def replace_bindings(self, bindings, stmnts):
+
+        new_stmnts = list()
+
+        for stmnt in stmnts:
+            new_stmnt = self.visit(stmnt)
+            new_stmnts.append(new_stmnt)
+
+        return new_stmnts
+
+
+
 class QbitGrouper(ast.NodeTransformer):
     """
     TODO: this is just a prototype and needs some refactoring
