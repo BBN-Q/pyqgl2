@@ -16,9 +16,10 @@ import operator
 
 # Next 2 bits are intended to let the QGL2 compiler know when a function needs to be handed a list of sequences,
 # a QGL1 style argument.
-# Decorate the function with @qgl2AddSequences if you want the QGL2 compiler to add argument to the function, and/or add the
+# Decorate the function with @qgl2AddSequences if you want the QGL2
+# compiler to add the argument to the function call, and/or add the
 # sequence_list tag to indicate which argument is the (single) list of sequences argument.
-# If using the tagged approach, that argument must be passed to the function or be a keyword argument in general
+# If using the tagged approach, that argument must be passed to the function or be a keyword argument (in general)
 # The compiler will replace the provided value with the correct value
 
 # Tag to indicate that an argument is a list of sequences (which are lists of pulses)
@@ -30,7 +31,9 @@ sequence_list = 'sequence_list'
 def qgl2AddSequences(function):
     @functools.wraps(function)
     def wrap_function(*args, **kwargs):
-        QGL2_LIST_OF_SEQUENCES = [[None],[None]] # FIXME: QGL2 Compiler must replace this
+
+        # FIXME: QGL2 Compiler must replace this ***********
+        QGL2_LIST_OF_SEQUENCES = [[None],[None]]
 
         # Try to find the spot for the listOfSequences using the annotation
         idx = 0
@@ -54,16 +57,21 @@ def qgl2AddSequences(function):
                     elif idx < len(args) and (len(args)+len(kwargs)) == len(sig.parameters):
                         # If the right number of args were given and the sequence_list is one of the non kw args,
                         # replace the provided value with this one
+                        # FIXME: What if kwargs had a default?
                         args = tuple(args[:idx]) + tuple([QGL2_LIST_OF_SEQUENCES]) + tuple(args[idx+1:])
                         break
                     else:
                         # Didn't get enough arguments and seq_list isn't first arg,
                         # or something else and I don't know how to handle this
                         # Raise an error?
+                        print("Failed to find sequence_list arg in call to %s(%s, %s)" % (function.__name__,
+                                                                                          args, kwargs))
                         break
             idx += 1
         if not found:
-            if len(sig.parameters) = len(args) + len(kwargs) + 1:
+            if len(sig.parameters) == len(args) + len(kwargs) + 1:
+                # Missing exactly one arg: put this one first
+                # FIXME: What if kwargs had a default?
                 return function(QGL2_LIST_OF_SEQUENCES, args, kwargs)
         return function(*args, **kwargs)
     return wrap_function
@@ -90,13 +98,13 @@ def addMeasPulses(listOfSequencesOnNQubits: sequence_list, listNQubits: qbit_lis
             measurements = MEAS(q)
         else:
             measurements *= MEAS(q)
+
     for sequence in listOfSequencesOnNQubits:
         sequence.append(measurements)
-
     return listOfSequencesOnNQubits
 
 # What would a QGL2 style repeat look like? Is it just for _ in range?
-# Qgl1 style
+# QGL1 style
 def repeatSequences(listOfSequences: sequence_list, repeat=2):
     '''Repeat each sequence in the given list of sequences repeat times.
 
@@ -106,21 +114,20 @@ def repeatSequences(listOfSequences: sequence_list, repeat=2):
     # You must copy the element before repeating it. Otherwise strange things happen later
     return [copy.copy(sequence) for sequence in listOfSequences for i in range(repeat)]
 
-#@qgl2decl
-#@qgl2AddSequences
+@qgl2AddSequences
 def compileAndPlot(listOfSequences: sequence_list, filePrefix, showPlot=False):
     '''Compile the listOfSequences to hardware using the given filePrefix, 
     print the filenames, and optionally plot the pulse files.
 
-    NOTE: The qgl2 compiler must fill in the listOfSequences in the decorator.'''
+    NOTE: The QGL2 compiler must fill in the listOfSequences in the decorator.'''
     fileNames = compile_to_hardware(listOfSequences, filePrefix)
     print(fileNames)
 
     if showPlot:
         plot_pulse_files(fileNames)
 
-# FIXME: Should that be a tuple or explicitly 1 qbit or 2?
-#@qgl2decl
+# QGL1 style method
+# For QGL2, simply do create_cal_seqs((tupleOfQubits), numRepeats)
 def addCalibration(listOfSequences: sequence_list, tupleOfQubits: qbit_list, numRepeats=2):
     '''Add on numRepeats calibration sequences of the given tuple of qubits to the given
     list of sequences.'''
