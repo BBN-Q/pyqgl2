@@ -41,7 +41,7 @@ from pyqgl2.check_qbit import CompileQGLFunctions
 from pyqgl2.check_qbit import FindTypes
 from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_waveforms import CheckWaveforms
-from pyqgl2.concur_unroll import ConcurUnroller
+from pyqgl2.concur_unroll import Unroller
 from pyqgl2.concur_unroll import QbitGrouper
 from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import Inliner
@@ -144,7 +144,7 @@ def main():
 
     print('SPECIALIZED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree4))
 
-    unroller = ConcurUnroller()
+    unroller = Unroller()
     new_ptree5 = unroller.visit(new_ptree4)
 
     print('UNROLL CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5))
