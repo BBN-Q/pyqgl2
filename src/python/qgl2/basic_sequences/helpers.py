@@ -22,8 +22,8 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
     """
     # Make all combinations for qubit calibration states for n qubits and repeat
 
-    # Assuming numRepeats=2 and qubits are q1, q2 and witCmp=False, 
-    # Produces 2* #qubits * numRepeats sequences of Id, X, MEAS, 
+    # Assuming numRepeats=2 and qubits are q1, q2 and waitCmp=False, 
+    # Produces 2 ^ #qubits * numRepeats sequences of Id, X, MEAS, 
     # something like
     # [[Id(q1)*Id(q2), M(q1)*M(q2)], [Id(q1)*Id(q2), M(q1)*M(q2)],
     #  [Id(q1)*X(q2), M(q1)*M(q2)],  [Id(q1)*X(q2), M(q1)*M(q2)],
@@ -45,7 +45,7 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
 
     # Create iterator with the right number of Id and X pulses
     for pulseSet in product(calSet, repeat=len(qubits)):
-        # Repeat the whole numRepeats times
+        # Repeat each entry numRepeats times
         for _ in range(numRepeats):
             # then do each pulse on each qubit concurrently
 

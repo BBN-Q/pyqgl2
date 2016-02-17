@@ -85,6 +85,17 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     docals, calRepeats: enable calibration sequences, repeated calRepeats times
     """
 
+    # This will produce 2^numQubits sequences, such that in each
+    # sequence we try a different combination of the bits in the
+    # comparison register.
+    # Each sequence does some calibration like pulses, measurements,
+    # then a bunch of qifs with all the possible different masks, then
+    # measure again.
+    # And if doubleRound is set, do it again.
+
+    # Note that the if clause to the qif depends on the sign of the
+    # qubit: Default is ID, X like in calibration sequences.
+
     # Original:
     # if measChans is None:
     #     measChans = qubits
@@ -122,26 +133,45 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     if measChans is None:
         measChans = qubits
 
+    # Calibrate sequence for the qubits - there will be 2^len(qubits)
+    # states
+    # Note that the calibration sequence is the un-inverted entry in
+    # FbGates below, and there are as many calibration sequences as
+    # there are entries in FbSeq
+    # Each sequence in the final result will start with one of these
+    # calibration sequences
+    calSeqs = create_cal_seqs(qubits,1,measChans=measChans)
+
+
+    # This next block creates something called FbSeq. This is like
+    # calSeqs, except that for some qubits the "calibration sequence"
+    # is inverted (X, ID).
+    # Each of these becomes the if pulse in the qif() clauses in each
+    # sequence in the final result.
+    # There will be 2^numQubits of these - 1 per final sequence
+
     # Default signVec to 0 for all qubits
     if signVec == None:
         signVec = [0]*len(qubits)
 
-    # Calibrate sequence for the qubits - there will be 2*len(qubits) states
-    calSeqs = create_cal_seqs(qubits,1,measChans=measChans)
-
     # Collect the gates in 1 sequence
     FbGates = []
 
+    # Sometimes state assignments are 'flipped'. Hence this code.
     # Create the FbGates sequences: Each of 2 gates per qubit, based on the
     # signVec
     # Note that QGL2 does not yet handle this kind of function reference
     for count in range(len(qubits)):
         if signVec[count] == 0:
-            FbGates += [[Id, X]]
+            FbGates += [[Id, X]] # This is the order used in calibration
         else:
-            FbGates += [[X, Id]]
+            FbGates += [[X, Id]] # This is inverted
 
-    # This will be a sequence of concurrent pulses
+    # This will be a sequence of concurrent pulses (in each, 1 per
+    # qubit)
+    # of length 2^# qubits
+    # This is used as the If clause of the qifs below
+    # So one of these per sequence in the final result
     FbSeq = []
 
     # Each set is length of # of qubits
@@ -156,18 +186,30 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
             reduce(operator.mul, allPulsePairs)
         )
 
-    seqs = []
-    # For each calibrate sequence add an element to seqs
-    # calSeq aka state - but why?
-    for count, calSeq in enumerate(calSeqs):
-        # qifs: for each calibrate there's a qif using that # as the
-        # mask, with the test being the matching pulse in FbSeq for
-        # this calibrate sequence
+    # FbSeq is now a sequence of concurrent pulses (in each, Id
+    # or X per qubit), of length 2^# qubits
+    # EG for 2 qubits of opposite signVec, it gives:
+    # [Id(q1)*X(q2), Id(q1)*Id(q2), X(q1)*X(q2), X(q1)*Id(q2)]
 
-        # Note a qif is a sequence
+    # FbSeq is of same length as calSeqs: 2^#qubits, and made of
+    # similar pulses - though the calibration sequences include MEAS pulses
+
+    # seqs is the final result list of sequences
+    seqs = []
+    # For each calibrate sequence create an element in seqs
+    # calSeq is aka state - but why?
+    for count, calSeq in enumerate(calSeqs):
+        # qifs: for each calibrate there's a qif using that index as the
+        # mask, with the test (if clause) being the matching pulse in FbSeq for
+        # this calibrate sequence
+        # Put another way, we call qif on every mask from 1 to
+        # 2^numQubits, each time using the Pulse from FbSeq for this
+        # sequence / calibration sequence in the final result.
+
+        # Note a qif is a sequence of pulses, really
         qElse = [FbSeq[count]]
         qifs = []
-        for fbcount in range(len(calSeqs)):
+        for fbcount in range(2**len(qubits)):
             qifs.append(qif(fbcount, qElse))
 
         # Tease apart the pieces of the qifs and add those all to a
@@ -179,6 +221,7 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
             for branch in qifInstance:
                 branches.append(branch)
 
+        # Now create the sequence
         seqs.append(
             calSeq +
             [
@@ -197,11 +240,16 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
 
     # If doubling, add to each sequence Id, qwait, Id, a bunch of
     # qifs, and some concurrent MEAS calls
+    # That is, roughly double each sequence, but skip the initial MEAS
+    # and the qifs all use a single if clause.
     if doubleRound:
         # FIXME: This 'count' is just the last count from the last
-        # calibrate sequence? Really?
+        # calibrate sequence? Really? Seems arbitrary whether this is
+        # IdX or XId - does it not matter?
+        # Other than that, the qifs created here are idential to the
+        # last set of qifs created above
         qElse = [FbSeq[count]]
-        # Here there's a bunch more qifs
+
         qifs = []
         for fbcount in range(2**len(qubits)):
             qifs.append(qif(fbcount, qElse))
@@ -215,7 +263,7 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
             for branch in qifInstance:
                 branches.append(branch)
 
-        # Now add the new pulses to each sequence
+        # Now add the new pulses to each sequence - not just the last one
         for seq in seqs:
             seq.append(
                     [
@@ -227,7 +275,8 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
                     [MEAS(*measChans)]
                 )
 
-    # If we're dong calibration too, add that
+    # If we're doing calibration too, add that at the very end
+    # - another 2^numQubits * calRepeats sequences
     if docals:
         seqs += create_cal_seqs(qubits, calRepeats, measChans=measChans)
 
