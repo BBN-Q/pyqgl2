@@ -319,7 +319,20 @@ class Unroller(ast.NodeTransformer):
 
             return list([if_node])
 
-    def for_unroller(self, for_node):
+    def for_unroller(self, for_node, unroll_inner=True):
+        """
+        Unroll a for loop, if possible, returning the resulting
+        list of statements that replace the original "for" expression
+
+        TODO: does it make sense to try to unroll elements of the
+        loop, if the loop itself can't be unrolled?  If we reach a
+        top-level loop that we can't unroll, that usually means
+        that the compilation is going to fail to linearize things
+        (although it can be OK if a "leaf" loop can't be unrolled).
+        I'm going to leave this as a parameter (unroll_inner) with
+        a default value of True, which we can change if it's a bad
+        idea.
+        """
 
         # The iter has to be an ordinary ast.List.  It is not enough
         # for it to be an expression that evaluates to a list or
@@ -336,6 +349,50 @@ class Unroller(ast.NodeTransformer):
             return list([for_node])
 
         if not isinstance(for_node.iter, ast.List):
+            if unroll_inner:
+                # even if we can't unroll this loop, we might
+                # be able to unroll statements in the body of
+                # the loop, so give that try
+                #
+                new_body = self.unroll_body(for_node.body)
+                for_node.body = new_body
+            return list([for_node])
+
+        # check that the list contains simple expressions:
+        # numbers, symbols, or other constants.  If there's
+        # anything else in the list, then bail out because
+        # we can't do a simple substitution.
+        #
+        # TODO: There are cases where we can't use names; if
+        # the body of the loop modifies the value bound to a
+        # symbol mentioned in iter.elts, then this may break.
+        # This case is hard to analyze but we could warn the
+        # programmer that something risky is happening.
+        #
+        # TODO: For certain idempotent exprs, we can do more
+        # inlining than for arbitrary expressions.  We don't
+        # have a mechanism for determining whether an expression
+        # is idempotent yet.
+        #
+        print('FOR_NODE.iter %s' % ast.dump(for_node.iter))
+        simple_expr_types = set(
+                [ast.Num, ast.Str, ast.Name, ast.NameConstant])
+        all_simple = True
+        for elem in for_node.iter.elts:
+            if type(elem) not in simple_expr_types:
+                all_simple = False
+                break
+
+        if not all_simple:
+            NodeError.diag_msg(for_node, 'not all loop elements are consts')
+
+            if unroll_inner:
+                # even if we can't unroll this loop, we might
+                # be able to unroll statements in the body of
+                # the loop, so give that try
+                #
+                new_body = self.unroll_body(for_node.body)
+                for_node.body = new_body
             return list([for_node])
 
         # TODO more checking for consistency/fit
@@ -427,7 +484,6 @@ class Unroller(ast.NodeTransformer):
             new_stmnts.append(new_stmnt)
 
         return new_stmnts
-
 
 
 class QbitGrouper(ast.NodeTransformer):
