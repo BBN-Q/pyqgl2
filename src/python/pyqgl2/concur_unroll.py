@@ -16,9 +16,31 @@ import pyqgl2.ast_util
 from pyqgl2.ast_util import NodeError
 from pyqgl2.lang import QGL2
 
-
-class ConcurUnroller(ast.NodeTransformer):
+def is_concur(node):
     """
+    Return True if the node is a with-concur block,
+    otherwise False
+    """
+
+    if not node:
+        return False
+
+    if not isinstance(node, ast.With):
+        return False
+
+    for item in node.items:
+        if (isinstance(item.context_expr, ast.Name) and
+                (item.context_expr.id == QGL2.QCONCUR)):
+            return True
+
+    return False
+
+
+class Unroller(ast.NodeTransformer):
+    """
+    A more general form of the ConcurUnroller, which knows how to
+    "unroll" FOR loops and IF statements in more general contexts.
+
     TODO: document the subset of all possible cases that this
     code actually recognizes/handles
     """
@@ -28,24 +50,36 @@ class ConcurUnroller(ast.NodeTransformer):
         self.bindings_stack = list()
         self.change_cnt = 0
 
-    def visit_With(self, node):
+    def unroll_body(self, body):
+        """
+        Look through the body of a block statement, and expand
+        whatever statements can be expanded/unrolled within the block
 
-        if not self.is_concur(node):
-            return self.visit(node) # check
+        TODO: combine with the logic for inlining functions
+        """
 
         while True:
             old_change_cnt = self.change_cnt
 
             new_outer_body = list()
 
-            for outer_stmnt in node.body:
+            for outer_stmnt in body:
                 if isinstance(outer_stmnt, ast.For):
                     unrolled = self.for_unroller(outer_stmnt)
                     new_outer_body += unrolled
-                else:
-                    new_outer_body.append(outer_stmnt)
+                elif isinstance(outer_stmnt, ast.If):
+                    unrolled = self.if_unroller(outer_stmnt)
+                    new_outer_body += unrolled
 
-            node.body = new_outer_body
+                # TODO: add cases for handling other things we
+                # can unroll, like ifs or possibly list comprehensions:
+                # basically any control flow where we can anticipate
+                # exactly what's going to happen
+
+                else:
+                    new_outer_body.append(self.visit(outer_stmnt))
+
+            body = new_outer_body
 
             # If we made changes in the last iteration,
             # then the resulting code might have more changes
@@ -55,6 +89,18 @@ class ConcurUnroller(ast.NodeTransformer):
             if self.change_cnt == old_change_cnt:
                 break
 
+        return body
+
+    def visit_While(self, node):
+        node.body = self.unroll_body(node.body)
+        return node
+
+    def visit_With(self, node):
+        node.body = self.unroll_body(node.body)
+        return node
+
+    def visit_FunctionDef(self, node):
+        node.body = self.unroll_body(node.body)
         return node
 
     def visit_Name(self, node):
@@ -72,26 +118,56 @@ class ConcurUnroller(ast.NodeTransformer):
 
         return node
 
-    def is_concur(self, node):
+    def if_unroller(self, if_node):
+        print('IF %s' % ast.dump(if_node))
+
+        # Figure out whether we have a constant predicate (of the
+        # types of constants we understant) and then what the value
+        # of the predicate is:
+        #
+        # If the test is a Num, check whether it is non-zero.
+        # If the test is a NameConstant, then check whether its
+        # value is True, False, or None.
+        # If the test is a String, then check whether it's the
+        # empty string.
+        #
+        if isinstance(if_node.test, ast.Num):
+            const_predicate = True
+            predicate = if_node.test.n
+        elif isinstance(if_node.test, ast.NameConstant):
+            const_predicate = True
+            predicate = if_node.test.value
+        elif isinstance(if_node.test, ast.Str):
+            const_predicate = True
+            predicate = if_node.test.s
+        else:
+            const_predicate = False
+
+        if const_predicate:
+            if predicate:
+                return self.unroll_body(if_node.body)
+            else:
+                return self.unroll_body(if_node.orelse)
+        else:
+            if_node.body = self.unroll_body(if_node.body)
+            if_node.orelse = self.unroll_body(if_node.orelse)
+
+            return list([if_node])
+
+    def for_unroller(self, for_node, unroll_inner=True):
         """
-        Return True if the node is a with-concur block,
-        otherwise False
+        Unroll a for loop, if possible, returning the resulting
+        list of statements that replace the original "for" expression
+
+        TODO: does it make sense to try to unroll elements of the
+        loop, if the loop itself can't be unrolled?  If we reach a
+        top-level loop that we can't unroll, that usually means
+        that the compilation is going to fail to linearize things
+        (although it can be OK if a "leaf" loop can't be unrolled).
+        I'm going to leave this as a parameter (unroll_inner) with
+        a default value of True, which we can change if it's a bad
+        idea.
         """
-
-        if not node:
-            return False
-
-        if not isinstance(node, ast.With):
-            return False
-
-        for item in node.items:
-            if (isinstance(item.context_expr, ast.Name) and
-                    (item.context_expr.id == QGL2.QCONCUR)):
-                return True
-
-        return False
-
-    def for_unroller(self, for_node):
 
         # The iter has to be an ordinary ast.List.  It is not enough
         # for it to be an expression that evaluates to a list or
@@ -100,13 +176,58 @@ class ConcurUnroller(ast.NodeTransformer):
         #
         # Right now we need it to consist of literals (possibly grouped
         # in tuples or similar simple structures).  Hopefully we'll relax
-        # this.
+        # this to include things like range() expressions where the
+        # parameters are known.
 
         if for_node.orelse:
             print('WARNING: cannot expand for with orelse') # FIXME
             return list([for_node])
 
         if not isinstance(for_node.iter, ast.List):
+            if unroll_inner:
+                # even if we can't unroll this loop, we might
+                # be able to unroll statements in the body of
+                # the loop, so give that try
+                #
+                new_body = self.unroll_body(for_node.body)
+                for_node.body = new_body
+            return list([for_node])
+
+        # check that the list contains simple expressions:
+        # numbers, symbols, or other constants.  If there's
+        # anything else in the list, then bail out because
+        # we can't do a simple substitution.
+        #
+        # TODO: There are cases where we can't use names; if
+        # the body of the loop modifies the value bound to a
+        # symbol mentioned in iter.elts, then this may break.
+        # This case is hard to analyze but we could warn the
+        # programmer that something risky is happening.
+        #
+        # TODO: For certain idempotent exprs, we can do more
+        # inlining than for arbitrary expressions.  We don't
+        # have a mechanism for determining whether an expression
+        # is idempotent yet.
+        #
+        print('FOR_NODE.iter %s' % ast.dump(for_node.iter))
+        simple_expr_types = set(
+                [ast.Num, ast.Str, ast.Name, ast.NameConstant])
+        all_simple = True
+        for elem in for_node.iter.elts:
+            if type(elem) not in simple_expr_types:
+                all_simple = False
+                break
+
+        if not all_simple:
+            NodeError.diag_msg(for_node, 'not all loop elements are consts')
+
+            if unroll_inner:
+                # even if we can't unroll this loop, we might
+                # be able to unroll statements in the body of
+                # the loop, so give that try
+                #
+                new_body = self.unroll_body(for_node.body)
+                for_node.body = new_body
             return list([for_node])
 
         # TODO more checking for consistency/fit
@@ -199,79 +320,252 @@ class ConcurUnroller(ast.NodeTransformer):
 
         return new_stmnts
 
+
+class QbitGrouper(ast.NodeTransformer):
+    """
+    TODO: this is just a prototype and needs some refactoring
+    """
+
+    def __init__(self):
+        pass
+
+    def visit_With(self, node):
+
+        if not is_concur(node):
+            return self.generic_visit(node) # check
+
+        print('WITH %s' % ast.dump(node))
+
+        # Hackish way to create a seq node to use
+        seq_item_node = deepcopy(node.items[0])
+        seq_item_node.context_expr.id = 'seq'
+        seq_node = ast.With(items=list([seq_item_node]), body=list())
+
+        groups = self.group_stmnts(node.body)
+        new_body = list()
+
+        for qbits, stmnts in groups:
+            new_seq = deepcopy(seq_node)
+            new_seq.body = stmnts
+            new_body.append(new_seq)
+
+        node.body = new_body
+
+        # print('Final:\n%s' % pyqgl2.ast_util.ast2str(node))
+
+        return node
+
+    @staticmethod
+    def find_qbits(stmnt):
+
+        qbits = set()
+
+        for node in ast.walk(stmnt):
+            if isinstance(node, ast.Name):
+
+                # This is an ad-hoc way to find QBITS, which
+                # requires that the substituter has already run
+                #
+                # TODO: mark names as qbits (and with channel info)
+                # without rewriting the names, or keep the original
+                # names after rewriting: keep both the original name
+                # intact and the qbit assignment so that both can
+                # be observed.  This requires changes in the substituter,
+                # as well as here.
+                #
+                if node.id.startswith('QBIT_'):
+                    qbits.add(node.id)
+
+        # print('FOUND QBITS [%s] %s' %
+        #         (pyqgl2.ast_util.ast2str(stmnt).strip(), str(qbits)))
+
+        return list(qbits)
+
+    @staticmethod
+    def group_stmnts(stmnts, find_qbits_func=None):
+        """
+        Return a list of statement groups, where each group is a tuple
+        (qbit_list, stmnt_list) where qbit_list is a list of all of
+        the qbits referenced in the statements in stmnt_list.
+
+        The stmnts list is partitioned such that each qbit is referenced
+        by statements in exactly one partition (with a special partition
+        for statements that don't reference any qbits).
+
+        TODO: Independence is defined ad-hoc here, and will need
+        to be something more sophisticated that understands the
+        interdependencies between qbits/channels.
+
+        For example, assuming that "x", "y", and "z" refer to
+        qbits on non-conflicting channels, the statements:
+
+                X90(x)
+                Y90(y)
+                Id(z)
+                Y90(x)
+                X180(z)
+
+        can be grouped into:
+
+                [ [ X90(x), Y90(x) ], [ Y90(y) ], [ Id(z), X180(z) ] ]
+
+        which would result in a returned value of:
+
+        [ ([x], [X90(x), Y90(x)]), ([y], [Y90(y)]), ([z], [Id(z), X180(z)]) ]
+
+        If there are operations over multiple qbits, then the
+        partitioning may fail.
+        """
+
+        if find_qbits_func is None:
+            find_qbits_func = QbitGrouper.find_qbits
+
+        qbit2list = dict()
+
+        for stmnt in stmnts:
+            qbits_referenced = find_qbits_func(stmnt)
+
+            if len(qbits_referenced) == 0:
+                # print('unexpected: no qbit referenced')
+
+                # Not sure whether this should be an error;
+                # for now we'll add this to a special 'no qbit'
+                # bucket.
+
+                if 'no_qbit' not in qbit2list:
+                    qbit2list['no_qbit'] = list([stmnt])
+                else:
+                    qbit2list['no_qbit'].append(stmnt)
+
+            elif len(qbits_referenced) == 1:
+                qbit = qbits_referenced[0]
+                if qbit not in qbit2list:
+                    qbit2list[qbit] = list([stmnt])
+                else:
+                    qbit2list[qbit].append(stmnt)
+            else:
+                # There are multiple qbits referenced by the stmnt,
+                # then we need to find any other stmnt lists that
+                # we've built up for each of the qbits, and combine
+                # them into one sequence of statments, and then
+                # map each qbit to the resulting sequence.
+                #
+                # This would be more elegant if we could have a set
+                # of lists, but in Python lists aren't hashable,
+                # so we need to fake a set implementation with a list.
+                #
+                stmnt_set = list()
+                stmnt_list = list()
+
+                for qbit in qbits_referenced:
+                    if qbit in qbit2list:
+                        curr_list = qbit2list[qbit]
+
+                        if curr_list not in stmnt_set:
+                            stmnt_set.append(curr_list)
+
+                for seq in stmnt_set:
+                    stmnt_list += seq
+
+                stmnt_list.append(stmnt)
+
+                for qbit in qbits_referenced:
+                    qbit2list[qbit] = stmnt_list
+
+        # neaten up qbit2list to eliminate duplicates;
+        # present the result in a more useful manner
+
+        tmp_groups = dict()
+
+        for qbit in qbit2list.keys():
+            # this is gross, but we can't use a mutable object as a key
+            # in a table, so we use a string representation
+
+            stmnts_str = str(qbit2list[qbit])
+            if stmnts_str in tmp_groups:
+                (qbits, stmnts) = tmp_groups[stmnts_str]
+                qbits.append(qbit)
+            else:
+                tmp_groups[stmnts_str] = (list([qbit]), qbit2list[qbit])
+
+        groups = [ (sorted(tmp_groups[key][0]), tmp_groups[key][1])
+                for key in tmp_groups.keys() ]
+
+        return sorted(groups)
+
 if __name__ == '__main__':
 
     basic_tests = [
             [ """ Basic test """,
 """
 with concur:
-    for x in [1, 2, 3]:
+    for x in [QBIT_1, QBIT_2, QBIT_3]:
         foo(x)
 """,
 """
 with concur:
-    foo(1)
-    foo(2)
-    foo(3)
+    foo(QBIT_1)
+    foo(QBIT_2)
+    foo(QBIT_3)
 """
             ],
 
             [ """ Double Nested loops """,
 """
 with concur:
-    for x in [1, 2, 3]:
+    for x in [QBIT_1, QBIT_2, QBIT_3]:
         for y in [4, 5, 6]:
             foo(x, y)
 """,
 """
 with concur:
-    foo(1, 4)
-    foo(1, 5)
-    foo(1, 6)
-    foo(2, 4)
-    foo(2, 5)
-    foo(2, 6)
-    foo(3, 4)
-    foo(3, 5)
-    foo(3, 6)
+    foo(QBIT_1, 4)
+    foo(QBIT_1, 5)
+    foo(QBIT_1, 6)
+    foo(QBIT_2, 4)
+    foo(QBIT_2, 5)
+    foo(QBIT_2, 6)
+    foo(QBIT_3, 4)
+    foo(QBIT_3, 5)
+    foo(QBIT_3, 6)
 """
             ],
 
             [ """ Triple Nested loops """,
 """
 with concur:
-    for x in [1, 2]:
-        for y in [3, 4]:
+    for x in [QBIT_1, QBIT_2]:
+        for y in [QBIT_3, QBIT_4]:
             for z in [5, 6]:
                 foo(x, y, z)
 """,
 """
 with concur:
-    foo(1, 3, 5)
-    foo(1, 3, 6)
-    foo(1, 4, 5)
-    foo(1, 4, 6)
-    foo(2, 3, 5)
-    foo(2, 3, 6)
-    foo(2, 4, 5)
-    foo(2, 4, 6)
+    foo(QBIT_1, QBIT_3, 5)
+    foo(QBIT_1, QBIT_3, 6)
+    foo(QBIT_1, QBIT_4, 5)
+    foo(QBIT_1, QBIT_4, 6)
+    foo(QBIT_2, QBIT_3, 5)
+    foo(QBIT_2, QBIT_3, 6)
+    foo(QBIT_2, QBIT_4, 5)
+    foo(QBIT_2, QBIT_4, 6)
 """
             ],
             [ """ Basic compound test """,
 """
 with concur:
-    for x in [1, 2, 3]:
+    for x in [QBIT_1, QBIT_2, QBIT_3]:
         foo(x)
         bar(x)
 """,
 """
 with concur:
-    foo(1)
-    bar(1)
-    foo(2)
-    bar(2)
-    foo(3)
-    bar(3)
+    foo(QBIT_1)
+    bar(QBIT_1)
+    foo(QBIT_2)
+    bar(QBIT_2)
+    foo(QBIT_3)
+    bar(QBIT_3)
 """
             ],
             [ """ Nested compound test """,
@@ -309,22 +603,22 @@ with concur:
             [ """ Simple tuple test 2 """,
 """
 with concur:
-    for x, y in [(1, 2), (3, 4)]:
+    for x, y in [(QBIT_1, QBIT_2), (QBIT_3, QBIT_4)]:
         foo(x)
         foo(y)
 """,
 """
 with concur:
-    foo(1)
-    foo(2)
-    foo(3)
-    foo(4)
+    foo(QBIT_1)
+    foo(QBIT_2)
+    foo(QBIT_3)
+    foo(QBIT_4)
 """
             ],
             [ """ Compound test 2 """,
 """
 with concur:
-    for x in [1, 2]:
+    for x in [QBIT_1, QBIT_2]:
         for y in [3, 4]:
             foo(x, y)
 
@@ -333,18 +627,18 @@ with concur:
 """,
 """
 with concur:
-    foo(1, 3)
-    bar(1, 3, 5)
-    bar(1, 3, 6)
-    foo(1, 4)
-    bar(1, 4, 5)
-    bar(1, 4, 6)
-    foo(2, 3)
-    bar(2, 3, 5)
-    bar(2, 3, 6)
-    foo(2, 4)
-    bar(2, 4, 5)
-    bar(2, 4, 6)
+    foo(QBIT_1, 3)
+    bar(QBIT_1, 3, 5)
+    bar(QBIT_1, 3, 6)
+    foo(QBIT_1, 4)
+    bar(QBIT_1, 4, 5)
+    bar(QBIT_1, 4, 6)
+    foo(QBIT_2, 3)
+    bar(QBIT_2, 3, 5)
+    bar(QBIT_2, 3, 6)
+    foo(QBIT_2, 4)
+    bar(QBIT_2, 4, 5)
+    bar(QBIT_2, 4, 6)
 """
             ],
 
@@ -367,11 +661,25 @@ with concur:
 
         ]
 
+
     def test_case(description, in_txt, out_txt):
         ptree = ast.parse(in_txt, mode='exec')
         unroller = ConcurUnroller()
         new_ptree = unroller.visit(ptree)
         new_txt = pyqgl2.ast_util.ast2str(new_ptree)
+
+        body = new_ptree.body[0].body
+        # print('body %s' % ast.dump(body))
+
+        grouper = QbitGrouper()
+        redo = grouper.visit(new_ptree)
+
+        partitions = grouper.group_stmnts(body)
+        print('partitions: %s' % str(partitions))
+        # for pid in partitions:
+        #     print('[%s]\n%s' %
+        #             (pid, pyqgl2.ast_util.ast2str(partitions[pid]).strip()))
+
 
         if out_txt.strip() != new_txt.strip():
             print('FAILURE: %s\n:[%s]\n----\n[%s]' %
@@ -394,7 +702,43 @@ with concur:
 
         # Now do the transformation
 
+    def test_grouping1():
+
+        def simple_find_qbits(stmnt):
+            """
+            debugging impl of find_qbits, for simple quasi-statements.
+
+            Assumes that the stmnt is a tuple consisting of a list
+            (of qbit numbers) and a string (the description of the statement)
+            So finding the qbits is done by returning the first element
+            of the tuple.
+
+            See simple_stmnt_list below for an example.
+            """
+
+            return stmnt[0]
+
+        simple_stmnt_list = [
+                ( [1], 'one-1' ),
+                ( [1], 'one-2' ),
+                ( [2], 'two-1' ),
+                ( [1], 'one-3' ),
+                ( [2], 'two-2' ),
+                ( [3], 'three-1' ),
+                ( [4], 'four-1' ),
+                ( [3, 4], 'threefour-1' )
+                ]
+
+        res = QbitGrouper.group_stmnts(simple_stmnt_list,
+                find_qbits_func=simple_find_qbits)
+
+        for stmnt_list in res:
+            print('STMNT_LIST %s' % str(stmnt_list))
+
     def main():
+
+        test_grouping1()
+
         for (description, in_txt, out_txt) in basic_tests:
             test_case(description, in_txt, out_txt)
 
