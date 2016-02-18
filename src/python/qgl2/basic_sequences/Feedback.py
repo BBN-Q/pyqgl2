@@ -230,7 +230,7 @@ def Resetq1_orig(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     compileAndPlot(seqs, 'Reset/Reset', showPlot)
 
 @qgl2decl
-def qresetq2(qubits: qbit_list, signVec, measDelay, buf):
+def qresetq2(qubits: qbit_list, measDelay, signVec, buf, measChans):
     # Produces a sequence like:
     # Id(qubits[0], measDelay)
     # qwait(CMP)
@@ -295,10 +295,10 @@ def qresetq2(qubits: qbit_list, signVec, measDelay, buf):
         qif(count, ifClause(count, pulsesList))
 
     with concur:
-        for q in qubits:
+        for q in measChans:
             MEAS(q)
 
-def qreset(qubits: qbit_list, signVec, measDelay, buf):
+def qreset(qubits: qbit_list, measDelay, signVec, buf, measChans):
     # Produces a sequence like:
     # Id(qubits[0], measDelay)
     # qwait(CMP)
@@ -338,7 +338,7 @@ def qreset(qubits: qbit_list, signVec, measDelay, buf):
     # pair of gates (created above)
     for count in range(2**len(qubits)):
         seq += qif(count, [FbSeq[count]])
-    seq += [MEAS(*qubits)]
+    seq += [MEAS(*tuple(measChans))]
 
     return seq
 
@@ -412,12 +412,12 @@ def Resetq2(qubits: qbit_list, measDelay = 1e-6, signVec = None,
         doOneInitialPulse(initialPulsesList[count])
 
         # After that, each will have a standard block (see qreset)
-        qreset(qubits, signVec, measDelay, buf)
+        qreset(qubits, measDelay, signVec, buf, measChans)
 
         # If doubling, add to each sequence
         # The same standard block from above
         if doubleRound:
-            qreset(qubits, signVec, measDelay, buf)
+            qreset(qubits, measDelay, signVec, buf, measChans)
 
         # Add a final qwait('CMP') (bug in original implementation of Reset)
         qwait('CMP')
@@ -483,14 +483,14 @@ def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     for prep in create_cal_seqs(qubits, 1):
         seqs.append(
             prep +
-            [qreset(qubits, signVec, measDelay, buf)]
+            [qreset(qubits, measDelay, signVec, buf, measChans)]
             )
 
     # If doubling, add to each sequence
     # The same standard block from above
     if doubleRound:
         for seq in seqs:
-            seq.append(qreset(qubits, signVec, measDelay, buf))
+            seq.append(qreset(qubits, measDelay, signVec, buf, measChans))
 
     # Add a final qwait('CMP') (bug in original implementation of Reset)
     for seq in seqs:
