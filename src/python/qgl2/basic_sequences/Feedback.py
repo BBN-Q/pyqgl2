@@ -513,6 +513,56 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     # QGL2 compiler
     compileAndPlot(seqs, 'Reset/Reset', showPlot)
 
+@qgl2decl
+def qreset_Blake(q: qbit, measDelay, buf, measSign):
+    # FIXME: Shouldn't the MEAS be on the appropriate measChan?
+    m = MEAS(q)
+    Id(q, measDelay) # Wait to be sure signal reaches all qbits
+    qwait(q, 'CMP') # a new instruction I am inventing to ensure
+    # result is loaded into the register
+    Id(q, buf) # Wait for the photons in the chamber to decay
+    if m * measSign == 1:
+        X(q)
+
+@qgl2decl
+def Reset_Blake(qubits: qbit_list, measDelay = 1e-6, signVec = None,
+          doubleRound = True, buf = 30e-9, showPlot = False,
+          measChans: qbit_list = None, docals = True, calRepeats=2):
+
+    @qgl2decl
+    def init(q: qbit):
+        pass
+
+    if measChans is None:
+        measChans = qubits
+
+    # FIXME: is this the right default?
+    # signVec defaults to 0
+    # If it is 1 then the state is 'flipped' and we'll
+    # reverse the corresponding (Id, X) pulses
+    if signVec == None:
+        signVec = [0]*len(qubits)
+    signVec = tuple(signVec)
+    for prep in product([Id,X], repeat=len(qubits)):
+        with concur:
+            for p,q,ct in zip(prep, qubits, range(len(qubits))):
+                init(q) # FIXME: UNDEFINED
+                p(q) # Do the initial pulse for this entry
+                qreset_Blake(q, measDelay, buf, signVec[ct])
+                if doubleRound:
+                    qreset_Blake(q, measDelay, buf, signVec[ct])
+                MEAS(q) # FIXME: this should be a measChan?
+                qwait(q, 'CMP')
+
+    # If we're doing calibration too, add that at the very end
+    # - another 2^numQubits * calRepeats sequences
+    if docals:
+        create_cal_seqs(qubits, calRepeats, measChans=measChans)
+
+    # Here we rely on the QGL compiler to pass in the sequence it
+    # generates to compileAndPlot
+    compileAndPlot('Reset/Reset', showPlot)
+
 @qgl2main
 def main():
     # Set up 2 qbits, following model in QGL/test/test_Sequences
