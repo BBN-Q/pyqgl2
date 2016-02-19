@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit_list, qbit
+from qgl2.qgl2 import qgl2decl, qbit_list, qbit, concur
 
 from .helpers import create_cal_seqs
 

@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit
+from qgl2.qgl2 import qgl2decl, qbit, qgl2main, concur
 
 from QGL.PulsePrimitives import Id, X, MEAS, X90, flat_top_gaussian, echoCR
 from QGL.Compiler import compile_to_hardware
@@ -8,7 +8,7 @@ from QGL.ChannelLibrary import EdgeFactory
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 from .helpers import create_cal_seqs
-from .new_helpers import addMeasPulses, addCalibration, compileAndPlot
+from .new_helpers import addMeasPulses, addCalibration, compileAndPlot, measConcurrently
 
 @qgl2decl
 def PiRabi(controlQ: qbit, targetQ: qbit, lengths, riseFall=40e-9, amp=1, phase=0, calRepeats=2, showPlot=False):
@@ -273,3 +273,57 @@ def EchoCRPhaseq1(controlQ: qbit, targetQ: qbit, phases, riseFall=40e-9, amp=1, 
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
     compileAndPlot(seqs, 'EchoCR/EchoCR', showPlot)
+
+
+@qgl2main
+def main():
+    # Set up 2 qbits, following model in QGL/test/test_Sequences
+    from qgl2.qgl2 import Qbit
+    from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
+    import QGL.ChannelLibrary as ChannelLibrary
+    import numpy as np
+    from math import pi
+
+    qg1 = LogicalMarkerChannel(label="q1-gate")
+    q1 = Qubit(label='q1', gateChan=qg1)
+    q1.pulseParams['length'] = 30e-9
+    q1.pulseParams['phase'] = pi/2
+
+    qg2 = LogicalMarkerChannel(label="q2-gate")
+    q2 = Qubit(label='q2', gateChan=qg2)
+    q2.pulseParams['length'] = 30e-9
+    q2.pulseParams['phase'] = pi/2
+
+    # this block depends on the existence of q1 and q2
+    crgate = LogicalMarkerChannel(label='cr-gate')
+
+    cr = Edge(label="cr", source = q1, target = q2, gateChan = crgate )
+    cr.pulseParams['length'] = 30e-9
+    cr.pulseParams['phase'] = pi/4
+
+    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
+    ChannelLibrary.channelLib.channelDict = {
+        'q1-gate': qg1,
+        'q1': q1,
+        'q2-gate': qg2,
+        'q2': q2,
+        'cr-gate': crgate,
+        'cr': cr
+    }
+    ChannelLibrary.channelLib.build_connectivity_graph()
+
+    # But the current qgl2 compiler doesn't understand Qubits, only
+    # Qbits. So use that instead when running through the QGL2
+    # compiler, but comment this out when running directly.
+    q1 = Qbit(1)
+    q2 = Qbit(2)
+
+    print("Run PiRabi")
+    PiRabi(q1, q2, np.linspace(0, 4e-6, 11))
+    print("Run EchoCRLen")
+    EchoCRLen(q1, q2, np.linspace(0, 2e-6, 11))
+    print("Run EchoCRPhase")
+    EchoCRPhase(q1, q2, np.linspace(0, pi/2, 11))
+
+if __name__ == "__main__":
+    main()
