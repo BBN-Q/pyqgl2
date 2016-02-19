@@ -186,6 +186,9 @@ def main():
         # But since we're calling with Nones, we expect certain Attribute Errors
         try:
             tests.test_Sequences.EchoCRPhase(None, None, [])
+        except UnboundLocalError as e3:
+            if "'channelName' referenced before " not in str(e3):
+                raise
         except AttributeError as eN:
             if "'NoneType' object has no attribute" not in str(eN):
                 raise
@@ -201,7 +204,8 @@ def main():
             tests.test_Sequences.EchoCRPhase = old
         print("Have no QGL2 implementation of EchoCRPhase - use QGL1")
     except Exception as e:
-        print("Did not redefine EchoCRPhase: %s" % e)
+        import traceback
+        print("Did not redefine EchoCRPhase: %s: %s" % (e, traceback.format_exc()))
 
     try:
         old = tests.test_Sequences.HahnEcho
