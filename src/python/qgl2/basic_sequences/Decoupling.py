@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit
+from qgl2.qgl2 import qgl2decl, qbit, qgl2main
 
 from QGL.PulsePrimitives import X90, Id, Y, U90, MEAS, X90
 from QGL.Compiler import compile_to_hardware
@@ -204,3 +204,28 @@ def CPMGq1(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     # QGL2 compiler
     compileAndPlot(seqs, 'CPMG/CPMG', showPlot)
 
+@qgl2main
+def main():
+    # Set up 2 qbits, following model in QGL/test/test_Sequences
+    from qgl2.qgl2 import Qbit
+    from QGL.Channels import Qubit, LogicalMarkerChannel
+    import numpy as np
+    from math import pi
+
+    qg1 = LogicalMarkerChannel(label="q1-gate")
+    q1 = Qubit(label='q1', gateChan=qg1)
+    q1.pulseParams['length'] = 30e-9
+    q1.pulseParams['phase'] = pi/2
+
+    # But the current qgl2 compiler doesn't understand Qubits, only
+    # Qbits. So use that instead when running through the QGL2
+    # compiler, but comment this out when running directly.
+    q1 = Qbit(1)
+
+    print("Run HahnEcho")
+    HahnEcho(q1, np.linspace(0, 5e-6, 11))
+    print("Run CPMG")
+    CPMG(q1, 2*np.arange(4), 500e-9)
+
+if __name__ == "__main__":
+    main()

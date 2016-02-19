@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qbit_list
+from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main
 
 from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
 from QGL.Compiler import compile_to_hardware
@@ -375,3 +375,24 @@ def AllXYq1(q: qbit, showPlot = False):
 #        ....
 
     compileAndPlot(seqs, 'AllXY/AllXY', showPlot)
+
+@qgl2main
+def main():
+    # Set up 1 qbit, following model in QGL/test/test_Sequences
+    from qgl2.qgl2 import Qbit
+    from QGL.Channels import Qubit, LogicalMarkerChannel
+    from math import pi
+
+    qg1 = LogicalMarkerChannel(label="q1-gate")
+    q1 = Qubit(label='q1', gateChan=qg1)
+    q1.pulseParams['length'] = 30e-9
+    q1.pulseParams['phase'] = pi/2
+
+    # But the current qgl2 compiler doesn't understand Qubits, only
+    # Qbits. So use that instead when running through the QGL2
+    # compiler, but comment this out when running directly.
+    q1 = Qbit(1)
+    AllXY(q1)
+
+if __name__ == "__main__":
+    main()

@@ -1,13 +1,14 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit_list
+from qgl2.qgl2 import qgl2decl, qbit_list, qgl2main, concur
 
-from QGL.PulsePrimitives import Id, MEAS
+from QGL.PulsePrimitives import Id, MEAS, X
 from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 from QGL.ControlFlow import qif, qwait
 
 from .helpers import create_cal_seqs
+from .new_helpers import compileAndPlot
 
 from functools import reduce
 from itertools import product
@@ -86,7 +87,6 @@ def Resetq1_orig(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     # Each sequence in the final result will start with one of these
     # calibration sequences
     calSeqs = create_cal_seqs(qubits,1,measChans=measChans)
-
 
     # This next block creates something called FbSeq. This is like
     # calSeqs, except that for some qubits the "calibration sequence"
@@ -230,7 +230,7 @@ def Resetq1_orig(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     compileAndPlot(seqs, 'Reset/Reset', showPlot)
 
 @qgl2decl
-def qresetq2(qubits: qbit_list, measDelay, signVec, buf, measChans):
+def qreset(qubits: qbit_list, measDelay, signVec, buf, measChans):
     # Produces a sequence like:
     # Id(qubits[0], measDelay)
     # qwait(CMP)
@@ -258,6 +258,7 @@ def qresetq2(qubits: qbit_list, measDelay, signVec, buf, measChans):
     # or X per qubit), of length 2^# qubits
     # EG for 2 qubits of opposite signVec, it gives:
     # [Id(q1)*X(q2), Id(q1)*Id(q2), X(q1)*X(q2), X(q1)*Id(q2)]
+    # FIXME: Is qgl2decl un-necessary here?
     @qgl2decl
     def makePulsesList(qubits: qbit_list, signVec):
         FbGates = []
@@ -275,6 +276,9 @@ def qresetq2(qubits: qbit_list, measDelay, signVec, buf, measChans):
             FbSeq.append(pulseSet)
         return FbSeq
 
+    # Make the pulses list once
+    pulsesList = makePulsesList(qubits, signVec)
+
     # Pick the proper pulseSet from the pulsesList
     # And evaluate the set concurrently
     @qgl2decl
@@ -283,9 +287,13 @@ def qresetq2(qubits: qbit_list, measDelay, signVec, buf, measChans):
             for pq in pulsesList[count]:
                 pq[0](pq[1])
 
-    # Load register
+    # First wait for the measurement to have
+    # happened t all qubits, account for physical delays
     Id(qubits[0], measDelay)
+    # Load register
     qwait('CMP')
+    # Wait for the chamber to quiet down and be
+    # ready for more calls
     Id(qubits[0], buf)
 
     # Create a branch for each possible comparison value
@@ -298,7 +306,7 @@ def qresetq2(qubits: qbit_list, measDelay, signVec, buf, measChans):
         for q in measChans:
             MEAS(q)
 
-def qreset(qubits: qbit_list, measDelay, signVec, buf, measChans):
+def qresetq1(qubits: qbit_list, measDelay, signVec, buf, measChans):
     # Produces a sequence like:
     # Id(qubits[0], measDelay)
     # qwait(CMP)
@@ -346,7 +354,7 @@ def qreset(qubits: qbit_list, measDelay, signVec, buf, measChans):
 # Note that measChans should have a default value that is identical to
 # qubits
 @qgl2decl
-def Resetq2(qubits: qbit_list, measDelay = 1e-6, signVec = None,
+def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
            doubleRound = True, buf = 30e-9, showPlot=False,
            measChans: qbit_list = None, docals=True, calRepeats=2):
     """
@@ -433,7 +441,7 @@ def Resetq2(qubits: qbit_list, measDelay = 1e-6, signVec = None,
 
 # This version from Blake who says it fixes bugs in the original
 # Note that measChans should have a default value that is identical to qubits
-def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
+def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
            doubleRound = True, buf = 30e-9, showPlot=False,
            measChans: qbit_list = None, docals=True, calRepeats=2):
     """
@@ -483,14 +491,14 @@ def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     for prep in create_cal_seqs(qubits, 1):
         seqs.append(
             prep +
-            [qreset(qubits, measDelay, signVec, buf, measChans)]
+            [qresetq1(qubits, measDelay, signVec, buf, measChans)]
             )
 
     # If doubling, add to each sequence
     # The same standard block from above
     if doubleRound:
         for seq in seqs:
-            seq.append(qreset(qubits, measDelay, signVec, buf, measChans))
+            seq.append(qresetq1(qubits, measDelay, signVec, buf, measChans))
 
     # Add a final qwait('CMP') (bug in original implementation of Reset)
     for seq in seqs:
@@ -504,3 +512,50 @@ def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
     compileAndPlot(seqs, 'Reset/Reset', showPlot)
+
+@qgl2main
+def main():
+    # Set up 2 qbits, following model in QGL/test/test_Sequences
+    from qgl2.qgl2 import Qbit
+    from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
+    import QGL.ChannelLibrary as ChannelLibrary
+    import numpy as np
+    from math import pi
+
+    qg1 = LogicalMarkerChannel(label="q1-gate")
+    q1 = Qubit(label='q1', gateChan=qg1)
+    q1.pulseParams['length'] = 30e-9
+    q1.pulseParams['phase'] = pi/2
+
+    qg2 = LogicalMarkerChannel(label="q2-gate")
+    q2 = Qubit(label='q2', gateChan=qg2)
+    q2.pulseParams['length'] = 30e-9
+    q2.pulseParams['phase'] = pi/2
+
+    # this block depends on the existence of q1 and q2
+    crgate = LogicalMarkerChannel(label='cr-gate')
+
+    cr = Edge(label="cr", source = q1, target = q2, gateChan = crgate )
+    cr.pulseParams['length'] = 30e-9
+    cr.pulseParams['phase'] = pi/4
+
+    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
+    ChannelLibrary.channelLib.channelDict = {
+        'q1-gate': qg1,
+        'q1': q1,
+        'q2-gate': qg2,
+        'q2': q2,
+        'cr-gate': crgate,
+        'cr': cr
+    }
+    ChannelLibrary.channelLib.build_connectivity_graph()
+
+    # But the current qgl2 compiler doesn't understand Qubits, only
+    # Qbits. So use that instead when running through the QGL2
+    # compiler, but comment this out when running directly.
+    q1 = Qbit(1)
+    q2 = Qbit(2)
+    Reset([q1, q2])
+
+if __name__ == "__main__":
+    main()
