@@ -288,7 +288,7 @@ def qreset(qubits: qbit_list, measDelay, signVec, buf, measChans):
                 pq[0](pq[1])
 
     # First wait for the measurement to have
-    # happened t all qubits, account for physical delays
+    # happened to all qubits, account for physical delays
     Id(qubits[0], measDelay)
     # Load register
     qwait('CMP')
@@ -513,42 +513,128 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     # QGL2 compiler
     compileAndPlot(seqs, 'Reset/Reset', showPlot)
 
+@qgl2decl
+def qreset_Blake2(q: qbit, measDelay, buf, measSign):
+    m = MEAS(q)
+    # FIXME: In future, QGL2
+    # Compiler inserts Id(measDelay+buf) or just buf if HW is fixed,
+    # plus qwait
+    if m * measSign == 1:
+        X(q)
+
+@qgl2decl
+def qreset_Blake(q: qbit, measDelay, buf, measSign):
+    m = MEAS(q)
+    Id(q, measDelay) # Wait to be sure signal reaches all qbits
+
+    # a new instruction Blake invented to ensure
+    # result is loaded into the register
+    qwait(q, 'CMP')
+
+    # Wait for the photons in the chamber to decay
+    Id(q, buf)
+    if m * measSign == 1:
+        X(q)
+
+
+# FIXME:
+# How to create intermediate versions of Reset?
+# 1: Do qwait(CMP) instead of qwait(q, CMP)
+# 2: Translate signVec 0 (old style input) to 1 and non-0 to -1
+# 3:include measChans in method sig but ignore it
+# 4: But the big one is replacing the qifs with if m & measSign: not
+# clear how to handle that
+
+# Note no measChans arg - it is always the qubits
+# Also note signVec is no -1 or 1, not 0 and not 0
+# Those 2 things make this Reset() incompatible with the QGL1 version
+@qgl2decl
+def Reset_Blake(qubits: qbit_list, measDelay = 1e-6, signVec = None,
+          doubleRound = True, buf = 30e-9, showPlot = False,
+          docals = True, calRepeats=2):
+
+    @qgl2decl
+    def init(q: qbit):
+        # init will demarcate the beginning of a list of
+        # experiments. QGL1 compiler injects WAITs in beginning of
+        # every sequence for now
+        # FIXME: Put this somewhere common, figure out what this
+        # should do
+        pass
+
+    # FIXME: is this the right default?
+    # signVec defaults to 1
+    if signVec == None:
+        signVec = [1]*len(qubits)
+    signVec = tuple(signVec)
+    # FIXME: what will it take for QGL2 compiler to support this.
+    # Would it help to assign the result of product to a variable
+    # first?
+    # Or the result of zip()?
+    for prep in product([Id,X], repeat=len(qubits)):
+        with concur:
+            for p,q,ct in zip(prep, qubits, range(len(qubits))):
+                init(q) # FIXME: Should mark 'beginning' of list of
+                        # expts, like QGL1 'WAIT'
+                p(q) # Do the initial pulse for this entry
+                qreset_Blake(q, measDelay, buf, signVec[ct])
+                if doubleRound:
+                    qreset_Blake(q, measDelay, buf, signVec[ct])
+                MEAS(q)
+                # a new instruction Blake invented to ensure
+                # result is loaded into the register
+                qwait(q, 'CMP')
+
+    # If we're doing calibration too, add that at the very end
+    # - another 2^numQubits * calRepeats sequences
+    if docals:
+        create_cal_seqs(qubits, calRepeats)
+
+    # Here we rely on the QGL compiler to pass in the sequence it
+    # generates to compileAndPlot
+    compileAndPlot('Reset/Reset', showPlot)
+
+# Imports for testing only
+from qgl2.qgl2 import Qbit
+from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
+import QGL.ChannelLibrary as ChannelLibrary
+import numpy as np
+from math import pi
+
 @qgl2main
 def main():
     # Set up 2 qbits, following model in QGL/test/test_Sequences
-    from qgl2.qgl2 import Qbit
-    from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
-    import QGL.ChannelLibrary as ChannelLibrary
-    import numpy as np
-    from math import pi
 
-    qg1 = LogicalMarkerChannel(label="q1-gate")
-    q1 = Qubit(label='q1', gateChan=qg1)
-    q1.pulseParams['length'] = 30e-9
-    q1.pulseParams['phase'] = pi/2
+    # FIXME: Cannot use these in current QGL2 compiler, because
+    # a: QGL2 doesn't understand creating class instances, and 
+    # b: QGL2 currently only understands the fake Qbits
+#    qg1 = LogicalMarkerChannel(label="q1-gate")
+#    q1 = Qubit(label='q1', gateChan=qg1)
+#    q1.pulseParams['length'] = 30e-9
+#    q1.pulseParams['phase'] = pi/2
 
-    qg2 = LogicalMarkerChannel(label="q2-gate")
-    q2 = Qubit(label='q2', gateChan=qg2)
-    q2.pulseParams['length'] = 30e-9
-    q2.pulseParams['phase'] = pi/2
+#    qg2 = LogicalMarkerChannel(label="q2-gate")
+#    q2 = Qubit(label='q2', gateChan=qg2)
+#    q2.pulseParams['length'] = 30e-9
+#    q2.pulseParams['phase'] = pi/2
 
     # this block depends on the existence of q1 and q2
-    crgate = LogicalMarkerChannel(label='cr-gate')
+#    crgate = LogicalMarkerChannel(label='cr-gate')
 
-    cr = Edge(label="cr", source = q1, target = q2, gateChan = crgate )
-    cr.pulseParams['length'] = 30e-9
-    cr.pulseParams['phase'] = pi/4
+#    cr = Edge(label="cr", source = q1, target = q2, gateChan = crgate )
+#    cr.pulseParams['length'] = 30e-9
+#    cr.pulseParams['phase'] = pi/4
 
-    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
-    ChannelLibrary.channelLib.channelDict = {
-        'q1-gate': qg1,
-        'q1': q1,
-        'q2-gate': qg2,
-        'q2': q2,
-        'cr-gate': crgate,
-        'cr': cr
-    }
-    ChannelLibrary.channelLib.build_connectivity_graph()
+#    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
+#    ChannelLibrary.channelLib.channelDict = {
+#        'q1-gate': qg1,
+#        'q1': q1,
+#        'q2-gate': qg2,
+#        'q2': q2,
+#        'cr-gate': crgate,
+#        'cr': cr
+#    }
+#    ChannelLibrary.channelLib.build_connectivity_graph()
 
     # But the current qgl2 compiler doesn't understand Qubits, only
     # Qbits. So use that instead when running through the QGL2
