@@ -536,6 +536,15 @@ def qreset_Blake(q: qbit, measDelay, buf, measSign):
     if m * measSign == 1:
         X(q)
 
+
+# FIXME:
+# How to create intermediate versions of Reset?
+# 1: Do qwait(CMP) instead of qwait(q, CMP)
+# 2: Translate signVec 0 (old style input) to 1 and non-0 to -1
+# 3:include measChans in method sig but ignore it
+# 4: But the big one is replacing the qifs with if m & measSign: not
+# clear how to handle that
+
 # Note no measChans arg - it is always the qubits
 # Also note signVec is no -1 or 1, not 0 and not 0
 # Those 2 things make this Reset() incompatible with the QGL1 version
@@ -549,6 +558,8 @@ def Reset_Blake(qubits: qbit_list, measDelay = 1e-6, signVec = None,
         # init will demarcate the beginning of a list of
         # experiments. QGL1 compiler injects WAITs in beginning of
         # every sequence for now
+        # FIXME: Put this somewhere common, figure out what this
+        # should do
         pass
 
     # FIXME: is this the right default?
@@ -556,6 +567,10 @@ def Reset_Blake(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     if signVec == None:
         signVec = [1]*len(qubits)
     signVec = tuple(signVec)
+    # FIXME: what will it take for QGL2 compiler to support this.
+    # Would it help to assign the result of product to a variable
+    # first?
+    # Or the result of zip()?
     for prep in product([Id,X], repeat=len(qubits)):
         with concur:
             for p,q,ct in zip(prep, qubits, range(len(qubits))):
@@ -566,6 +581,8 @@ def Reset_Blake(qubits: qbit_list, measDelay = 1e-6, signVec = None,
                 if doubleRound:
                     qreset_Blake(q, measDelay, buf, signVec[ct])
                 MEAS(q)
+                # a new instruction Blake invented to ensure
+                # result is loaded into the register
                 qwait(q, 'CMP')
 
     # If we're doing calibration too, add that at the very end
