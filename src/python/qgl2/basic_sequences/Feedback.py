@@ -8,7 +8,7 @@ from QGL.PulseSequencePlotter import plot_pulse_files
 from QGL.ControlFlow import qif, qwait
 
 from .helpers import create_cal_seqs
-from .new_helpers import compileAndPlot
+from .new_helpers import compileAndPlot, init
 
 from functools import reduce
 from itertools import product
@@ -552,15 +552,6 @@ def qreset_Blake(q: qbit, measDelay, buf, measSign):
 def Reset_Blake(qubits: qbit_list, measDelay = 1e-6, signVec = None,
           doubleRound = True, buf = 30e-9, showPlot = False,
           docals = True, calRepeats=2):
-
-    @qgl2decl
-    def init(q: qbit):
-        # init will demarcate the beginning of a list of
-        # experiments. QGL1 compiler injects WAITs in beginning of
-        # every sequence for now
-        # FIXME: Put this somewhere common, figure out what this
-        # should do
-        pass
 
     # FIXME: is this the right default?
     # signVec defaults to 1
