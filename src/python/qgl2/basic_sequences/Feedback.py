@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit_list, qgl2main, concur
+from qgl2.qgl2 import qgl2decl, qbit_list, qgl2main, concur, qbit
 
 from QGL.PulsePrimitives import Id, MEAS, X
 from QGL.Compiler import compile_to_hardware
@@ -96,7 +96,7 @@ def Resetq1_orig(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     # There will be 2^numQubits of these - 1 per final sequence
 
     # Default signVec to 0 for all qubits
-    if signVec == None:
+    if signVec is None:
         signVec = [0]*len(qubits)
 
     # Collect the gates in 1 sequence
@@ -388,7 +388,7 @@ def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     # signVec defaults to 0
     # If it is 1 then the state is 'flipped' and we'll
     # reverse the corresponding (Id, X) pulses
-    if signVec == None:
+    if signVec is None:
         signVec = [0]*len(qubits)
     signVec = tuple(signVec)
 
@@ -475,7 +475,7 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     # signVec defaults to 0
     # If it is 1 then the state is 'flipped' and we'll
     # reverse the corresponding (Id, X) pulses
-    if signVec == None:
+    if signVec is None:
         signVec = [0]*len(qubits)
     signVec = tuple(signVec)
 
@@ -523,6 +523,21 @@ def qreset_Blake2(q: qbit, measDelay, buf, measSign):
         X(q)
 
 @qgl2decl
+def qreset_Blake_intermediate(q: qbit, measDelay, buf, measSign):
+    m = MEAS(q)
+    Id(q, measDelay) # Wait to be sure signal reaches all qbits
+
+    # a new instruction Blake invented to ensure
+    # result is loaded into the register
+    qwait('CMP') # instead of qwait(q, 'CMP')
+
+    # Wait for the photons in the chamber to decay
+    Id(q, buf)
+    # FIXME: This should be a bunch of qif statements!
+    if m * measSign == 1:
+        X(q)
+
+@qgl2decl
 def qreset_Blake(q: qbit, measDelay, buf, measSign):
     m = MEAS(q)
     Id(q, measDelay) # Wait to be sure signal reaches all qbits
@@ -545,6 +560,55 @@ def qreset_Blake(q: qbit, measDelay, buf, measSign):
 # 4: But the big one is replacing the qifs with if m & measSign: not
 # clear how to handle that
 
+# This version:
+# 1: translates old signVec values to new
+# 2: takes but ignores measChans
+# 3: calls qwait(CMP) instead of qwait(CMP, q)
+@qgl2decl
+def Reset_Blake_intermediate(qubits: qbit_list, measDelay = 1e-6, signVec = None,
+                             doubleRound = True, buf = 30e-9, showPlot = False,
+                             measChans: qbit_list = None, docals = True, calRepeats=2):
+
+    # FIXME: is this the right default?
+    # signVec defaults to 1
+    if signVec is None:
+        signVec = [1]*len(qubits)
+    elif 0 in signVec:
+        # Assume that if there are any 0s, then this is old style
+        for ct in range(len(signVec)):
+            if signVec[ct] == 0:
+                signVec[ct] = 1
+            else:
+                signVect[ct] = -1
+    signVec = tuple(signVec)
+
+    # FIXME: what will it take for QGL2 compiler to support this.
+    # Would it help to assign the result of product to a variable
+    # first?
+    # Or the result of zip()?
+    for prep in product([Id,X], repeat=len(qubits)):
+        with concur:
+            for p,q,ct in zip(prep, qubits, range(len(qubits))):
+                init(q) # FIXME: Should mark 'beginning' of list of
+                        # expts, like QGL1 'WAIT'
+                p(q) # Do the initial pulse for this entry
+                qreset_Blake_intermediate(q, measDelay, buf, signVec[ct])
+                if doubleRound:
+                    qreset_Blake_intermediate(q, measDelay, buf, signVec[ct])
+                MEAS(q)
+                # a new instruction Blake invented to ensure
+                # result is loaded into the register
+                qwait('CMP') # Was qwait('CMP')
+
+    # If we're doing calibration too, add that at the very end
+    # - another 2^numQubits * calRepeats sequences
+    if docals:
+        create_cal_seqs(qubits, calRepeats)
+
+    # Here we rely on the QGL compiler to pass in the sequence it
+    # generates to compileAndPlot
+    compileAndPlot('Reset/Reset', showPlot)
+
 # Note no measChans arg - it is always the qubits
 # Also note signVec is no -1 or 1, not 0 and not 0
 # Those 2 things make this Reset() incompatible with the QGL1 version
@@ -555,9 +619,10 @@ def Reset_Blake(qubits: qbit_list, measDelay = 1e-6, signVec = None,
 
     # FIXME: is this the right default?
     # signVec defaults to 1
-    if signVec == None:
+    if signVec is None:
         signVec = [1]*len(qubits)
     signVec = tuple(signVec)
+
     # FIXME: what will it take for QGL2 compiler to support this.
     # Would it help to assign the result of product to a variable
     # first?
