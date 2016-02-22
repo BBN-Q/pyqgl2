@@ -39,6 +39,8 @@ def HahnEcho(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=Fal
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
+    # FIXME: QGL2 doesn't understand this for loop yet
+
     for k in range(len(pulseSpacings)):
         X90(qubit)
         Id(qubit, pulseSpacings[k])
@@ -133,6 +135,8 @@ def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     def idPulse(qubit: qbit):
         Id(qubit, (pulseSpacing - qubit.pulseParams['length'])/2)
 
+    # FIXME: QGL2 doesn't understand these for loops yet
+
     # Create numPulses sequences
     for rep in numPulses:
         X90(qubit)
@@ -204,18 +208,23 @@ def CPMGq1(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     # QGL2 compiler
     compileAndPlot(seqs, 'CPMG/CPMG', showPlot)
 
+# Imports for testing only
+from qgl2.qgl2 import Qbit
+from QGL.Channels import Qubit, LogicalMarkerChannel
+import numpy as np
+from math import pi
+
 @qgl2main
 def main():
     # Set up 2 qbits, following model in QGL/test/test_Sequences
-    from qgl2.qgl2 import Qbit
-    from QGL.Channels import Qubit, LogicalMarkerChannel
-    import numpy as np
-    from math import pi
 
-    qg1 = LogicalMarkerChannel(label="q1-gate")
-    q1 = Qubit(label='q1', gateChan=qg1)
-    q1.pulseParams['length'] = 30e-9
-    q1.pulseParams['phase'] = pi/2
+    # FIXME: Cannot use these in current QGL2 compiler, because
+    # a: QGL2 doesn't understand creating class instances, and 
+    # b: QGL2 currently only understands the fake Qbits
+#    qg1 = LogicalMarkerChannel(label="q1-gate")
+#    q1 = Qubit(label='q1', gateChan=qg1)
+#    q1.pulseParams['length'] = 30e-9
+#    q1.pulseParams['phase'] = pi/2
 
     # But the current qgl2 compiler doesn't understand Qubits, only
     # Qbits. So use that instead when running through the QGL2

@@ -33,6 +33,8 @@ def PiRabi(controlQ: qbit, targetQ: qbit, lengths, riseFall=40e-9, amp=1, phase=
 
     # flat_top_gaussian is an addition of 3 UTheta pulses
 
+    # FIXME: QGL2 doesn't understand these for loops yet
+
     # Sequence 1: Id(control), gaussian(l), measure both
     for l in lengths:
         Id(controlQ)
@@ -274,43 +276,47 @@ def EchoCRPhaseq1(controlQ: qbit, targetQ: qbit, phases, riseFall=40e-9, amp=1, 
     # QGL2 compiler
     compileAndPlot(seqs, 'EchoCR/EchoCR', showPlot)
 
+# Imports for testing only
+from qgl2.qgl2 import Qbit
+from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
+import QGL.ChannelLibrary as ChannelLibrary
+import numpy as np
+from math import pi
 
 @qgl2main
 def main():
     # Set up 2 qbits, following model in QGL/test/test_Sequences
-    from qgl2.qgl2 import Qbit
-    from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
-    import QGL.ChannelLibrary as ChannelLibrary
-    import numpy as np
-    from math import pi
 
-    qg1 = LogicalMarkerChannel(label="q1-gate")
-    q1 = Qubit(label='q1', gateChan=qg1)
-    q1.pulseParams['length'] = 30e-9
-    q1.pulseParams['phase'] = pi/2
+    # FIXME: Cannot use these in current QGL2 compiler, because
+    # a: QGL2 doesn't understand creating class instances, and 
+    # b: QGL2 currently only understands the fake Qbits
+#    qg1 = LogicalMarkerChannel(label="q1-gate")
+#    q1 = Qubit(label='q1', gateChan=qg1)
+#    q1.pulseParams['length'] = 30e-9
+#    q1.pulseParams['phase'] = pi/2
 
-    qg2 = LogicalMarkerChannel(label="q2-gate")
-    q2 = Qubit(label='q2', gateChan=qg2)
-    q2.pulseParams['length'] = 30e-9
-    q2.pulseParams['phase'] = pi/2
+#    qg2 = LogicalMarkerChannel(label="q2-gate")
+#    q2 = Qubit(label='q2', gateChan=qg2)
+#    q2.pulseParams['length'] = 30e-9
+#    q2.pulseParams['phase'] = pi/2
 
     # this block depends on the existence of q1 and q2
-    crgate = LogicalMarkerChannel(label='cr-gate')
+#    crgate = LogicalMarkerChannel(label='cr-gate')
 
-    cr = Edge(label="cr", source = q1, target = q2, gateChan = crgate )
-    cr.pulseParams['length'] = 30e-9
-    cr.pulseParams['phase'] = pi/4
+#    cr = Edge(label="cr", source = q1, target = q2, gateChan = crgate )
+#    cr.pulseParams['length'] = 30e-9
+#    cr.pulseParams['phase'] = pi/4
 
-    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
-    ChannelLibrary.channelLib.channelDict = {
-        'q1-gate': qg1,
-        'q1': q1,
-        'q2-gate': qg2,
-        'q2': q2,
-        'cr-gate': crgate,
-        'cr': cr
-    }
-    ChannelLibrary.channelLib.build_connectivity_graph()
+#    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
+#    ChannelLibrary.channelLib.channelDict = {
+#        'q1-gate': qg1,
+#        'q1': q1,
+#        'q2-gate': qg2,
+#        'q2': q2,
+#        'cr-gate': crgate,
+#        'cr': cr
+#    }
+#    ChannelLibrary.channelLib.build_connectivity_graph()
 
     # But the current qgl2 compiler doesn't understand Qubits, only
     # Qbits. So use that instead when running through the QGL2

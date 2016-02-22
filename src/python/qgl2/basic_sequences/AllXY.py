@@ -11,7 +11,7 @@ from .new_helpers import IdId, XX, YY, XY, YX, X90Id, Y90Id, X90Y90, Y90X90, X90
     XY90, YX90, X90X, XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90
 
 @qgl2decl
-def AllXY(q: qbit, showPlot = False):
+def AllXYq2_simple(q: qbit, showPlot = False):
     # Dan says for now, the compiler doesn't understand function references. So I can's use IdId for example
     # And it also doesn't do the for loops yet
     # So this may be what I have to do for now - completely unrolled / explicit
@@ -201,9 +201,127 @@ def AllXY(q: qbit, showPlot = False):
     compileAndPlot('AllXY/AllXY', showPlot)
 
 @qgl2decl
+def AllXY(q: qbit, showPlot = False):
+    # Dan says for now, the compiler doesn't understand function references. So I can's use IdId for example
+    # So here is a slightly degraded version
+    # However, it also doesn't yet understand for _ in range(2), so
+    # this does instead for _ in [1,2] which does work
+
+    # These produce the state |0>
+    # No pulses
+    for _ in [1,2]:
+        Id(q)
+        Id(q)
+        MEAS(q)
+
+    # Pulsing around the same axis
+    for _ in [1,2]:
+        X(q)
+        X(q)
+        MEAS(q)
+    for _ in [1,2]:
+        Y(q)
+        Y(q)
+        MEAS(q)
+
+    # Pulsing around orthogonal axes
+    for _ in [1,2]:
+        X(q)
+        Y(q)
+        MEAS(q)
+    for _ in [1,2]:
+        Y(q)
+        X(q)
+        MEAS(q)
+
+    # These next create a |+> or |i> state (equal superposition of |0> + |1>)
+    # single pulses
+    for _ in [1,2]:
+        X90(q)
+        Id(q)
+        MEAS(q)
+    for _ in [1,2]:
+        Y90(q)
+        Id(q)
+        MEAS(q)
+
+    # Pulse pairs around orthogonal axes with 1e error sensitivity
+    for _ in [1,2]:
+        X90(q)
+        Y90(q)
+        MEAS(q)
+    for _ in [1,2]:
+        Y90(q)
+        X90(q)
+        MEAS(q)
+
+    # Pulse pairs with 2e erro sensitivity
+    for _ in [1,2]:
+        X90(q)
+        Y(q)
+        MEAS(q)
+    for _ in [1,2]:
+        Y90(q)
+        X(q)
+        MEAS(q)
+    for _ in [1,2]:
+        X(q)
+        Y90(q)
+        MEAS(q)
+    for _ in [1,2]:
+        Y(q)
+        X90(q)
+        MEAS(q)
+
+    # Pulse pairs around common axis with 3e error sensitivity
+    for _ in [1,2]:
+        X90(q)
+        X(q)
+        MEAS(q)
+    for _ in [1,2]:
+        X(q)
+        X90(q)
+        MEAS(q)
+    for _ in [1,2]:
+        Y90(q)
+        Y(q)
+        MEAS(q)
+    for _ in [1,2]:
+        Y(q)
+        Y90(q)
+        MEAS(q)
+
+    # These next create the |1> state
+    # single pulses
+    for _ in [1,2]:
+        X(q)
+        Id(q)
+        MEAS(q)
+    for _ in [1,2]:
+        Y(q)
+        Id(q)
+        MEAS(q)
+
+    # Pulse pairs
+    for _ in [1,2]:
+        X90(q)
+        X90(q)
+        MEAS(q)
+    for _ in [1,2]:
+        Y90(q)
+        Y90(q)
+        MEAS(q)
+
+    # Here we rely on the QGL compiler to pass in the sequence it
+    # generates to compileAndPlot
+    compileAndPlot('AllXY/AllXY', showPlot)
+
+@qgl2decl
 def AllXYq2_loop_unrolling(q: qbit, showPlot = False):
     # Dan says for now, the compiler doesn't understand function references. So I can's use IdId for example
     # So here is a slightly degraded version
+    # However, it also doesn't yet understand for _ in range(2), so
+    # this doesn't work yet
 
     # These produce the state |0>
     # No pulses
@@ -317,7 +435,8 @@ def AllXYq2_loop_unrolling(q: qbit, showPlot = False):
 @qgl2decl
 def AllXYq2(q: qbit, showPlot = False):
     # This is the kind of thing that I would like to work in QGL2, but
-    # doesn't yet
+    # doesn't work yet (can't do function references or for loops
+    # over a list it can't tell are constant)
     twentyOnepulseFuncs = [IdId, XX, YY, XY, YX, X90Id, Y90Id,
                            X90Y90, Y90X90, X90Y, Y90X, XY90, YX90, X90X,
                            XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90]
@@ -376,17 +495,22 @@ def AllXYq1(q: qbit, showPlot = False):
 
     compileAndPlot(seqs, 'AllXY/AllXY', showPlot)
 
+# Imports for testing only
+from qgl2.qgl2 import Qbit
+from QGL.Channels import Qubit, LogicalMarkerChannel
+from math import pi
+
 @qgl2main
 def main():
     # Set up 1 qbit, following model in QGL/test/test_Sequences
-    from qgl2.qgl2 import Qbit
-    from QGL.Channels import Qubit, LogicalMarkerChannel
-    from math import pi
 
-    qg1 = LogicalMarkerChannel(label="q1-gate")
-    q1 = Qubit(label='q1', gateChan=qg1)
-    q1.pulseParams['length'] = 30e-9
-    q1.pulseParams['phase'] = pi/2
+    # FIXME: Cannot use these in current QGL2 compiler, because
+    # a: QGL2 doesn't understand creating class instances, and 
+    # b: QGL2 currently only understands the fake Qbits
+#    qg1 = LogicalMarkerChannel(label="q1-gate")
+#    q1 = Qubit(label='q1', gateChan=qg1)
+#    q1.pulseParams['length'] = 30e-9
+#    q1.pulseParams['phase'] = pi/2
 
     # But the current qgl2 compiler doesn't understand Qubits, only
     # Qbits. So use that instead when running through the QGL2
