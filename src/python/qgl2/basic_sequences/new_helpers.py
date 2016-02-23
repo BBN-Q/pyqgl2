@@ -77,7 +77,9 @@ def qgl2AddSequences(function):
     return wrap_function
 
 # This one is qgl1 style
-def addMeasPulse(listOfSequencesOn1Qubit: sequence_list, q: qbit):
+# FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
+#def addMeasPulse(listOfSequencesOn1Qubit: sequence_list, q: qbit):
+def addMeasPulse(listOfSequencesOn1Qubit, q: qbit):
     '''Add a MEAS(q) to each sequence in the given list of sequences.'''
     return [sequence + [MEAS(q)] for sequence in listOfSequencesOn1Qubit]
 
@@ -90,7 +92,9 @@ def measConcurrently(listNQubits: qbit_list):
 
 # This one is qgl1 style
 # Variant of above to add a MEAS for each qbit used in the sequences, not just 1
-def addMeasPulses(listOfSequencesOnNQubits: sequence_list, listNQubits: qbit_list):
+# FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
+#def addMeasPulses(listOfSequencesOnNQubits: sequence_list, listNQubits: qbit_list):
+def addMeasPulses(listOfSequencesOnNQubits, listNQubits: qbit_list):
     '''Add (one MEAS(qn) for each qubit qn in listNQubits) to each sequence in the given list of sequences.'''
     measurements = None
     for q in listNQubits:
@@ -105,7 +109,9 @@ def addMeasPulses(listOfSequencesOnNQubits: sequence_list, listNQubits: qbit_lis
 
 # What would a QGL2 style repeat look like? Is it just for _ in range?
 # QGL1 style
-def repeatSequences(listOfSequences: sequence_list, repeat=2):
+# FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
+#def repeatSequences(listOfSequences: sequence_list, repeat=2):
+def repeatSequences(listOfSequencesr, repeat=2):
     '''Repeat each sequence in the given list of sequences repeat times.
 
     For example, `[[a, 1], [b, 2]]` becomes `[[a, 1], [a, 1], [b, 2], [b, 2]]`.
@@ -115,7 +121,9 @@ def repeatSequences(listOfSequences: sequence_list, repeat=2):
     return [copy.copy(sequence) for sequence in listOfSequences for i in range(repeat)]
 
 @qgl2AddSequences
-def compileAndPlot(listOfSequences: sequence_list, filePrefix, showPlot=False):
+# FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
+#def compileAndPlot(listOfSequences: sequence_list, filePrefix, showPlot=False):
+def compileAndPlot(listOfSequences, filePrefix, showPlot=False):
     '''Compile the listOfSequences to hardware using the given filePrefix, 
     print the filenames, and optionally plot the pulse files.
 
@@ -128,12 +136,22 @@ def compileAndPlot(listOfSequences: sequence_list, filePrefix, showPlot=False):
 
 # QGL1 style method
 # For QGL2, simply do create_cal_seqs((tupleOfQubits), numRepeats)
-def addCalibration(listOfSequences: sequence_list, tupleOfQubits: qbit_list, numRepeats=2):
+# FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
+#def addCalibration(listOfSequences: sequence_list, tupleOfQubits: qbit_list, numRepeats=2):
+def addCalibration(listOfSequences, tupleOfQubits: qbit_list, numRepeats=2):
     '''Add on numRepeats calibration sequences of the given tuple of qubits to the given
     list of sequences.'''
     # Tack on the calibration sequences
     listOfSequences += create_cal_seqs((tupleOfQubits), numRepeats)
     return listOfSequences
+
+# init will demarcate the beginning of a list of
+# experiments. QGL1 compiler injects WAITs in beginning of
+# every sequence for now
+# FIXME: Figure out what this should do
+@qgl2decl
+def init(q: qbit):
+    pass
 
 # Helpers here for AllXY that produce pairs of pulses on the same qubit
 # Produce the state |0>
