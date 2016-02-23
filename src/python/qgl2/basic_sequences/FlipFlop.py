@@ -124,13 +124,14 @@ def FlipFlop(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
 
     # if showPlot:
     #     plot_pulse_files(fileNames)
+
     @qgl2decl
     def flipflop_seqs(dragScaling):
         """ Helper function to create a list of sequences with a specified drag parameter. """
         qubit.pulseParams['dragScaling'] = dragScaling
         for rep in range(maxNumFFs):
             X90(qubit)
-            # FIXME: Origin used [X90] + [X90, X90m]... is this right?
+            # FIXME: Original used [X90] + [X90, X90m]... is this right?
             for _ in range(rep):
                 X90(qubit)
                 X90m(qubit)
