@@ -119,7 +119,6 @@ class Unroller(ast.NodeTransformer):
         return node
 
     def if_unroller(self, if_node):
-        print('IF %s' % ast.dump(if_node))
 
         # Figure out whether we have a constant predicate (of the
         # types of constants we understant) and then what the value
@@ -154,6 +153,100 @@ class Unroller(ast.NodeTransformer):
 
             return list([if_node])
 
+    def expand_range(self, for_node):
+        """
+        If the iter for the ast.For node is a call to range(),
+        then attempt to expand it into a list of integers,
+        and return the resulting new ast.For node.
+
+        If the expansion fails, return the original node (and
+        in some cases print diagnostics).
+        """
+
+        assert isinstance(for_node, ast.For)
+
+        if not isinstance(for_node.iter, ast.Call):
+            return for_node
+        elif not isinstance(for_node.iter.func, ast.Name):
+            return for_node
+        elif for_node.iter.func.id != 'range':
+            return for_node
+
+        args = for_node.iter.args
+
+        start = 0
+        stop = 0
+        step = 1
+
+        ast_start = None
+        ast_step = None
+
+        arg_cnt = len(args)
+
+        if arg_cnt == 0:
+            NodeError.error_msg(for_node.iter,
+                    'not enough parameters to range()')
+            return for_node
+        if arg_cnt == 1:
+            ast_stop = args[0]
+        elif arg_cnt == 2:
+            ast_start = args[0]
+            ast_stop = args[1]
+        elif arg_cnt == 3:
+            ast_start = args[0]
+            ast_stop = args[1]
+            ast_step = args[2]
+        else:
+            NodeError.error_msg(for_node.iter,
+                    'too many parameters to range()')
+            return for_node
+
+        # Once we do constant propogation correctly,
+        # this should be less of an issue, but right now
+        # we can only handle calls to range with numeric
+        # parameters
+        #
+        if ast_start:
+            if isinstance(ast_start, ast.Num):
+                start = ast_start.n
+            else:
+                NodeError.warning_msg(ast_start,
+                        'cannot use as range start; not a constant')
+                return for_node
+
+        if ast_stop:
+            if isinstance(ast_stop, ast.Num):
+                stop = ast_stop.n
+            else:
+                NodeError.warning_msg(ast_stop,
+                        'cannot use as range stop; not a constant')
+                return for_node
+
+        if ast_step:
+            if isinstance(ast_step, ast.Num):
+                step = ast_step.n
+            else:
+                NodeError.warning_msg(ast_step,
+                        'cannot use as range step; not a constant')
+                return for_node
+
+        # Finally, we can do the expansion.
+
+        new_for_node = deepcopy(for_node)
+
+        new_for_node.iter = ast.List()
+        ast_util.copy_all_loc(new_for_node.iter, for_node.iter)
+
+        new_elts = list()
+        for val in range(start, stop, step):
+            new_elt = ast.Num(n=val)
+            pyqgl2.ast_util.copy_all_loc(new_elt, for_node.iter)
+            new_elts.append(new_elt)
+
+        new_for_node.iter.elts = new_elts
+
+        return new_for_node
+
     def for_unroller(self, for_node, unroll_inner=True):
         """
         Unroll a for loop, if possible, returning the resulting
@@ -169,7 +262,8 @@ class Unroller(ast.NodeTransformer):
         idea.
         """
 
-        # The iter has to be an ordinary ast.List.  It is not enough
+        # The iter has to be an ordinary ast.List, or a range expression.
+        # expression.  Except for range expressions, it is not enough
         # for it to be an expression that evaluates to a list or
         # collection--it has to be a real, naked list, so we know
         # exactly how long it is.
@@ -180,8 +274,17 @@ class Unroller(ast.NodeTransformer):
         # parameters are known.
 
         if for_node.orelse:
-            print('WARNING: cannot expand for with orelse') # FIXME
+            NodeError.warning_msg(for_node.orelse,
+                    'cannot expand for with orelse')
             return list([for_node])
+
+        # if the iter element of the for loop is a range expression,
+        # and we can evaluate it to a constant list, do so now.
+        # When we do so, we may alter the for loop itself, so
+        # expand_range will make a copy of the for loop node and
+        # return that, rather than just the iterator.
+        #
+        for_node = self.expand_range(for_node)
 
         if not isinstance(for_node.iter, ast.List):
             if unroll_inner:
@@ -209,7 +312,6 @@ class Unroller(ast.NodeTransformer):
         # have a mechanism for determining whether an expression
         # is idempotent yet.
         #
-        print('FOR_NODE.iter %s' % ast.dump(for_node.iter))
         simple_expr_types = set(
                 [ast.Num, ast.Str, ast.Name, ast.NameConstant])
         all_simple = True
@@ -333,8 +435,6 @@ class QbitGrouper(ast.NodeTransformer):
 
         if not is_concur(node):
             return self.generic_visit(node) # check
-
-        print('WITH %s' % ast.dump(node))
 
         # Hackish way to create a seq node to use
         seq_item_node = deepcopy(node.items[0])
