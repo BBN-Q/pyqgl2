@@ -120,19 +120,21 @@ def repeatSequences(listOfSequencesr, repeat=2):
     # You must copy the element before repeating it. Otherwise strange things happen later
     return [copy.copy(sequence) for sequence in listOfSequences for i in range(repeat)]
 
-@qgl2AddSequences
+#@qgl2AddSequences
 # FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
 #def compileAndPlot(listOfSequences: sequence_list, filePrefix, showPlot=False):
 def compileAndPlot(listOfSequences, filePrefix, showPlot=False):
     '''Compile the listOfSequences to hardware using the given filePrefix, 
     print the filenames, and optionally plot the pulse files.
+    Return a handle to the plot window; caller can hold it to prevent window destruction.
 
     NOTE: The QGL2 compiler must fill in the listOfSequences in the decorator.'''
     fileNames = compile_to_hardware(listOfSequences, filePrefix)
     print(fileNames)
 
     if showPlot:
-        plot_pulse_files(fileNames)
+        plotWin = plot_pulse_files(fileNames)
+        return plotWin
 
 # QGL1 style method
 # For QGL2, simply do create_cal_seqs((tupleOfQubits), numRepeats)
