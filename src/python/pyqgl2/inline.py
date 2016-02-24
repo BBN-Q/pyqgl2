@@ -573,7 +573,7 @@ def create_inline_procedure(func_ptree, call_ptree):
         for subnode in ast.walk(assignment):
             subnode.qgl_fname = source_file
 
-            ast.copy_location(assignment, call_ptree)
+            pyqgl2.ast_util.copy_all_loc(assignment, call_ptree)
             ast.fix_missing_locations(assignment)
 
     for stmnt in func_body:
