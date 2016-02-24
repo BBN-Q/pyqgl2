@@ -532,6 +532,27 @@ class NameSpaces(object):
         for node in ast.walk(ptree):
             node.qgl_fname = path
 
+        # The preprocessor will ignore any imports that are not
+        # at the "top level" (imports that happen conditionally,
+        # or when a function is executed for the first time, etc)
+        # because it can't figure out if/when these imports would
+        # occur, and it only understands imports that occur before
+        # the execution of any other statements of the program.
+        #
+        # Therefore warn the programmer that any such detected
+        # imports will be ignored.
+        #
+        # TODO: we don't make any attempt to find calls to
+        # __import__() or importlib.import_module().  The
+        # preprocessor always ignores these, without warning.
+        #
+        for node in ast.walk(ptree):
+            if (isinstance(node, ast.Import) or
+                    isinstance(node, ast.ImportFrom)):
+                if node.col_offset != 0:
+                    NodeError.warning_msg(node,
+                            'conditional/runtime import ignored by pyqgl2')
+
         # Populate the namespace
         #
         namespace = NameSpace()
