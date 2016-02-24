@@ -232,3 +232,22 @@ def ast2str(ptree):
     """
 
     return dump_python_source(ptree)
+
+def copy_all_loc(new_node, old_node):
+    """
+    Like ast.copy_location, but also copies other fields added
+    by pyqgl2, if present
+
+    Currently the only new pyqgl2 field is qgl_fname, but
+    there will probably be others
+    """
+
+    assert isinstance(new_node, ast.AST)
+    assert isinstance(old_node, ast.AST)
+
+    ast.copy_location(new_node, old_node)
+
+    if hasattr(old_node, 'qgl_fname'):
+        new_node.qgl_fname = old_node.qgl_fname
+
+    return new_node
