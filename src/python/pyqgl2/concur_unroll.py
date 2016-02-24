@@ -230,16 +230,22 @@ class Unroller(ast.NodeTransformer):
                         'cannot use as range step; not a constant')
                 return for_node
 
-        # Yay, we can do the expansion.
+        # Finally, we can do the expansion.
 
-        for_node = deepcopy(for_node)
+        new_for_node = deepcopy(for_node)
 
-        for_node.iter = ast.List()
-        elts = [ ast.Num(n=val) for val in range(start, stop, step) ]
+        new_for_node.iter = ast.List()
+        ast_util.copy_all_loc(new_for_node.iter, for_node.iter)
 
-        for_node.iter.elts = elts
+        new_elts = list()
+        for val in range(start, stop, step):
+            new_elt = ast.Num(n=val)
+            pyqgl2.ast_util.copy_all_loc(new_elt, for_node.iter)
+            new_elts.append(new_elt)
 
-        return for_node
+        new_for_node.iter.elts = new_elts
+
+        return new_for_node
 
     def for_unroller(self, for_node, unroll_inner=True):
         """
