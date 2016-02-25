@@ -411,6 +411,9 @@ def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
 
     # There will be 2^numQubits sequences
     for count in range(2**len(qubits)):
+        with concur:
+            for q in qubits:
+                init(q)
         # Each sequence will start with what looks like a calibration
         # sequence
         # Really we're just re-using that function because it creates all
