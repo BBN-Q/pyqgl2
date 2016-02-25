@@ -123,13 +123,13 @@ def repeatSequences(listOfSequencesr, repeat=2):
 #@qgl2AddSequences
 # FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
 #def compileAndPlot(listOfSequences: sequence_list, filePrefix, showPlot=False):
-def compileAndPlot(listOfSequences, filePrefix, showPlot=False):
+def compileAndPlot(listOfSequences, filePrefix, showPlot=False, suffix=''):
     '''Compile the listOfSequences to hardware using the given filePrefix, 
     print the filenames, and optionally plot the pulse files.
     Return a handle to the plot window; caller can hold it to prevent window destruction.
 
     NOTE: The QGL2 compiler must fill in the listOfSequences in the decorator.'''
-    fileNames = compile_to_hardware(listOfSequences, filePrefix)
+    fileNames = compile_to_hardware(listOfSequences, filePrefix, suffix)
     print(fileNames)
 
     if showPlot:
