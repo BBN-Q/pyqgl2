@@ -270,7 +270,8 @@ class SubstituteChannel(NodeTransformerWithFname):
         qbit_defs = list()
         if len(fparams) != len(aparams):
             self.error_msg(node,
-                    'formal and actual param lists differ in length')
+                    ('[%s] formal and actual param lists differ in length' %
+                        funcname))
             return node
 
         print('MY CONTEXT %s' % str(self.qbit_map))
@@ -287,11 +288,13 @@ class SubstituteChannel(NodeTransformerWithFname):
             qbit_ref = self.find_qbit(aparam)
             if (fparam_type == 'qbit') and not qbit_ref:
                 self.error_msg(node,
-                        'SUB assigned non-qbit to qbit param %s' % fparam_name)
+                        ('[%s] assigned non-qbit to qbit param [%s]' %
+                            (funcname, fparam_name)))
                 return node
             elif (fparam_type != 'qbit') and qbit_ref:
                 self.error_msg(node,
-                        'SUB assigned qbit to non-qbit param %s' % fparam_name)
+                        ('[%s] assigned qbit to non-qbit param [%s]' %
+                            (funcname, fparam_name)))
                 return node
 
             if qbit_ref:
