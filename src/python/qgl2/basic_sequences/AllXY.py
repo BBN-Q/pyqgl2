@@ -6,7 +6,7 @@ from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
 from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
-from .new_helpers import addMeasPulses, repeatSequences, compileAndPlot
+from .new_helpers import addMeasPulses, repeatSequences, compileAndPlot, init
 from .new_helpers import IdId, XX, YY, XY, YX, X90Id, Y90Id, X90Y90, Y90X90, X90Y, Y90X, \
     XY90, YX90, X90X, XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90
 
@@ -18,180 +18,222 @@ def AllXYq2_simple(q: qbit, showPlot = False):
 
     # These produce the state |0>
     # No pulses
+    init(q)
     Id(q)
     Id(q)
     MEAS(q)
 
+    init(q)
     Id(q)
     Id(q)
     MEAS(q)
 
     # Pulsing around the same axis
+    init(q)
     X(q)
     X(q)
     MEAS(q)
 
+    init(q)
     X(q)
     X(q)
     MEAS(q)
 
+    init(q)
     Y(q)
     Y(q)
     MEAS(q)
 
+    init(q)
     Y(q)
     Y(q)
     MEAS(q)
 
     # Pulsing around orthogonal axes
+    init(q)
     X(q)
     Y(q)
     MEAS(q)
 
+    init(q)
     X(q)
     Y(q)
     MEAS(q)
 
+    init(q)
     Y(q)
     X(q)
     MEAS(q)
 
+    init(q)
     Y(q)
     X(q)
     MEAS(q)
 
     # These next create a |+> or |i> state (equal superposition of |0> + |1>)
     # single pulses
+    init(q)
     X90(q)
     Id(q)
     MEAS(q)
 
+    init(q)
     X90(q)
     Id(q)
     MEAS(q)
 
+    init(q)
     Y90(q)
     Id(q)
     MEAS(q)
 
+    init(q)
     Y90(q)
     Id(q)
     MEAS(q)
 
     # Pulse pairs around orthogonal axes with 1e error sensitivity
+    init(q)
     X90(q)
     Y90(q)
     MEAS(q)
 
+    init(q)
     X90(q)
     Y90(q)
     MEAS(q)
 
+    init(q)
     Y90(q)
     X90(q)
     MEAS(q)
 
+    init(q)
     Y90(q)
     X90(q)
     MEAS(q)
 
     # Pulse pairs with 2e erro sensitivity
+    init(q)
     X90(q)
     Y(q)
     MEAS(q)
 
+    init(q)
     X90(q)
     Y(q)
     MEAS(q)
 
+    init(q)
     Y90(q)
     X(q)
     MEAS(q)
 
+    init(q)
     Y90(q)
     X(q)
     MEAS(q)
 
+    init(q)
     X(q)
     Y90(q)
     MEAS(q)
 
+    init(q)
     X(q)
     Y90(q)
     MEAS(q)
 
+    init(q)
     Y(q)
     X90(q)
     MEAS(q)
 
+    init(q)
     Y(q)
     X90(q)
     MEAS(q)
 
     # Pulse pairs around common axis with 3e error sensitivity
+    init(q)
     X90(q)
     X(q)
     MEAS(q)
 
+    init(q)
     X90(q)
     X(q)
     MEAS(q)
 
+    init(q)
     X(q)
     X90(q)
     MEAS(q)
 
+    init(q)
     X(q)
     X90(q)
     MEAS(q)
 
+    init(q)
     Y90(q)
     Y(q)
     MEAS(q)
 
+    init(q)
     Y90(q)
     Y(q)
     MEAS(q)
 
+    init(q)
     Y(q)
     Y90(q)
     MEAS(q)
 
+    init(q)
     Y(q)
     Y90(q)
     MEAS(q)
 
     # These next create the |1> state
     # single pulses
+    init(q)
     X(q)
     Id(q)
     MEAS(q)
 
+    init(q)
     X(q)
     Id(q)
     MEAS(q)
 
+    init(q)
     Y(q)
     Id(q)
     MEAS(q)
 
+    init(q)
     Y(q)
     Id(q)
     MEAS(q)
 
     # Pulse pairs
+    init(q)
     X90(q)
     X90(q)
     MEAS(q)
 
+    init(q)
     X90(q)
     X90(q)
     MEAS(q)
 
+    init(q)
     Y90(q)
     Y90(q)
     MEAS(q)
 
+    init(q)
     Y90(q)
     Y90(q)
     MEAS(q)
@@ -210,26 +252,31 @@ def AllXY(q: qbit, showPlot = False):
     # These produce the state |0>
     # No pulses
     for _ in [1,2]:
+        init(q)
         Id(q)
         Id(q)
         MEAS(q)
 
     # Pulsing around the same axis
     for _ in [1,2]:
+        init(q)
         X(q)
         X(q)
         MEAS(q)
     for _ in [1,2]:
+        init(q)
         Y(q)
         Y(q)
         MEAS(q)
 
     # Pulsing around orthogonal axes
     for _ in [1,2]:
+        init(q)
         X(q)
         Y(q)
         MEAS(q)
     for _ in [1,2]:
+        init(q)
         Y(q)
         X(q)
         MEAS(q)
@@ -237,56 +284,68 @@ def AllXY(q: qbit, showPlot = False):
     # These next create a |+> or |i> state (equal superposition of |0> + |1>)
     # single pulses
     for _ in [1,2]:
+        init(q)
         X90(q)
         Id(q)
         MEAS(q)
     for _ in [1,2]:
+        init(q)
         Y90(q)
         Id(q)
         MEAS(q)
 
     # Pulse pairs around orthogonal axes with 1e error sensitivity
     for _ in [1,2]:
+        init(q)
         X90(q)
         Y90(q)
         MEAS(q)
     for _ in [1,2]:
+        init(q)
         Y90(q)
         X90(q)
         MEAS(q)
 
     # Pulse pairs with 2e erro sensitivity
     for _ in [1,2]:
+        init(q)
         X90(q)
         Y(q)
         MEAS(q)
     for _ in [1,2]:
+        init(q)
         Y90(q)
         X(q)
         MEAS(q)
     for _ in [1,2]:
+        init(q)
         X(q)
         Y90(q)
         MEAS(q)
     for _ in [1,2]:
+        init(q)
         Y(q)
         X90(q)
         MEAS(q)
 
     # Pulse pairs around common axis with 3e error sensitivity
     for _ in [1,2]:
+        init(q)
         X90(q)
         X(q)
         MEAS(q)
     for _ in [1,2]:
+        init(q)
         X(q)
         X90(q)
         MEAS(q)
     for _ in [1,2]:
+        init(q)
         Y90(q)
         Y(q)
         MEAS(q)
     for _ in [1,2]:
+        init(q)
         Y(q)
         Y90(q)
         MEAS(q)
@@ -294,20 +353,24 @@ def AllXY(q: qbit, showPlot = False):
     # These next create the |1> state
     # single pulses
     for _ in [1,2]:
+        init(q)
         X(q)
         Id(q)
         MEAS(q)
     for _ in [1,2]:
+        init(q)
         Y(q)
         Id(q)
         MEAS(q)
 
     # Pulse pairs
     for _ in [1,2]:
+        init(q)
         X90(q)
         X90(q)
         MEAS(q)
     for _ in [1,2]:
+        init(q)
         Y90(q)
         Y90(q)
         MEAS(q)
@@ -326,26 +389,31 @@ def AllXYq2_loop_unrolling(q: qbit, showPlot = False):
     # These produce the state |0>
     # No pulses
     for _ in range(2):
+        init(q)
         Id(q)
         Id(q)
         MEAS(q)
 
     # Pulsing around the same axis
     for _ in range(2):
+        init(q)
         X(q)
         X(q)
         MEAS(q)
     for _ in range(2):
+        init(q)
         Y(q)
         Y(q)
         MEAS(q)
 
     # Pulsing around orthogonal axes
     for _ in range(2):
+        init(q)
         X(q)
         Y(q)
         MEAS(q)
     for _ in range(2):
+        init(q)
         Y(q)
         X(q)
         MEAS(q)
@@ -353,56 +421,68 @@ def AllXYq2_loop_unrolling(q: qbit, showPlot = False):
     # These next create a |+> or |i> state (equal superposition of |0> + |1>)
     # single pulses
     for _ in range(2):
+        init(q)
         X90(q)
         Id(q)
         MEAS(q)
     for _ in range(2):
+        init(q)
         Y90(q)
         Id(q)
         MEAS(q)
 
     # Pulse pairs around orthogonal axes with 1e error sensitivity
     for _ in range(2):
+        init(q)
         X90(q)
         Y90(q)
         MEAS(q)
     for _ in range(2):
+        init(q)
         Y90(q)
         X90(q)
         MEAS(q)
 
     # Pulse pairs with 2e erro sensitivity
     for _ in range(2):
+        init(q)
         X90(q)
         Y(q)
         MEAS(q)
     for _ in range(2):
+        init(q)
         Y90(q)
         X(q)
         MEAS(q)
     for _ in range(2):
+        init(q)
         X(q)
         Y90(q)
         MEAS(q)
     for _ in range(2):
+        init(q)
         Y(q)
         X90(q)
         MEAS(q)
 
     # Pulse pairs around common axis with 3e error sensitivity
     for _ in range(2):
+        init(q)
         X90(q)
         X(q)
         MEAS(q)
     for _ in range(2):
+        init(q)
         X(q)
         X90(q)
         MEAS(q)
     for _ in range(2):
+        init(q)
         Y90(q)
         Y(q)
         MEAS(q)
     for _ in range(2):
+        init(q)
         Y(q)
         Y90(q)
         MEAS(q)
@@ -410,20 +490,24 @@ def AllXYq2_loop_unrolling(q: qbit, showPlot = False):
     # These next create the |1> state
     # single pulses
     for _ in range(2):
+        init(q)
         X(q)
         Id(q)
         MEAS(q)
     for _ in range(2):
+        init(q)
         Y(q)
         Id(q)
         MEAS(q)
 
     # Pulse pairs
     for _ in range(2):
+        init(q)
         X90(q)
         X90(q)
         MEAS(q)
     for _ in range(2):
+        init(q)
         Y90(q)
         Y90(q)
         MEAS(q)
@@ -445,6 +529,7 @@ def AllXYq2(q: qbit, showPlot = False):
     for func in twentyOnepulseFuncs:
         # Repeat it twice and do a MEAS at the end of each
         for i in range(2):
+            init(q)
             func(q)
             MEAS(q)
 

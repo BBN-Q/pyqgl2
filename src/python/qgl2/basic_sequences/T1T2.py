@@ -7,7 +7,7 @@ from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 from .helpers import create_cal_seqs
-from .new_helpers import addCalibration, compileAndPlot
+from .new_helpers import addCalibration, compileAndPlot, init
 
 from scipy.constants import pi
 
@@ -80,6 +80,7 @@ def InversionRecovery(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=
     # if showPlot:
     #     plot_pulse_files(fileNames)
     for d in delays:
+        init(qubit)
         X(qubit)
         Id(qubit, d)
         MEAS(qubit)
@@ -191,6 +192,7 @@ def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2,
 
     # Create the basic Ramsey sequence
     for d,phase in zip(pulseSpacings, phases):
+        init(qubit)
         X90(qubit)
         Id(qubit, d)
         U90(qubit, phase=phase)

@@ -6,7 +6,7 @@ from QGL.PulsePrimitives import X90, Id, Y, U90, MEAS, X90
 from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 from .helpers import create_cal_seqs
-from .new_helpers import addCalibration, compileAndPlot
+from .new_helpers import addCalibration, compileAndPlot, init
 
 from math import pi
 
@@ -42,6 +42,7 @@ def HahnEcho(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=Fal
     # FIXME: QGL2 doesn't understand this for loop yet
 
     for k in range(len(pulseSpacings)):
+        init(qubit)
         X90(qubit)
         Id(qubit, pulseSpacings[k])
         Y(qubit)
@@ -139,6 +140,7 @@ def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
 
     # Create numPulses sequences
     for rep in numPulses:
+        init(qubit)
         X90(qubit)
         # Repeat the t-180-t block rep times
         for _ in range(rep):

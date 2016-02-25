@@ -6,7 +6,7 @@ from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 from .helpers import create_cal_seqs
-from .new_helpers import compileAndPlot
+from .new_helpers import compileAndPlot, init
 
 from functools import reduce
 import operator
@@ -68,6 +68,7 @@ def RabiAmp(qubit: qbit, amps, phase=0, showPlot=False):
     #     plot_pulse_files(fileNames)
 
     for amp in amps:
+        init(qubit)
         Utheta(qubit, amp=amp, phase=phase)
         MEAS(qubit)
 
@@ -132,6 +133,7 @@ def RabiWidth(qubit: qbit, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh
     #     plot_pulse_files(fileNames)
 
     for l in widths:
+        init(qubit)
         Utheta(qubit, length=l, amp=amp, phase=phase, shapeFun=shapeFun)
         MEAS(qubit)
 
@@ -219,6 +221,7 @@ def RabiAmp_NQubits(qubits: qbit_list, amps, phase=0, showPlot=False,
     for amp in amps:
         with concur:
             for q,ct in zip(qubits, range(len(qubits))):
+                init(q)
                 Utheta(q, amp=amp, phase=phase)
                 MEAS(measChans[ct])
 
@@ -294,6 +297,9 @@ def RabiAmpPi(qubit: qbit, mqubit: qbit, amps, phase=0, showPlot=False):
     #     return plotWin
 
     for amp in amps:
+        with concur:
+            init(qubit)
+            init(mqubit)
         X(mqubit)
         Utheta(qubit, amp=amp, phase=phase)
         X(mqubit)
@@ -341,8 +347,10 @@ def SingleShot(qubit: qbit, showPlot = False):
 
     # if showPlot:
     #     plot_pulse_files(filenames)
+    init(qubit)
     Id(qubit)
     MEAS(qubit)
+    init(qubit)
     X(qubit)
     MEAS(qubit)
 
@@ -390,6 +398,7 @@ def PulsedSpec(qubit: qbit, specOn = True, showPlot = False):
     # if showPlot:
     #     plot_pulse_files(filenames)
 
+    init(qubit)
     if specOn:
         X(qubit)
     else:
@@ -465,6 +474,9 @@ def Swap(qubit: qbit, mqubit: qbit, delays, showPlot=False):
     #     plotWin = plot_pulse_files(fileNames)
     #     return plotWin
     for d in delays:
+        with concur:
+            init(qubit)
+            init(mqubit)
         X(qubit)
         X(mqubit)
         Id(mqubit, d)

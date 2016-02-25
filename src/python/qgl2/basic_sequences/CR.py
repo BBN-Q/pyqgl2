@@ -8,7 +8,7 @@ from QGL.ChannelLibrary import EdgeFactory
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 from .helpers import create_cal_seqs
-from .new_helpers import addMeasPulses, addCalibration, compileAndPlot, measConcurrently
+from .new_helpers import addMeasPulses, addCalibration, compileAndPlot, measConcurrently, init
 
 @qgl2decl
 def PiRabi(controlQ: qbit, targetQ: qbit, lengths, riseFall=40e-9, amp=1, phase=0, calRepeats=2, showPlot=False):
@@ -37,12 +37,18 @@ def PiRabi(controlQ: qbit, targetQ: qbit, lengths, riseFall=40e-9, amp=1, phase=
 
     # Sequence 1: Id(control), gaussian(l), measure both
     for l in lengths:
+        with concur:
+            init(controlQ)
+            init(targetQ)
         Id(controlQ)
         flat_top_gaussian(CRchan, riseFall, amp=amp, phase=phase, length=l)
         measConcurrently([targetQ, controlQ])
 
     # Sequence 2: X(control), gaussian(l), X(control), measure both
     for l in lengths:
+        with concur:
+            init(controlQ)
+            init(targetQ)
         X(controlQ)
         flat_top_gaussian(CRchan, riseFall, amp=amp, phase=phase, length=l)
         X(controlQ)
@@ -123,6 +129,9 @@ def EchoCRLen(controlQ: qbit, targetQ: qbit, lengths, riseFall=40e-9, amp=1, pha
 
     # Sequence1:
     for l in lengths:
+        with concur:
+            init(controlQ)
+            init(targetQ)
         Id(controlQ)
         echoCR(controlQ, targetQ, length=l, phase=phase,
                riseFall=riseFall)
@@ -131,6 +140,9 @@ def EchoCRLen(controlQ: qbit, targetQ: qbit, lengths, riseFall=40e-9, amp=1, pha
 
     # Sequence 2
     for l in lengths:
+        with concur:
+            init(controlQ)
+            init(targetQ)
         X(controlQ)
         echoCR(controlQ, targetQ, length=l, phase=phase,
                riseFall=riseFall)
@@ -208,6 +220,9 @@ def EchoCRPhase(controlQ: qbit, targetQ: qbit, phases, riseFall=40e-9, amp=1, le
 
     # Sequence 1
     for ph in phases:
+        with concur:
+            init(controlQ)
+            init(targetQ)
         Id(controlQ)
         echoCR(controlQ, targetQ, length=length, phase=ph,
                riseFall=riseFall)
@@ -218,6 +233,9 @@ def EchoCRPhase(controlQ: qbit, targetQ: qbit, phases, riseFall=40e-9, amp=1, le
 
     # Sequence 2
     for ph in phases:
+        with concur:
+            init(controlQ)
+            init(targetQ)
         X(controlQ)
         echoCR(controlQ, targetQ, length=length, phase=ph,
                riseFall=riseFall)

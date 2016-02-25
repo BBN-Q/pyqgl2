@@ -51,6 +51,7 @@ def SPAM(qubit: qbit, angleSweep, maxSpamBlocks=10, showPlot=False):
         #SPAMBlock = [X(qubit), U(qubit, phase=pi/2+angle), X(qubit), U(qubit, phase=pi/2+angle)]
         #return [[Y90(qubit)] + SPAMBlock*rep + [X90(qubit)] for rep in range(maxSpamBlocks)]
         for rep in range(maxSpamBlocks):
+            init(qubit)
             Y90(qubit)
             for _ in range(rep):
                 X(qubit)
@@ -62,11 +63,13 @@ def SPAM(qubit: qbit, angleSweep, maxSpamBlocks=10, showPlot=False):
 
     # Insert an identity at the start of every set to mark them off
     for angle in angleSweep:
+        init(qubit)
         Id(qubit)
         MEAS(qubit)
         spam_seqs(angle)
 
     # Add a final pi for reference
+    init(qubit)
     X(qubit)
     MEAS(qubit)
 
