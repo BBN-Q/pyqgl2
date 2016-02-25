@@ -126,32 +126,37 @@ def main():
 
     type_check = CheckType(opts.filename, importer=importer)
     new_ptree2 = type_check.visit(new_ptree)
-
     NodeError.halt_on_error()
-
     print('CHECKED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree2))
 
     sym_check = CheckSymtab(opts.filename, type_check.func_defs, importer)
     new_ptree3 = sym_check.visit(new_ptree2)
-
     NodeError.halt_on_error()
-
     print('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree3))
 
     new_ptree4 = specialize(new_ptree3, list(), type_check.func_defs, importer)
-
     NodeError.halt_on_error()
-
     print('SPECIALIZED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree4))
 
     unroller = Unroller()
     new_ptree5 = unroller.visit(new_ptree4)
-
+    NodeError.halt_on_error()
     print('UNROLL CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5))
 
-    grouper = QbitGrouper()
-    new_ptree6 = grouper.visit(new_ptree5)
+    # At this point, we've done most of the transformations,
+    # but the unroller might have created concrete function
+    # calls that we need to check again, now that we know
+    # what they really are.  This is done with the specializer
+    # right now (although eventually we'll want to break this
+    # out into its own module).
+    #
+    new_ptree6 = specialize(new_ptree5, list(), type_check.func_defs, importer)
+    NodeError.halt_on_error()
+    print('RECHECK:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6))
 
+    grouper = QbitGrouper()
+    new_ptree7 = grouper.visit(new_ptree6)
+    NodeError.halt_on_error()
     print('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6))
 
     """
