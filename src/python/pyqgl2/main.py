@@ -102,30 +102,54 @@ def main():
     ast_text_orig = pyqgl2.ast_util.ast2str(ptree)
     print('ORIGINAL CODE:\n%s' % ast_text_orig)
 
-    inliner = Inliner(importer)
-    new_ptree = inliner.inline_function(ptree)
-    NodeError.halt_on_error()
+    ptree1 = ptree
 
-    print('MODIFIED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
-
-    print('-- -- -- -- --')
-    print('INLINED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree))
-    print('-- -- -- -- --')
-
-    # make sure that we didn't clobber anything while we did
-    # the processing (this is an incomplete test--it doesn't
-    # check anything except the qglmain)
+    # We may need to iterate over the inline/unroll processes
+    # a few times, because inlining may expose new things to unroll,
+    # and vice versa.
     #
-    ast_text_orig2 = pyqgl2.ast_util.ast2str(ptree)
-    if ast_text_orig != ast_text_orig2:
-        print('error: the original definition was clobbered')
+    # TODO: as a stopgap, we're going to limit iterations to 20, which
+    # is enough to handle fairly deeply-nested, complex non-recursive
+    # programs.  What we do is iterate until we converge (the outcome
+    # stops changing) or we hit this limit.  We should attempt at this
+    # point attempt prove that the expansion is divergent, but we don't
+    # do this, but instead assume the worst if the program is complex
+    # enough to look like it's "probably" divergent.
+    #
+    MAX_ITERS = 20
+    for iteration in range(MAX_ITERS):
+
+        inliner = Inliner(importer)
+        ptree1 = inliner.inline_function(ptree1)
+        NodeError.halt_on_error()
+
+        print('INLINED CODE (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+
+        unroller = Unroller()
+        ptree1 = unroller.visit(ptree1)
+        NodeError.halt_on_error()
+
+        print('UNROLLED CODE (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+
+        if (inliner.change_cnt == 0) and (unroller.change_cnt == 0):
+            NodeError.diag_msg(None,
+                    ('expansion converged after iteration %d' % iteration))
+            break
+
+    if iteration == (MAX_ITERS - 1):
+        NodeError.error_msg(None,
+                ('expansion did not converge after %d iterations' % MAX_ITERS))
 
     base_namespace = importer.path2namespace[opts.filename]
     text = base_namespace.pretty_print()
-    print(text)
+    print('EXPANDED NAMESPACE:\n%s' % text)
+
+    new_ptree1 = ptree1
 
     type_check = CheckType(opts.filename, importer=importer)
-    new_ptree2 = type_check.visit(new_ptree)
+    new_ptree2 = type_check.visit(new_ptree1)
     NodeError.halt_on_error()
     print('CHECKED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree2))
 
@@ -134,50 +158,24 @@ def main():
     NodeError.halt_on_error()
     print('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree3))
 
-    new_ptree4 = specialize(new_ptree3, list(), type_check.func_defs, importer)
+    new_ptree5 = specialize(new_ptree3, list(), type_check.func_defs, importer)
     NodeError.halt_on_error()
-    print('SPECIALIZED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree4))
-
-    unroller = Unroller()
-    new_ptree5 = unroller.visit(new_ptree4)
-    NodeError.halt_on_error()
-    print('UNROLL CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5))
-
-    # At this point, we've done most of the transformations,
-    # but the unroller might have created concrete function
-    # calls that we need to check again, now that we know
-    # what they really are.  This is done with the specializer
-    # right now (although eventually we'll want to break this
-    # out into its own module).
-    #
-    new_ptree6 = specialize(new_ptree5, list(), type_check.func_defs, importer)
-    NodeError.halt_on_error()
-    print('RECHECK:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6))
+    print('SPECIALIZED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5))
 
     grouper = QbitGrouper()
-    new_ptree7 = grouper.visit(new_ptree6)
+    new_ptree6 = grouper.visit(new_ptree5)
     NodeError.halt_on_error()
     print('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6))
 
-    """
     print('Final qglmain: %s' % new_ptree6.name)
-    print('Final CODE:\n-- -- -- -- --')
 
     base_namespace = importer.path2namespace[opts.filename]
     text = base_namespace.pretty_print()
-    print(text)
-    print('-- -- -- -- --')
-    """
+    print('FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % text)
 
     """
-    type_check = CheckType(opts.filename, importer=importer)
-    new_ptree7 = type_check.visit(new_ptree6)
-
-    NodeError.halt_on_error()
-
     wav_check = CheckWaveforms(type_check.func_defs, importer)
     new_ptree8 = wav_check.visit(new_ptree7)
-
     NodeError.halt_on_error()
     """
 
