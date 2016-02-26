@@ -18,6 +18,7 @@ from .helpers import create_cal_seqs
 from .CR import EchoCRPhase, EchoCRLen, PiRabi
 from .AllXY import AllXY
 from .Feedback import Reset
+from .qgl2_plumbing import init
 # These next are not in the original and not used in QGL
 #from .Rabi import Swap
 #from .BlankingSweeps import sweep_gateDelay
