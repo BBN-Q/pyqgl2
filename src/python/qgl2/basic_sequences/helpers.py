@@ -2,7 +2,7 @@
 
 from qgl2.qgl2 import qgl2decl, qbit_list, concur
 
-from .help2 import init
+from .qgl2_plumbing import init
 
 from functools import reduce
 from itertools import product

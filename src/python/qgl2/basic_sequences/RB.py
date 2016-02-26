@@ -394,7 +394,7 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False
     def doACPulse(qubit: qbit, cliffNum):
         if cliffNum == 24:
             analyzedPulse
-        else if cliffNum > 24:
+        elif cliffNum > 24:
             raise Exception("Max cliffNum 24, got %d" % cliffNum)
         else: 
             AC(qubit, cliffNum)
@@ -460,8 +460,6 @@ def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
     >>> seqs2 = create_RB_seqs(1, [2, 4, 8, 16])
     >>> SimultaneousRB_AC((q1, q2), (seqs1, seqs2), showPlot=False)
     """
-    raise NotImplementedError("Not implemented")
-
     # Original:
     # seqsBis = []
     # for seq in zip(*seqs):
@@ -481,8 +479,28 @@ def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
+    for seq in zip(*seqs):
+        # Start sequence
+        with concur:
+            for q in qubits:
+                init(q)
+        for pulseNums in zip(*seq):
+            with concur:
+                for q,c in zip(qubits, pulseNums):
+                    AC(q,c)
+        # Measure at end of each sequence
+        with concur:
+            for q in qubits:
+                MEAS(q)
+
+    # Tack on calibration
+    create_cal_seqs((qubits), 2)
+
+    # QGL2 compiler must supply missing list of sequences argument
+    compileAndPlot('RB/RB', showPlot)
+
 # Imports for testing only
-from qgl2.qgl2 import Qbit
+from qgl2.qgl2 import Qbit, qgl2main
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement, Edge
 from QGL import ChannelLibrary
 import numpy as np
