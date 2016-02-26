@@ -235,7 +235,7 @@ class Unroller(ast.NodeTransformer):
         new_for_node = deepcopy(for_node)
 
         new_for_node.iter = ast.List()
-        ast_util.copy_all_loc(new_for_node.iter, for_node.iter)
+        pyqgl2.ast_util.copy_all_loc(new_for_node.iter, for_node.iter)
 
         new_elts = list()
         for val in range(start, stop, step):

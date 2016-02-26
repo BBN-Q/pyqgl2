@@ -817,10 +817,10 @@ class Inliner(ast.NodeTransformer):
         super(Inliner, self).__init__()
 
         self.importer = importer
-        self.change_count = 0
+        self.change_cnt = 0
 
     def reset_change_count(self):
-        self.change_count = 0
+        self.change_cnt = 0
 
     def inline_function(self, funcdef):
         """
@@ -848,7 +848,7 @@ class Inliner(ast.NodeTransformer):
         new_ptree = deepcopy(funcdef)
 
         while True:
-            change_count = self.change_count
+            change_count = self.change_cnt
             new_body = self.inline_body(new_ptree.body)
             if not new_body:
                 # This shouldn't happen?
@@ -856,7 +856,7 @@ class Inliner(ast.NodeTransformer):
 
             # If we didn't make any changes, then we're finished
             #
-            if change_count == self.change_count:
+            if change_count == self.change_cnt:
                 break
 
             new_ptree.body = new_body
@@ -883,9 +883,9 @@ class Inliner(ast.NodeTransformer):
         corresponding list of expressions (which might be
         the same list, if there were no changes)
 
-        Increments self.change_count if the new body is
+        Increments self.change_cnt if the new body is
         different than the original body.  The exact
-        value of self.change_count should not be
+        value of self.change_cnt should not be
         interpreted as the number of "changes" made
         (because this concept is not defined) but
         increases when changes are made.  If a ptree
@@ -917,7 +917,7 @@ class Inliner(ast.NodeTransformer):
                 new_body.append(stmnt)
                 continue
 
-            self.change_count += 1
+            self.change_cnt += 1
 
             NodeError.diag_msg(call_ptree,
                     ('inlined call to %s()' %
