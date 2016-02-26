@@ -9,6 +9,7 @@ from QGL.PulseSequencePlotter import plot_pulse_files
 from itertools import chain
 
 from .new_helpers import addMeasPulse, compileAndPlot
+from .qgl2_plumbing import init
 
 def FlipFlopq1(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     """
@@ -125,11 +126,13 @@ def FlipFlop(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
+    # FIXME: How do we tell the compiler this should return a list of sequences?
     @qgl2decl
     def flipflop_seqs(dragScaling):
         """ Helper function to create a list of sequences with a specified drag parameter. """
         qubit.pulseParams['dragScaling'] = dragScaling
         for rep in range(maxNumFFs):
+            init(qubit)
             X90(qubit)
             # FIXME: Original used [X90] + [X90, X90m]... is this right?
             for _ in range(rep):
@@ -144,6 +147,7 @@ def FlipFlop(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
 
     originalScaling = qubit.pulseParams['dragScaling']
     for dragParam in dragParamSweep:
+        init(qubit)
         Id(qubit)
         MEAS(qubit) # FIXME: Need original dragScaling?
 
@@ -153,6 +157,7 @@ def FlipFlop(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     qubit.pulseParams['dragScaling'] = originalScaling
 
     # Add a final pi for reference
+    init(qubit)
     X(qubit)
     MEAS(qubit)
 
@@ -192,3 +197,5 @@ def main():
     q1 = Qbit(1)
     FlipFlop(q1, np.linspace(0, 5e-6, 11))
 
+if __name__ == "__main__":
+    main()

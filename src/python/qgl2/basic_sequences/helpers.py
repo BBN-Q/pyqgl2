@@ -1,6 +1,8 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit_list
+from qgl2.qgl2 import qgl2decl, qbit_list, concur
+
+from .qgl2_plumbing import init
 
 from functools import reduce
 from itertools import product
@@ -59,6 +61,10 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
 #            calSeqs.append(reduce(operator.mul, seqs))
 
             # For QGL2
+            # Initialize each sequence / experiment
+            with concur:
+                for q in qubits:
+                    init(q)
             # Get all combinations of the pulses and qubits
             # doing the pulse on the qubit
             # Do the pulses concurrently for this pulseSet
@@ -82,3 +88,6 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
 #        else:
 #            newCalSeqs.append([seq, MEAS(*tuple(measChans))])
 #    return newCalSeqs
+
+    # FIXME: QGL2 must return the generated sequences!
+    return []

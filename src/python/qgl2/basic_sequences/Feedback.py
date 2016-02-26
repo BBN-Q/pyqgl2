@@ -8,7 +8,8 @@ from QGL.PulseSequencePlotter import plot_pulse_files
 from QGL.ControlFlow import qif, qwait
 
 from .helpers import create_cal_seqs
-from .new_helpers import compileAndPlot, init
+from .new_helpers import compileAndPlot
+from .qgl2_plumbing import init
 
 from functools import reduce
 from itertools import product
@@ -279,6 +280,7 @@ def qreset(qubits: qbit_list, measDelay, signVec, buf, measChans):
     # Make the pulses list once
     pulsesList = makePulsesList(qubits, signVec)
 
+    # FIXME: How do we tell the compiler this should return a list of pulses?
     # Pick the proper pulseSet from the pulsesList
     # And evaluate the set concurrently
     @qgl2decl
@@ -395,6 +397,7 @@ def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     initialPulses = [Id, X]
     initialPulsesList = tuple(product(initialPulses, repeat=len(qubits)))
 
+    # FIXME: How do we tell the compiler this should return a list of pulses?
     @qgl2decl
     def doOneInitialPulse(pulseSet):
         # then do each pulse on each qubit concurrently
@@ -411,6 +414,9 @@ def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
 
     # There will be 2^numQubits sequences
     for count in range(2**len(qubits)):
+        with concur:
+            for q in qubits:
+                init(q)
         # Each sequence will start with what looks like a calibration
         # sequence
         # Really we're just re-using that function because it creates all
@@ -513,6 +519,7 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     # QGL2 compiler
     compileAndPlot(seqs, 'Reset/Reset', showPlot)
 
+# FIXME: How do we tell the compiler this should return a list of pulses?
 @qgl2decl
 def qreset_Blake2(q: qbit, measDelay, buf, measSign):
     m = MEAS(q)
@@ -522,6 +529,7 @@ def qreset_Blake2(q: qbit, measDelay, buf, measSign):
     if m * measSign == 1:
         X(q)
 
+# FIXME: How do we tell the compiler this should return a list of pulses?
 @qgl2decl
 def qreset_Blake_intermediate(q: qbit, measDelay, buf, measSign):
     m = MEAS(q)
@@ -537,6 +545,7 @@ def qreset_Blake_intermediate(q: qbit, measDelay, buf, measSign):
     if m * measSign == 1:
         X(q)
 
+# FIXME: How do we tell the compiler this should return a list of pulses?
 @qgl2decl
 def qreset_Blake(q: qbit, measDelay, buf, measSign):
     m = MEAS(q)

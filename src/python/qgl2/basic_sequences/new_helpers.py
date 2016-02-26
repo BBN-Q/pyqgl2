@@ -3,6 +3,7 @@
 from qgl2.qgl2 import qgl2decl, qbit_list, qbit, concur
 
 from .helpers import create_cal_seqs
+#from .qgl2_plumbing import qgl2AddSequences, sequence_list
 
 from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
 from QGL.Compiler import compile_to_hardware
@@ -13,68 +14,6 @@ import functools
 import inspect
 import operator
 
-
-# Next 2 bits are intended to let the QGL2 compiler know when a function needs to be handed a list of sequences,
-# a QGL1 style argument.
-# Decorate the function with @qgl2AddSequences if you want the QGL2
-# compiler to add the argument to the function call, and/or add the
-# sequence_list tag to indicate which argument is the (single) list of sequences argument.
-# If using the tagged approach, that argument must be passed to the function or be a keyword argument (in general)
-# The compiler will replace the provided value with the correct value
-
-# Tag to indicate that an argument is a list of sequences (which are lists of pulses)
-# Used by QGL2 compiler to ID variable to substitute
-sequence_list = 'sequence_list'
-
-# Decorator to insert a list of sequences as the first argument to the wrapped function
-# Or replace the provided value that is a sequence_list with that from the compiler
-def qgl2AddSequences(function):
-    @functools.wraps(function)
-    def wrap_function(*args, **kwargs):
-
-        # FIXME: QGL2 Compiler must replace this ***********
-        QGL2_LIST_OF_SEQUENCES = [[None],[None]]
-
-        # Try to find the spot for the listOfSequences using the annotation
-        idx = 0
-        sig = inspect.signature(function)
-        found = False
-        for param in sig.parameters:
-            # Look for the single parameter of type sequence_list
-            if sig.parameters[param].annotation == sequence_list:
-                found = True
-                if param in kwargs:
-                    # If it is a KW arg that was supplied, replace the value
-                    kwargs[param] = QGL2_LIST_OF_SEQUENCES
-                    break
-                else:
-                    # It will be a non keyword arg
-                    if (len(args)+len(kwargs)) < len(sig.parameters) and idx == 0:
-                        # If it is the first arg in the signature and not enough args were given,
-                        # insert it as the first arg
-                        args = tuple([QGL2_LIST_OF_SEQUENCES]) + args
-                        break
-                    elif idx < len(args) and (len(args)+len(kwargs)) == len(sig.parameters):
-                        # If the right number of args were given and the sequence_list is one of the non kw args,
-                        # replace the provided value with this one
-                        # FIXME: What if kwargs had a default?
-                        args = tuple(args[:idx]) + tuple([QGL2_LIST_OF_SEQUENCES]) + tuple(args[idx+1:])
-                        break
-                    else:
-                        # Didn't get enough arguments and seq_list isn't first arg,
-                        # or something else and I don't know how to handle this
-                        # Raise an error?
-                        print("Failed to find sequence_list arg in call to %s(%s, %s)" % (function.__name__,
-                                                                                          args, kwargs))
-                        break
-            idx += 1
-        if not found:
-            if len(sig.parameters) == len(args) + len(kwargs) + 1:
-                # Missing exactly one arg: put this one first
-                # FIXME: What if kwargs had a default?
-                return function(QGL2_LIST_OF_SEQUENCES, args, kwargs)
-        return function(*args, **kwargs)
-    return wrap_function
 
 # This one is qgl1 style
 # FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
@@ -120,16 +59,24 @@ def repeatSequences(listOfSequencesr, repeat=2):
     # You must copy the element before repeating it. Otherwise strange things happen later
     return [copy.copy(sequence) for sequence in listOfSequences for i in range(repeat)]
 
+# Variant of compile_to_hardware that is marked so the QGL2 compiler knows to insert the missing
+# list of sequences
+#@qgl2AddSequences
+# FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
+#def qgl2_compile_to_hardware(listOfSequences: sequence_list, filePrefix, suffix=''):
+def qgl2_compile_to_hardware(listOfSequences, filePrefix, suffix=''):
+    return compile_to_hardware(listOfSequences, filePrefix, suffix)
+
 #@qgl2AddSequences
 # FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
 #def compileAndPlot(listOfSequences: sequence_list, filePrefix, showPlot=False):
-def compileAndPlot(listOfSequences, filePrefix, showPlot=False):
+def compileAndPlot(listOfSequences, filePrefix, showPlot=False, suffix=''):
     '''Compile the listOfSequences to hardware using the given filePrefix, 
     print the filenames, and optionally plot the pulse files.
     Return a handle to the plot window; caller can hold it to prevent window destruction.
 
     NOTE: The QGL2 compiler must fill in the listOfSequences in the decorator.'''
-    fileNames = compile_to_hardware(listOfSequences, filePrefix)
+    fileNames = compile_to_hardware(listOfSequences, filePrefix, suffix)
     print(fileNames)
 
     if showPlot:
@@ -146,14 +93,6 @@ def addCalibration(listOfSequences, tupleOfQubits: qbit_list, numRepeats=2):
     # Tack on the calibration sequences
     listOfSequences += create_cal_seqs((tupleOfQubits), numRepeats)
     return listOfSequences
-
-# init will demarcate the beginning of a list of
-# experiments. QGL1 compiler injects WAITs in beginning of
-# every sequence for now
-# FIXME: Figure out what this should do
-@qgl2decl
-def init(q: qbit):
-    pass
 
 # Helpers here for AllXY that produce pairs of pulses on the same qubit
 # Produce the state |0>
