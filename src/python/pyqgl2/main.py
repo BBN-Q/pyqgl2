@@ -133,6 +133,17 @@ def main():
         print('UNROLLED CODE (iteration %d):\n%s' %
                 (iteration, pyqgl2.ast_util.ast2str(ptree1)))
 
+        type_check = CheckType(opts.filename, importer=importer)
+        ptree1 = type_check.visit(ptree1)
+        NodeError.halt_on_error()
+        print('CHECKED CODE (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+
+        ptree1 = specialize(ptree1, list(), type_check.func_defs, importer)
+        NodeError.halt_on_error()
+        print('SPECIALIZED CODE (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+
         if (inliner.change_cnt == 0) and (unroller.change_cnt == 0):
             NodeError.diag_msg(None,
                     ('expansion converged after iteration %d' % iteration))
@@ -148,19 +159,10 @@ def main():
 
     new_ptree1 = ptree1
 
-    type_check = CheckType(opts.filename, importer=importer)
-    new_ptree2 = type_check.visit(new_ptree1)
-    NodeError.halt_on_error()
-    print('CHECKED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree2))
-
     sym_check = CheckSymtab(opts.filename, type_check.func_defs, importer)
-    new_ptree3 = sym_check.visit(new_ptree2)
+    new_ptree5 = sym_check.visit(new_ptree1)
     NodeError.halt_on_error()
-    print('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree3))
-
-    new_ptree5 = specialize(new_ptree3, list(), type_check.func_defs, importer)
-    NodeError.halt_on_error()
-    print('SPECIALIZED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5))
+    print('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5))
 
     grouper = QbitGrouper()
     new_ptree6 = grouper.visit(new_ptree5)
