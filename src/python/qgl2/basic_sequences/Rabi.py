@@ -6,7 +6,8 @@ from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 from .helpers import create_cal_seqs
-from .new_helpers import compileAndPlot, init
+from .new_helpers import compileAndPlot
+from .qgl2_plumbing import init
 
 from functools import reduce
 import operator
@@ -108,6 +109,7 @@ def RabiWidthq1(qubit: qbit, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.ta
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
     compileAndPlot(seqs, 'Rabi/Rabi', showPlot)
+
 
 @qgl2decl
 def RabiWidth(qubit: qbit, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh, showPlot=False):
@@ -492,7 +494,8 @@ def Swap(qubit: qbit, mqubit: qbit, delays, showPlot=False):
 
 # Imports for testing only
 from qgl2.qgl2 import Qbit
-from QGL.Channels import Qubit, LogicalMarkerChannel
+from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement
+from QGL import ChannelLibrary
 import numpy as np
 from math import pi
 
@@ -543,3 +546,6 @@ def main():
     RabiAmpPi(q1, q2, np.linspace(0, 5e-6, 11))
     SingleShot(q1)
     PulsedSpec(q1)
+
+if __name__ == "__main__":
+    main()

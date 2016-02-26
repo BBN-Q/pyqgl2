@@ -6,9 +6,10 @@ from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
 from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
-from .new_helpers import addMeasPulses, repeatSequences, compileAndPlot, init
+from .new_helpers import addMeasPulses, repeatSequences, compileAndPlot
 from .new_helpers import IdId, XX, YY, XY, YX, X90Id, Y90Id, X90Y90, Y90X90, X90Y, Y90X, \
     XY90, YX90, X90X, XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90
+from .qgl2_plumbing import init
 
 @qgl2decl
 def AllXYq2_simple(q: qbit, showPlot = False):

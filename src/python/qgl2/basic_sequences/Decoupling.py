@@ -6,7 +6,8 @@ from QGL.PulsePrimitives import X90, Id, Y, U90, MEAS, X90
 from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 from .helpers import create_cal_seqs
-from .new_helpers import addCalibration, compileAndPlot, init
+from .new_helpers import addCalibration, compileAndPlot
+from .qgl2_plumbing import init
 
 from math import pi
 

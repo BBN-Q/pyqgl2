@@ -7,6 +7,7 @@ from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 from .new_helpers import compileAndPlot, addMeasPulse
+from .qgl2_plumbing import init
 
 from itertools import chain
 from numpy import pi
@@ -170,3 +171,5 @@ def main():
     q1 = Qbit(1)
     SPAM(q1, np.linspace(0, pi/2, 11))
 
+if __name__ == "__main__":
+    main()

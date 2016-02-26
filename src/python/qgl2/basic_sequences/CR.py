@@ -8,7 +8,8 @@ from QGL.ChannelLibrary import EdgeFactory
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 from .helpers import create_cal_seqs
-from .new_helpers import addMeasPulses, addCalibration, compileAndPlot, measConcurrently, init
+from .new_helpers import addMeasPulses, addCalibration, compileAndPlot, measConcurrently
+from .qgl2_plumbing import init
 
 @qgl2decl
 def PiRabi(controlQ: qbit, targetQ: qbit, lengths, riseFall=40e-9, amp=1, phase=0, calRepeats=2, showPlot=False):
