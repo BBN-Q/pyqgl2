@@ -8,7 +8,9 @@ transform, or create a Python parse tree
 
 import ast
 import meta
+import os
 import sys
+import traceback
 
 from copy import deepcopy
 
@@ -195,6 +197,26 @@ def fatal_msg(node, msg=None):
     Print an fatal error message associated with the given node
     """
     NodeError.fatal_msg(node, msg)
+
+def debug_msg(msg, level=0, tag=None):
+    """
+    Print a debug msg, labeled with the filename, line number, and
+    function name that invoked debug_msg
+
+    Debug messages can be suppressed so that only messages that
+    match one of a set of tags, or that at a level greater than or
+    equal to a global threshold, are printed.
+
+    TODO: tags and levels are not supported yet; all messages are
+    printed
+    """
+
+    (filename, lineno, funcname, code) = traceback.extract_stack(limit=2)[0]
+
+    text = ('DEBUG-%d: %s:%d (%s) %s' %
+            (level, os.path.relpath(filename), lineno, funcname, msg))
+
+    print('%s' % text)
 
 
 class NodeTransformerWithFname(ast.NodeTransformer, NodeError):
