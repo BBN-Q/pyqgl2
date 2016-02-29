@@ -244,7 +244,7 @@ def AllXYq2_simple(q: qbit, showPlot = False):
     compileAndPlot('AllXY/AllXY', showPlot)
 
 @qgl2decl
-def AllXY(q: qbit, showPlot = False):
+def AllXYbetter(q: qbit, showPlot = False):
     # Dan says for now, the compiler doesn't understand function references. So I can's use IdId for example
     # So here is a slightly degraded version
     # However, it also doesn't yet understand for _ in range(2), so
@@ -518,7 +518,7 @@ def AllXYq2_loop_unrolling(q: qbit, showPlot = False):
     compileAndPlot('AllXY/AllXY', showPlot)
 
 @qgl2decl
-def AllXYq2(q: qbit, showPlot = False):
+def AllXY(q: qbit, showPlot = False):
     # This is the kind of thing that I would like to work in QGL2, but
     # doesn't work yet (can't do function references or for loops
     # over a list it can't tell are constant)
