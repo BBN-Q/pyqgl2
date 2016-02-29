@@ -1,6 +1,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 from qgl2.qgl2 import qgl2decl, qbit
+from QGL import ControlFlow
 
 # init will demarcate the beginning of a list of
 # experiments. QGL1 compiler injects WAITs in beginning of
@@ -13,12 +14,12 @@ from qgl2.qgl2 import qgl2decl, qbit
 # (everywhere you see `seq = []` would probably translate to `init` for now).
 # There is still some discussion needed because the injected wait also serves
 # to synchronize multiple channels and it seems that should still happen automagically for the programmer.
-# FIXME: Figure out what this should do. For now, perhaps it signals the compiler
-# to start a new sequence here and let the QGL1 compile_to_hardware do
-# the original QGL1 thing
+# There will be multiple ways to call init() and the programmer must choose.
+# Init is the marker of a new sequence
 @qgl2decl
 def init(q: qbit):
-    pass
+    # For now, just do a wait
+    ControlFlow.Wait()
 
 # Next 2 bits are intended to let the QGL2 compiler know when a function needs to be handed a list of sequences,
 # a QGL1 style argument.
