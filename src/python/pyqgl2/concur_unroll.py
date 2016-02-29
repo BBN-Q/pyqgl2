@@ -247,6 +247,80 @@ class Unroller(ast.NodeTransformer):
 
         return new_for_node
 
+    def check_value_types(self, target, values):
+        """
+        check that the list contains simple expressions:
+        numbers, symbols, or other constants.  If there's
+        anything else in the list, then bail out because
+        we can't do a simple substitution.
+
+        TODO: There are cases where we can't use names; if
+        the body of the loop modifies the value bound to a
+        symbol mentioned in iter.elts, then this may break.
+        This case is hard to analyze but we could warn the
+        programmer that something risky is happening.
+
+        TODO: For certain idempotent exprs, we can do more
+        inlining than for arbitrary expressions.  We don't
+        have a mechanism for determining whether an expression
+        is idempotent yet.
+        """
+
+        all_simple = True
+        simple_expr_types = set(
+                [ast.Num, ast.Str, ast.Name, ast.NameConstant])
+
+        if isinstance(target, ast.Tuple):
+            target_elts = target.elts
+            target_len = len(target_elts)
+
+            # Make sure this is a straightforward tuple of
+            # names, and not nested in some way.  We don't
+            # handle nested targets yet
+            #
+            for target_elt in target_elts:
+                if not isinstance(target_elt, ast.Name):
+                    NodeError.error_msg(target_elt,
+                            'expected name, got [%s]' % type(target_elt))
+                    return False
+
+            # OK, now that we've determined that the target
+            # is good, now check that every value that we need
+            # to assign to the target is "compatible" and "simple":
+            # it's got to be a list or tuple of the right length,
+            # and consist of simple values.
+            #
+            for ind in range(len(values)):
+                value = values[ind]
+
+                if (not isinstance(value, ast.Tuple) and
+                        not isinstance(value, ast.List)):
+                    NodeError.error_msg(value,
+                            'element %d is not a list or tuple' % ind)
+                    return False
+
+                if target_len != len(value.elts):
+                    NodeError.error_msg(value,
+                            ('element %d len != target len (%d != %d)' %
+                                (ind, len(value.elts), target_len)))
+                    return False
+
+                for elem in value.elts:
+                    if type(elem) not in simple_expr_types:
+                        all_simple = False
+                        break
+
+        else:
+            for elem in values:
+                if type(elem) not in simple_expr_types:
+                    all_simple = False
+                    break
+
+        if not all_simple:
+            NodeError.diag_msg(target, 'not all loop elements are consts')
+
+        return True # FIXME
+
     def for_unroller(self, for_node, unroll_inner=True):
         """
         Unroll a for loop, if possible, returning the resulting
@@ -296,32 +370,9 @@ class Unroller(ast.NodeTransformer):
                 for_node.body = new_body
             return list([for_node])
 
-        # check that the list contains simple expressions:
-        # numbers, symbols, or other constants.  If there's
-        # anything else in the list, then bail out because
-        # we can't do a simple substitution.
-        #
-        # TODO: There are cases where we can't use names; if
-        # the body of the loop modifies the value bound to a
-        # symbol mentioned in iter.elts, then this may break.
-        # This case is hard to analyze but we could warn the
-        # programmer that something risky is happening.
-        #
-        # TODO: For certain idempotent exprs, we can do more
-        # inlining than for arbitrary expressions.  We don't
-        # have a mechanism for determining whether an expression
-        # is idempotent yet.
-        #
-        simple_expr_types = set(
-                [ast.Num, ast.Str, ast.Name, ast.NameConstant])
-        all_simple = True
-        for elem in for_node.iter.elts:
-            if type(elem) not in simple_expr_types:
-                all_simple = False
-                break
-
-        if not all_simple:
-            NodeError.diag_msg(for_node, 'not all loop elements are consts')
+        vals = for_node.iter.elts
+        if not self.check_value_types(for_node.target, vals):
+            NodeError.diag_msg(for_node, 'not all loop elements are simple')
 
             if unroll_inner:
                 # even if we can't unroll this loop, we might
@@ -336,7 +387,6 @@ class Unroller(ast.NodeTransformer):
 
         new_stmnts = list()
 
-        vals = for_node.iter.elts
         for index in range(len(vals)):
 
             try:
