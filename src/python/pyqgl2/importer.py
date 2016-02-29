@@ -431,19 +431,21 @@ class NameSpaces(object):
             qglmain_def = self.resolve_sym(self.base_fname, qglmain_name)
 
             if not qglmain_def:
-                print('error: no definition for qglmain [%s]' % qglmain_name)
-                sys.exit(1)
+                NodeError.error_msg(None,
+                        'no definition for qglmain [%s]' % qglmain_name)
             elif not qglmain_def.qgl_func:
-                print('error: qglmain [%s] not declared QGL' % qglmain_name)
-                sys.exit(1)
+                NodeError.error_msg(None,
+                        'qglmain [%s] not declared QGL' % qglmain_name)
             else:
                 self.qglmain = qglmain_def
                 qglmain_def.qgl_main = True
 
         if self.qglmain:
-            print('info: using [%s] as qglmain' % self.qglmain.name)
+            NodeError.diag_msg(None,
+                    'using [%s] as qglmain' % self.qglmain.name)
         else:
-            print('warning: no qglmain declared or chosen')
+            NodeError.warning_msg(None,
+                    'warning: no qglmain declared or chosen')
 
     def resolve_sym(self, path, name, depth=0):
         """
@@ -548,7 +550,6 @@ class NameSpaces(object):
         # TODO: error/warning/diagnostics
 
         if path in self.path2ast:
-            print('NN Already in there [%s]' % path)
             return self.path2ast[path]
 
         # TODO: this doesn't do anything graceful if the file
@@ -889,9 +890,9 @@ class NameSpaces(object):
 
         namespace.add_from_as_stmnt(stmnt)
 
-        print('NX orig statement [%s]' % ast.dump(stmnt))
-        print('NX orig statement [%s]' %
-                pyqgl2.ast_util.ast2str(stmnt).strip())
+        # print('NX orig statement [%s]' % ast.dump(stmnt))
+        # print('NX orig statement [%s]' %
+        #         pyqgl2.ast_util.ast2str(stmnt).strip())
 
         # placeholder
         subpath = None
