@@ -185,7 +185,7 @@ def check_call_parameters(call_ptree):
     stararg_cnt = 0
     kwarg_cnt = 0
 
-    funcname = call_ptree.func.id
+    funcname = collapse_name(call_ptree.func)
 
     posarg_cnt = len(call_ptree.args)
     keyword_cnt = len(call_ptree.keywords)
