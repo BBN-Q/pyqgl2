@@ -14,6 +14,7 @@ from copy import deepcopy
 import pyqgl2.ast_util
 
 from pyqgl2.ast_util import NodeError
+from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
 
 def is_concur(node):
@@ -169,7 +170,7 @@ class Unroller(ast.NodeTransformer):
             return for_node
         elif not isinstance(for_node.iter.func, ast.Name):
             return for_node
-        elif for_node.iter.func.id != 'range':
+        elif collapse_name(for_node.iter.func) != 'range':
             return for_node
 
         args = for_node.iter.args

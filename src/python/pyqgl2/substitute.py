@@ -218,7 +218,9 @@ class SubstituteChannel(NodeTransformerWithFname):
 
         print('LITERAL %s' % literal_args)
 
-        text = '%s(%s)' % (node.func.id, ', '.join(literal_args))
+        text = '%s(%s)' % (
+                pyqgl2.importer.collapse_name(node.func),
+                ', '.join(literal_args))
 
         print('BUILTIN %s' % text)
         return node
