@@ -284,7 +284,7 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
 
     # FIXME: How do we tell the compiler this should return a list of pulses?
     @qgl2decl
-    def doACPulse(qubit: qbit, cliffNum):
+    def doACPulse(qubit: qbit, cliffNum) -> pulse:
         if cliffNum == 24:
             cliffNum = 0
         if cliffNum > 24:
@@ -301,7 +301,7 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
 
     # FIXME: How do we tell the compiler this should return a sequence of pulses?
     @qgl2decl
-    def getPulseSeq(qubit: qbit, seqNum):
+    def getPulseSeq(qubit: qbit, seqNum) -> pulse:
         pulseSeqStr = pulseSeqStrs[seqNum]
         init(qubit)
         for pulseStr in pulseSeqStr:
@@ -391,7 +391,7 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False
 
     # FIXME: How do we tell the compiler this should return a list of pulses?
     @qgl2decl
-    def doACPulse(qubit: qbit, cliffNum):
+    def doACPulse(qubit: qbit, cliffNum) -> pulse:
         if cliffNum == 24:
             analyzedPulse
         elif cliffNum > 24:
@@ -416,7 +416,7 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False
 
     # FIXME: How do we tell the compiler this should return a sequence of pulses?
     @qgl2decl
-    def getPulseSeq(qubit: qbit, pulseSeqStr):
+    def getPulseSeq(qubit: qbit, pulseSeqStr) -> pulse:
         init(qubit)
         for pulseStr in pulseSeqStr:
             doACPulse(qubit, int(pulseStr))
