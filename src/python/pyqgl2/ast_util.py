@@ -7,14 +7,11 @@ transform, or create a Python parse tree
 """
 
 import ast
-import meta
-import os
 import sys
-import traceback
 
 from copy import deepcopy
 
-from pyqgl2.pysourcegen import python_source, dump_python_source
+from pyqgl2.pysourcegen import dump_python_source
 
 class NodeError(object):
     """
@@ -58,11 +55,11 @@ class NodeError(object):
 
     @staticmethod
     def reset():
-        LAST_DIAG_MSG = ''
-        LAST_WARNING_MSG = ''
-        LAST_ERROR_MSG = ''
-        LAST_FATAL_MSG = ''
-        ALL_PRINTED = set()
+        NodeError.LAST_DIAG_MSG = ''
+        NodeError.LAST_WARNING_MSG = ''
+        NodeError.LAST_ERROR_MSG = ''
+        NodeError.LAST_FATAL_MSG = ''
+        NodeError.ALL_PRINTED = set()
 
     @staticmethod
     def halt_on_error():
@@ -85,7 +82,7 @@ class NodeError(object):
         Print a diagnostic message associated with the given node
         """
 
-        LAST_DIAG_MSG = msg
+        NodeError.LAST_DIAG_MSG = msg
         NodeError._make_msg(node, NodeError.NODE_ERROR_NONE, msg)
 
     @staticmethod
@@ -94,7 +91,7 @@ class NodeError(object):
         Print a warning message associated with the given node
         """
 
-        LAST_WARNING_MSG = msg
+        NodeError.LAST_WARNING_MSG = msg
         NodeError._make_msg(node, NodeError.NODE_ERROR_WARNING, msg)
 
     @staticmethod
@@ -103,7 +100,7 @@ class NodeError(object):
         Print an error message associated with the given node
         """
 
-        LAST_ERROR_MSG = msg
+        NodeError.LAST_ERROR_MSG = msg
         NodeError._make_msg(node, NodeError.NODE_ERROR_ERROR, msg)
 
     @staticmethod
@@ -112,7 +109,7 @@ class NodeError(object):
         Print an fatal error message associated with the given node
         """
 
-        LAST_FATAL_MSG = msg
+        NodeError.LAST_FATAL_MSG = msg
         NodeError._make_msg(node, NodeError.NODE_ERROR_FATAL, msg)
 
     @staticmethod
@@ -197,26 +194,6 @@ def fatal_msg(node, msg=None):
     Print an fatal error message associated with the given node
     """
     NodeError.fatal_msg(node, msg)
-
-def debug_msg(msg, level=0, tag=None):
-    """
-    Print a debug msg, labeled with the filename, line number, and
-    function name that invoked debug_msg
-
-    Debug messages can be suppressed so that only messages that
-    match one of a set of tags, or that at a level greater than or
-    equal to a global threshold, are printed.
-
-    TODO: tags and levels are not supported yet; all messages are
-    printed
-    """
-
-    (filename, lineno, funcname, code) = traceback.extract_stack(limit=2)[0]
-
-    text = ('DEBUG-%d: %s:%d (%s) %s' %
-            (level, os.path.relpath(filename), lineno, funcname, msg))
-
-    print('%s' % text)
 
 
 class NodeTransformerWithFname(ast.NodeTransformer, NodeError):
