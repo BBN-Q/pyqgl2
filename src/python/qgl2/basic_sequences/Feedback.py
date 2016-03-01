@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit_list, qgl2main, concur, qbit
+from qgl2.qgl2 import qgl2decl, qbit_list, qgl2main, concur, qbit, pulse
 
 from QGL.PulsePrimitives import Id, MEAS, X
 from QGL.Compiler import compile_to_hardware
@@ -231,7 +231,7 @@ def Resetq1_orig(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     compileAndPlot(seqs, 'Reset/Reset', showPlot)
 
 @qgl2decl
-def qreset(qubits: qbit_list, measDelay, signVec, buf, measChans):
+def qreset(qubits: qbit_list, measDelay, signVec, buf, measChans) -> pulse:
     # Produces a sequence like:
     # Id(qubits[0], measDelay)
     # qwait(CMP)
@@ -284,7 +284,7 @@ def qreset(qubits: qbit_list, measDelay, signVec, buf, measChans):
     # Pick the proper pulseSet from the pulsesList
     # And evaluate the set concurrently
     @qgl2decl
-    def ifClause(count, pulsesList):
+    def ifClause(count, pulsesList) -> pulse:
         with concur:
             for pq in pulsesList[count]:
                 pq[0](pq[1])
@@ -399,7 +399,7 @@ def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
 
     # FIXME: How do we tell the compiler this should return a list of pulses?
     @qgl2decl
-    def doOneInitialPulse(pulseSet):
+    def doOneInitialPulse(pulseSet) -> pulse:
         # then do each pulse on each qubit concurrently
         # Get all combinations of the pulses and qubits
         # doing the pulse on the qubit
@@ -521,7 +521,7 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
 
 # FIXME: How do we tell the compiler this should return a list of pulses?
 @qgl2decl
-def qreset_Blake2(q: qbit, measDelay, buf, measSign):
+def qreset_Blake2(q: qbit, measDelay, buf, measSign) -> pulse:
     m = MEAS(q)
     # FIXME: In future, QGL2
     # Compiler inserts Id(measDelay+buf) or just buf if HW is fixed,
@@ -531,7 +531,7 @@ def qreset_Blake2(q: qbit, measDelay, buf, measSign):
 
 # FIXME: How do we tell the compiler this should return a list of pulses?
 @qgl2decl
-def qreset_Blake_intermediate(q: qbit, measDelay, buf, measSign):
+def qreset_Blake_intermediate(q: qbit, measDelay, buf, measSign) -> pulse:
     m = MEAS(q)
     Id(q, measDelay) # Wait to be sure signal reaches all qbits
 
@@ -547,7 +547,7 @@ def qreset_Blake_intermediate(q: qbit, measDelay, buf, measSign):
 
 # FIXME: How do we tell the compiler this should return a list of pulses?
 @qgl2decl
-def qreset_Blake(q: qbit, measDelay, buf, measSign):
+def qreset_Blake(q: qbit, measDelay, buf, measSign) -> pulse:
     m = MEAS(q)
     Id(q, measDelay) # Wait to be sure signal reaches all qbits
 

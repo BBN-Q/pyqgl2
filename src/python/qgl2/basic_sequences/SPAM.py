@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qgl2main
+from qgl2.qgl2 import qgl2decl, qbit, qgl2main, pulse
 
 from QGL.PulsePrimitives import X, U, Y90, X90, MEAS, Id
 from QGL.Compiler import compile_to_hardware
@@ -47,7 +47,7 @@ def SPAM(qubit: qbit, angleSweep, maxSpamBlocks=10, showPlot=False):
     # if showPlot:
     #     plot_pulse_files(fileNames)
     @qgl2decl
-    def spam_seqs(angle):
+    def spam_seqs(angle) -> pulse:
         """ Helper function to create a list of sequences increasing SPAM blocks with a given angle. """
         #SPAMBlock = [X(qubit), U(qubit, phase=pi/2+angle), X(qubit), U(qubit, phase=pi/2+angle)]
         #return [[Y90(qubit)] + SPAMBlock*rep + [X90(qubit)] for rep in range(maxSpamBlocks)]

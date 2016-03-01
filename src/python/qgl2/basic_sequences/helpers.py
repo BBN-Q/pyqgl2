@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit_list, concur
+from qgl2.qgl2 import qgl2decl, qbit_list, concur, pulse
 
 from .qgl2_plumbing import init
 
@@ -12,7 +12,7 @@ from QGL.PulsePrimitives import Id, X, MEAS
 from QGL.ControlFlow import qwait
 
 @qgl2decl
-def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, waitcmp=False):
+def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, waitcmp=False) -> pulse:
     """
     Helper function to create a set of calibration sequences.
 

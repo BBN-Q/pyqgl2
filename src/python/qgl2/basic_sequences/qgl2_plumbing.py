@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit
+from qgl2.qgl2 import qgl2decl, qbit, pulse
 from QGL import ControlFlow
 
 # init will demarcate the beginning of a list of
@@ -17,7 +17,8 @@ from QGL import ControlFlow
 # There will be multiple ways to call init() and the programmer must choose.
 # Init is the marker of a new sequence
 @qgl2decl
-def init(q: qbit):
+def init(q: qbit) -> pulse:
+    # FIXME: Mark as returning a pulse?
     # For now, just do a wait
     ControlFlow.Wait()
 
