@@ -139,7 +139,8 @@ def main():
         print('CHECKED CODE (iteration %d):\n%s' %
                 (iteration, pyqgl2.ast_util.ast2str(ptree1)))
 
-        ptree1 = specialize(ptree1, list(), type_check.func_defs, importer)
+        ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
+                context=ptree1)
         NodeError.halt_on_error()
         print('SPECIALIZED CODE (iteration %d):\n%s' %
                 (iteration, pyqgl2.ast_util.ast2str(ptree1)))
