@@ -9,6 +9,42 @@ Convenience class for managing debugging messages
 Each debugging message can have a level and/or a tag;
 the user can control the level of debugging messages
 printed, and what tags are active/inactive
+
+The "active level" defines the default behavior for
+tags that do not have a specific level assigned.
+All messages that have a level less than or equal to
+the active level will be printed, unless they have
+a tag with a level that would indicate otherwise.
+The default active level is 0, which means that only
+messages at level 0 will be printed.  The active
+level can be changed via set_level().
+
+The "active tags" defines a mapping between tag names
+and levels.  For example, if the tag 'foo' is bound
+to level 2, then only messages with a level of 2 or
+lower will be printed; all other messages with a tag
+of 'foo' will be discarded.
+
+To completely suppress all messages, the active
+level (or the level on a tag) can be set to -1.
+
+Examples:
+
+    If 10 is your highest active level, and you want
+    to turn off all but the most urgent messages
+    (i.e. the level 0 messages), but still show all
+    the messages tagged with 'foo':
+
+        set_level(0)
+        add_tag('foo', 10)
+
+    If 10 is your highest active level, and you want
+    to turn on all messages except those tagged as
+    'foo' (except for those at level 0):
+
+        set_level(10)
+        add_tag('foo', 0)
+
 """
 
 class DebugMsgState(object):
@@ -40,7 +76,7 @@ def add_tag(tag, level):
     assert tag, 'tag must be a non-empty str'
 
     assert isinstance(level, int), 'level must be an int'
-    assert level >= 0, 'level must be >= 0'
+    assert level >= -1, 'level must be >= -1'
 
     if not DebugMsgState.ACTIVE_TAGS:
         DebugMsgState.ACTIVE_TAGS = dict()
@@ -60,7 +96,7 @@ def set_level(level):
     """
 
     assert isinstance(level, int), 'level must be an int'
-    assert level >= 0, 'level must be >= 0'
+    assert level >= -1, 'level must be >= -1'
 
     old_level = DebugMsgState.ACTIVE_LEVEL
     DebugMsgState.ACTIVE_LEVEL = level
@@ -79,6 +115,11 @@ def debug_msg(msg, level=0, tag=None):
     TODO: tags and levels are not supported yet; all messages are
     printed
     """
+
+    # level cannot be less than 0; set to 0 if lower.
+    #
+    if level < 0:
+        level = 0
 
     # If there's a level for this tag, then use it as the
     # active level; otherwise, use the general active level
