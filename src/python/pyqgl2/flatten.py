@@ -1,0 +1,249 @@
+# Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
+
+"""
+Flatten control structures in terms of simple label,
+conditional jumps, and unconditional jumps.
+
+We're still figuring out how this is going to look,
+so this is initially a sketch.  It may be overtaken
+by events.
+"""
+
+import ast
+
+from copy import deepcopy
+
+import pyqgl2.ast_util
+
+class LabelManager(object):
+
+    NEXT_LABEL_NUM = 0
+
+    @staticmethod
+    def allocate_ind():
+        """
+        Allocate and return the next label index
+
+        Since the preprocessor is single-threaded, there is
+        not need to guard against concurrent allocations
+        """
+
+        ind = LabelManager.NEXT_LABEL_NUM
+        LabelManager.NEXT_LABEL_NUM += 1
+
+        return ind
+
+    @staticmethod
+    def allocate_labels(*args):
+        """
+        Allocate labels for each of the args, which each label
+        made unique with a freshly allocated label index
+
+        Each arg of the args must be unique, and is used as
+        the prefix of the label strings created.  For example,
+        allocate_labels('foo', 'bar') might return ['foo_1', 'bar_1']
+        the first time it is called, and ['foo_2', 'bar_2'] the
+        second time it is called, etc.
+        """
+
+        if len(args) == 0:
+            return list()
+
+        for name in args:
+            assert isinstance(name, str), 'name must be a str'
+
+        assert len(args) == len(set(args)), 'each name must be unique'
+
+        ind = LabelManager.allocate_ind()
+
+        return [ '%s_%d' % (name, ind) for name in args ]
+
+
+class Flattener(ast.NodeTransformer):
+    """
+    Flatten control statements to labels, unconditional gotos,
+    and conditional gotos
+    """
+
+    def __init__(self):
+
+        # The loop label stack is a stack of (start_label, end_label)
+        # tuples used to keep track of the labels for the start and
+        # end labels for the current loop, so that "continue" and
+        # "break" statements inside the loop will be able to find
+        # the enclosing label for the (potentially) non-local
+        # destination
+        #
+        # Only loop labels are pushed on this stack, since
+        # "if/elif/else" and other control structures are purely
+        # local
+        #
+        self.loop_label_stack = list()
+
+    def make_ugoto_call(self, label):
+        """
+        Create an unconditional goto call
+        """
+
+        goto_ast = ast.Expr(value=ast.Call(
+                func=ast.Name(id='Qgoto', ctx=ast.Load()),
+                args=list([ast.Str(s=label)]),
+                keywords=list()))
+
+        return goto_ast
+
+    def make_cgoto_call(self, label, condition):
+        """
+        Create an conditional goto call
+        """
+
+        goto_ast = ast.Expr(value=ast.Call(
+                func=ast.Name(id='Qcond', ctx=ast.Load()),
+                args=list([ast.Str(s=label), condition]),
+                keywords=list()))
+
+        return goto_ast
+
+    def make_label_call(self, label):
+
+        label_ast = ast.Expr(value=ast.Call(
+                func=ast.Name(id='Qlabel', ctx=ast.Load()),
+                args=list([ast.Str(s=label)]),
+                keywords=list()))
+
+        return label_ast
+
+    def visit_Break(self, node):
+        """
+        Replace a "break" statement with
+        a goto out of the current loop,
+        or fail if there is no current loop.
+        """
+
+        if len(self.loop_label_stack) == 0:
+            print('WHOOPS: empty label stack') # FIXME
+            return node
+        else:
+            _start_label, end_label = self.loop_label_stack[-1]
+
+            call = self.make_ugoto_call(end_label)
+
+            # TODO: patch up the location information
+
+            return call
+
+    def visit_Continue(self, node):
+        """
+        Replace a "continue" statement with
+        a goto to the top of the current loop,
+        or fail if there is no current loop.
+        """
+
+        if len(self.loop_label_stack) == 0:
+            print('WHOOPS: empty label stack') # FIXME
+            return node
+        else:
+            start_label, _end_label = self.loop_label_stack[-1]
+
+            call = self.make_ugoto_call(start_label)
+
+            # TODO: patch up the location information
+
+            return call
+
+    def visit_While(self, node):
+
+        print('FL AST %s' % ast.dump(node))
+        print('FL AST %s' % ast.dump(node))
+
+        start_label, end_label = LabelManager.allocate_labels(
+                'while_start', 'while_end')
+
+        self.loop_label_stack.append((start_label, end_label))
+
+        start_ast = self.make_label_call(start_label)
+        end_ast = self.make_label_call(end_label)
+
+        loop_ast = self.make_ugoto_call(start_label)
+        cond_ast = self.make_cgoto_call(end_label, node.test)
+
+        print('FL START %s' % ast.dump(start_ast))
+        print('FL LOOP %s' % ast.dump(loop_ast))
+        print('FL END %s' % ast.dump(end_ast))
+
+        print('FL Start %s' % pyqgl2.ast_util.ast2str(start_ast))
+        print('FL Cond %s' % pyqgl2.ast_util.ast2str(cond_ast))
+
+        new_body = list([start_ast, cond_ast])
+
+        for stmnt in node.body:
+
+            expansion = self.visit(stmnt)
+            if isinstance(expansion, list):
+                new_body += expansion
+            else:
+                new_body.append(expansion)
+
+        new_body += list([loop_ast, end_ast])
+
+        # just to examine the result, smoosh the body into
+        # a degenerate "if" statement.
+        #
+        # TODO: we want to get rid of this level of nesting
+        # whenever possible, but this will require iterating
+        # through every statement with body elements.
+        #
+        dbg_if = ast.If(test=ast.NameConstant(value=True),
+                body=new_body, orelse=list())
+        print(pyqgl2.ast_util.ast2str(dbg_if)) # TODO: remove
+
+        return new_body
+
+
+if __name__ == '__main__':
+
+    def test_allocate_label():
+        t0 = LabelManager.allocate_labels('a', 'b', 'c')
+        t1 = LabelManager.allocate_labels('a', 'b', 'c')
+        t2 = LabelManager.allocate_labels('a', 'b', 'c')
+
+        assert t0 == ['a_0', 'b_0', 'c_0'], 'failed test 0'
+        assert t1 == ['a_1', 'b_1', 'c_1'], 'failed test 1'
+        assert t2 == ['a_2', 'b_2', 'c_2'], 'failed test 2'
+
+        print('test_allocate_label success')
+
+    def t1_while():
+        code = """
+foo()
+while True:
+    foo()
+    bar()
+    qux()
+"""
+
+        tree = ast.parse(code, mode='exec')
+        flat = Flattener()
+        flat.visit(tree)
+
+    def t2_while():
+        code = """
+while(MEAS(q1)):
+    while True:
+        foo()
+        break
+        bar()
+    Id(q1)
+    X90(q1)
+"""
+        tree = ast.parse(code, mode='exec')
+        flat = Flattener()
+        flat.visit(tree)
+
+    def main():
+        test_allocate_label()
+
+        t1_while()
+        t2_while()
+
+    main()
