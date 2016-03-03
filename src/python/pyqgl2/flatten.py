@@ -199,6 +199,49 @@ class Flattener(ast.NodeTransformer):
 
         return new_body
 
+    def visit_If(self, node):
+        """
+        TODO: if there's no orelse, then we don't
+        need all the boilerplate for the else side
+        of things
+        """
+
+        print('%s' % ast.dump(node))
+
+        else_label, end_label = LabelManager.allocate_labels(
+                'if_else', 'if_end')
+
+        cond_ast = self.make_cgoto_call(else_label, node.test)
+        end_goto_ast = self.make_ugoto_call(end_label)
+        else_ast = self.make_label_call(else_label)
+        end_label_ast = self.make_label_call(end_label)
+
+        new_body = list([cond_ast])
+
+        for stmnt in node.body:
+            expansion = self.visit(stmnt)
+            if isinstance(expansion, list):
+                new_body += expansion
+            else:
+                new_body.append(expansion)
+
+        new_body += list([end_goto_ast, else_ast])
+
+        for stmnt in node.orelse:
+            expansion = self.visit(stmnt)
+            if isinstance(expansion, list):
+                new_body += expansion
+            else:
+                new_body.append(expansion)
+
+        new_body.append(end_label_ast)
+
+        dbg_if = ast.If(test=ast.NameConstant(value=True),
+                body=new_body, orelse=list())
+        print(pyqgl2.ast_util.ast2str(dbg_if)) # TODO: remove
+
+        return new_body
+
 
 if __name__ == '__main__':
 
@@ -240,10 +283,24 @@ while(MEAS(q1)):
         flat = Flattener()
         flat.visit(tree)
 
+    def t1_if():
+        code = """
+if(MEAS(q1)):
+    foo()
+    bar()
+else:
+    Id(q1)
+    X90(q1)
+"""
+        tree = ast.parse(code, mode='exec')
+        flat = Flattener()
+        flat.visit(tree)
+
     def main():
         test_allocate_label()
 
         t1_while()
         t2_while()
+        t1_if()
 
     main()
