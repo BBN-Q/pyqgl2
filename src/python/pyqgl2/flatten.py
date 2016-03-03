@@ -201,9 +201,6 @@ class Flattener(ast.NodeTransformer):
 
     def visit_If(self, node):
         """
-        TODO: if there's no orelse, then we don't
-        need all the boilerplate for the else side
-        of things
         """
 
         print('%s' % ast.dump(node))
@@ -211,7 +208,11 @@ class Flattener(ast.NodeTransformer):
         else_label, end_label = LabelManager.allocate_labels(
                 'if_else', 'if_end')
 
-        cond_ast = self.make_cgoto_call(else_label, node.test)
+        if node.orelse:
+            cond_ast = self.make_cgoto_call(else_label, node.test)
+        else:
+            cond_ast = self.make_cgoto_call(end_label, node.test)
+
         end_goto_ast = self.make_ugoto_call(end_label)
         else_ast = self.make_label_call(else_label)
         end_label_ast = self.make_label_call(end_label)
@@ -225,14 +226,17 @@ class Flattener(ast.NodeTransformer):
             else:
                 new_body.append(expansion)
 
-        new_body += list([end_goto_ast, else_ast])
+        if node.orelse:
+            new_body.append(end_goto_ast)
 
-        for stmnt in node.orelse:
-            expansion = self.visit(stmnt)
-            if isinstance(expansion, list):
-                new_body += expansion
-            else:
-                new_body.append(expansion)
+            new_body.append(else_ast)
+
+            for stmnt in node.orelse:
+                expansion = self.visit(stmnt)
+                if isinstance(expansion, list):
+                    new_body += expansion
+                else:
+                    new_body.append(expansion)
 
         new_body.append(end_label_ast)
 
@@ -288,9 +292,9 @@ while(MEAS(q1)):
 if(MEAS(q1)):
     foo()
     bar()
-else:
-    Id(q1)
-    X90(q1)
+# else:
+#     Id(q1)
+#     X90(q1)
 """
         tree = ast.parse(code, mode='exec')
         flat = Flattener()
