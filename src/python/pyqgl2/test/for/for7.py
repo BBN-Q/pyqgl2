@@ -4,14 +4,12 @@ from qgl2.qgl2 import Qbit
 
 @qgl2decl
 def MEAS(q: qbit) -> pulse:
-    """
-    measure q, and as a side effect put the result in
-    a magic context-local variable named vmeas.
-    
-    This is rubbish; just for development purposes, because
-    assignment statements like "vmeas = MEAS(q)" trigger
-    a bug in the substition code
-    """
+    # measure q, and as a side effect put the result in
+    # a magic context-local variable named vmeas.
+    #
+    # This is rubbish; just for development purposes, because
+    # assignment statements like "vmeas = MEAS(q)" trigger
+    # a bug in the substition code
     measurement(q)
 
 @qgl2decl
