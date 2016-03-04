@@ -80,6 +80,37 @@ class Flattener(ast.NodeTransformer):
         #
         self.loop_label_stack = list()
 
+    def flatten_body(self, body):
+        """
+        Flatten the body of a block statement, and expand
+        whatever statements can be expanded (and flattened)
+        within that block
+        """
+
+        new_body = list()
+
+        for stmnt in body:
+            if isinstance(stmnt, ast.While):
+                while_body = self.while_flattener(stmnt)
+                new_body += while_body
+            elif isinstance(stmnt, ast.If):
+                if_body = self.if_flattener(stmnt)
+                new_body += if_body
+
+            # TODO: there are other things to flatten,
+            # and also things to gripe about if we see
+            # them here because they shouldn't reach
+            # the flattener.  Detect/handle them here
+
+            else:
+                flattened_stmnt = self.visit(stmnt)
+                if isinstance(flattened_stmnt, list):
+                    new_body += flattened_stmnt
+                else:
+                    new_body.append(flattened_stmnt)
+
+        return new_body
+
     def make_ugoto_call(self, label):
         """
         Create an unconditional goto call
@@ -153,6 +184,27 @@ class Flattener(ast.NodeTransformer):
 
     def visit_While(self, node):
 
+        new_body = self.while_flattener(node)
+        dbg_if = ast.If(test=ast.NameConstant(value=True),
+                body=new_body, orelse=list())
+        print(pyqgl2.ast_util.ast2str(dbg_if)) # TODO: remove
+
+        return dbg_if
+
+    def visit_If(self, node):
+
+        new_body = self.if_flattener(node)
+        dbg_if = ast.If(test=ast.NameConstant(value=True),
+                body=new_body, orelse=list())
+        print(pyqgl2.ast_util.ast2str(dbg_if)) # TODO: remove
+
+        return dbg_if
+
+    def while_flattener(self, node):
+        """
+        flatten a while statement, returning the new flattened body
+        """
+
         print('FL AST %s' % ast.dump(node))
         print('FL AST %s' % ast.dump(node))
 
@@ -195,11 +247,11 @@ class Flattener(ast.NodeTransformer):
         #
         dbg_if = ast.If(test=ast.NameConstant(value=True),
                 body=new_body, orelse=list())
-        print(pyqgl2.ast_util.ast2str(dbg_if)) # TODO: remove
+        # print(pyqgl2.ast_util.ast2str(dbg_if)) # TODO: remove
 
         return new_body
 
-    def visit_If(self, node):
+    def if_flattener(self, node):
         """
         """
 
@@ -219,24 +271,28 @@ class Flattener(ast.NodeTransformer):
 
         new_body = list([cond_ast])
 
-        for stmnt in node.body:
-            expansion = self.visit(stmnt)
-            if isinstance(expansion, list):
-                new_body += expansion
-            else:
-                new_body.append(expansion)
+        new_body += self.flatten_body(node.body)
+
+        # for stmnt in node.body:
+        #     expansion = self.visit(stmnt)
+        #     if isinstance(expansion, list):
+        #         new_body += expansion
+        #     else:
+        #         new_body.append(expansion)
 
         if node.orelse:
             new_body.append(end_goto_ast)
 
             new_body.append(else_ast)
 
-            for stmnt in node.orelse:
-                expansion = self.visit(stmnt)
-                if isinstance(expansion, list):
-                    new_body += expansion
-                else:
-                    new_body.append(expansion)
+            new_body += self.flatten_body(node.orelse)
+
+            # for stmnt in node.orelse:
+            #     expansion = self.visit(stmnt)
+            #     if isinstance(expansion, list):
+            #         new_body += expansion
+            #     else:
+            #         new_body.append(expansion)
 
         new_body.append(end_label_ast)
 
@@ -291,10 +347,15 @@ while(MEAS(q1)):
         code = """
 if(MEAS(q1)):
     foo()
-    bar()
-# else:
-#     Id(q1)
-#     X90(q1)
+    if x:
+        bar()
+    else:
+        qux()
+else:
+    if y:
+        Id(q1)
+    else:
+        X90(q1)
 """
         tree = ast.parse(code, mode='exec')
         flat = Flattener()
