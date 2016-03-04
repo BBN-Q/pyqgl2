@@ -43,6 +43,7 @@ from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_waveforms import CheckWaveforms
 from pyqgl2.concur_unroll import Unroller
 from pyqgl2.concur_unroll import QbitGrouper
+from pyqgl2.flatten import Flattener
 from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import Inliner
 from pyqgl2.substitute import specialize
@@ -170,7 +171,12 @@ def main():
     NodeError.halt_on_error()
     print('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6))
 
-    print('Final qglmain: %s' % new_ptree6.name)
+    flattener = Flattener()
+    new_ptree7 = flattener.visit(new_ptree6)
+    NodeError.halt_on_error()
+    print('FLATTENED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree7))
+
+    print('Final qglmain: %s' % new_ptree7.name)
 
     base_namespace = importer.path2namespace[opts.filename]
     text = base_namespace.pretty_print()
