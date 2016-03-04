@@ -15,6 +15,9 @@ from copy import deepcopy
 
 import pyqgl2.ast_util
 
+from pyqgl2.ast_util import NodeError
+from pyqgl2.ast_util import ast2str
+
 class LabelManager(object):
 
     NEXT_LABEL_NUM = 0
@@ -152,7 +155,7 @@ class Flattener(ast.NodeTransformer):
         """
 
         if len(self.loop_label_stack) == 0:
-            print('WHOOPS: empty label stack') # FIXME
+            NodeError.fatal_msg(node, 'empty label stack')
             return node
         else:
             _start_label, end_label = self.loop_label_stack[-1]
@@ -171,7 +174,7 @@ class Flattener(ast.NodeTransformer):
         """
 
         if len(self.loop_label_stack) == 0:
-            print('WHOOPS: empty label stack') # FIXME
+            NodeError.fatal_msg(node, 'empty label stack')
             return node
         else:
             start_label, _end_label = self.loop_label_stack[-1]
@@ -183,12 +186,15 @@ class Flattener(ast.NodeTransformer):
             return call
 
     def visit_While(self, node):
+        """
+        Flatten a "while" loop, turning it into a degenerate
+        "if" statement (which may be optimized further later)
+
+        """
 
         new_body = self.while_flattener(node)
         dbg_if = ast.If(test=ast.NameConstant(value=True),
                 body=new_body, orelse=list())
-        print(pyqgl2.ast_util.ast2str(dbg_if)) # TODO: remove
-
         return dbg_if
 
     def visit_If(self, node):
@@ -196,17 +202,16 @@ class Flattener(ast.NodeTransformer):
         new_body = self.if_flattener(node)
         dbg_if = ast.If(test=ast.NameConstant(value=True),
                 body=new_body, orelse=list())
-        print(pyqgl2.ast_util.ast2str(dbg_if)) # TODO: remove
 
         return dbg_if
 
     def while_flattener(self, node):
         """
-        flatten a while statement, returning the new flattened body
-        """
+        flatten a "while" statement, returning a new list of
+        expressions that represent the flattened sequence
 
-        print('FL AST %s' % ast.dump(node))
-        print('FL AST %s' % ast.dump(node))
+        FIXME: does not handle while loops with "orelse" blocks yet
+        """
 
         start_label, end_label = LabelManager.allocate_labels(
                 'while_start', 'while_end')
@@ -219,43 +224,19 @@ class Flattener(ast.NodeTransformer):
         loop_ast = self.make_ugoto_call(start_label)
         cond_ast = self.make_cgoto_call(end_label, node.test)
 
-        print('FL START %s' % ast.dump(start_ast))
-        print('FL LOOP %s' % ast.dump(loop_ast))
-        print('FL END %s' % ast.dump(end_ast))
-
-        print('FL Start %s' % pyqgl2.ast_util.ast2str(start_ast))
-        print('FL Cond %s' % pyqgl2.ast_util.ast2str(cond_ast))
-
         new_body = list([start_ast, cond_ast])
 
-        for stmnt in node.body:
-
-            expansion = self.visit(stmnt)
-            if isinstance(expansion, list):
-                new_body += expansion
-            else:
-                new_body.append(expansion)
+        new_body += self.flatten_body(node.body)
 
         new_body += list([loop_ast, end_ast])
-
-        # just to examine the result, smoosh the body into
-        # a degenerate "if" statement.
-        #
-        # TODO: we want to get rid of this level of nesting
-        # whenever possible, but this will require iterating
-        # through every statement with body elements.
-        #
-        dbg_if = ast.If(test=ast.NameConstant(value=True),
-                body=new_body, orelse=list())
-        # print(pyqgl2.ast_util.ast2str(dbg_if)) # TODO: remove
 
         return new_body
 
     def if_flattener(self, node):
         """
+        flatten an "if" statement, returning a new list of
+        expressions that represent the flattened sequence
         """
-
-        print('%s' % ast.dump(node))
 
         else_label, end_label = LabelManager.allocate_labels(
                 'if_else', 'if_end')
@@ -273,32 +254,12 @@ class Flattener(ast.NodeTransformer):
 
         new_body += self.flatten_body(node.body)
 
-        # for stmnt in node.body:
-        #     expansion = self.visit(stmnt)
-        #     if isinstance(expansion, list):
-        #         new_body += expansion
-        #     else:
-        #         new_body.append(expansion)
-
         if node.orelse:
             new_body.append(end_goto_ast)
-
             new_body.append(else_ast)
-
             new_body += self.flatten_body(node.orelse)
 
-            # for stmnt in node.orelse:
-            #     expansion = self.visit(stmnt)
-            #     if isinstance(expansion, list):
-            #         new_body += expansion
-            #     else:
-            #         new_body.append(expansion)
-
         new_body.append(end_label_ast)
-
-        dbg_if = ast.If(test=ast.NameConstant(value=True),
-                body=new_body, orelse=list())
-        print(pyqgl2.ast_util.ast2str(dbg_if)) # TODO: remove
 
         return new_body
 
@@ -316,6 +277,12 @@ if __name__ == '__main__':
 
         print('test_allocate_label success')
 
+    def test_code(code_text):
+        tree = ast.parse(code_text, mode='exec')
+        flat = Flattener()
+        new = flat.visit(deepcopy(tree))
+        print('ORIG\n%s\n=>\n%s' % (ast2str(tree), ast2str(new)))
+
     def t1_while():
         code = """
 foo()
@@ -324,10 +291,7 @@ while True:
     bar()
     qux()
 """
-
-        tree = ast.parse(code, mode='exec')
-        flat = Flattener()
-        flat.visit(tree)
+        test_code(code)
 
     def t2_while():
         code = """
@@ -339,9 +303,7 @@ while(MEAS(q1)):
     Id(q1)
     X90(q1)
 """
-        tree = ast.parse(code, mode='exec')
-        flat = Flattener()
-        flat.visit(tree)
+        test_code(code)
 
     def t1_if():
         code = """
@@ -357,9 +319,7 @@ else:
     else:
         X90(q1)
 """
-        tree = ast.parse(code, mode='exec')
-        flat = Flattener()
-        flat.visit(tree)
+        test_code(code)
 
     def main():
         test_allocate_label()
