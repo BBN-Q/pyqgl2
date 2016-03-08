@@ -66,6 +66,10 @@ class Flattener(ast.NodeTransformer):
     """
     Flatten control statements to labels, unconditional gotos,
     and conditional gotos
+
+    Note that many of the methods are destructive and modify
+    the input AST structure; if you need to preserve the original
+    AST, then make a copy of it before using visit().
     """
 
     def __init__(self):
@@ -147,6 +151,21 @@ class Flattener(ast.NodeTransformer):
 
         return label_ast
 
+    def flatten_node_body(self, node):
+        """
+        generic routine for flattening a statement with a body
+        """
+
+        new_body = self.flatten_body(node.body)
+        node.body = new_body
+        return node
+
+    def visit_FunctionDef(self, node):
+        return self.flatten_node_body(node)
+
+    def visit_With(self, node):
+        return self.flatten_node_body(node)
+
     def visit_Break(self, node):
         """
         Replace a "break" statement with
@@ -190,6 +209,8 @@ class Flattener(ast.NodeTransformer):
         Flatten a "while" loop, turning it into a degenerate
         "if" statement (which may be optimized further later)
 
+        Shouldn't be called any more; only while_flattener
+        should be used unless there's a while at the top level.
         """
 
         new_body = self.while_flattener(node)
@@ -198,6 +219,13 @@ class Flattener(ast.NodeTransformer):
         return dbg_if
 
     def visit_If(self, node):
+        """
+        Flatten an "if" loop, turning it into a degenerate
+        "if" statement (which may be optimized further later)
+
+        Shouldn't be called any more; only while_flattener
+        should be used unless there's a while at the top level.
+        """
 
         new_body = self.if_flattener(node)
         dbg_if = ast.If(test=ast.NameConstant(value=True),
@@ -262,6 +290,19 @@ class Flattener(ast.NodeTransformer):
         new_body.append(end_label_ast)
 
         return new_body
+
+def flatten(node):
+    """
+    Convenience method for the flattener: create a Flattener
+    instance, make a copy of the given node, use the instance
+    to flatten the copy of the node, and return the result
+    """
+
+    flattener = Flattener()
+    new_node = deepcopy(node)
+    flattened_node = flattener.visit(new_node)
+
+    return flattened_node
 
 
 if __name__ == '__main__':
