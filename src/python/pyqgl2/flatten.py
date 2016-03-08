@@ -19,6 +19,15 @@ from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import ast2str
 
 class LabelManager(object):
+    """
+    Simplify the creation of labels.
+
+    This is intended to be used to create labels that express
+    more mnemonic information than the pure labels created via
+    BlockLabel.newlabel().  If the labels are never looked at
+    by a human, however, then any identifier is as good as
+    any other.
+    """
 
     NEXT_LABEL_NUM = 0
 
@@ -28,7 +37,7 @@ class LabelManager(object):
         Allocate and return the next label index
 
         Since the preprocessor is single-threaded, there is
-        not need to guard against concurrent allocations
+        no need to guard against concurrent allocations
         """
 
         ind = LabelManager.NEXT_LABEL_NUM
@@ -39,7 +48,7 @@ class LabelManager(object):
     @staticmethod
     def allocate_labels(*args):
         """
-        Allocate labels for each of the args, which each label
+        Allocate labels for each of the args, with each label
         made unique with a freshly allocated label index
 
         Each arg of the args must be unique, and is used as
