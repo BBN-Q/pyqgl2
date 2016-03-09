@@ -322,6 +322,47 @@ class Unroller(ast.NodeTransformer):
 
         return True # FIXME
 
+    def is_simple_iteration(self, for_node):
+        """
+        """
+
+        assert isinstance(for_node, ast.For)
+
+        if not isinstance(for_node.iter, ast.Call):
+            return False
+        elif not isinstance(for_node.iter.func, ast.Name):
+            return False
+        elif collapse_name(for_node.iter.func) != 'range':
+            return False
+        elif not isinstance(for_node.target, ast.Name):
+            return False
+
+        # Search through the body, looking for any reference
+        # to the target name.  If we find any reference, then
+        # it's not pure iteration; bail out
+        #
+        target_name = for_node.target.id
+        for body_node in for_node.body:
+            for subnode in ast.walk(body_node):
+                if (isinstance(subnode, ast.Name) and
+                        subnode.id == target_name):
+                    return False
+
+        # We can only handle simple things right now:
+        # a simple range, with a simple parameter.
+        #
+        args = for_node.iter.args
+        if len(args) != 1:
+            return False
+
+        arg = args[0]
+        if not isinstance(arg, ast.Num):
+            return False
+        elif not isinstance(arg.n, int):
+            print('ISI not an int')
+        else:
+            return True
+
     def for_unroller(self, for_node, unroll_inner=True):
         """
         Unroll a for loop, if possible, returning the resulting
@@ -353,9 +394,44 @@ class Unroller(ast.NodeTransformer):
                     'cannot expand for with orelse')
             return list([for_node])
 
-        # if the iter element of the for loop is a range expression,
+        # check to see if the for loop is a simple repeat.
+        # In order for us to detect this, it really does
+        # need to be pretty simple: the iter needs to be
+        # a range() expression with a counter range, and
+        # the target needs to not be referenced anywhere
+        # within the body of the loop.
+        #
+        # If it's simple, then turn the for loop into a
+        # "with repeat(N)" block, where N is the number
+        # of iterations.  The flattener will turn this
+        # into the proper ASP2 code.
+        #
+        if self.is_simple_iteration(for_node):
+            # If is_simple_iteration returns True, then this
+            # chain of derefs should just work...
+            #
+            iter_cnt = for_node.iter.args[0].n
+
+            repeat_txt = 'with Qrepeat(%d):\n    pass' % iter_cnt
+            repeat_ast = ast.parse(repeat_txt, mode='exec').body[0]
+
+            pyqgl2.ast_util.copy_all_loc(repeat_ast, for_node, recurse=True)
+
+            if unroll_inner:
+                # even if we can't unroll this loop, we might
+                # be able to unroll statements in the body of
+                # the loop, so give that try
+                #
+                new_body = self.unroll_body(for_node.body)
+                repeat_ast.body = new_body
+            else:
+                repeat_ast.body = for_node.body
+
+            return list([repeat_ast])
+
+        # if the iter element of the "for" loop is a range expression,
         # and we can evaluate it to a constant list, do so now.
-        # When we do so, we may alter the for loop itself, so
+        # When we do so, we may alter the loop itself, so
         # expand_range will make a copy of the for loop node and
         # return that, rather than just the iterator.
         #
