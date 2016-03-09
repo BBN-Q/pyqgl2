@@ -417,13 +417,12 @@ class Unroller(ast.NodeTransformer):
 
             pyqgl2.ast_util.copy_all_loc(repeat_ast, for_node, recurse=True)
 
+            # even if we can't unroll this loop, we might
+            # be able to unroll statements in the body of
+            # the loop, so give that try
+            #
             if unroll_inner:
-                # even if we can't unroll this loop, we might
-                # be able to unroll statements in the body of
-                # the loop, so give that try
-                #
-                new_body = self.unroll_body(for_node.body)
-                repeat_ast.body = new_body
+                repeat_ast.body = self.unroll_body(for_node.body)
             else:
                 repeat_ast.body = for_node.body
 
@@ -561,6 +560,7 @@ class QbitGrouper(ast.NodeTransformer):
     def visit_With(self, node):
 
         if not is_concur(node):
+            print('ISI NOT a concur node')
             return self.generic_visit(node) # check
 
         # Hackish way to create a seq node to use
@@ -581,6 +581,27 @@ class QbitGrouper(ast.NodeTransformer):
         # print('Final:\n%s' % pyqgl2.ast_util.ast2str(node))
 
         return node
+
+    @staticmethod
+    def is_qrepeat(node):
+        """
+        Return True if this is a "with qrepeat()" statement,
+        False otherwise
+
+        This is semi-fragile in how it looks into the "With"
+        parameters.
+        """
+
+        if not isinstance(node, ast.With):
+            return False
+        elif not isinstance(node.items[0].context_expr, ast.Call):
+            return False
+        elif not isinstance(node.items[0].context_expr.func, ast.Name):
+            return False
+        elif node.items[0].context_expr.func.id != 'Qrepeat':
+            return False
+        else:
+            return True
 
     @staticmethod
     def find_qbits(stmnt):
@@ -642,6 +663,33 @@ class QbitGrouper(ast.NodeTransformer):
 
         If there are operations over multiple qbits, then the
         partitioning may fail.
+
+        Note that the first step in the partitioning may result
+        in the creation of additional statements, with the goal
+        of simplifying the later partitioning.  For example, if
+        we have a simple iterative loop with more than one qbit
+        referenced within it:
+
+                with qrepeat(3):
+                    something(QBIT_1)
+                    something(QBIT_2)
+                    something(QBIT_3)
+
+        In this example, the with statement references three qbits,
+        which is an awkward partition.  We can partition the body
+        to create three separate loops:
+
+                with qrepeat(3):
+                    something(QBIT_1)
+                with qrepeat(3):
+                    something(QBIT_2)
+                with qrepeat(3):
+                    something(QBIT_3)
+
+        This seems to create more work, but since the loops are
+        going to run on three disjoint sets of hardware, it's
+        actually simpler and closer to the actual instruction
+        sequence.
         """
 
         if find_qbits_func is None:
@@ -649,7 +697,42 @@ class QbitGrouper(ast.NodeTransformer):
 
         qbit2list = dict()
 
+        expanded_stmnts = list()
+
+        # Make a first pass over the list of statements,
+        # looking for any that need to be partitioned by creating
+        # new statements, thus creating an expanded list of
+        # statements.
+        #
+        # See above for an example.
+        #
         for stmnt in stmnts:
+
+            # If this is a qrepeat statement, then partition
+            # its body and then create a new qrepeat statement
+            # for each partition.
+            #
+            # Eventually there may be other kinds of statements
+            # that we expand, but qrepeat is the only one we
+            # expand now
+            #
+            if QbitGrouper.is_qrepeat(stmnt):
+
+                rep_groups = QbitGrouper.group_stmnts(stmnt.body)
+                for partition, substmnts in rep_groups:
+                    # lazy way to create the specialized qrepeat:
+                    # copy the whole thing, and then throw away
+                    # its body and replace it with the partition.
+                    #
+                    new_qrepeat = deepcopy(stmnt)
+                    new_qrepeat.body = substmnts
+
+                    expanded_stmnts.append(new_qrepeat)
+            else:
+                expanded_stmnts.append(stmnt)
+
+        for stmnt in expanded_stmnts:
+
             qbits_referenced = find_qbits_func(stmnt)
 
             if len(qbits_referenced) == 0:
@@ -710,7 +793,7 @@ class QbitGrouper(ast.NodeTransformer):
 
             stmnts_str = str(qbit2list[qbit])
             if stmnts_str in tmp_groups:
-                (qbits, stmnts) = tmp_groups[stmnts_str]
+                (qbits, _stmnts) = tmp_groups[stmnts_str]
                 qbits.append(qbit)
             else:
                 tmp_groups[stmnts_str] = (list([qbit]), qbit2list[qbit])
