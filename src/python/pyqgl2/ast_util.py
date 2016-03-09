@@ -233,10 +233,13 @@ def ast2str(ptree):
 
     return dump_python_source(ptree)
 
-def copy_all_loc(new_node, old_node):
+def copy_all_loc(new_node, old_node, recurse=False):
     """
     Like ast.copy_location, but also copies other fields added
     by pyqgl2, if present
+
+    If recurse is not False, then recursively copy the location
+    from old_node to each node within new_node
 
     Currently the only new pyqgl2 field is qgl_fname, but
     there will probably be others
@@ -245,9 +248,17 @@ def copy_all_loc(new_node, old_node):
     assert isinstance(new_node, ast.AST)
     assert isinstance(old_node, ast.AST)
 
-    ast.copy_location(new_node, old_node)
+    if not recurse:
+        ast.copy_location(new_node, old_node)
 
-    if hasattr(old_node, 'qgl_fname'):
-        new_node.qgl_fname = old_node.qgl_fname
+        if hasattr(old_node, 'qgl_fname'):
+            new_node.qgl_fname = old_node.qgl_fname
+    else:
+        for subnode in ast.walk(new_node):
+            ast.copy_location(subnode, old_node)
+
+            if hasattr(old_node, 'qgl_fname'):
+                subnode.qgl_fname = old_node.qgl_fname
 
     return new_node
+
