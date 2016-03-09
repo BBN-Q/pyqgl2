@@ -132,16 +132,17 @@ class Flattener(ast.NodeTransformer):
         Create an unconditional goto call
         """
 
-        goto_ast = ast.Expr(value=ast.Call(
-                func=ast.Name(id='Qgoto', ctx=ast.Load()),
-                args=list([ast.Str(s=label)]),
-                keywords=list()))
-
+        # Instead of constructing the AST piece by piece,
+        # construct a string containing the code we
+        # want, and then parse that to create the AST.
+        #
+        goto_str = 'Goto(BlockLabel(\'%s\'))' % label
+        goto_ast = ast.parse(goto_str, mode='exec')
         return goto_ast
 
     def make_cgoto_call(self, label, condition):
         """
-        Create an conditional goto call
+        Create a conditional goto call
         """
 
         goto_ast = ast.Expr(value=ast.Call(
@@ -154,7 +155,7 @@ class Flattener(ast.NodeTransformer):
     def make_label_call(self, label):
 
         label_ast = ast.Expr(value=ast.Call(
-                func=ast.Name(id='Qlabel', ctx=ast.Load()),
+                func=ast.Name(id='BlockLabel', ctx=ast.Load()),
                 args=list([ast.Str(s=label)]),
                 keywords=list()))
 
@@ -259,9 +260,17 @@ class Flattener(ast.NodeTransformer):
         end_ast = self.make_label_call(end_label)
 
         loop_ast = self.make_ugoto_call(start_label)
-        cond_ast = self.make_cgoto_call(end_label, node.test)
 
-        new_body = list([start_ast, cond_ast])
+        new_body = list([start_ast])
+
+        if isinstance(node.test, ast.NameConstant) and node.test.value:
+            # If the condition is defined to always be True,
+            # then don't bother testing it; just fall through
+            #
+            pass
+        else:
+            cond_ast = self.make_cgoto_call(end_label, node.test)
+            new_body.append(cond_ast)
 
         new_body += self.flatten_body(node.body)
 
