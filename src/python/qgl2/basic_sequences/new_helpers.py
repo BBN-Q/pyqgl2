@@ -49,7 +49,7 @@ def addMeasPulses(listOfSequencesOnNQubits, listNQubits: qbit_list):
 # QGL1 style
 # FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
 #def repeatSequences(listOfSequences: sequence_list, repeat=2):
-def repeatSequences(listOfSequencesr, repeat=2):
+def repeatSequences(listOfSequences, repeat=2):
     '''Repeat each sequence in the given list of sequences repeat times.
 
     For example, `[[a, 1], [b, 2]]` becomes `[[a, 1], [a, 1], [b, 2], [b, 2]]`.

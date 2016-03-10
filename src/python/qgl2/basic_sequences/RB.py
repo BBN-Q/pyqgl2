@@ -3,7 +3,6 @@
 from qgl2.qgl2 import qgl2decl, qbit, qbit_list, pulse, concur
 
 from QGL.PulsePrimitives import MEAS, Id, X, AC
-from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
 
