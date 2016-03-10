@@ -170,11 +170,26 @@ class Flattener(ast.NodeTransformer):
         node.body = new_body
         return node
 
+    def is_with_qrepeat(self, node):
+
+        item = node.items[0].context_expr
+
+        if not isinstance(item, ast.Call):
+            return False
+        elif not item.func.id == 'Qrepeat':
+            return False
+        else:
+            return True
+
     def visit_FunctionDef(self, node):
         return self.flatten_node_body(node)
 
     def visit_With(self, node):
-        return self.flatten_node_body(node)
+
+        if self.is_with_qrepeat(node):
+            return self.repeat_flattener(node)
+        else:
+            return self.flatten_node_body(node)
 
     def visit_Break(self, node):
         """
@@ -230,7 +245,7 @@ class Flattener(ast.NodeTransformer):
 
     def visit_If(self, node):
         """
-        Flatten an "if" loop, turning it into a degenerate
+        Flatten an "if" statement, turning it into a degenerate
         "if" statement (which may be optimized further later)
 
         Shouldn't be called any more; only while_flattener
@@ -242,6 +257,64 @@ class Flattener(ast.NodeTransformer):
                 body=new_body, orelse=list())
 
         return dbg_if
+
+    def repeat_flattener(self, node):
+        """
+        flatten a 'with qrepeat' block
+
+        A block of the form:
+
+            with qrepeat(n_iters):
+                STMNTS
+
+        becomes a sequence of the form
+
+                Call(BlockLabel('repeat_start'))
+                Goto(BlockLabel('repeat_end'))
+            repeat_start:
+                LOAD(n_iters)
+            repeat_loop:
+                STMNTS
+                REPEAT(BlockLabel('repeat_loop'))
+                RETURN
+            repeat_end:
+
+        NOTE: the block of STMNTS must not contain a break or
+        continue statement, except within an enclosing loop
+        of its own.  We DO NOT handle breaking or continuing
+        a simple iteration at this time, and we DO NOT check
+        whether the STMNTS contains any such control statements!
+
+        TODO: at least warn the user if they're heading
+        for a disaster.
+        """
+
+        n_iters = node.items[0].context_expr.args[0].n
+
+        start_label, loop_label, end_label = LabelManager.allocate_labels(
+                'repeat_start', 'repeat_loop', 'repeat_end')
+
+        call_ast = ast.parse(
+                ('Call(BlockLabel(\'%s\'))' % start_label), mode='exec')
+        goto_ast = ast.parse(
+                ('Goto(BlockLabel(\'%s\'))' % end_label), mode='exec')
+        start_ast = ast.parse(
+                ('BlockLabel(\'%s\')' % start_label), mode='exec')
+        load_ast = ast.parse(('Load(%d)' % n_iters), mode='exec')
+        loop_ast = ast.parse(('BlockLabel(\'%s\')' % loop_label), mode='exec')
+
+        repeat_ast = ast.parse(
+                ('Repeat(BlockLabel(\'%s\'))' % loop_label), mode='exec')
+        return_ast = ast.parse('Return', mode='exec')
+        end_ast = ast.parse('BlockLabel(\'%s\')' % end_label, mode='exec')
+
+        preamble = list([call_ast, goto_ast, start_ast, load_ast, loop_ast])
+
+        body = self.flatten_body(node.body)
+
+        postamble = list([repeat_ast, return_ast, end_ast])
+
+        return preamble + body + postamble
 
     def while_flattener(self, node):
         """
