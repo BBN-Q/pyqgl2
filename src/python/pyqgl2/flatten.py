@@ -300,12 +300,12 @@ class Flattener(ast.NodeTransformer):
                 ('Goto(BlockLabel(\'%s\'))' % end_label), mode='exec')
         start_ast = ast.parse(
                 ('BlockLabel(\'%s\')' % start_label), mode='exec')
-        load_ast = ast.parse(('Load(%d)' % n_iters), mode='exec')
+        load_ast = ast.parse(('LoadRepeat(%d)' % n_iters), mode='exec')
         loop_ast = ast.parse(('BlockLabel(\'%s\')' % loop_label), mode='exec')
 
         repeat_ast = ast.parse(
                 ('Repeat(BlockLabel(\'%s\'))' % loop_label), mode='exec')
-        return_ast = ast.parse('Return', mode='exec')
+        return_ast = ast.parse('Return()', mode='exec')
         end_ast = ast.parse('BlockLabel(\'%s\')' % end_label, mode='exec')
 
         preamble = list([call_ast, goto_ast, start_ast, load_ast, loop_ast])
