@@ -12,6 +12,7 @@ during prototyping/debugging.  The real driver is in scripts/qgl2prep
 """
 
 import os
+import re
 import sys
 
 from argparse import ArgumentParser
@@ -46,6 +47,7 @@ from pyqgl2.concur_unroll import QbitGrouper
 from pyqgl2.flatten import Flattener
 from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import Inliner
+from pyqgl2.sequence import SequenceCreator
 from pyqgl2.substitute import specialize
 
 
@@ -175,6 +177,19 @@ def main():
     new_ptree7 = flattener.visit(new_ptree6)
     NodeError.halt_on_error()
     print('FLATTENED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree7))
+
+    sequencer = SequenceCreator()
+    sequencer.visit(new_ptree7)
+    print('FINAL SEQUENCES:')
+    for qbit in sequencer.qbit2sequence:
+        print('%s:' % qbit)
+        for inst in sequencer.qbit2sequence[qbit]:
+            if inst.startswith('BlockLabel'):
+                txt = re.sub('BlockLabel\(\'', '', inst)
+                txt = re.sub('\'.', ':', txt)
+                print('    %s' % txt)
+            else:
+                print('         %s' % inst)
 
     print('Final qglmain: %s' % new_ptree7.name)
 
