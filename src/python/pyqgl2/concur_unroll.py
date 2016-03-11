@@ -36,6 +36,25 @@ def is_concur(node):
 
     return False
 
+def is_seq(node):
+    """
+    Return True if the node is a with-seq block,
+    otherwise False
+    """
+
+    if not node:
+        return False
+
+    if not isinstance(node, ast.With):
+        return False
+
+    for item in node.items:
+        if (isinstance(item.context_expr, ast.Name) and
+                (item.context_expr.id == QGL2.QSEQ)):
+            return True
+
+    return False
+
 
 class Unroller(ast.NodeTransformer):
     """
