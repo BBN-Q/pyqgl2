@@ -23,33 +23,7 @@ import pyqgl2.ast_util
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import ast2str
 
-from pyqgl2.concur_unroll import is_concur, is_seq
-
-def find_all_channels(node):
-    """
-    Reinitialze the set of all_channels to be the set of
-    all channels referenced in the AST rooted at the given
-    node.
-
-    This is a hack, because we assume we can identify all
-    channels lexically.  FIXME
-
-    TODO: do we already have function to find all the channels?
-    There must be something like this in the grouper.  We shouldn't
-    have this functionality duplicated.
-    """
-
-    all_channels = set()
-
-    for subnode in ast.walk(node):
-        if isinstance(subnode, ast.Name):
-
-            # Ugly hard-coded assumption about channel names: FIXME
-
-            if subnode.id.startswith('QBIT_'):
-                all_channels.add(subnode.id)
-
-    return all_channels
+from pyqgl2.concur_unroll import is_concur, is_seq, find_all_channels
 
 
 class SynchronizeBlocks(ast.NodeTransformer):
@@ -128,7 +102,6 @@ class SynchronizeBlocks(ast.NodeTransformer):
             if self.concur_needs_wait(node):
                 return self.concur_wait(node)
             else:
-                print('WHAT? unhandled')
                 NodeError.error_msg(stmnt,
                         'unimplemented support for non-WAIT concur')
                 return node

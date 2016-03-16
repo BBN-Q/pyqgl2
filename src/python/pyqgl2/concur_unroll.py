@@ -55,6 +55,29 @@ def is_seq(node):
 
     return False
 
+def find_all_channels(node):
+    """
+    Reinitialze the set of all_channels to be the set of
+    all channels referenced in the AST rooted at the given
+    node.
+
+    This is a hack, because we assume we can identify all
+    channels lexically.  FIXME
+    """
+
+    all_channels = set()
+
+    for subnode in ast.walk(node):
+        if isinstance(subnode, ast.Name):
+
+            # Ugly hard-coded assumption about channel names: FIXME
+
+            if subnode.id.startswith('QBIT_'):
+                all_channels.add(subnode.id)
+            elif subnode.id.startswith('EDGE_'):
+                all_channels.add(subnode.id)
+
+    return all_channels
 
 class Unroller(ast.NodeTransformer):
     """
@@ -623,32 +646,6 @@ class QbitGrouper(ast.NodeTransformer):
             return True
 
     @staticmethod
-    def find_qbits(stmnt):
-
-        qbits = set()
-
-        for node in ast.walk(stmnt):
-            if isinstance(node, ast.Name):
-
-                # This is an ad-hoc way to find QBITS, which
-                # requires that the substituter has already run
-                #
-                # TODO: mark names as qbits (and with channel info)
-                # without rewriting the names, or keep the original
-                # names after rewriting: keep both the original name
-                # intact and the qbit assignment so that both can
-                # be observed.  This requires changes in the substituter,
-                # as well as here.
-                #
-                if node.id.startswith('QBIT_'):
-                    qbits.add(node.id)
-
-        # print('FOUND QBITS [%s] %s' %
-        #         (pyqgl2.ast_util.ast2str(stmnt).strip(), str(qbits)))
-
-        return list(qbits)
-
-    @staticmethod
     def group_stmnts(stmnts, find_qbits_func=None):
         """
         Return a list of statement groups, where each group is a tuple
@@ -712,7 +709,7 @@ class QbitGrouper(ast.NodeTransformer):
         """
 
         if find_qbits_func is None:
-            find_qbits_func = QbitGrouper.find_qbits
+            find_qbits_func = find_all_channels
 
         qbit2list = dict()
 
@@ -752,7 +749,7 @@ class QbitGrouper(ast.NodeTransformer):
 
         for stmnt in expanded_stmnts:
 
-            qbits_referenced = find_qbits_func(stmnt)
+            qbits_referenced = list(find_qbits_func(stmnt))
 
             if len(qbits_referenced) == 0:
                 # print('unexpected: no qbit referenced')
