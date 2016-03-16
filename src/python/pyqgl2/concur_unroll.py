@@ -379,15 +379,30 @@ class Unroller(ast.NodeTransformer):
         elif not isinstance(for_node.target, ast.Name):
             return False
 
-        # Search through the body, looking for any reference
-        # to the target name.  If we find any reference, then
-        # it's not pure iteration; bail out
+        # Search through the body, looking for any of the following:
+        #
+        # a) a reference to the target name  If we find any reference, then
+        # b) a break statement
+        # c) a continue statement
+        #
+        # If we find any of these, then it's not pure iteration; bail out
         #
         target_name = for_node.target.id
         for body_node in for_node.body:
             for subnode in ast.walk(body_node):
                 if (isinstance(subnode, ast.Name) and
                         subnode.id == target_name):
+                    NodeError.diag_msg(subnode,
+                            ('ref to loop var [%s] disables Qrepeat' %
+                                subnode.id))
+                    return False
+                elif isinstance(subnode, ast.Break):
+                    NodeError.diag_msg(subnode,
+                            '"break" statement disables Qrepeat')
+                    return False
+                elif isinstance(subnode, ast.Continue):
+                    NodeError.diag_msg(subnode,
+                            '"continue" statement disables Qrepeat')
                     return False
 
         # We can only handle simple things right now:
