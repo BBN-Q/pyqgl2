@@ -6,12 +6,9 @@ import sys
 
 from copy import deepcopy
 
-import pyqgl2.ast_util
-import pyqgl2.concur_unroll
-
-from pyqgl2.ast_util import NodeError
+from pyqgl2.ast_util import ast2str, NodeError
+from pyqgl2.concur_unroll import is_concur, is_seq, find_all_channels
 from pyqgl2.importer import collapse_name
-from pyqgl2.concur_unroll import QbitGrouper
 from pyqgl2.lang import QGL2
 
 class SequenceCreator(ast.NodeVisitor):
@@ -39,7 +36,7 @@ class SequenceCreator(ast.NodeVisitor):
         All other kinds of "with" blocks cause an error.
         """
 
-        if pyqgl2.concur_unroll.is_concur(node):
+        if is_concur(node):
             self.do_concur(node.body)
 
             # TODO: if there's an orelse, or anything like
@@ -52,7 +49,7 @@ class SequenceCreator(ast.NodeVisitor):
     def do_concur(self, body):
 
         for stmnt in body:
-            if not pyqgl2.concur_unroll.is_seq(stmnt):
+            if not is_seq(stmnt):
                 # TODO: this error message is not helpful
                 NodeError.fatal_msg(stmnt, 'expected a "with seq" block')
                 return
@@ -60,7 +57,7 @@ class SequenceCreator(ast.NodeVisitor):
                 # TODO: The grouper should annotate the seq statement
                 # so we don't have to find the qbits again.
                 #
-                qbits = QbitGrouper.find_qbits(stmnt)
+                qbits = find_all_channels(stmnt)
                 self.do_seq(qbits, stmnt.body)
 
     def do_seq(self, qbits, body):
@@ -70,7 +67,7 @@ class SequenceCreator(ast.NodeVisitor):
             self.qbit2sequence[chan_name] = list()
 
         for stmnt in body:
-            txt = pyqgl2.ast_util.ast2str(stmnt).strip()
+            txt = ast2str(stmnt).strip()
 
             self.qbit2sequence[chan_name].append(txt)
 
