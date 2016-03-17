@@ -8,6 +8,7 @@ from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.ast_util import NodeVisitorWithFname
 from pyqgl2.builtin_decl import QGL2Functions
+from pyqgl2.importer import collapse_name
 
 class CheckSymtab(NodeTransformerWithFname):
     """
@@ -61,12 +62,12 @@ class CheckSymtab(NodeTransformerWithFname):
     def check_arg(self, call_node, arg, argpos):
         if type(arg) != ast.Name:
             self.error_msg(call_node, 'x %s param to %s must be a symbol' %
-                    (argpos, call_node.func.id))
+                    (argpos, collapse_name(call_node.func)))
             return False
 
         if not self.is_qbit(call_node, arg.id):
             self.error_msg(call_node, 'x %s param to %s must qbit or channel' %
-                    (argpos, call_node.func.id))
+                    (argpos, collapse_name(call_node.func)))
             return False
 
         return True

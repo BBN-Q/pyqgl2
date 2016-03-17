@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qbit_list, pulse
+from qgl2.qgl2 import qgl2decl, qbit, qbit_list, pulse, concur
 
 from QGL.PulsePrimitives import MEAS, Id, X, AC
 from QGL.Compiler import compile_to_hardware
@@ -8,6 +8,8 @@ from QGL.PulseSequencePlotter import plot_pulse_files
 from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
 
 from .helpers import create_cal_seqs
+from .new_helpers import compileAndPlot, qgl2_compile_to_hardware
+from .qgl2_plumbing import init
 
 from csv import reader
 from functools import reduce
@@ -16,12 +18,10 @@ import os
 
 import numpy as np
 
-@qgl2decl
 def create_RB_seqs(numQubits, lengths, repeats=32, interleaveGate=None):
     """
     Create a list of lists of Clifford gates to implement RB.
     """
-    raise NotImplementedError("Not implemented")
 
     # Original:
     # if numQubits == 1:
@@ -53,10 +53,48 @@ def create_RB_seqs(numQubits, lengths, repeats=32, interleaveGate=None):
 
     # return seqs
 
+
+    # This function seems to just give lists of numbers. So leave it intact
+
+    # Sample output:
+    # create_RB_seqs(2,[3,3]):
+    # [[8697,5492,1910], [num, num, num], .... for 64 such lists of 3 #s
+    # create_RB_seqs(2,[2,2]) gives 64 lists of 2 #s
+    # create_RB_seqs(1,[2,2]) gives 64 lists of 2 #s that are smaller
+    # create_RB_seqs(1,[2,3]) gives 64 lists, 32 of 2 #s, followed by 32 of 3 #s
+
+    if numQubits == 1:
+        cliffGroupSize = 24
+    elif numQubits == 2:
+        cliffGroupSize = 11520
+    else:
+        raise Exception("Can only handle one or two qubits.")
+
+    # Create lists of random integers 
+    # Subtract one from length for recovery gate
+    seqs = []
+    for length in lengths:
+        seqs += np.random.random_integers(0, cliffGroupSize-1, (repeats, length-1)).tolist()
+
+    # Possibly inject the interleaved gate
+    if interleaveGate:
+        newSeqs = []
+        for seq in seqs:
+            newSeqs.append(np.vstack((np.array(seq, dtype=np.int), interleaveGate*np.ones(len(seq), dtype=np.int))).flatten(order='F').tolist())
+        seqs = newSeqs
+    # Calculate the recovery gate
+    for seq in seqs:
+        if len(seq) == 1:
+            mat = clifford_mat(seq[0], numQubits)
+        else:
+            mat = reduce(lambda x,y: np.dot(y,x), [clifford_mat(c, numQubits) for c in seq])
+        seq.append(inverse_clifford(mat))
+
+    return seqs
+
 @qgl2decl
 def SingleQubitRB(qubit: qbit, seqs, showPlot=False):
     """
-
     Single qubit randomized benchmarking using 90 and 180 generators. 
 
     Parameters
@@ -64,13 +102,7 @@ def SingleQubitRB(qubit: qbit, seqs, showPlot=False):
     qubit : logical channel to implement sequence (LogicalChannel)
     seqs : list of lists of Clifford group integers
     showPlot : whether to plot (boolean)
-
-    Returns
-    -------
-    plotHandle : handle to plot window to prevent destruction
     """
-    raise NotImplementedError("Not implemented")
-
     # Original:
     # seqsBis = []
     # for seq in seqs:
@@ -89,10 +121,34 @@ def SingleQubitRB(qubit: qbit, seqs, showPlot=False):
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
+
+    # seqs are result of create_RB_seqs: list of lists of integers
+    # clifford_seq() returns a sequence of pulses itself
+    # [clifford_seq() for c in seq]
+    #   gives a list of len(seq) sequences
+    # reduce(operator.add, listOfSequences)
+    #   gives a single sequence of all the elements in listOfSequences
+    # So the first for loop creates a single list of sequences
+
+
+    # I assume we're not redoing clifford_seq
+
+    for seq in seqs:
+        init(qubit)
+        for c in seq:
+            clifford_seq(c, qubit)
+        MEAS(qubit)
+
+    # Tack on calibration sequences
+    create_cal_seqs((qubit,), 2)
+
+    # Here we rely on the QGL compiler to pass in the sequence it
+    # generates to compileAndPlot
+    compileAndPlot('RB/RB', showPlot)
+
 @qgl2decl
 def TwoQubitRB(q1: qbit, q2: qbit, seqs, showPlot=False, suffix=""):
     """
-
     Two qubit randomized benchmarking using 90 and 180 single qubit generators and ZX90 
 
     Parameters
@@ -100,12 +156,7 @@ def TwoQubitRB(q1: qbit, q2: qbit, seqs, showPlot=False, suffix=""):
     qubit : logical channel to implement sequence (LogicalChannel)
     seqs : list of lists of Clifford group integers
     showPlot : whether to plot (boolean)
-
-    Returns
-    -------
-    plotHandle : handle to plot window to prevent destruction
     """
-    raise NotImplementedError("Not implemented")
 
     # Original:
     # seqsBis = []
@@ -125,6 +176,23 @@ def TwoQubitRB(q1: qbit, q2: qbit, seqs, showPlot=False, suffix=""):
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
+    for seq in seqs:
+        with concur:
+            init(q1)
+            init(q2)
+        for c in seq:
+            clifford_seq(c, q1, q2)
+        with concur:
+            MEAS(q1)
+            MEAS(q2)
+
+    # Tack on the calibration sequences
+    create_cal_seqs((q1,q2), 2)
+
+    # Here we rely on the QGL compiler to pass in the sequence it
+    # generates to compileAndPlot
+    compileAndPlot('RB/RB', showPlot, suffix=suffix)
+
 @qgl2decl
 def SingleQubitRB_AC(qubit: qbit, seqs, showPlot=False):
     """
@@ -135,12 +203,7 @@ def SingleQubitRB_AC(qubit: qbit, seqs, showPlot=False):
     qubit : logical channel to implement sequence (LogicalChannel)
     seqFile : file containing sequence strings
     showPlot : whether to plot (boolean)
-
-    Returns
-    -------
-    plotHandle : handle to plot window to prevent destruction
     """
-    raise NotImplementedError("Not implemented")
 
     # Original:
     # seqsBis = []
@@ -160,10 +223,24 @@ def SingleQubitRB_AC(qubit: qbit, seqs, showPlot=False):
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
+    # AC() gives a single pulse on qubit
+
+    for seq in seqs:
+        init(qubit)
+        for c in seq:
+            AC(qubit, c)
+        MEAS(qubit)
+
+    # Tack on calibration sequences
+    create_cal_seqs((qubit,), 2)
+
+    # Here we rely on the QGL compiler to pass in the sequence it
+    # generates to compileAndPlot
+    compileAndPlot('RB/RB', showPlot)
+
 @qgl2decl
 def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
     """
-
     Single qubit interleaved randomized benchmarking using atomic Clifford pulses. 
 
     Parameters
@@ -171,12 +248,7 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
     qubit : logical channel to implement sequence (LogicalChannel)
     seqFile : file containing sequence strings
     showPlot : whether to plot (boolean)
-
-    Returns
-    -------
-    plotHandle : handle to plot window to prevent destruction
     """
-    raise NotImplementedError("Not implemented")
 
     # Original:
     # # Setup a pulse library
@@ -210,10 +282,71 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
+    # FIXME: How do we tell the compiler this should return a list of pulses?
+    @qgl2decl
+    def doACPulse(qubit: qbit, cliffNum) -> pulse:
+        if cliffNum == 24:
+            cliffNum = 0
+        if cliffNum > 24:
+            raise Exception("Max cliffNum 24, got %d" % cliffNum)
+        AC(qubit, cliffNum)
+
+    pulseSeqStrs = []
+    with open(seqFile, 'r') as FID:
+        fileReader = reader(FID)
+        # each line in the file is a sequence, but I don't know how many that is
+        for pulseSeqStr in fileReader:
+            pulseSeqStrs.append(pulseSeqStr)
+    numSeqs = len(pulseSeqStrs)
+
+    # FIXME: How do we tell the compiler this should return a sequence of pulses?
+    @qgl2decl
+    def getPulseSeq(qubit: qbit, seqNum) -> pulse:
+        pulseSeqStr = pulseSeqStrs[seqNum]
+        init(qubit)
+        for pulseStr in pulseSeqStr:
+            doACPulse(qubit, int(pulseStr))
+        MEAS(qubit)
+
+    # Hack for limited APS waveform memory and break it up into multiple files
+    # We've shuffled the sequences so that we loop through each gate length on the inner loop
+    numRandomizations = 36
+    fileNames = []
+    for ct in range(numRandomizations):
+        doCt = ct
+        isOne = True
+        while doCt < numSeqs:
+            getPulseSeq(qubit, doCt)
+
+            # Tack on calibration scalings
+            if isOne:
+                init(qubit)
+                Id(qubit)
+                MEAS(qubit)
+                init(qubit)
+                X(qubit)
+                meas(qubit)
+            else:
+                init(qubit)
+                Id(qubit)
+                meas(qubit)
+                init(qubit)
+                X(qubit)
+                meas(qubit)
+
+            # Now write these sequences
+            # FIXME: QGL2 compiler must fill in these sequences
+            fileNames = qgl2_compile_to_hardware(seqs, 'RB/RB', suffix='_{0}'.format(2*ct+1+1*(not isOne)))
+
+            doCt += numRandomizations
+            isOne = not isOne
+
+    if showPlot:
+        plot_pulse_Files(fileNames)
+
 @qgl2decl
 def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False):
     """
-
     Single qubit randomized benchmarking using atomic Clifford pulses. 
 
     Parameters
@@ -221,12 +354,7 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False
     qubit : logical channel to implement sequence (LogicalChannel)
     seqFile : file containing sequence strings
     showPlot : whether to plot (boolean)
-
-    Returns
-    -------
-    plotHandle : handle to plot window to prevent destruction
     """
-    raise NotImplementedError("Not implemented")
 
     # Original:
     # # Setup a pulse library
@@ -261,10 +389,61 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
+    # FIXME: How do we tell the compiler this should return a list of pulses?
+    @qgl2decl
+    def doACPulse(qubit: qbit, cliffNum) -> pulse:
+        if cliffNum == 24:
+            analyzedPulse
+        elif cliffNum > 24:
+            raise Exception("Max cliffNum 24, got %d" % cliffNum)
+        else: 
+            AC(qubit, cliffNum)
+
+    pulseSeqStrs = []
+    for ct in range(10):
+        fileName = 'RBT_Seqs_fast_{0}_F1.txt'.format(ct+1)
+        tmpSeqs = []
+        with open(os.path.join(seqFileDir, fileName),'r') as FID:
+            fileReader = reader(FID)
+            for pulseSeqStr in fileReader:
+                tmpSeqs.append(pulseSeqStr)
+            pulseSeqStrs = tmpSeqs[:12]*12 + tmpSeqs[12:-12] + tmpSeqs[-12:]*12
+
+    numSeqs = len(pulseSeqStrs)
+    seqsPerFile = 100
+    numFiles = numSeqs//seqsPerFile
+    numCals = 4
+
+    # FIXME: How do we tell the compiler this should return a sequence of pulses?
+    @qgl2decl
+    def getPulseSeq(qubit: qbit, pulseSeqStr) -> pulse:
+        init(qubit)
+        for pulseStr in pulseSeqStr:
+            doACPulse(qubit, int(pulseStr))
+        MEAS(qubit)
+
+    for ct in range(numFiles):
+        for s in range(seqsPerFile):
+            init(qubit)
+            seqStr = pulseSeqStrs[ct*seqsPerFile+s]
+            getPulseSeq(qubit, seqStr)
+        # Add numCals calibration scalings
+        for _ in range(numCals):
+            init(qubit)
+            Id(qubit)
+            MEAS(qubit)
+
+            init(qubit)
+            X(qubit)
+            MEAS(qubit)
+        fileNames = qgl2_compile_to_hardware('RBT/RBT', suffix='_{0}'.format(ct+1))
+
+    if showPlot:
+        plot_pulse_files(fileNames)
+
 @qgl2decl
 def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
     """
-
     Simultaneous randomized benchmarking on multiple qubits using atomic Clifford pulses. 
 
     Parameters
@@ -281,8 +460,6 @@ def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
     >>> seqs2 = create_RB_seqs(1, [2, 4, 8, 16])
     >>> SimultaneousRB_AC((q1, q2), (seqs1, seqs2), showPlot=False)
     """
-    raise NotImplementedError("Not implemented")
-
     # Original:
     # seqsBis = []
     # for seq in zip(*seqs):
@@ -302,3 +479,118 @@ def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
+    for seq in zip(*seqs):
+        # Start sequence
+        with concur:
+            for q in qubits:
+                init(q)
+        for pulseNums in zip(*seq):
+            with concur:
+                for q,c in zip(qubits, pulseNums):
+                    AC(q,c)
+        # Measure at end of each sequence
+        with concur:
+            for q in qubits:
+                MEAS(q)
+
+    # Tack on calibration
+    create_cal_seqs((qubits), 2)
+
+    # QGL2 compiler must supply missing list of sequences argument
+    compileAndPlot('RB/RB', showPlot)
+
+# Imports for testing only
+from qgl2.qgl2 import Qbit, qgl2main
+from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement, Edge
+from QGL import ChannelLibrary
+import numpy as np
+from math import pi
+import random
+
+@qgl2main
+def main():
+    # Set up 2 qbits, following model in QGL/test/test_Sequences
+
+    # FIXME: Cannot use these in current QGL2 compiler, because
+    # a: QGL2 doesn't understand creating class instances, and 
+    # b: QGL2 currently only understands the fake Qbits
+#    qg1 = LogicalMarkerChannel(label="q1-gate")
+#    q1 = Qubit(label='q1', gateChan=qg1)
+#    q1.pulseParams['length'] = 30e-9
+#    q1.pulseParams['phase'] = pi/2
+#    qg2 = LogicalMarkerChannel(label="q2-gate")
+#    q2 = Qubit(label='q2', gateChan=qg2)
+#    q2.pulseParams['length'] = 30e-9
+#    q2.pulseParams['phase'] = pi/2
+
+#    sTrig = LogicalMarkerChannel(label='slaveTrig')
+#    dTrig = LogicalMarkerChannel(label='digitizerTrig')
+#    Mq1gate = LogicalMarkerChannel(label='M-q1-gate')
+#    m1 = Measurement(label='M-q1', gateChan = Mq1gate, trigChan = dTrig)
+#    Mq2gate = LogicalMarkerChannel(label='M-q2-gate')
+#    m2 = Measurement(label='M-q2', gateChan = Mq2gate, trigChan = dTrig)
+
+    # this block depends on the existence of q1 and q2
+#    crgate = LogicalMarkerChannel(label='cr-gate')
+
+#    cr = Edge(label="cr", source = q1, target = q2, gateChan = crgate )
+#    cr.pulseParams['length'] = 30e-9
+#    cr.pulseParams['phase'] = pi/4
+
+#    mq1q2g = LogicalMarkerChannel(label='M-q1q2-gate')
+#    m12 = Measurement(label='M-q1q2', gateChan = mq1q2g, trigChan=dTrig)
+
+#    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
+#    ChannelLibrary.channelLib.channelDict = {
+#        'q1-gate': qg1,
+#        'q1': q1,
+#        'q2-gate': qg2,
+#        'q2': q2,
+#        'cr-gate': crgate,
+#        'cr': cr,
+#        'slaveTrig': sTrig,
+#        'digitizerTrig': dTrig,
+#        'M-q1': m1,
+#        'M-q1-gate': Mq1gate,
+#        'M-q2': m2,
+#        'M-q2-gate': Mq2gate,
+#        'M-q1q2-gate': mq1q2g,
+#        'M-q1q2': m12
+#    }
+#    ChannelLibrary.channelLib.build_connectivity_graph()
+
+    # But the current qgl2 compiler doesn't understand Qubits, only
+    # Qbits. So use that instead when running through the QGL2
+    # compiler, but comment this out when running directly.
+    q1 = Qbit(1)
+    q2 = Qbit(2)
+
+    np.random.seed(20152606) # set seed for create_RB_seqs()
+    random.seed(20152606) # set seed for random.choice()
+    SingleQubitRB(q1, create_RB_seqs(1, 2**np.arange(1,7)))
+
+    # For some reason this only works if I reverse the 2 qubit args
+    # q2 then q1. Why?
+    # The original unit test had this commeent:
+    """  Fails on APS1, APS2, and Tek7000 due to:
+    File "QGL\PatternUtils.py", line 129, in add_gate_pulses
+    if has_gate(chan) and not pulse.isZero and not (chan.gateChan
+    AttributeError: 'CompositePulse' object has no attribute 'isZero'
+    """
+    np.random.seed(20152606) # set seed for create_RB_seqs()
+    TwoQubitRB(q2, q1, create_RB_seqs(2, [2, 4, 8, 16, 32], repeats=16))
+
+    np.random.seed(20151709) # set seed for create_RB_seqs
+    seqs1 = create_RB_seqs(1, 2**np.arange(1,7))
+    seqs2 = create_RB_seqs(1, 2**np.arange(1,7))
+    SimultaneousRB_AC((q1, q2), (seqs1, seqs2))
+
+    np.random.seed(20152606) # set seed for create_RB_seqs
+    SingleQubitRB_AC(q1,create_RB_seqs(1, 2**np.arange(1,7)))
+
+#    SingleQubitIRB_AC(q1,'')
+
+#    SingleQubitRBT(q1,'')
+
+if __name__ == "__main__":
+    main()

@@ -218,7 +218,9 @@ class SubstituteChannel(NodeTransformerWithFname):
 
         print('LITERAL %s' % literal_args)
 
-        text = '%s(%s)' % (node.func.id, ', '.join(literal_args))
+        text = '%s(%s)' % (
+                pyqgl2.importer.collapse_name(node.func),
+                ', '.join(literal_args))
 
         print('BUILTIN %s' % text)
         return node
@@ -270,7 +272,8 @@ class SubstituteChannel(NodeTransformerWithFname):
         qbit_defs = list()
         if len(fparams) != len(aparams):
             self.error_msg(node,
-                    'formal and actual param lists differ in length')
+                    ('[%s] formal and actual param lists differ in length' %
+                        funcname))
             return node
 
         print('MY CONTEXT %s' % str(self.qbit_map))
@@ -287,11 +290,13 @@ class SubstituteChannel(NodeTransformerWithFname):
             qbit_ref = self.find_qbit(aparam)
             if (fparam_type == 'qbit') and not qbit_ref:
                 self.error_msg(node,
-                        'SUB assigned non-qbit to qbit param %s' % fparam_name)
+                        ('[%s] assigned non-qbit to qbit param [%s]' %
+                            (funcname, fparam_name)))
                 return node
             elif (fparam_type != 'qbit') and qbit_ref:
                 self.error_msg(node,
-                        'SUB assigned qbit to non-qbit param %s' % fparam_name)
+                        ('[%s] assigned qbit to non-qbit param [%s]' %
+                            (funcname, fparam_name)))
                 return node
 
             if qbit_ref:
@@ -307,7 +312,8 @@ class SubstituteChannel(NodeTransformerWithFname):
         if can_specialize(func_ast):
             func_copy = deepcopy(func_ast)
             specialized_func = specialize(
-                    func_copy, qbit_defs, self.func_defs, self.importer)
+                    func_copy, qbit_defs, self.func_defs, self.importer,
+                    context=orig_node)
             # print('SPECIALIZED %s' % ast.dump(specialized_func))
             print('WOULD CALL %s' % specialized_func.name)
             print('CALL %s' % ast.dump(node))
@@ -334,7 +340,7 @@ def can_specialize(func_node):
         return True
 
 
-def specialize(func_node, qbit_defs, func_defs, importer):
+def specialize(func_node, qbit_defs, func_defs, importer, context=None):
     """
     qbit_defs is a list of (fp_name, qref) mappings
     (where fp_name is the name of the formal parameter
@@ -345,6 +351,11 @@ def specialize(func_node, qbit_defs, func_defs, importer):
     returns a new node that contains a function definition
     for a "specialized" version of the function that
     works with that qbit definition.
+
+    context is the node that triggered the specialization
+    (usually the Call node).  The result of the specialization is
+    recorded in the namespace of that Call, so that it can be
+    accessed again we we want to inline the function.
     """
 
     # needs more mangling?
@@ -365,7 +376,15 @@ def specialize(func_node, qbit_defs, func_defs, importer):
 
     # add the specialized version of the function to the namespace
     #
-    namespace = importer.path2namespace[new_func_node.qgl_fname]
+    # If context is present, add it to the namespace for that
+    # context, rather than the namespace where it was originally
+    # defined
+    #
+    if context:
+        namespace = importer.path2namespace[context.qgl_fname]
+    else:
+        namespace = importer.path2namespace[new_func_node.qgl_fname]
+
     importer.add_function(namespace, mangled_name, new_func)
 
     print('SPECIALIZED %s' % pyqgl2.ast_util.ast2str(new_func))
@@ -388,7 +407,7 @@ def preprocess(fname, main_name=None):
 
     print('TYPE_CHECK DEFS %s' % str(type_check.func_defs))
 
-    specialize(qglmain, list(), type_check.func_defs, importer)
+    specialize(qglmain, list(), type_check.func_defs, importer, context=ptree)
 
     for func_def in sorted(type_check.func_defs.keys()):
         types, node = type_check.func_defs[func_def]

@@ -130,6 +130,9 @@ def main():
         # But since we're calling with Nones, we expect certain Attribute Errors
         try:
             tests.test_Sequences.Reset([])
+        except TypeError as e3:
+            if "reduce() of empty sequence with no initial value" not in str(e3):
+                raise
         except ValueError as e2:
             if "Edge (None, None) not found" not in str(e2):
                 raise
@@ -145,7 +148,8 @@ def main():
             tests.test_Sequences.Reset = old
         print("Have no QGL2 implementation of Reset - use QGL1")
     except Exception as e:
-        print("Did not redefine Reset: %s" % e)
+        import traceback
+        print("Did not redefine Reset: %s: %s" % (e, traceback.format_exc()))
 
     try:
         old = tests.test_Sequences.EchoCRLen

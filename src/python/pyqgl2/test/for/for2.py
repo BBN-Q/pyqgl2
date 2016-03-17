@@ -13,15 +13,15 @@ def func_a(a: qbit, b: qbit, c: qbit):
 def func_b(a: qbit):
     for x in [1, 2, 3]:
         func_c(a, x)
-    for x in [4, 5, 6]:
-        func_d(a, x)
+    for func in [func_c, func_d]:
+        func(a, 1)
 
 @qgl2decl
 def func_c(a: qbit, x: classical):
     Id(a) + X90(a, x)
 
 @qgl2decl
-def func_c(a: qbit, x: classical):
+def func_d(a: qbit, x: classical):
     Id(a) + Y90(a, x)
 
 @qgl2main

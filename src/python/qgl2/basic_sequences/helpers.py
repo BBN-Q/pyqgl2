@@ -1,6 +1,8 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit_list
+from qgl2.qgl2 import qgl2decl, qbit_list, concur, pulse
+
+from .qgl2_plumbing import init
 
 from functools import reduce
 from itertools import product
@@ -10,7 +12,7 @@ from QGL.PulsePrimitives import Id, X, MEAS
 from QGL.ControlFlow import qwait
 
 @qgl2decl
-def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, waitcmp=False):
+def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, waitcmp=False) -> pulse:
     """
     Helper function to create a set of calibration sequences.
 
@@ -21,6 +23,14 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
     waitcmp = True if the sequence contains branching
     """
     # Make all combinations for qubit calibration states for n qubits and repeat
+
+    # Assuming numRepeats=2 and qubits are q1, q2 and waitCmp=False, 
+    # Produces 2 ^ #qubits * numRepeats sequences of Id, X, MEAS, 
+    # something like
+    # [[Id(q1)*Id(q2), M(q1)*M(q2)], [Id(q1)*Id(q2), M(q1)*M(q2)],
+    #  [Id(q1)*X(q2), M(q1)*M(q2)],  [Id(q1)*X(q2), M(q1)*M(q2)],
+    #  [X(q1)*Id(q2), M(q1)*M(q2)],  [X(q1)*Id(q2), M(q1)*M(q2)],
+    #  [X(q1)*X(q2), M(q1)*M(q2)],   [X(q1)*X(q2), M(q1)*M(q2)]]
 
     # Original:
     # calSeqs = [reduce(operator.mul, [p(q) for p,q in zip(pulseSet, qubits)]) for pulseSet in product(calSet, repeat=len(qubits)) for _ in range(numRepeats)]
@@ -37,20 +47,24 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
 
     # Create iterator with the right number of Id and X pulses
     for pulseSet in product(calSet, repeat=len(qubits)):
-        # Repeat the whole numRepeats times
+        # Repeat each entry numRepeats times
         for _ in range(numRepeats):
             # then do each pulse on each qubit concurrently
 
             # For QGL1
- #           seqs = []
- #           # Get all combinations of the pulses and qubits
- #           # doing the pulse on the qubit
- #           for pulse,qubit in zip(pulseSet, qubits):
- #               seqs.append(pulse(qubit))
- #           # Do the pulses concurrently for this pulseSet
- #           calSeqs.append(reduce(operator.mul, seqs))
+#            seqs = []
+#            # Get all combinations of the pulses and qubits
+#            # doing the pulse on the qubit
+#            for pulse,qubit in zip(pulseSet, qubits):
+#                seqs.append(pulse(qubit))
+#            # Do the pulses concurrently for this pulseSet
+#            calSeqs.append(reduce(operator.mul, seqs))
 
             # For QGL2
+            # Initialize each sequence / experiment
+            with concur:
+                for q in qubits:
+                    init(q)
             # Get all combinations of the pulses and qubits
             # doing the pulse on the qubit
             # Do the pulses concurrently for this pulseSet
@@ -70,7 +84,10 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
 #    newCalSeqs = []
 #    for seq in calSeqs:
 #        if waitcmp:
-#            newCalSeqs.append([seq, MEAS(*measChans), qwait('CMP')])
+#            newCalSeqs.append([seq, MEAS(*tuple(measChans)), qwait('CMP')])
 #        else:
-#            newCalSeqs.append([seq, MEAS(*measChans)])
+#            newCalSeqs.append([seq, MEAS(*tuple(measChans))])
 #    return newCalSeqs
+
+    # FIXME: QGL2 must return the generated sequences!
+    return []

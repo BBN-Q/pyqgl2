@@ -342,12 +342,6 @@ class NameSpace(object):
 
 class NameSpaces(object):
 
-    # FIXME/TODO: this hardcoded path is bogus.  Need to find a
-    # more general way to do this
-    #
-    IGNORE_MODULE_PATH_PREFIX = os.path.relpath(
-            '/opt/local/Library/Frameworks/Python.framework')
-
     # maximum number of redirections per symbol.
     #
     # This number is guess; it seems reasonable.  Adjust as
@@ -509,9 +503,6 @@ class NameSpaces(object):
             print('NN Already in there [%s]' % path)
             return self.path2ast[path]
 
-        if path.startswith(NameSpaces.IGNORE_MODULE_PATH_PREFIX):
-            return None
-
         # TODO: this doesn't do anything graceful if the file
         # can't be opened, or doesn't exist, or anything else goes
         # wrong.  We just assume that Python will raise an exception
@@ -519,9 +510,15 @@ class NameSpaces(object):
         # be more proactive about making sure that the user
         # gets the info necessary to diagnose the problem.
         #
-        text = open(path, 'r').read()
 
-        return self.read_import_str(text, path)
+        try:
+            text = open(path, 'r').read()
+            return self.read_import_str(text, path)
+
+        except BaseException as exc:
+            NodeError.fatal_msg(None,
+                    'cannot open [%s]: %s' % (path, str(exc)))
+            return None
 
     def read_import_str(self, text, path='<stdin>'):
 
@@ -534,6 +531,27 @@ class NameSpaces(object):
         #
         for node in ast.walk(ptree):
             node.qgl_fname = path
+
+        # The preprocessor will ignore any imports that are not
+        # at the "top level" (imports that happen conditionally,
+        # or when a function is executed for the first time, etc)
+        # because it can't figure out if/when these imports would
+        # occur, and it only understands imports that occur before
+        # the execution of any other statements of the program.
+        #
+        # Therefore warn the programmer that any such detected
+        # imports will be ignored.
+        #
+        # TODO: we don't make any attempt to find calls to
+        # __import__() or importlib.import_module().  The
+        # preprocessor always ignores these, without warning.
+        #
+        for node in ast.walk(ptree):
+            if (isinstance(node, ast.Import) or
+                    isinstance(node, ast.ImportFrom)):
+                if node.col_offset != 0:
+                    NodeError.warning_msg(node,
+                            'conditional/runtime import ignored by pyqgl2')
 
         # Populate the namespace
         #
