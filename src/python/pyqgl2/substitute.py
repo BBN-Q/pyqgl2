@@ -250,7 +250,7 @@ class SubstituteChannel(NodeTransformerWithFname):
 
         if not can_specialize(func_ast):
             return node
-
+        # print("Going to rewrite %s" % funcname)
         fparams = func_ast.qgl_args
 
         if funcname in self.BUILTIN_FUNCS:
@@ -335,6 +335,9 @@ def can_specialize(func_node):
     """
 
     if not hasattr(func_node, 'qgl_func') or not func_node.qgl_func:
+        return False
+    elif func_node.qgl_stub:
+        print("Will not specialize a qgl_stub: %s" % func_node.name)
         return False
     else:
         return True

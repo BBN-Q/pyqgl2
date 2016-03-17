@@ -1042,7 +1042,10 @@ def inline_call(base_call, importer):
         # do so here, and then stash the inlined version
         # of the function with the function definition
         #
-        if not hasattr(func_ptree, 'qgl_inlined'):
+        if func_ptree.qgl_stub:
+            # We don't inline / rewrite the names of QGL1 stubs
+            new_func = func_ptree
+        elif not hasattr(func_ptree, 'qgl_inlined'):
             inliner = Inliner(importer)
             new_func = inliner.inline_function(func_ptree)
         else:
