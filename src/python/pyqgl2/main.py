@@ -49,7 +49,7 @@ from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import Inliner
 from pyqgl2.sequence import SequenceCreator
 from pyqgl2.substitute import specialize
-
+from pyqgl2.sync import SynchronizeBlocks
 
 def parse_args(argv):
     """
@@ -196,6 +196,10 @@ def main():
     base_namespace = importer.path2namespace[opts.filename]
     text = base_namespace.pretty_print()
     print('FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % text)
+
+    sync = SynchronizeBlocks(new_ptree7)
+    new_ptree8 = sync.visit(deepcopy(new_ptree7))
+    print('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8))
 
     """
     wav_check = CheckWaveforms(type_check.func_defs, importer)
