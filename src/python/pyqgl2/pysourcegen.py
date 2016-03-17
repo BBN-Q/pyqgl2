@@ -176,9 +176,14 @@ class ExprSourceGen(Visitor):
                 self.print('={:node}', default)
 
         if node.vararg:
-            self.print('{0}*{1}', ', ' if i else '', node.vararg)
-            if node.varargannotation:
-                self.print(':{:node}', node.varargannotation)
+            # varargannotation and kwargannotation don't exist as of python 3.4
+            # instead, vararg is an arg object that has an arg (raw string) and an annotation (Str or Name)
+            if sys.version_info[1] < 4:
+                self.print('{0}*{1}', ', ' if i else '', node.vararg)
+                if node.varargannotation:
+                    self.print(':{:node}', node.varargannotation)
+            else:
+                self.visit(node.vararg)
         elif node.kwonlyargs:
             self.print('{0}*', ', ' if i else '')
         
@@ -198,9 +203,14 @@ class ExprSourceGen(Visitor):
                 self.print('={:node}', kw_default)
         
         if node.kwarg:
-            self.print('{0}**{1}', ', ' if i else '', node.kwarg)
-            if node.varargannotation:
-                self.print(':{:node}', node.kwargannotation)
+            # varargannotation and kwargannotation don't exist as of python 3.4
+            # Instead, the kwarg is an arg object that has an arg (raw string) and an annotation (Str or Name)
+            if sys.version_info[1] < 4:
+                self.print('{0}**{1}', ', ' if i else '', node.kwarg)
+                if node.kwargannotation:
+                    self.print(':{:node}', node.kwargannotation)
+            else:
+                self.visit(node.kwarg)
 
     def visitNum(self, node):
         self.print(repr(node.n))
