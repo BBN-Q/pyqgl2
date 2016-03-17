@@ -381,9 +381,9 @@ class Unroller(ast.NodeTransformer):
 
         # Search through the body, looking for any of the following:
         #
-        # a) a reference to the target name  If we find any reference, then
-        # b) a break statement
-        # c) a continue statement
+        # a) a reference to the target name
+        # (Omitted) b) a break statement
+        # (Omitted) c) a continue statement
         #
         # If we find any of these, then it's not pure iteration; bail out
         #
@@ -396,14 +396,17 @@ class Unroller(ast.NodeTransformer):
                             ('ref to loop var [%s] disables Qrepeat' %
                                 subnode.id))
                     return False
-                elif isinstance(subnode, ast.Break):
-                    NodeError.diag_msg(subnode,
-                            '"break" statement disables Qrepeat')
-                    return False
-                elif isinstance(subnode, ast.Continue):
-                    NodeError.diag_msg(subnode,
-                            '"continue" statement disables Qrepeat')
-                    return False
+                #
+                # PERMIT break and continue statements inside Qrepeat blocks
+                #
+                # elif isinstance(subnode, ast.Break):
+                #     NodeError.diag_msg(subnode,
+                #             '"break" statement disables Qrepeat')
+                #     return False
+                # elif isinstance(subnode, ast.Continue):
+                #     NodeError.diag_msg(subnode,
+                #             '"continue" statement disables Qrepeat')
+                #     return False
 
         # We can only handle simple things right now:
         # a simple range, with a simple parameter.
