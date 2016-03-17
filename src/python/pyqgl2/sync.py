@@ -22,6 +22,7 @@ import pyqgl2.ast_util
 
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import ast2str
+from pyqgl2.ast_util import copy_all_loc
 
 from pyqgl2.concur_unroll import is_concur, is_seq, find_all_channels
 
@@ -153,7 +154,7 @@ class SynchronizeBlocks(ast.NodeTransformer):
 
             new_seq_body = list()
             wait_ast = ast.parse('WAIT(%s)' % chan_name, mode='exec')
-            pyqgl2.ast_util.copy_all_loc(wait_ast, stmnt)
+            copy_all_loc(wait_ast, stmnt)
             new_seq_body.append(wait_ast)
 
             new_seq_body += stmnt.body
@@ -167,20 +168,21 @@ class SynchronizeBlocks(ast.NodeTransformer):
             # per seq block (I think)
             #
             sync_ast = ast.parse('SYNC()', mode='exec')
-            pyqgl2.ast_util.copy_all_loc(sync_ast, new_seq_body[-1])
+            copy_all_loc(sync_ast, new_seq_body[-1])
 
             new_seq_body.append(sync_ast)
 
             stmnt.body = new_seq_body
 
         for unseen_chan in self.all_channels - seen_channels:
+            print('DIAG %s' % ast2str(stmnt))
             NodeError.diag_msg(stmnt,
                     'channels unreferenced in concur: %s' % str(unseen_chan))
 
             empty_seq_ast = ast.parse(
                     'with seq:\n    WAIT(%s)' % str(unseen_chan),
                     mode='exec')
-            pyqgl2.ast_util.copy_all_loc(empty_seq_ast, node)
+            copy_all_loc(empty_seq_ast, node)
             node.body.append(empty_seq_ast)
 
         return node
@@ -205,6 +207,9 @@ with concur:
         X90(QBIT_2)
     with seq:
         Y90(QBIT_3)
+with concur:
+    with seq:
+        X90(QBIT_4)
 """
 
         test_code(code)
