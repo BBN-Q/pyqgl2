@@ -2,7 +2,7 @@
 
 from qgl2.qgl2 import qgl2decl, qbit, qgl2main
 
-from QGL.PulsePrimitives import X90, Id, Y, U90, MEAS, X90
+from QGL.PulsePrimitives import X90, Id, Y, U90, MEAS
 from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 from .helpers import create_cal_seqs
