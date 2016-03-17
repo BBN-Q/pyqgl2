@@ -606,6 +606,10 @@ class NameSpaces(object):
                     q_return = QGL2.QBIT_LIST
                 elif ret.id == QGL2.PULSE:
                     q_return = QGL2.PULSE
+                elif ret.id == QGL2.CONTROL:
+                    q_return = QGL2.CONTROL
+                elif ret.id == QGL2.SEQUENCE:
+                    q_return = QGL2.SEQUENCE
                 else:
                     NodeError.error_msg(node,
                             'unsupported return type [%s]' % ret.id)
@@ -627,6 +631,10 @@ class NameSpaces(object):
                         q_args.append('%s:%s' % (name, QGL2.QBIT_LIST))
                     elif annotation.id == QGL2.PULSE:
                         q_args.append('%s:%s' % (name, QGL2.PULSE))
+                    elif annotation.id == QGL2.CONTROL:
+                        q_args.append('%s:%s' % (name, QGL2.CONTROL))
+                    elif annotation.id == QGL2.SEQUENCE:
+                        q_args.append('%s:%s' % (name, QGL2.SEQUENCE))
                     else:
                         NodeError.error_msg(node,
                                 ('unsupported parameter annotation [%s]' %
@@ -671,6 +679,7 @@ class NameSpaces(object):
         qglmain = False
         qglfunc = False
         other_decorator = False
+        qglstub = False # A stub for a QGL1 function; check args but do not inline
 
         if node.decorator_list:
             for dec in node.decorator_list:
@@ -682,6 +691,10 @@ class NameSpaces(object):
                 if isinstance(dec, ast.Name) and (dec.id == QGL2.QMAIN):
                     qglfunc = True
                     qglmain = True
+                elif isinstance(dec, ast.Name) and (dec.id == QGL2.QSTUB):
+                    # A stub for a QGL1 function; check args but do not inline
+                    qglfunc = True
+                    qglstub = True
                 elif isinstance(dec, ast.Name) and (dec.id == QGL2.QDECL):
                     qglfunc = True
                 else:
@@ -695,6 +708,8 @@ class NameSpaces(object):
                         'unrecognized decorator with %s' % QGL2.QDECL)
 
         node.qgl_func = qglfunc
+        # A stub for a QGL1 function; check args but do not inline
+        node.qgl_stub = qglstub
         node.qgl_main = qglmain
 
         # Only assign the qglmain at the root of the namespace
