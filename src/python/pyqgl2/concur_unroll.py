@@ -627,6 +627,7 @@ class QbitGrouper(ast.NodeTransformer):
         seq_item_node = deepcopy(node.items[0])
         seq_item_node.context_expr.id = 'seq'
         seq_node = ast.With(items=list([seq_item_node]), body=list())
+        pyqgl2.ast_util.copy_all_loc(seq_node, node)
 
         groups = self.group_stmnts(node.body)
         new_body = list()
