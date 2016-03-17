@@ -12,6 +12,7 @@ during prototyping/debugging.  The real driver is in scripts/qgl2prep
 """
 
 import os
+import re
 import sys
 
 from argparse import ArgumentParser
@@ -43,10 +44,12 @@ from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_waveforms import CheckWaveforms
 from pyqgl2.concur_unroll import Unroller
 from pyqgl2.concur_unroll import QbitGrouper
+from pyqgl2.flatten import Flattener
 from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import Inliner
+from pyqgl2.sequence import SequenceCreator
 from pyqgl2.substitute import specialize
-
+from pyqgl2.sync import SynchronizeBlocks
 
 def parse_args(argv):
     """
@@ -170,11 +173,33 @@ def main():
     NodeError.halt_on_error()
     print('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6))
 
-    print('Final qglmain: %s' % new_ptree6.name)
+    flattener = Flattener()
+    new_ptree7 = flattener.visit(new_ptree6)
+    NodeError.halt_on_error()
+    print('FLATTENED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree7))
+
+    sequencer = SequenceCreator()
+    sequencer.visit(new_ptree7)
+    print('FINAL SEQUENCES:')
+    for qbit in sequencer.qbit2sequence:
+        print('%s:' % qbit)
+        for inst in sequencer.qbit2sequence[qbit]:
+            if inst.startswith('BlockLabel'):
+                txt = re.sub('BlockLabel\(\'', '', inst)
+                txt = re.sub('\'.', ':', txt)
+                print('    %s' % txt)
+            else:
+                print('         %s' % inst)
+
+    print('Final qglmain: %s' % new_ptree7.name)
 
     base_namespace = importer.path2namespace[opts.filename]
     text = base_namespace.pretty_print()
     print('FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % text)
+
+    sync = SynchronizeBlocks(new_ptree7)
+    new_ptree8 = sync.visit(deepcopy(new_ptree7))
+    print('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8))
 
     """
     wav_check = CheckWaveforms(type_check.func_defs, importer)
