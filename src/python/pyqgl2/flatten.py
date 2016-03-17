@@ -275,7 +275,9 @@ class Flattener(ast.NodeTransformer):
                 LOAD(n_iters)
             repeat_loop:
                 STMNTS
+            repeat_repeat: # needed only by "continue" statements
                 REPEAT(BlockLabel('repeat_loop'))
+            repeat_return: # needed only by "break" statements
                 RETURN
             repeat_end:
 
@@ -291,8 +293,10 @@ class Flattener(ast.NodeTransformer):
 
         n_iters = node.items[0].context_expr.args[0].n
 
-        start_label, loop_label, end_label = LabelManager.allocate_labels(
-                'repeat_start', 'repeat_loop', 'repeat_end')
+        (start_label, loop_label, end_label, repeat_label, return_label
+                ) = LabelManager.allocate_labels(
+                        'repeat_start', 'repeat_loop', 'repeat_end',
+                        'repeat_repeat', 'repeat_return')
 
         call_ast = ast.parse(
                 ('Call(BlockLabel(\'%s\'))' % start_label), mode='exec')
@@ -303,16 +307,26 @@ class Flattener(ast.NodeTransformer):
         load_ast = ast.parse(('LoadRepeat(%d)' % n_iters), mode='exec')
         loop_ast = ast.parse(('BlockLabel(\'%s\')' % loop_label), mode='exec')
 
+        repeat_label_ast = ast.parse(
+                'BlockLabel(\'%s\')' % repeat_label, mode='exec')
         repeat_ast = ast.parse(
                 ('Repeat(BlockLabel(\'%s\'))' % loop_label), mode='exec')
+        return_label_ast = ast.parse(
+                'BlockLabel(\'%s\')' % return_label, mode='exec')
         return_ast = ast.parse('Return()', mode='exec')
         end_ast = ast.parse('BlockLabel(\'%s\')' % end_label, mode='exec')
 
         preamble = list([call_ast, goto_ast, start_ast, load_ast, loop_ast])
 
+        self.loop_label_stack.append((repeat_label, return_label))
+
         body = self.flatten_body(node.body)
 
-        postamble = list([repeat_ast, return_ast, end_ast])
+        self.loop_label_stack.pop()
+
+        postamble = list(
+                [repeat_label_ast, repeat_ast,
+                    return_label_ast, return_ast, end_ast])
 
         return preamble + body + postamble
 
@@ -326,8 +340,6 @@ class Flattener(ast.NodeTransformer):
 
         start_label, end_label = LabelManager.allocate_labels(
                 'while_start', 'while_end')
-
-        self.loop_label_stack.append((start_label, end_label))
 
         start_ast = self.make_label_call(start_label)
         end_ast = self.make_label_call(end_label)
@@ -345,7 +357,11 @@ class Flattener(ast.NodeTransformer):
             cond_ast = self.make_cgoto_call(end_label, node.test)
             new_body.append(cond_ast)
 
+        self.loop_label_stack.append((start_label, end_label))
+
         new_body += self.flatten_body(node.body)
+
+        self.loop_label_stack.pop()
 
         new_body += list([loop_ast, end_ast])
 
