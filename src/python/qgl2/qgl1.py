@@ -125,3 +125,30 @@ def clifford_mat(c, numQubits) -> pulse:
 def clifford_seq(c, q1: qbit, q2: qbit = None) -> sequence:
     # Is that the right return type?
     print('clifford_seq')
+
+
+# Functions used by qgl2 compiler from ControlFlow
+
+@qgl2stub
+def Goto(target) -> control:
+    # Note target is a BlockLabel
+    pass
+@qgl2stub
+def LoadRepeat(value) -> control:
+    # Value is an int
+    pass
+@qgl2stub
+def Call(target) -> control:
+    # target is a BlockLabel
+    pass
+@qgl2stub
+def Return() -> control:
+    pass
+@qgl2stub
+def Repeat(target) -> control:
+    # target is a BlockLabel
+    pass
+@qgl2stub
+def BlockLabel(label):
+    # label is a string, output is a BlockLabel
+    pass
