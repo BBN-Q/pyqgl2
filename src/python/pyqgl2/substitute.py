@@ -179,7 +179,7 @@ class SubstituteChannel(NodeTransformerWithFname):
     def find_qbit(self, node):
 
         if not isinstance(node, ast.Name):
-            print('SUB not a name')
+            print('SUB %s not a Name. Is %s' % (node, type(node)))
             return None
 
         name = node.id
@@ -248,19 +248,23 @@ class SubstituteChannel(NodeTransformerWithFname):
             self.diag_msg(node, 'no definition found for %s' % funcname)
             return node
 
+        # Note we allow qgl_stub functions to pass through here,
+        # so the arguments are error checked
         if not can_specialize(func_ast):
             return node
         # print("Going to rewrite %s" % funcname)
         fparams = func_ast.qgl_args
 
-        if funcname in self.BUILTIN_FUNCS:
-            print('TT3 builtin %s' % ast.dump(node))
-            # return self.handle_builtin(node)
-            pass
+#        if funcname in self.BUILTIN_FUNCS:
+#            print('TT3 builtin %s' % ast.dump(node))
+#            # return self.handle_builtin(node)
+#            pass
 
         aparams = [arg if isinstance(arg, ast.Name) else None
                 for arg in node.args]
-
+        # aparams will include None in the list if there's  non qbit arg
+#        if aparams == [None]:
+#            print("%s got aparams [None]" % (funcname))
         # print('FOUND %s formal params %s' % (funcname, str(fparams)))
 
         # map our local bindings to the formal parameters of
@@ -272,8 +276,8 @@ class SubstituteChannel(NodeTransformerWithFname):
         qbit_defs = list()
         if len(fparams) != len(aparams):
             self.error_msg(node,
-                    ('[%s] formal and actual param lists differ in length' %
-                        funcname))
+                    ('[%s] formal and actual param lists differ in length (%s != %s' %
+                        (funcname, fparams, [arg.id for arg in aparams])))
             return node
 
         print('MY CONTEXT %s' % str(self.qbit_map))
@@ -309,7 +313,8 @@ class SubstituteChannel(NodeTransformerWithFname):
         # use it here.  If not, create one and add it to the
         # symbol table
 
-        if can_specialize(func_ast):
+        # Note we do not specialize qgl_stub functions
+        if can_specialize(func_ast) and not func_ast.qgl_stub:
             func_copy = deepcopy(func_ast)
             specialized_func = specialize(
                     func_copy, qbit_defs, self.func_defs, self.importer,
@@ -336,9 +341,11 @@ def can_specialize(func_node):
 
     if not hasattr(func_node, 'qgl_func') or not func_node.qgl_func:
         return False
-    elif func_node.qgl_stub:
-        print("Will not specialize a qgl_stub: %s" % func_node.name)
-        return False
+    # Do not avoid qgl stubs here cause
+    # it means we don't error check args
+#    elif func_node.qgl_stub:
+#        print("Will not specialize a qgl_stub: %s" % func_node.name)
+#        return False
     else:
         return True
 
