@@ -1031,8 +1031,12 @@ def inline_call(base_call, importer):
         return base_call
 
     if not is_qgl_procedure(func_ptree):
-        NodeError.diag_msg(base_call,
-                '%s() is not a QGL2 procedure' % func_name)
+        if is_qgl2_stub(func_ptree):
+            NodeError.diag_msg(base_call,
+                               '%s() is a QGL1 stub' % func_name)
+        else:
+            NodeError.diag_msg(base_call,
+                               '%s() is not a QGL2 procedure' % func_name)
         # we can't inline this call, because it doesn't
         # appear to be a QGL2 procedure.  But if we have
         # the definition of the function, we can try to
