@@ -108,6 +108,14 @@ def qgl2decl(function):
         assert False, 'qgl2decl should not be directly executed'
     return wrapper
 
+def qgl2stub(function):
+    '''Mark a function that is a stub for a QGL1 function, adding
+    proper annotations.
+    Check the arguments, but do not inline the contents.'''
+    def wrapper(*args, **kwargs):
+        assert False, 'qgl2stub should not be directly executed'
+    return wrapper
+
 # Symbols used for method signature annotation.  Their value has
 # no meaning; they're only assigned a value so that Python considers
 # them to be valid symbols.
@@ -118,6 +126,14 @@ classical = True
 qbit = True
 qbit_list = True
 pulse = True
+sequence = True
+control = True
+
+# This means: 'put sequence(s) here'
+@qgl2decl
+def GATHER_SEQUENCES() -> sequence:
+    assert False, 'GATHER_SEQUENCES should not be directly executed'
+    return []
 
 concur = Concur()
 seq = Seq()

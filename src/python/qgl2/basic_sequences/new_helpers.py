@@ -1,12 +1,13 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit_list, qbit, concur, pulse
+from qgl2.qgl2 import qgl2decl, qbit_list, qbit, concur, pulse, GATHER_SEQUENCES
 
 from .helpers import create_cal_seqs
 #from .qgl2_plumbing import qgl2AddSequences, sequence_list
 
-from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
+#from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
 from QGL.Compiler import compile_to_hardware
+from qgl2.qgl1 import compile_to_hardware, Id, X, Y, X90, Y90, MEAS
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 import copy
@@ -49,7 +50,7 @@ def addMeasPulses(listOfSequencesOnNQubits, listNQubits: qbit_list):
 # QGL1 style
 # FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
 #def repeatSequences(listOfSequences: sequence_list, repeat=2):
-def repeatSequences(listOfSequencesr, repeat=2):
+def repeatSequences(listOfSequences, repeat=2):
     '''Repeat each sequence in the given list of sequences repeat times.
 
     For example, `[[a, 1], [b, 2]]` becomes `[[a, 1], [a, 1], [b, 2], [b, 2]]`.
@@ -58,29 +59,23 @@ def repeatSequences(listOfSequencesr, repeat=2):
     # You must copy the element before repeating it. Otherwise strange things happen later
     return [copy.copy(sequence) for sequence in listOfSequences for i in range(repeat)]
 
-# Variant of compile_to_hardware that is marked so the QGL2 compiler knows to insert the missing
-# list of sequences
-#@qgl2AddSequences
-# FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
-#def qgl2_compile_to_hardware(listOfSequences: sequence_list, filePrefix, suffix=''):
-def qgl2_compile_to_hardware(listOfSequences, filePrefix, suffix=''):
-    return compile_to_hardware(listOfSequences, filePrefix, suffix)
-
-#@qgl2AddSequences
-# FIXME: Remove sequence_list for now as QGL2 compiler dislikes it
-#def compileAndPlot(listOfSequences: sequence_list, filePrefix, showPlot=False):
-def compileAndPlot(listOfSequences, filePrefix, showPlot=False, suffix=''):
-    '''Compile the listOfSequences to hardware using the given filePrefix, 
+#def compileAndPlot(listOfSequences: sequence, filePrefix, showPlot=False):
+@qgl2decl
+def compileAndPlot(filePrefix, showPlot=False, suffix=''):
+    """Compile the listOfSequences to hardware using the given filePrefix, 
     print the filenames, and optionally plot the pulse files.
+
+    Maybe soon again but not now: 
     Return a handle to the plot window; caller can hold it to prevent window destruction.
 
-    NOTE: The QGL2 compiler must fill in the listOfSequences in the decorator.'''
-    fileNames = compile_to_hardware(listOfSequences, filePrefix, suffix)
+    NOTE: The QGL2 compiler must fill in the listOfSequences for GATHER_SEQUENCES()."""
+    fileNames = compile_to_hardware(GATHER_SEQUENCES(), filePrefix, suffix)
     print(fileNames)
 
     if showPlot:
         plotWin = plot_pulse_files(fileNames)
-        return plotWin
+        # FIXME: QGL2 won't inline this if there is a return statement
+#        return plotWin
 
 # QGL1 style method
 # For QGL2, simply do create_cal_seqs((tupleOfQubits), numRepeats)
@@ -96,129 +91,129 @@ def addCalibration(listOfSequences, tupleOfQubits: qbit_list, numRepeats=2):
 # Helpers here for AllXY that produce pairs of pulses on the same qubit
 # Produce the state |0>
 @qgl2decl
-def IdId(q: qbit) -> pulse:
+def IdId(q: qbit) -> sequence:
     # no pulses
     Id(q)
     Id(q)
 
 @qgl2decl
-def XX(q: qbit) -> pulse:
+def XX(q: qbit) -> sequence:
     # pulse around same axis
     X(q)
     X(q)
 
 @qgl2decl
-def YY(q: qbit) -> pulse:
+def YY(q: qbit) -> sequence:
     # pulse around same axis
     Y(q)
     Y(q)
 
 @qgl2decl
-def XY(q: qbit) -> pulse:
+def XY(q: qbit) -> sequence:
     # pulsing around orthogonal axes
     X(q)
     Y(q)
 
 @qgl2decl
-def YX(q: qbit) -> pulse:
+def YX(q: qbit) -> sequence:
     # pulsing around orthogonal axes
     Y(q)
     X(q)
 
 # These next produce a |+> or |i> state (equal superposition of |0> + |1>)
 @qgl2decl
-def X90Id(q: qbit) -> pulse:
+def X90Id(q: qbit) -> sequence:
     # single pulses
     X90(q)
     Id(q)
 
 @qgl2decl
-def Y90Id(q: qbit) -> pulse:
+def Y90Id(q: qbit) -> sequence:
     # single pulses
     Y90(q)
     Id(q)
 
 @qgl2decl
-def X90Y90(q: qbit) -> pulse:
+def X90Y90(q: qbit) -> sequence:
     # pulse pairs around orthogonal axes with 1e error sensititivity
     X90(q)
     Y90(q)
 
 @qgl2decl
-def Y90X90(q: qbit) -> pulse:
+def Y90X90(q: qbit) -> sequence:
     # pulse pairs around orthogonal axes with 1e error sensititivity
     Y90(q)
     X90(q)
 
 @qgl2decl
-def X90Y(q: qbit) -> pulse:
+def X90Y(q: qbit) -> sequence:
     # pulse pairs with 2e sensitivity
     X90(q)
     Y(q)
 
 @qgl2decl
-def Y90X(q: qbit) -> pulse:
+def Y90X(q: qbit) -> sequence:
     # pulse pairs with 2e sensitivity
     Y90(q)
     X(q)
 
 @qgl2decl
-def XY90(q: qbit) -> pulse:
+def XY90(q: qbit) -> sequence:
     # pulse pairs with 2e sensitivity
     X(q)
     Y90(q)
 
 @qgl2decl
-def YX90(q: qbit) -> pulse:
+def YX90(q: qbit) -> sequence:
     # pulse pairs with 2e sensitivity
     Y(q)
     X90(q)
 
 @qgl2decl
-def X90X(q: qbit) -> pulse:
+def X90X(q: qbit) -> sequence:
     # pulse pairs around common axis with 3e error sensitivity
     X90(q)
     X(q)
 
 @qgl2decl
-def XX90(q: qbit) -> pulse:
+def XX90(q: qbit) -> sequence:
     # pulse pairs around common axis with 3e error sensitivity
     X(q)
     X90(q)
 
 @qgl2decl
-def Y90Y(q: qbit) -> pulse:
+def Y90Y(q: qbit) -> sequence:
     # pulse pairs around common axis with 3e error sensitivity
     Y90(q)
     Y(q)
 
 @qgl2decl
-def YY90(q: qbit) -> pulse:
+def YY90(q: qbit) -> sequence:
     # pulse pairs around common axis with 3e error sensitivity
     Y(q)
     Y90(q)
 
 # These next create the |1> state
 @qgl2decl
-def XId(q: qbit) -> pulse:
+def XId(q: qbit) -> sequence:
     # single pulses
     X(q)
     Id(q)
 
 @qgl2decl
-def YId(q: qbit) -> pulse:
+def YId(q: qbit) -> sequence:
     # single pulses
     Y(q)
     Id(q)
 
 @qgl2decl
-def X90X90(q: qbit) -> pulse:
+def X90X90(q: qbit) -> sequence:
     # pulse pairs
     X90(q)
     X90(q)
 
 @qgl2decl
-def Y90Y90(q: qbit) -> pulse:
+def Y90Y90(q: qbit) -> sequence:
     # pulse pairs
     Y90(q)
     Y90(q)

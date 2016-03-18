@@ -150,6 +150,13 @@ def is_qgl2_def(node):
 
     return (hasattr(node, 'qgl_func') and node.qgl_func)
 
+def is_qgl2_stub(node):
+    '''
+    Return True if the node has been marked as a QGL2
+    stub for a QGL1 function, else False.
+    '''
+    return (hasattr(node, 'qgl_stub') and node.qgl_stub)
+
 def check_call_parameters(call_ptree):
     """
     If the function uses *args and/or **kwargs, then punt on inlining.
@@ -334,6 +341,12 @@ def create_inline_procedure(func_ptree, call_ptree):
     if not is_qgl2_def(func_ptree):
         print('SKIP FUNC NAME %s' % func_ptree.name)
         return None
+    if is_qgl2_stub(func_ptree):
+        # FIXME: Is this block needed. Running AllXY it
+        # is never executed.
+        print('SKIP QGL1 Stub NAME %s' % func_ptree.name)
+        return None
+
     print('FUNC NAME %s' % func_ptree.name)
 
     # Check whether this is a function we can handle.
@@ -576,10 +589,18 @@ def create_inline_procedure(func_ptree, call_ptree):
             pyqgl2.ast_util.copy_all_loc(assignment, call_ptree)
             ast.fix_missing_locations(assignment)
 
+    isFirst = True
     for stmnt in func_body:
+        if isFirst and isinstance(stmnt, ast.Expr) and isinstance(stmnt.value, ast.Str):
+            # For some reason, method docs are sticking around. Skip them.
+            print("Skip method doc: %s. %s" % (stmnt.value.s, stmnt))
+            isFirst = False
+            continue
+
         new_stmnt = rewriter.rewrite(stmnt)
         ast.fix_missing_locations(new_stmnt)
         new_func_body.append(new_stmnt)
+        isFirst = False
 
     inlined = setup_locals + new_func_body
 
@@ -743,6 +764,10 @@ def is_qgl_procedure(node):
     print('FUNC NAME %s' % node.name)
 
     if not node.qgl_func:
+        return False
+
+    # Don't inline qgl stubs
+    if node.qgl_stub:
         return False
 
     for stmnt in node.body:
@@ -1006,8 +1031,12 @@ def inline_call(base_call, importer):
         return base_call
 
     if not is_qgl_procedure(func_ptree):
-        NodeError.diag_msg(base_call,
-                '%s() is not a QGL2 procedure' % func_name)
+        if is_qgl2_stub(func_ptree):
+            NodeError.diag_msg(base_call,
+                               '%s() is a QGL1 stub' % func_name)
+        else:
+            NodeError.diag_msg(base_call,
+                               '%s() is not a QGL2 procedure' % func_name)
         # we can't inline this call, because it doesn't
         # appear to be a QGL2 procedure.  But if we have
         # the definition of the function, we can try to
@@ -1017,7 +1046,10 @@ def inline_call(base_call, importer):
         # do so here, and then stash the inlined version
         # of the function with the function definition
         #
-        if not hasattr(func_ptree, 'qgl_inlined'):
+        if func_ptree.qgl_stub:
+            # We don't inline / rewrite the names of QGL1 stubs
+            new_func = func_ptree
+        elif not hasattr(func_ptree, 'qgl_inlined'):
             inliner = Inliner(importer)
             new_func = inliner.inline_function(func_ptree)
         else:
