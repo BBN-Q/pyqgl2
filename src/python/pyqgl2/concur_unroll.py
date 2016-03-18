@@ -620,12 +620,12 @@ class QbitGrouper(ast.NodeTransformer):
     def visit_With(self, node):
 
         if not is_concur(node):
-            print('ISI NOT a concur node')
+            print('IS NOT a concur node')
             return self.generic_visit(node) # check
 
         # Hackish way to create a seq node to use
         seq_item_node = deepcopy(node.items[0])
-        seq_item_node.context_expr.id = 'seq'
+        seq_item_node.context_expr.id = QGL2.QSEQ
         seq_node = ast.With(items=list([seq_item_node]), body=list())
         pyqgl2.ast_util.copy_all_loc(seq_node, node)
 
