@@ -52,9 +52,9 @@ def AllXY(q: qbit, showPlot = False):
     compileAndPlot('AllXY/AllXY', showPlot)
 
 # Imports for testing only
-from qgl2.qgl2 import Qbit
+#from qgl2.qgl2 import Qbit
 #from QGL.Channels import Qubit, LogicalMarkerChannel
-#from qgl2.qgl1 import Qubit
+from qgl2.qgl1 import Qubit
 from math import pi
 
 @qgl2main
@@ -74,8 +74,8 @@ def main():
     # compiler, but comment this out when running directly.
     # And I can't easily make it understand stub Qubits either. Bah.
     # (because it expects the single arg to be an int)
-#    q1 = Qubit(label="q1")
-    q1 = Qbit(1)
+    q1 = Qubit(label="q1")
+#    q1 = Qbit(1)
     AllXY(q1)
 
 if __name__ == "__main__":

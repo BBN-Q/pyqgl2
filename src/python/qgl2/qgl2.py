@@ -137,7 +137,3 @@ def GATHER_SEQUENCES() -> sequence:
 
 concur = Concur()
 seq = Seq()
-
-@qgl2decl
-def Qbit(chan:classical) -> qbit:
-    pass

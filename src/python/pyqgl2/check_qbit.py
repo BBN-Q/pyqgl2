@@ -161,7 +161,8 @@ class FindTypes(NodeVisitor):
                 NodeError.error_msg(arg,
                         'repeated parameter name \'%s\'' % arg_name)
 
-            if arg_type_name not in ['classical', 'qbit', 'unknown']:
+#            if arg_type_name not in [QGL2.CLASSICAL, QGL2.QBIT, 'unknown', QGL2.CONTROL, QGL2.PULSE, QGL2.SEQUENCE, QGL2.QBIT_LIST]:
+            if arg_type_name not in [QGL2.CLASSICAL, QGL2.QBIT, 'unknown']:
                 NodeError.warning_msg(arg,
                         ('parameter type \'%s\' is not supported' %
                             arg_type_name))
@@ -253,13 +254,13 @@ class FindTypes(NodeVisitor):
                 actual_val = val_bindings[name]
 
                 if isinstance(actual_val, ast.Num):
-                    type_bindings[name] = 'classical'
+                    type_bindings[name] = QGL2.CLASSICAL
 
                 elif isinstance(actual_val, ast.Str):
-                    type_bindings[name] = 'classical'
+                    type_bindings[name] = QGL2.CLASSICAL
 
                 elif isinstance(actual_val, ast.NameConstant):
-                    type_bindings[name] = 'classical'
+                    type_bindings[name] = QGL2.CLASSICAL
 
                 elif isinstance(actual_val, ast.Name):
                     if actual_val.id in scope_types:
@@ -280,7 +281,8 @@ class FindTypes(NodeVisitor):
                         if isinstance(rtype, ast.Name):
                             rtype_name = rtype.id
 
-                            if rtype_name not in ['classical', 'qbit', 'unknown']:
+#                            if rtype_name not in [QGL2.CLASSICAL, QGL2.QBIT, 'unknown', QGL2.SEQUENCE, QGL2.PULSE, QGL2.CONTROL, QGL2.QBIT_LIST]:
+                            if rtype_name not in [QGL2.CLASSICAL, QGL2.QBIT, 'unknown']:
                                 NodeError.warning_msg(arg,
                                         ('parameter type \'%s\' is not supported' %
                                     arg_type_name))
@@ -337,7 +339,7 @@ class FindTypes(NodeVisitor):
     def is_qbit_parameter(self, name):
         if name not in self.parameter_names:
             return False
-        if self.parameter_names[name] != 'qbit':
+        if self.parameter_names[name] != QGL2.QBIT:
             return False
         else:
             return True
@@ -345,7 +347,7 @@ class FindTypes(NodeVisitor):
     def is_qbit_local(self, name):
         if name not in self.local_names:
             return False
-        elif self.local_names[name] != 'qbit':
+        elif self.local_names[name] != QGL2.QBIT:
             return False
         return True
 
@@ -403,16 +405,16 @@ class FindTypes(NodeVisitor):
                 self.warning_msg(node,
                         'aliasing qbit parameter \'%s\' as \'%s\'' %
                         (value.id, name))
-                self.add_type_binding(value, name, 'qbit')
+                self.add_type_binding(value, name, QGL2.QBIT)
                 target.qgl_is_qbit = True
             elif self.is_qbit_local(name):
                 self.warning_msg(node,
                         'aliasing local qbit \'%s\' as \'%s\'' %
                         (value.id, name))
-                self.add_type_binding(value, name, 'qbit')
+                self.add_type_binding(value, name, QGL2.QBIT)
                 target.qgl_is_qbit = True
             else:
-                self.add_type_binding(value, name, 'classical')
+                self.add_type_binding(value, name, QGL2.CLASSICAL)
                 target.qgl_is_qbit = False
 
         elif isinstance(value, ast.Call):
@@ -442,7 +444,7 @@ class FindTypes(NodeVisitor):
                     # but we never know which one.
                     #
                     print('XX EXTENDING LOCAL (%s)' % name)
-                    self.add_type_binding(value, name, 'qbit')
+                    self.add_type_binding(value, name, QGL2.QBIT)
                     target.qgl_is_qbit = True
 
             if not func_def.qgl_func:
@@ -466,8 +468,8 @@ class FindTypes(NodeVisitor):
             # that it looks like the 'right' function and not something
             # someone mistakenly named 'Qbit' in an unrelated context.
             #
-            if isinstance(value, ast.Call) and (func_def.name == 'Qbit'):
-                self.add_type_binding(value, name, 'qbit')
+            if isinstance(value, ast.Call) and (func_def.name == QGL2.QBIT_ALLOC):
+                self.add_type_binding(value, name, QGL2.QBIT)
 
         return node
 
@@ -502,7 +504,7 @@ class FindTypes(NodeVisitor):
                                 name))
 
                 print('FOR %s' % name)
-                self.add_type_binding(subnode, name, 'classical')
+                self.add_type_binding(subnode, name, QGL2.CLASSICAL)
 
         self.visit_body(node.body)
         self.visit_body(node.orelse)
@@ -514,7 +516,7 @@ class FindTypes(NodeVisitor):
                     ('exception var [%s] hides sym in outer scope' % name))
 
             # assume all exceptions are classical
-            self.add_type_binding(subnode, subnode.id, 'classical')
+            self.add_type_binding(subnode, subnode.id, QGL2.CLASSICAL)
         pass
 
     def visit_With(self, node):
@@ -550,7 +552,7 @@ class FindTypes(NodeVisitor):
                         NodeError.warn_msg(subnode,
                                 ('with-as var [%s] hides sym in outer scope' % 
                                     name))
-                    self.add_type_binding(subnode, subnode.id, 'classical')
+                    self.add_type_binding(subnode, subnode.id, QGL2.CLASSICAL)
 
         self.visit_body(node.body)
 
@@ -695,7 +697,7 @@ class CheckType(NodeTransformerWithFname):
             # that it looks like the 'right' function and not something
             # someone mistakenly named 'Qbit' in an unrelated context.
             #
-            if isinstance(value, ast.Call) and (func_def.name == 'Qbit'):
+            if isinstance(value, ast.Call) and (func_def.name == QGL2.QBIT_ALLOC):
                 self._extend_local(target.id)
                 print('XX EXTENDED to include %s %s' %
                         (target.id, str(self._qbit_local())))
