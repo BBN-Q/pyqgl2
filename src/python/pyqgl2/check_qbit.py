@@ -461,12 +461,12 @@ class FindTypes(NodeVisitor):
             # function as it is defined (i.e, as func_def), not as it
             # is imported (i.e., as func_name).
             #
-            # This makes the assumption that ANYTHING named 'Qbit'
+            # This makes the assumption that ANYTHING named 'Qubit'
             # is a Qbit assignment function, which is lame and should
             # be more carefully parameterized.  Things to think about:
             # looking more deeply at its signature and making certain
             # that it looks like the 'right' function and not something
-            # someone mistakenly named 'Qbit' in an unrelated context.
+            # someone mistakenly named 'Qubit' in an unrelated context.
             #
             if isinstance(value, ast.Call) and (func_def.name == QGL2.QBIT_ALLOC):
                 self.add_type_binding(value, name, QGL2.QBIT)
@@ -690,12 +690,12 @@ class CheckType(NodeTransformerWithFname):
             # function as it is defined (i.e, as func_def), not as it
             # is imported (i.e., as func_name).
             #
-            # This makes the assumption that ANYTHING named 'Qbit'
+            # This makes the assumption that ANYTHING named 'Qubit'
             # is a Qbit assignment function, which is lame and should
             # be more carefully parameterized.  Things to think about:
             # looking more deeply at its signature and making certain
             # that it looks like the 'right' function and not something
-            # someone mistakenly named 'Qbit' in an unrelated context.
+            # someone mistakenly named 'Qubit' in an unrelated context.
             #
             if isinstance(value, ast.Call) and (func_def.name == QGL2.QBIT_ALLOC):
                 self._extend_local(target.id)
