@@ -85,14 +85,14 @@ class FindTypes(NodeVisitor):
     not with respect to classical vs quantum) so the following
     code would be considered an error:
 
-    x = Qbit(1)     # x is a reference to a qbit
+    x = Qubit("1")     # x is a reference to a qbit
     x = 14          # reassigning x to a classical value--error!
 
     We also treat the reassignment of references to quantum
     values as errors:
 
-    x = Qbit(1)     # x is a reference to a qbit
-    x = Qbit(2)     # reassignment of x--error!
+    x = Qubit("1")     # x is a reference to a qbit
+    x = Qubit("2")     # reassignment of x--error!
 
     There are several ways that variables come into existance:
     explicit assignment, implicit assignment (keyword arguments),
@@ -925,7 +925,7 @@ class FindQbitReferences(ast.NodeTransformer):
 
     For example, if you do something like
 
-        qbit1 = Qbit(1) # Create a new qbit; qbit1 is marked
+        qbit1 = Qubit("1") # Create a new qbit; qbit1 is marked
         arr[ind] = qbit1
         foo = arr[ind]
 
