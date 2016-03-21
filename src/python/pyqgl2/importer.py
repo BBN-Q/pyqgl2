@@ -614,6 +614,7 @@ class NameSpaces(object):
                     NodeError.error_msg(node,
                             'unsupported return type [%s]' % ret.id)
 
+        # FIXME: What about kwonlyargs? or storing the defaults?
         if node.args.args:
             for arg in node.args.args:
                 # print('>> %s' % ast.dump(arg))
