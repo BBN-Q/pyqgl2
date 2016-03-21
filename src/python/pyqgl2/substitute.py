@@ -112,7 +112,7 @@ class SubstituteChannel(NodeTransformerWithFname):
         if self.is_qbit_creation(node.value):
             # OK, we got a Qbit.  But we're very fussy about what
             # parameters a Qbit declaration must have: the first
-            # parameter must be plain-vanilla integer.  Anything
+            # parameter must be plain-vanilla string.  Anything
             # else, and we can't guarantee its value at runtime.
 
             # First ensure there's a label.
@@ -121,6 +121,12 @@ class SubstituteChannel(NodeTransformerWithFname):
             chanLabel = None
             if len(node.value.args) > 0:
                 arg0 = node.value.args[0]
+                # FIXME:
+                # This code requires that the label arg be an explicit string
+                # Not a variable, function call, etc.
+                # We need this to (a) error check the arg value is a string, and
+                # (b) extract the value for labeling in the QBIT map
+                # This is a sad, ugly restriction
                 if not isinstance(arg0, ast.Str):
                     self.error_msg(node,
                                    '1st param to %s() must be a string - got %s' % (QGL2.QBIT_ALLOC, arg0))
@@ -154,11 +160,11 @@ class SubstituteChannel(NodeTransformerWithFname):
                         chanLabel = labelArg.s
                         break
                 if chanLabel is None:
-                    self.error_msg(node, "%s: found no label kwarg and had no positional args" % QGL2.QBIT_ALLOC)
+                    self.error_msg(node, "%s() missing required label (string) argument: found no label kwarg and had no positional args" % QGL2.QBIT_ALLOC)
                     return node
             elif chanLabel is None:
                 self.error_msg(node,
-                        '%s does not have parameters' % QGL2.QBIT_ALLOC)
+                        '%s() missing required label (string) argument: call had 0 parameters' % QGL2.QBIT_ALLOC)
                 return node
 
             # Now look at targets
@@ -279,13 +285,21 @@ class SubstituteChannel(NodeTransformerWithFname):
         if not func_ast:
             self.diag_msg(node, 'no definition found for %s' % funcname)
             return node
-
+        if func_ast.name == QGL2.QBIT_ALLOC:
+            self.error_msg(node,
+                           ("%s() called as a Call. Only when called as an Assign is this treated as a qbit." % QGL2.QBIT_ALLOC))
         # Note we allow qgl_stub functions to pass through here,
         # so the arguments are error checked
         if not can_specialize(func_ast):
             return node
-        # print("Going to rewrite %s" % funcname)
+        # print("Going to rewrite %s()" % funcname)
+        # fparams represents all args other than *args or **kwargs
         fparams = func_ast.qgl_args
+        # But that includes things with reasonable defaults
+        # Here we produce counters of things without a default
+        numFArgsNoDefaults = len(func_ast.args.args) - len(func_ast.args.defaults)
+        numFKWArgsNoDefaults = len(func_ast.args.kwonlyargs) - len([default for default in func_ast.args.kw_defaults if default is not None])
+        print("For func %s got ArgsNoDefaults: %d, KWArgsNoDefaults: %d" % (funcname, numFArgsNoDefaults, numFKWArgsNoDefaults))
 
 #        if funcname in self.BUILTIN_FUNCS:
 #            print('TT3 builtin %s' % ast.dump(node))
@@ -294,22 +308,25 @@ class SubstituteChannel(NodeTransformerWithFname):
 
         aparams = [arg if isinstance(arg, ast.Name) else None
                 for arg in node.args]
-        # aparams will include None in the list if there's  non qbit arg
-#        if aparams == [None]:
-#            print("%s got aparams [None]" % (funcname))
-        # print('FOUND %s formal params %s' % (funcname, str(fparams)))
+        # aparams will include None in the list if there's a non qbit arg
+        # if aparams == [None]:
+        #     print("%s() got aparams [None]: %s" % (funcname, str(node.args)))
+        # print('FOUND %s() formal params: %s' % (funcname, str(fparams)))
 
         # map our local bindings to the formal parameters of
         # this function, to create a signature
 
-        # It would be nice if we could do something with kwargs,
-        # but we're not even making an attempt right now
-        #
+        # Now find the qbit argument and replace with one of the qbits from our map,
+        # ensuring that the value supplied is a qbit where required
+        # Note this code tries to support kwargs somewhat
+        # However, it still doesn't deal well with a method signature that takes *args or **kwargs
         qbit_defs = list()
-        if len(fparams) != len(aparams):
+        if len(aparams) > len(fparams) or \
+           len(aparams) < (numFArgsNoDefaults + numFKWArgsNoDefaults):
+#        if len(fparams) != len(aparams):
             self.error_msg(node,
                     ('[%s] formal and actual param lists differ in length (%s != %s' %
-                        (funcname, fparams, [arg.id for arg in aparams])))
+                        (funcname, fparams, [arg.id if arg is not None else 'Not-a-variable-name' for arg in aparams])))
             return node
 
         print('MY CONTEXT %s' % str(self.qbit_map))
@@ -318,7 +335,11 @@ class SubstituteChannel(NodeTransformerWithFname):
 
         for ind in range(len(fparams)):
             fparam = fparams[ind]
-            aparam = aparams[ind]
+            if ind < len(aparams):
+                aparam = aparams[ind]
+            else:
+                print("Function param %d (%s) is not an actual argument - stop here doing qbit mapping" % (ind, fparam))
+                break
 
             (fparam_name, fparam_type) = fparam.split(':')
             print('fparam %s needs %s' % (fparam_name, fparam_type))
@@ -334,6 +355,10 @@ class SubstituteChannel(NodeTransformerWithFname):
                         ('[%s] assigned qbit to non-qbit param [%s]' %
                             (funcname, fparam_name)))
                 return node
+            elif not qbit_ref:
+                print("OK: %s() param %d doesn't want a qbit and argument wasn't one" % (funcname, ind))
+            else:
+                print("OK: %s() assigned %s to param %d(%s)" % (funcname, qbit_ref, ind, fparam))
 
             if qbit_ref:
                 qbit_defs.append((fparam_name, qbit_ref))
