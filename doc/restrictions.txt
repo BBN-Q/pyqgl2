@@ -20,3 +20,6 @@ return Qubit("alabel") does not
 * Not yet gathering generated sequences to pass to compile_to_hardware
 * Need to do more error checking on arguments other than qbit
 * large pieces of code need refactoring
+
+* Wait() stub conflicts with WAIT() the compiler puts in
+* Should init() be moved out of qgl2_plumbing?
