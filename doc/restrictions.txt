@@ -23,3 +23,9 @@ return Qubit("alabel") does not
 
 * Wait() stub conflicts with WAIT() the compiler puts in
 * Should init() be moved out of qgl2_plumbing?
+
+---
+
+* rewrite left side of assign of qbits
+* generate sequences from pulses - formatting, brackets
+

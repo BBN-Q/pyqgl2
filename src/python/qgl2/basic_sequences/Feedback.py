@@ -660,9 +660,9 @@ def Reset_Blake(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     compileAndPlot('Reset/Reset', showPlot)
 
 # Imports for testing only
-from qgl2.qgl2 import Qbit
-from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
-import QGL.ChannelLibrary as ChannelLibrary
+from qgl2.qgl1 import Qubit
+#from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
+#import QGL.ChannelLibrary as ChannelLibrary
 import numpy as np
 from math import pi
 
@@ -701,11 +701,9 @@ def main():
 #    }
 #    ChannelLibrary.channelLib.build_connectivity_graph()
 
-    # But the current qgl2 compiler doesn't understand Qubits, only
-    # Qbits. So use that instead when running through the QGL2
-    # compiler, but comment this out when running directly.
-    q1 = Qbit(1)
-    q2 = Qbit(2)
+    # Use stub Qubits, but comment this out when running directly.
+    q1 = Qubit("q1")
+    q2 = Qubit("q2")
     Reset([q1, q2])
 
 if __name__ == "__main__":

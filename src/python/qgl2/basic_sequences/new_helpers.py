@@ -1,13 +1,13 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit_list, qbit, concur, pulse, GATHER_SEQUENCES
+from qgl2.qgl2 import qgl2decl, qbit_list, qbit, concur, pulse, sequence
 
 from .helpers import create_cal_seqs
 #from .qgl2_plumbing import qgl2AddSequences, sequence_list
 
 #from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
 from QGL.Compiler import compile_to_hardware
-from qgl2.qgl1 import compile_to_hardware, Id, X, Y, X90, Y90, MEAS
+from qgl2.qgl1 import Id, X, Y, X90, Y90, MEAS
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 import copy
@@ -59,17 +59,16 @@ def repeatSequences(listOfSequences, repeat=2):
     # You must copy the element before repeating it. Otherwise strange things happen later
     return [copy.copy(sequence) for sequence in listOfSequences for i in range(repeat)]
 
+# No longer a qgl2decl function, and not annotated so later code doesn't complain
 #def compileAndPlot(listOfSequences: sequence, filePrefix, showPlot=False):
-@qgl2decl
-def compileAndPlot(filePrefix, showPlot=False, suffix=''):
+def compileAndPlot(listOfSequences, filePrefix, showPlot=False, suffix=''):
     """Compile the listOfSequences to hardware using the given filePrefix, 
     print the filenames, and optionally plot the pulse files.
 
     Maybe soon again but not now: 
     Return a handle to the plot window; caller can hold it to prevent window destruction.
-
-    NOTE: The QGL2 compiler must fill in the listOfSequences for GATHER_SEQUENCES()."""
-    fileNames = compile_to_hardware(GATHER_SEQUENCES(), filePrefix, suffix)
+    """
+    fileNames = compile_to_hardware(listOfSequences, filePrefix, suffix)
     print(fileNames)
 
     if showPlot:

@@ -493,9 +493,9 @@ def Swap(qubit: qbit, mqubit: qbit, delays, showPlot=False):
     return compileAndPlot('Rabi/Rabi', showPlot)
 
 # Imports for testing only
-from qgl2.qgl2 import Qbit
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement
 from QGL import ChannelLibrary
+from qgl2.qgl1 import Qubit
 import numpy as np
 from math import pi
 
@@ -534,11 +534,9 @@ def main():
 #    }
 #    ChannelLibrary.channelLib.build_connectivity_graph()
 
-    # But the current qgl2 compiler doesn't understand Qubits, only
-    # Qbits. So use that instead when running through the QGL2
-    # compiler, but comment this out when running directly.
-    q1 = Qbit(1)
-    q2 = Qbit(2)
+    # Use stub Qubits, but comment this out when running directly.
+    q1 = Qubit("q1")
+    q2 = Qubit("q2")
 
     RabiAmp(q1,  np.linspace(0, 5e-6, 11))
     RabiWidth(q1,  np.linspace(0, 5e-6, 11))

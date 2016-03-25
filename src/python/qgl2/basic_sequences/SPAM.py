@@ -148,8 +148,8 @@ def SPAMq1(qubit: qbit, angleSweep, maxSpamBlocks=10, showPlot=False):
     compileAndPlot(seqs, 'SPAM/SPAM', showPlot)
 
 # Imports for testing only
-from qgl2.qgl2 import Qbit
 from QGL.Channels import Qubit, LogicalMarkerChannel
+from qgl2.qgl1 import Qubit
 import numpy as np
 from math import pi
 
@@ -165,10 +165,8 @@ def main():
 #    q1.pulseParams['length'] = 30e-9
 #    q1.pulseParams['phase'] = pi/2
 
-    # But the current qgl2 compiler doesn't understand Qubits, only
-    # Qbits. So use that instead when running through the QGL2
-    # compiler, but comment this out when running directly.
-    q1 = Qbit(1)
+    # Use stub Qubits, but comment this out when running directly.
+    q1 = Qubit("q1")
     SPAM(q1, np.linspace(0, pi/2, 11))
 
 if __name__ == "__main__":

@@ -129,11 +129,5 @@ pulse = True
 sequence = True
 control = True
 
-# This means: 'put sequence(s) here'
-@qgl2decl
-def GATHER_SEQUENCES() -> sequence:
-    assert False, 'GATHER_SEQUENCES should not be directly executed'
-    return []
-
 concur = Concur()
 seq = Seq()

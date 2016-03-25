@@ -5,9 +5,10 @@ from qgl2.qgl2 import qgl2decl, qbit, qbit_list, pulse, concur
 from QGL.PulsePrimitives import MEAS, Id, X, AC
 from QGL.PulseSequencePlotter import plot_pulse_files
 from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
+from QGL.Compiler import compile_to_hardware
 
 from .helpers import create_cal_seqs
-from .new_helpers import compileAndPlot, qgl2_compile_to_hardware
+from .new_helpers import compileAndPlot
 from .qgl2_plumbing import init
 
 from csv import reader
@@ -334,8 +335,9 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
                 meas(qubit)
 
             # Now write these sequences
-            # FIXME: QGL2 compiler must fill in these sequences
-            fileNames = qgl2_compile_to_hardware(seqs, 'RB/RB', suffix='_{0}'.format(2*ct+1+1*(not isOne)))
+            # FIXME: Then magically get the sequences here....
+            # This needs to get refactored....
+            fileNames = compile_to_hardware([], 'RB/RB', suffix='_{0}'.format(2*ct+1+1*(not isOne)))
 
             doCt += numRandomizations
             isOne = not isOne
@@ -435,7 +437,9 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False
             init(qubit)
             X(qubit)
             MEAS(qubit)
-        fileNames = qgl2_compile_to_hardware('RBT/RBT', suffix='_{0}'.format(ct+1))
+        # FIXME: Then magically get the sequences here....
+        # This needs to get refactored....
+        fileNames = compile_to_hardware([], 'RBT/RBT', suffix='_{0}'.format(ct+1))
 
     if showPlot:
         plot_pulse_files(fileNames)
@@ -499,9 +503,10 @@ def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
     compileAndPlot('RB/RB', showPlot)
 
 # Imports for testing only
-from qgl2.qgl2 import Qbit, qgl2main
+from qgl2.qgl2 import qgl2main
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement, Edge
 from QGL import ChannelLibrary
+from qgl2.qgl1 import Qubit
 import numpy as np
 from math import pi
 import random
@@ -558,11 +563,9 @@ def main():
 #    }
 #    ChannelLibrary.channelLib.build_connectivity_graph()
 
-    # But the current qgl2 compiler doesn't understand Qubits, only
-    # Qbits. So use that instead when running through the QGL2
-    # compiler, but comment this out when running directly.
-    q1 = Qbit(1)
-    q2 = Qbit(2)
+    # Use stub Qubits, but comment this out when running directly.
+    q1 = Qubit("q1")
+    q2 = Qubit("q2")
 
     np.random.seed(20152606) # set seed for create_RB_seqs()
     random.seed(20152606) # set seed for random.choice()
