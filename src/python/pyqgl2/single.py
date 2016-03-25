@@ -116,6 +116,8 @@ class SingleSequence(object):
         #
         preamble = 'def %s(**kwargs):\n' % func_name
 
+        preamble += indent + 'print("ABOUT TO CRASH")\n'
+
         for (sym_name, _use_name, node) in self.qbit_creates:
             preamble += indent + 'if \'' + sym_name + '\' in kwargs:\n'
             preamble += (2 * indent) + sym_name
@@ -154,7 +156,11 @@ def single_sequence(node, func_name):
 
         print('CODE + + + + + +\n%sCODE - - - - - -\n' % code)
 
-        eval(compile(code, '<none>', 'single'))
+        # TODO: we might want to pass in elements of the local scope
+        scratch_scope = dict()
+        eval(compile(code, '<none>', mode='exec'), globals(), scratch_scope)
+
+        return scratch_scope[func_name]
     else:
         print('ABJECT FAILURE')
 
