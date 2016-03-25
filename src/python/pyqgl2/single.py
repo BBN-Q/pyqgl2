@@ -95,7 +95,7 @@ class SingleSequence(object):
 
         return True
 
-    def emit_function(self, func_name='doit'):
+    def emit_function(self, func_name='qgl1_main'):
         """
         Create a function that, when run, creates the context
         in which the sequence is evaluated, and evaluate it.
@@ -114,7 +114,7 @@ class SingleSequence(object):
 
         # allow QBIT parameters to be overridden
         #
-        preamble = 'def %s(**kwargs)\n' % func_name
+        preamble = 'def %s(**kwargs):\n' % func_name
 
         for (sym_name, _use_name, node) in self.qbit_creates:
             preamble += indent + 'if \'' + sym_name + '\' in kwargs:\n'
@@ -128,7 +128,6 @@ class SingleSequence(object):
 
         print('FS PRE\n%s' % preamble)
 
-
         sequence = [ast2str(item).strip() for item in self.sequence]
 
         # TODO there must be a more elegant way to indent this properly
@@ -141,5 +140,21 @@ class SingleSequence(object):
         postamble = indent + 'return seq\n'
 
         res =  preamble + seq_str + postamble
-        print('---\n%s---' % res)
+        return res
+
+def single_sequence(node, func_name):
+    """
+    Example function
+    """
+
+    builder = SingleSequence()
+
+    if builder.find_sequence(node):
+        code = builder.emit_function(func_name)
+
+        print('CODE + + + + + +\n%sCODE - - - - - -\n' % code)
+
+        eval(compile(code, '<none>', 'single'))
+    else:
+        print('ABJECT FAILURE')
 
