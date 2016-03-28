@@ -116,6 +116,10 @@ class SingleSequence(object):
         #
         preamble = 'def %s(**kwargs):\n' % func_name
 
+        # TODO: right now we know that we're about to fail,
+        # because the code we've generated is broken.
+        # FIXME: remove this when it's no longer believed to be true
+        #
         preamble += indent + 'print("ABOUT TO CRASH")\n'
 
         for (sym_name, _use_name, node) in self.qbit_creates:
@@ -128,16 +132,12 @@ class SingleSequence(object):
         for (sym_name, use_name, _node) in self.qbit_creates:
             preamble += indent + '%s = %s\n' % (use_name, sym_name)
 
-        print('FS PRE\n%s' % preamble)
-
         sequence = [ast2str(item).strip() for item in self.sequence]
 
         # TODO there must be a more elegant way to indent this properly
         seq_str = indent + 'seq = [\n' + 2 * indent
         seq_str += (',\n' + 2 * indent).join(sequence)
         seq_str += '\n' + indent + ']\n'
-
-        print('SEQ:\n<<%s>>' % seq_str)
 
         postamble = indent + 'return seq\n'
 
@@ -146,7 +146,13 @@ class SingleSequence(object):
 
 def single_sequence(node, func_name):
     """
-    Example function
+    Create a function that encapsulates the QGL code (for a single
+    sequence) from the given AST node, which is presumed to already
+    be fully pre-processed.
+
+    TODO: we don't test that the node is fully pre-processed.
+    TODO: each step of the preprocessor should mark the nodes
+    so that we know whether or not they've been processed.
     """
 
     builder = SingleSequence()
@@ -154,7 +160,8 @@ def single_sequence(node, func_name):
     if builder.find_sequence(node):
         code = builder.emit_function(func_name)
 
-        print('CODE + + + + + +\n%sCODE - - - - - -\n' % code)
+        NodeError.diag_msg(
+                node, 'generated code:\n#start\n%s\n#end code' % code)
 
         # TODO: we might want to pass in elements of the local scope
         scratch_scope = dict()
@@ -162,5 +169,7 @@ def single_sequence(node, func_name):
 
         return scratch_scope[func_name]
     else:
-        print('ABJECT FAILURE')
+        NodeError.fatal_msg(
+                node, 'find_sequence failed: not a single sequence')
+        return None
 
