@@ -215,15 +215,25 @@ def main(filename, main_name=None):
     # singseq.find_sequence(new_ptree8)
     # singseq.emit_function()
 
+    # Try to guess the proper function name
     fname = main_name
     if not fname:
+        import ast
         if isinstance(ptree, ast.FunctionDef):
             fname = ptree.name
         else:
             fname = "qgl1Main"
-    qgl1_main = pyqgl2.single.single_sequence(new_ptree8, fname)
-    return qgl1_main
-#    qgl1_main()
+
+    builder = pyqgl2.single.SingleSequence()
+    if builder.find_sequence(new_ptree8):
+        # HACK
+        # Assume we have a function creating a single qubit sequence
+        # Find it and return it
+        qgl1_main = pyqgl2.single.single_sequence(new_ptree8, fname)
+        return qgl1_main
+    else:
+        print("Not a single qubit sequence producing function")
+        return None
 
     """
     wav_check = CheckWaveforms(type_check.func_defs, importer)
@@ -249,24 +259,19 @@ def main(filename, main_name=None):
 if __name__ == '__main__':
     opts = parse_args(sys.argv[1:])
     resFunction = main(opts.filename, opts.main_name)
+    if resFunction:
+        # Now import the QGL1 things we need 
+        from QGL.Compiler import compile_to_hardware
+        from QGL.PulseSequencePlotter import plot_pulse_files
 
-#    # Now need to redefine the qgl2 things that got preserved
-#    # Or else these need to be stripped out
-#    def qgl2main(function):
-#        pass
-#    sequence = True
+        # Now execute the returned function, which should produce a list of sequences
+        sequences = resFunction()
 
-#    # Now import the QGL1 things we need 
-#    from QGL.Compiler import compile_to_hardware
-#    from QGL.PulseSequencePlotter import plot_pulse_files
-#    from QGL import *
-#    from QGL.ControlFlow import Wait
-
-    # Now execute the returned function, which should produce a list of sequences
-    sequences = resFunction()
-
-    # Now we have a QGL1 list of sequences we can act on
-    fileNames = compile_to_hardware(sequences, opts.prefix, opts.suffix)
-    print(fileNames)
-    if opts.showplot:
-        plot_pulse_files(fileNames)
+        # Now we have a QGL1 list of sequences we can act on
+        fileNames = compile_to_hardware(sequences, opts.prefix, opts.suffix)
+        print(fileNames)
+        if opts.showplot:
+            plot_pulse_files(fileNames)
+    else:
+        # Didn't produce a function
+        pass
