@@ -138,6 +138,13 @@ class NameRewriter(ast.NodeTransformer):
 
         new_ptree = self.visit(ptree)
 
+        # Keep a copy of the rewriter, so we can track variables
+        # that might be removed during the inlining process.  We
+        # care about things like whether the original code referenced
+        # qbits, even if the inlined code does not
+        #
+        new_ptree.qgl2_rewriter = deepcopy(self)
+
         return new_ptree
 
 def is_qgl2_def(node):
@@ -597,10 +604,20 @@ def create_inline_procedure(func_ptree, call_ptree):
             isFirst = False
             continue
 
+        orig_call = call_ptree
+
         new_stmnt = rewriter.rewrite(stmnt)
         ast.fix_missing_locations(new_stmnt)
         new_func_body.append(new_stmnt)
         isFirst = False
+
+        # stash a reference to the original call in the new_stmnt,
+        # so that we can trace back the original variables used
+        # in the call
+        #
+        # TODO: do we need to deepcopy the call_ptree, or is this enough?
+        #
+        new_stmnt.qgl2_orig_call = orig_call
 
     inlined = setup_locals + new_func_body
 
