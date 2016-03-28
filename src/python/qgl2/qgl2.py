@@ -8,8 +8,8 @@ the following snipped at the start of each module that uses
 QGL2 constructs:
 
 from qgl2.qgl2 import concur, qgl2decl, qgl2main
-from qgl2.qgl2 import classical, pulse, qbit, qbit_list
-from qgl2.qgl2 import Qbit
+from qgl2.qgl2 import classical, pulse, qbit, qbit_list, sequence, control, GATHER_SEQUENCES
+from qgl2.qgl1 import *
 """
 
 class SimpleWithObject(object):
@@ -129,15 +129,5 @@ pulse = True
 sequence = True
 control = True
 
-# This means: 'put sequence(s) here'
-@qgl2decl
-def GATHER_SEQUENCES() -> sequence:
-    assert False, 'GATHER_SEQUENCES should not be directly executed'
-    return []
-
 concur = Concur()
 seq = Seq()
-
-@qgl2decl
-def Qbit(chan:classical) -> qbit:
-    pass

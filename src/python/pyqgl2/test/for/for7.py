@@ -1,6 +1,7 @@
 
-from qgl2.qgl2 import concur, qbit, qgl2decl, Qbit
-from qgl2.qgl2 import Qbit
+from qgl2.qgl2 import concur, qbit, qgl2decl, qgl2main
+from qgl2.qgl1 import Qubit, Id
+from qgl2.basic_sequences.qgl2_plumbing import init
 
 @qgl2decl
 def MEAS(q: qbit) -> pulse:
@@ -32,9 +33,9 @@ def setup(a: qbit, b: qbit, c: qbit):
 @qgl2main
 def main():
 
-    x = Qbit(1)
-    y = Qbit(2)
-    z = Qbit(3)
+    x = Qubit("1")
+    y = Qubit("2")
+    z = Qubit("3")
 
     setup(x, y, z)
 

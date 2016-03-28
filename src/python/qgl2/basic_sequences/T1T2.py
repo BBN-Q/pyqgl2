@@ -211,9 +211,9 @@ def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2,
     compileAndPlot(fullLabel, showPlot)
 
 # Imports for testing only
-from qgl2.qgl2 import Qbit
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement
 import QGL.ChannelLibrary as ChannelLibrary
+from qgl2.qgl1 import Qubit
 import numpy as np
 from math import pi
 
@@ -245,10 +245,8 @@ def main():
 #    }
 #    ChannelLibrary.channelLib.build_connectivity_graph()
 
-    # But the current qgl2 compiler doesn't understand Qubits, only
-    # Qbits. So use that instead when running through the QGL2
-    # compiler, but comment this out when running directly.
-    q1 = Qbit(1)
+    # Use stub Qubits, but comment this out when running directly.
+    q1 = Qubit("q1")
 
     print("Run InversionRecovery")
     InversionRecovery(q1,  np.linspace(0, 5e-6, 11))

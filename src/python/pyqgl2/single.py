@@ -10,6 +10,7 @@ from pyqgl2.ast_util import ast2str, NodeError
 from pyqgl2.concur_unroll import is_concur, is_seq, find_all_channels
 from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
+from pyqgl2.substitute import getChanLabel
 
 class SingleSequence(object):
     """
@@ -54,14 +55,18 @@ class SingleSequence(object):
 
         # This is the old name, and needs to be updated
         # TODO: update to new name/signature
-        if node.value.func.id != 'Qbit':
+        if node.value.func.id != QGL2.QBIT_ALLOC:
             return False
 
         print('FS %s' % ast.dump(node))
 
+        chanLabel = getChanLabel(node)
+        if not chanLabel:
+            print("***** failed to find chanLabel")
+
         # HACK FIXME: assumes old-style Qbit allocation
         sym_name = node.targets[0].id
-        use_name = 'QBIT_%d' % node.value.args[0].n
+        use_name = 'QBIT_%s' % chanLabel
         return (sym_name, use_name, node)
 
     def find_sequence(self, node):
@@ -112,9 +117,25 @@ class SingleSequence(object):
         #
         indent = '    '
 
+        # FIXME: Ugliness
+        # In the proper namespace we need to import all the QGL1 functions
+        # that this method is using / might use
+        # Here we include the imports matching stuff in qgl2.qgl1.py
+        # Can we perhaps annotate all the stubs with the proper
+        # import statement and use that to figure out what to include here?
+        imports = """    from QGL.Compiler import compile_to_hardware
+    from QGL.PulseSequencePlotter import plot_pulse_files
+    from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
+    from QGL.BlockLabel import BlockLabel
+    from QGL.ControlFlow import Wait, Call, Goto, LoadRepeat, Repeat, Return, Sync, qwait, qif
+    from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS, flat_top_gaussian, echoCR, U90, X90m, AC, Utheta, U
+    from QGL.ChannelLibrary import EdgeFactory
+    from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
+"""
+
         # allow QBIT parameters to be overridden
         #
-        preamble = 'def %s(**kwargs):\n' % func_name
+        preamble = 'def %s(**kwargs):\n' % func_name + imports
 
         # TODO: right now we know that we're about to fail,
         # because the code we've generated is broken.
@@ -139,9 +160,13 @@ class SingleSequence(object):
         seq_str += (',\n' + 2 * indent).join(sequence)
         seq_str += '\n' + indent + ']\n'
 
-        postamble = indent + 'return seq\n'
+        # That was a single sequence. We want a list of sequences
+        # FIXME: Really, we want a new sequence every time the source code used Init()
+        seqs_str = indent + 'seqs = [seq]\n'
 
-        res =  preamble + seq_str + postamble
+        postamble = indent + 'return seqs\n'
+
+        res =  preamble + seq_str + seqs_str + postamble
         return res
 
 def single_sequence(node, func_name):

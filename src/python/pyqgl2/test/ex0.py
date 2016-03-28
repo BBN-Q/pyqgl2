@@ -1,9 +1,10 @@
+from qgl2.qgl2 import qbit, concur, qgl2decl
+from qgl2.qgl1 import MEAS, X90, Y90
 
-from qgl2 import qtypes, concur
-
+@qgl2decl
 def test_loops(a:qbit, b:qbit):
 
-    with concur():
+    with concur:
         while True:
             v1 = MEAS(a)
             if v1:

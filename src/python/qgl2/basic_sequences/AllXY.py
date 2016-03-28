@@ -1,12 +1,12 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main
+from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main, sequence
 
 from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
 #from QGL.Compiler import compile_to_hardware
 #from QGL.PulseSequencePlotter import plot_pulse_files
 
-from qgl2.qgl1 import Id, X, Y, X90, Y90, MEAS, compile_to_hardware
+from qgl2.qgl1 import Id, X, Y, X90, Y90, MEAS
 
 from .new_helpers import addMeasPulses, repeatSequences, compileAndPlot
 from .new_helpers import IdId, XX, YY, XY, YX, X90Id, Y90Id, X90Y90, Y90X90, X90Y, Y90X, \
@@ -35,7 +35,29 @@ def AllXYq2(q: qbit, showPlot = False):
     compileAndPlot('AllXY/AllXY', showPlot)
 
 @qgl2decl
+def doAllXY() -> sequence:
+    q = Qubit(label="q1")
+    # Force the compiler to add a Sync() at the end
+    with concur:
+        # For each of the 21 pulse pairs
+        for func in [IdId, XX, YY, XY, YX, X90Id, Y90Id,
+                 X90Y90, Y90X90, X90Y, Y90X, XY90, YX90, X90X,
+                 XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90]:
+            # Repeat it twice and do a MEAS at the end of each
+            for i in range(2):
+                init(q)
+                func(q)
+                MEAS(q)
+
+@qgl2decl
 def AllXY(q: qbit, showPlot = False):
+    # I'm not sure this would ever be run like this.
+    # But logically we want something like this
+    sequences = pyqgl2.main.main(doAllXY(q))()
+    compileAndPlot(sequences, 'AllXY/AllXY', showPlot)
+
+@qgl2decl
+def AllXYprev(q: qbit, showPlot = False):
     # Force the compiler to add a Sync() at the end
     with concur:
         # For each of the 21 pulse pairs
@@ -52,9 +74,8 @@ def AllXY(q: qbit, showPlot = False):
     compileAndPlot('AllXY/AllXY', showPlot)
 
 # Imports for testing only
-from qgl2.qgl2 import Qbit
 #from QGL.Channels import Qubit, LogicalMarkerChannel
-#from qgl2.qgl1 import Qubit
+from qgl2.qgl1 import Qubit
 from math import pi
 
 @qgl2main
@@ -74,8 +95,7 @@ def main():
     # compiler, but comment this out when running directly.
     # And I can't easily make it understand stub Qubits either. Bah.
     # (because it expects the single arg to be an int)
-#    q1 = Qubit(label="q1")
-    q1 = Qbit(1)
+    q1 = Qubit(label="q1")
     AllXY(q1)
 
 if __name__ == "__main__":

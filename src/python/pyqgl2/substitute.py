@@ -29,22 +29,22 @@ from pyqgl2.lang import QGL2
 
 class SubstituteChannel(NodeTransformerWithFname):
 
-    # globally-defined qbits
-    #
-    GLOBAL_QBITS = {
-    }
+#    # globally-defined qbits
+#    #
+#    GLOBAL_QBITS = {
+#    }
 
-    BUILTIN_FUNCS = [
-            'X90', 'X180',
-            'Y90', 'Y180',
-            'Z90', 'Z180',
-            'UTheta'
-    ]
+#    BUILTIN_FUNCS = [
+#            'X90', 'X180',
+#            'Y90', 'Y180',
+#            'Z90', 'Z180',
+#            'UTheta'
+#    ]
 
     def __init__(self, fname, qbit_bindings, func_defs, importer=None):
         super(SubstituteChannel, self).__init__()
 
-        self.qbit_map = {name:chan_no for (name, chan_no) in qbit_bindings}
+        self.qbit_map = {name:chanLabel for (name, chanLabel) in qbit_bindings}
         self.func_defs = func_defs
         self.importer = importer
 
@@ -112,26 +112,18 @@ class SubstituteChannel(NodeTransformerWithFname):
         if self.is_qbit_creation(node.value):
             # OK, we got a Qbit.  But we're very fussy about what
             # parameters a Qbit declaration must have: the first
-            # parameter must be plain-vanilla integer.  Anything
+            # parameter must be plain-vanilla string.  Anything
             # else, and we can't guarantee its value at runtime.
 
-            if len(node.value.args) == 0:
-                self.error_msg(node,
-                        '%s does not have parameters' % QGL2.QBIT_ALLOC)
+            # First ensure there's a label.
+            # If there are positional args, assume it is first
+            # Otherwise, look for it among keyword args
+            chanLabel = getChanLabel(node)
+            if not chanLabel:
+                self.error_msg(node, "Failed to find channel label")
                 return node
 
-            arg0 = node.value.args[0]
-            if not isinstance(arg0, ast.Num):
-                self.error_msg(node,
-                        '1st param to %s must be an int' % QGL2.QBIT_ALLOC)
-                return node
-
-            if not isinstance(arg0.n, int):
-                self.error_msg(node,
-                        '1st param to %s must be an int' % QGL2.QBIT_ALLOC)
-                return node
-
-            channo = arg0.n
+            # Now look at targets
 
             if len(node.targets) != 1:
                 self.error_msg(node,
@@ -155,9 +147,11 @@ class SubstituteChannel(NodeTransformerWithFname):
                 self.error_msg(node,
                         'reassignment of Qbit [%s] deprecated' % target_name)
 
-            print('GOT QBIT CHANNEL %d for symbol %s' % (channo, target.id))
+            print('GOT QBIT CHANNEL %s for symbol %s' % (chanLabel, target.id))
 
-            self.qbit_map[target_name] = 'QBIT_%d' % channo
+            self.qbit_map[target_name] = 'QBIT_%s' % chanLabel
+            # FIXME: Or just use the label as is?
+            # self.qbit_map[target_name] = chanLabel
 
         return node
 
@@ -196,34 +190,34 @@ class SubstituteChannel(NodeTransformerWithFname):
             print('TST Find(%s): found in local qbit_map %s' %
                     (name, self.qbit_map[name]))
             return self.qbit_map[name]
-        elif name in self.GLOBAL_QBITS:
-            print('TST Find(%s): found in global qbit_map %s' %
-                    (name, self.GLOBAL_QBITS[name]))
-            return self.GLOBAL_QBITS[name]
+#        elif name in self.GLOBAL_QBITS:
+#            print('TST Find(%s): found in global qbit_map %s' %
+#                    (name, self.GLOBAL_QBITS[name]))
+#            return self.GLOBAL_QBITS[name]
 
         print('TST Find(%s): struck out' % name)
         return None
 
-    def handle_builtin(self, node):
-        literal_args = list()
-        for arg in node.args:
-            if isinstance(arg, ast.Name):
-                literal_args.append(arg.id)
-            elif isinstance(arg, ast.Str):
-                literal_args.append("'" + arg.s + "'")
-            elif isinstance(arg, ast.Num):
-                literal_args.append(str(arg.n))
-            elif isinstance(arg, ast.NameConstant):
-                literal_args.append(str(arg.value))
+#    def handle_builtin(self, node):
+#        literal_args = list()
+#        for arg in node.args:
+#            if isinstance(arg, ast.Name):
+#                literal_args.append(arg.id)
+#            elif isinstance(arg, ast.Str):
+#                literal_args.append("'" + arg.s + "'")
+#            elif isinstance(arg, ast.Num):
+#                literal_args.append(str(arg.n))
+#            elif isinstance(arg, ast.NameConstant):
+#                literal_args.append(str(arg.value))
 
-        print('LITERAL %s' % literal_args)
+#        print('LITERAL %s' % literal_args)
 
-        text = '%s(%s)' % (
-                pyqgl2.importer.collapse_name(node.func),
-                ', '.join(literal_args))
+#        text = '%s(%s)' % (
+#                pyqgl2.importer.collapse_name(node.func),
+#                ', '.join(literal_args))
 
-        print('BUILTIN %s' % text)
-        return node
+#        print('BUILTIN %s' % text)
+#        return node
 
     def visit_Call(self, orig_node):
         # Now we have to map our parameters to this call
@@ -247,13 +241,21 @@ class SubstituteChannel(NodeTransformerWithFname):
         if not func_ast:
             self.diag_msg(node, 'no definition found for %s' % funcname)
             return node
-
+        if func_ast.name == QGL2.QBIT_ALLOC:
+            self.error_msg(node,
+                           ("%s() called as a Call. Only when called as an Assign is this treated as a qbit." % QGL2.QBIT_ALLOC))
         # Note we allow qgl_stub functions to pass through here,
         # so the arguments are error checked
         if not can_specialize(func_ast):
             return node
-        # print("Going to rewrite %s" % funcname)
+        # print("Going to rewrite %s()" % funcname)
+        # fparams represents all args other than *args or **kwargs
         fparams = func_ast.qgl_args
+        # But that includes things with reasonable defaults
+        # Here we produce counters of things without a default
+        numFArgsNoDefaults = len(func_ast.args.args) - len(func_ast.args.defaults)
+        numFKWArgsNoDefaults = len(func_ast.args.kwonlyargs) - len([default for default in func_ast.args.kw_defaults if default is not None])
+        print("For func %s got ArgsNoDefaults: %d, KWArgsNoDefaults: %d" % (funcname, numFArgsNoDefaults, numFKWArgsNoDefaults))
 
 #        if funcname in self.BUILTIN_FUNCS:
 #            print('TT3 builtin %s' % ast.dump(node))
@@ -262,22 +264,25 @@ class SubstituteChannel(NodeTransformerWithFname):
 
         aparams = [arg if isinstance(arg, ast.Name) else None
                 for arg in node.args]
-        # aparams will include None in the list if there's  non qbit arg
-#        if aparams == [None]:
-#            print("%s got aparams [None]" % (funcname))
-        # print('FOUND %s formal params %s' % (funcname, str(fparams)))
+        # aparams will include None in the list if there's a non qbit arg
+        # if aparams == [None]:
+        #     print("%s() got aparams [None]: %s" % (funcname, str(node.args)))
+        # print('FOUND %s() formal params: %s' % (funcname, str(fparams)))
 
         # map our local bindings to the formal parameters of
         # this function, to create a signature
 
-        # It would be nice if we could do something with kwargs,
-        # but we're not even making an attempt right now
-        #
+        # Now find the qbit argument and replace with one of the qbits from our map,
+        # ensuring that the value supplied is a qbit where required
+        # Note this code tries to support kwargs somewhat
+        # However, it still doesn't deal well with a method signature that takes *args or **kwargs
         qbit_defs = list()
-        if len(fparams) != len(aparams):
+        if len(aparams) > len(fparams) or \
+           len(aparams) < (numFArgsNoDefaults + numFKWArgsNoDefaults):
+#        if len(fparams) != len(aparams):
             self.error_msg(node,
                     ('[%s] formal and actual param lists differ in length (%s != %s' %
-                        (funcname, fparams, [arg.id for arg in aparams])))
+                        (funcname, fparams, [arg.id if arg is not None else 'Not-a-variable-name' for arg in aparams])))
             return node
 
         print('MY CONTEXT %s' % str(self.qbit_map))
@@ -286,22 +291,30 @@ class SubstituteChannel(NodeTransformerWithFname):
 
         for ind in range(len(fparams)):
             fparam = fparams[ind]
-            aparam = aparams[ind]
+            if ind < len(aparams):
+                aparam = aparams[ind]
+            else:
+                print("Function param %d (%s) is not an actual argument - stop here doing qbit mapping" % (ind, fparam))
+                break
 
             (fparam_name, fparam_type) = fparam.split(':')
             print('fparam %s needs %s' % (fparam_name, fparam_type))
 
             qbit_ref = self.find_qbit(aparam)
-            if (fparam_type == 'qbit') and not qbit_ref:
+            if (fparam_type == QGL2.QBIT) and not qbit_ref:
                 self.error_msg(node,
                         ('[%s] assigned non-qbit to qbit param [%s]' %
                             (funcname, fparam_name)))
                 return node
-            elif (fparam_type != 'qbit') and qbit_ref:
+            elif (fparam_type != QGL2.QBIT) and qbit_ref:
                 self.error_msg(node,
                         ('[%s] assigned qbit to non-qbit param [%s]' %
                             (funcname, fparam_name)))
                 return node
+            elif not qbit_ref:
+                print("OK: %s() param %d doesn't want a qbit and argument wasn't one" % (funcname, ind))
+            else:
+                print("OK: %s() assigned %s to param %d(%s)" % (funcname, qbit_ref, ind, fparam))
 
             if qbit_ref:
                 qbit_defs.append((fparam_name, qbit_ref))
@@ -440,6 +453,63 @@ def preprocess(fname, main_name=None):
     if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
         print('bailing out 3')
         sys.exit(1)
+
+def getChanLabel(node):
+    '''Given an Call to Qubit() or an Assign containing such, find the label of the qbit.
+    Return None if can't find it.'''
+    theNode = node
+    if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+        theNode = node.value 
+    if not isinstance(theNode, ast.Call):
+        print("Was not a call")
+        return None
+
+    # First ensure there's a label.
+    # If there are positional args, assume it is first
+    # Otherwise, look for it among keyword args
+    chanLabel = None
+    if len(theNode.args) > 0:
+        arg0 = theNode.args[0]
+        # FIXME:
+        # This code requires that the label arg be an explicit string
+        # Not a variable, function call, etc.
+        # We need this to (a) error check the arg value is a string, and
+        # (b) extract the value for labeling in the QBIT map
+        # This is a sad, ugly restriction
+        if not isinstance(arg0, ast.Str):
+            print('1st param to %s() must be a string - got %s' % (QGL2.QBIT_ALLOC, arg0))
+            return None
+
+        if not isinstance(arg0.s, str):
+            print('1st param to %s() must be a str - got %s' % (QGL2.QBIT_ALLOC, arg0.s))
+            return None
+
+        chanLabel = arg0.s
+    if len(theNode.keywords) > 0:
+        for kwarg in theNode.keywords:
+            if kwarg.arg == 'label':
+                if chanLabel is not None:
+                    kwp = str(kwarg.value)
+                    if isinstance(kwarg.value, ast.Str):
+                        kwp = kwarg.value.s
+                    print("%s had a positional arg used as label='%s'. Cannot also have keyword argument label='%s'" % (QGL2.QBIT_ALLOC, chanLabel, kwp))
+                labelArg = kwarg.value
+                if not isinstance(labelArg, ast.Str):
+                    print('label param to %s() must be a string - got %s' % (QGL2.QBIT_ALLOC, labelArg))
+                    return None
+
+                if not isinstance(labelArg.s, str):
+                    print('label param to %s() must be a str - got %s' % (QGL2.QBIT_ALLOC, labelArg.s))
+                    return None
+                chanLabel = labelArg.s
+                break
+        if chanLabel is None:
+            print("%s() missing required label (string) argument: found no label kwarg and had no positional args" % QGL2.QBIT_ALLOC)
+            return None
+    elif chanLabel is None:
+        print('%s() missing required label (string) argument: call had 0 parameters' % QGL2.QBIT_ALLOC)
+        return None
+    return chanLabel
 
 if __name__ == '__main__':
     preprocess(sys.argv[1])

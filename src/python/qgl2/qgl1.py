@@ -69,9 +69,9 @@ def U(qubit: qbit, phase=0, **kwargs) -> pulse:
     print('U')
 
 #from QGL.Compiler import compile_to_hardware
-@qgl2stub
-def compile_to_hardware(seqs: sequence, fileName, suffix=''):
-    print('compile_to_hardware')
+# No longer declaring this qgl2stub cause don't need to annotate it any more
+#def compile_to_hardware(seqs: qgl2GeneratedSequences, fileName, suffix=''):
+#    print('compile_to_hardware')
 
 #from QGL.Channels import Qubit, Edge, LogicalMarkerChannel
 # Edge used in test mains

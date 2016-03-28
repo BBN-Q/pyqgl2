@@ -1,0 +1,31 @@
+* 'label' argument to Qubit() must be a literal string - no variable
+  whose value is a string, no expression, etc
+ * EG see `test_Sequences` which loops over qbit names. That won't work.
+* A Qubit() creation is only recognized if it is in an assignemnt. EG
+x = Qubit("alabel") works, but
+return Qubit("alabel") does not
+* In general, *args and **kwargs are not well handled - for type
+  checking arguments, etc
+* QGL2 looks at variables named `QBIT_*` as canonical qbits. Another
+  variable that happens to ahve that name might cause problems.
+* qgl2decl method declarations cannot be nested
+* Methods with a return statement are not inlined
+* In general, methods with a return statement are not well handled
+* QGL2 tries to tie method calls to qbits. A method call without a
+  qbit gets tied to the empty qbit - so the call to Wait() in init()
+  causes problems
+* imports of qgl1 real functions can break qgl2 stubs, and import of
+  qgl2 stubs needs to be removed in favor of real qgl1 imports for
+  generated qgl1 code
+* Not yet gathering generated sequences to pass to compile_to_hardware
+* Need to do more error checking on arguments other than qbit
+* large pieces of code need refactoring
+
+* Wait() stub conflicts with WAIT() the compiler puts in
+* Should init() be moved out of qgl2_plumbing?
+
+---
+
+* rewrite left side of assign of qbits
+* generate sequences from pulses - formatting, brackets
+

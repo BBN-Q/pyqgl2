@@ -70,6 +70,14 @@ def parse_args(argv):
 
     parser.add_argument('filename', type=str, metavar='FILENAME',
             help='input filename')
+    parser.add_argument('-show', dest='showplot', default=False, action='store_true',
+                        help="show the waveform plots")
+    parser.add_argument('-p', type=str, dest="prefix", metavar='PREFIX',
+                        default="test/test",
+                        help="Compiled file prefix")
+    parser.add_argument('-s', type=str, dest="suffix", metavar='SUFFIX',
+                        default="",
+                        help="Compiled filename suffix")
 
     options = parser.parse_args(argv)
 
@@ -89,13 +97,12 @@ def parse_args(argv):
     return options
 
 
-def main():
-    opts = parse_args(sys.argv[1:])
+def main(filename, main_name=None):
 
     # Process imports in the input file, and find the main.
     # If there's no main, then bail out right away.
 
-    importer = NameSpaces(opts.filename, opts.main_name)
+    importer = NameSpaces(filename, main_name)
     if not importer.qglmain:
         NodeError.fatal_msg(None, 'no qglmain function found')
 
@@ -138,7 +145,7 @@ def main():
         print('UNROLLED CODE (iteration %d):\n%s' %
                 (iteration, pyqgl2.ast_util.ast2str(ptree1)))
 
-        type_check = CheckType(opts.filename, importer=importer)
+        type_check = CheckType(filename, importer=importer)
         ptree1 = type_check.visit(ptree1)
         NodeError.halt_on_error()
         print('CHECKED CODE (iteration %d):\n%s' %
@@ -159,13 +166,13 @@ def main():
         NodeError.error_msg(None,
                 ('expansion did not converge after %d iterations' % MAX_ITERS))
 
-    base_namespace = importer.path2namespace[opts.filename]
+    base_namespace = importer.path2namespace[filename]
     text = base_namespace.pretty_print()
     print('EXPANDED NAMESPACE:\n%s' % text)
 
     new_ptree1 = ptree1
 
-    sym_check = CheckSymtab(opts.filename, type_check.func_defs, importer)
+    sym_check = CheckSymtab(filename, type_check.func_defs, importer)
     new_ptree5 = sym_check.visit(new_ptree1)
     NodeError.halt_on_error()
     print('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5))
@@ -195,7 +202,7 @@ def main():
 
     print('Final qglmain: %s' % new_ptree7.name)
 
-    base_namespace = importer.path2namespace[opts.filename]
+    base_namespace = importer.path2namespace[filename]
     text = base_namespace.pretty_print()
     print('FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % text)
 
@@ -203,12 +210,30 @@ def main():
     new_ptree8 = sync.visit(deepcopy(new_ptree7))
     print('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8))
 
+
     # singseq = SingleSequence()
     # singseq.find_sequence(new_ptree8)
     # singseq.emit_function()
 
-    qgl1_main = pyqgl2.single.single_sequence(new_ptree8, 'foo')
-    qgl1_main()
+    # Try to guess the proper function name
+    fname = main_name
+    if not fname:
+        import ast
+        if isinstance(ptree, ast.FunctionDef):
+            fname = ptree.name
+        else:
+            fname = "qgl1Main"
+
+    builder = pyqgl2.single.SingleSequence()
+    if builder.find_sequence(new_ptree8):
+        # HACK
+        # Assume we have a function creating a single qubit sequence
+        # Find it and return it
+        qgl1_main = pyqgl2.single.single_sequence(new_ptree8, fname)
+        return qgl1_main
+    else:
+        print("Not a single qubit sequence producing function")
+        return None
 
     """
     wav_check = CheckWaveforms(type_check.func_defs, importer)
@@ -232,4 +257,21 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    opts = parse_args(sys.argv[1:])
+    resFunction = main(opts.filename, opts.main_name)
+    if resFunction:
+        # Now import the QGL1 things we need 
+        from QGL.Compiler import compile_to_hardware
+        from QGL.PulseSequencePlotter import plot_pulse_files
+
+        # Now execute the returned function, which should produce a list of sequences
+        sequences = resFunction()
+
+        # Now we have a QGL1 list of sequences we can act on
+        fileNames = compile_to_hardware(sequences, opts.prefix, opts.suffix)
+        print(fileNames)
+        if opts.showplot:
+            plot_pulse_files(fileNames)
+    else:
+        # Didn't produce a function
+        pass

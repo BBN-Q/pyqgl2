@@ -2,12 +2,7 @@
 from qgl2.qgl2 import concur, seq
 from qgl2.qgl2 import qgl2decl, qgl2main
 from qgl2.qgl2 import classical, pulse, qbit, qbit_list
-from qgl2.qgl2 import Qbit
-
-def X(qbit_param: qbit) -> pulse: pass
-def X90(qbit_param: qbit) -> pulse: pass
-def Y(qbit_param: qbit) -> pulse: pass
-def Y90(qbit_param: qbit) -> pulse: pass
+from qgl2.qgl1 import Qubit, X, X90, Y, Y90
 
 @qgl2decl
 def t3(x: qbit, y: qbit):
@@ -35,11 +30,15 @@ def zz(a):
 @qgl2main
 def main():
 
-    with concur as xxx:
+    with concur:
+        qbit1 = Qubit("1")
+        qbit2 = Qubit("2")
         for nn in [1, 2]:
             zz(12)
-            qbit1 = Qbit(1)
-            qbit2 = Qbit(2)
+            # Putting Qubit creation here inside the for loop
+            # is an error, cause it looks like Qubit re-assignment
+#            qbit1 = Qubit("1")
+#            qbit2 = Qubit("2")
             x = yy(qbit1)
 
             t3(qbit1, qbit2)
