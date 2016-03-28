@@ -35,7 +35,8 @@ def AllXYq2(q: qbit, showPlot = False):
     compileAndPlot('AllXY/AllXY', showPlot)
 
 @qgl2decl
-def doAllXY(q: qbit) -> sequence:
+def doAllXY() -> sequence:
+    q = Qubit(label="q1")
     # Force the compiler to add a Sync() at the end
     with concur:
         # For each of the 21 pulse pairs
