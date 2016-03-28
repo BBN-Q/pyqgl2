@@ -58,6 +58,8 @@ class SequenceCreator(ast.NodeVisitor):
                 # so we don't have to find the qbits again.
                 #
                 qbits = find_all_channels(stmnt)
+                if not qbits:
+                    print('XXN body\n%s' % ast2str(stmnt))
                 self.do_seq(qbits, stmnt.body)
 
     def do_seq(self, qbits, body):

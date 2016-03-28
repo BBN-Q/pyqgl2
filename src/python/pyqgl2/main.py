@@ -35,6 +35,7 @@ sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
 
 import pyqgl2.ast_util
 import pyqgl2.inline
+import pyqgl2.single
 
 from pyqgl2.ast_util import NodeError
 from pyqgl2.check_qbit import CheckType
@@ -48,6 +49,7 @@ from pyqgl2.flatten import Flattener
 from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import Inliner
 from pyqgl2.sequence import SequenceCreator
+from pyqgl2.single import SingleSequence
 from pyqgl2.substitute import specialize
 from pyqgl2.sync import SynchronizeBlocks
 
@@ -200,6 +202,13 @@ def main():
     sync = SynchronizeBlocks(new_ptree7)
     new_ptree8 = sync.visit(deepcopy(new_ptree7))
     print('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8))
+
+    # singseq = SingleSequence()
+    # singseq.find_sequence(new_ptree8)
+    # singseq.emit_function()
+
+    qgl1_main = pyqgl2.single.single_sequence(new_ptree8, 'foo')
+    qgl1_main()
 
     """
     wav_check = CheckWaveforms(type_check.func_defs, importer)
