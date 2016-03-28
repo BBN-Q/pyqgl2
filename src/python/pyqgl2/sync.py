@@ -169,7 +169,7 @@ class SynchronizeBlocks(ast.NodeTransformer):
             # ordinarily there will be at least one waveform
             # per seq block (I think)
             #
-            sync_ast = ast.parse('SYNC()', mode='exec')
+            sync_ast = ast.parse('Sync()', mode='exec')
             copy_all_loc(sync_ast, new_seq_body[-1])
 
             new_seq_body.append(sync_ast)
