@@ -209,18 +209,21 @@ def main(filename, main_name=None):
     sync = SynchronizeBlocks(new_ptree7)
     new_ptree8 = sync.visit(deepcopy(new_ptree7))
     print('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8))
-#    with open("%s.qgl2.py" % filename, 'w') as out:
-#        out.write(pyqgl2.ast_util.ast2str(new_ptree8))
-    from ast import Module
-    return compile(Module(body=[new_ptree8]), filename=filename, mode="exec")
 
 
     # singseq = SingleSequence()
     # singseq.find_sequence(new_ptree8)
     # singseq.emit_function()
 
-    qgl1_main = pyqgl2.single.single_sequence(new_ptree8, 'foo')
-    qgl1_main()
+    fname = main_name
+    if not fname:
+        if isinstance(ptree, ast.FunctionDef):
+            fname = ptree.name
+        else:
+            fname = "qgl1Main"
+    qgl1_main = pyqgl2.single.single_sequence(new_ptree8, fname)
+    return qgl1_main
+#    qgl1_main()
 
     """
     wav_check = CheckWaveforms(type_check.func_defs, importer)
@@ -247,19 +250,20 @@ if __name__ == '__main__':
     opts = parse_args(sys.argv[1:])
     resFunction = main(opts.filename, opts.main_name)
 
-    # Now need to redefine the qgl2 things that got preserved
-    # Or else these need to be stripped out
-    def qgl2main(function):
-        pass
-    sequence = True
+#    # Now need to redefine the qgl2 things that got preserved
+#    # Or else these need to be stripped out
+#    def qgl2main(function):
+#        pass
+#    sequence = True
 
-    # Now import the QGL1 things we need 
-    from QGL.Compiler import compile_to_hardware
-    from QGL.PulseSequencePlotter import plot_pulse_files
-    from QGL import *
+#    # Now import the QGL1 things we need 
+#    from QGL.Compiler import compile_to_hardware
+#    from QGL.PulseSequencePlotter import plot_pulse_files
+#    from QGL import *
+#    from QGL.ControlFlow import Wait
 
     # Now execute the returned function, which should produce a list of sequences
-    sequences = exec(resFunction)
+    sequences = resFunction()
 
     # Now we have a QGL1 list of sequences we can act on
     fileNames = compile_to_hardware(sequences, opts.prefix, opts.suffix)
