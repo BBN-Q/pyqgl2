@@ -153,7 +153,9 @@ class SynchronizeBlocks(ast.NodeTransformer):
             chan_name = ','.join(seq_channels)
 
             new_seq_body = list()
-            wait_ast = ast.parse('WAIT(%s)' % chan_name, mode='exec')
+            # FIXME: QGL1 doesn't have a wait that takes a channel name
+#            wait_ast = ast.parse('WAIT(%s)' % chan_name, mode='exec')
+            wait_ast = ast.parse('Wait()', mode='exec')
             copy_all_loc(wait_ast, stmnt)
             new_seq_body.append(wait_ast)
 
