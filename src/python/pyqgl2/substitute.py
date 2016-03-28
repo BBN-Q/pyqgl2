@@ -118,53 +118,9 @@ class SubstituteChannel(NodeTransformerWithFname):
             # First ensure there's a label.
             # If there are positional args, assume it is first
             # Otherwise, look for it among keyword args
-            chanLabel = None
-            if len(node.value.args) > 0:
-                arg0 = node.value.args[0]
-                # FIXME:
-                # This code requires that the label arg be an explicit string
-                # Not a variable, function call, etc.
-                # We need this to (a) error check the arg value is a string, and
-                # (b) extract the value for labeling in the QBIT map
-                # This is a sad, ugly restriction
-                if not isinstance(arg0, ast.Str):
-                    self.error_msg(node,
-                                   '1st param to %s() must be a string - got %s' % (QGL2.QBIT_ALLOC, arg0))
-                    return node
-
-                if not isinstance(arg0.s, str):
-                    self.error_msg(node,
-                                   '1st param to %s() must be a str - got %s' % (QGL2.QBIT_ALLOC, arg0.s))
-                    return node
-
-                chanLabel = arg0.s
-            if len(node.value.keywords) > 0:
-                for kwarg in node.value.keywords:
-                    if kwarg.arg == 'label':
-                        if chanLabel is not None:
-                            kwp = str(kwarg.value)
-                            if isinstance(kwarg.value, ast.Str):
-                                kwp = kwarg.value.s
-                            self.error_msg(node,
-                                           "%s had a positional arg used as label='%s'. Cannot also have keyword argument label='%s'" % (QGL2.QBIT_ALLOC, chanLabel, kwp))
-                        labelArg = kwarg.value
-                        if not isinstance(labelArg, ast.Str):
-                            self.error_msg(node,
-                                           'label param to %s() must be a string - got %s' % (QGL2.QBIT_ALLOC, labelArg))
-                            return node
-
-                        if not isinstance(labelArg.s, str):
-                            self.error_msg(node,
-                                           'label param to %s() must be a str - got %s' % (QGL2.QBIT_ALLOC, labelArg.s))
-                            return node
-                        chanLabel = labelArg.s
-                        break
-                if chanLabel is None:
-                    self.error_msg(node, "%s() missing required label (string) argument: found no label kwarg and had no positional args" % QGL2.QBIT_ALLOC)
-                    return node
-            elif chanLabel is None:
-                self.error_msg(node,
-                        '%s() missing required label (string) argument: call had 0 parameters' % QGL2.QBIT_ALLOC)
+            chanLabel = getChanLabel(node)
+            if not chanLabel:
+                self.error_msg(node, "Failed to find channel label")
                 return node
 
             # Now look at targets
@@ -497,6 +453,63 @@ def preprocess(fname, main_name=None):
     if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
         print('bailing out 3')
         sys.exit(1)
+
+def getChanLabel(node):
+    '''Given an Call to Qubit() or an Assign containing such, find the label of the qbit.
+    Return None if can't find it.'''
+    theNode = node
+    if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+        theNode = node.value 
+    if not isinstance(theNode, ast.Call):
+        print("Was not a call")
+        return None
+
+    # First ensure there's a label.
+    # If there are positional args, assume it is first
+    # Otherwise, look for it among keyword args
+    chanLabel = None
+    if len(theNode.args) > 0:
+        arg0 = theNode.args[0]
+        # FIXME:
+        # This code requires that the label arg be an explicit string
+        # Not a variable, function call, etc.
+        # We need this to (a) error check the arg value is a string, and
+        # (b) extract the value for labeling in the QBIT map
+        # This is a sad, ugly restriction
+        if not isinstance(arg0, ast.Str):
+            print('1st param to %s() must be a string - got %s' % (QGL2.QBIT_ALLOC, arg0))
+            return None
+
+        if not isinstance(arg0.s, str):
+            print('1st param to %s() must be a str - got %s' % (QGL2.QBIT_ALLOC, arg0.s))
+            return None
+
+        chanLabel = arg0.s
+    if len(theNode.keywords) > 0:
+        for kwarg in theNode.keywords:
+            if kwarg.arg == 'label':
+                if chanLabel is not None:
+                    kwp = str(kwarg.value)
+                    if isinstance(kwarg.value, ast.Str):
+                        kwp = kwarg.value.s
+                    print("%s had a positional arg used as label='%s'. Cannot also have keyword argument label='%s'" % (QGL2.QBIT_ALLOC, chanLabel, kwp))
+                labelArg = kwarg.value
+                if not isinstance(labelArg, ast.Str):
+                    print('label param to %s() must be a string - got %s' % (QGL2.QBIT_ALLOC, labelArg))
+                    return None
+
+                if not isinstance(labelArg.s, str):
+                    print('label param to %s() must be a str - got %s' % (QGL2.QBIT_ALLOC, labelArg.s))
+                    return None
+                chanLabel = labelArg.s
+                break
+        if chanLabel is None:
+            print("%s() missing required label (string) argument: found no label kwarg and had no positional args" % QGL2.QBIT_ALLOC)
+            return None
+    elif chanLabel is None:
+        print('%s() missing required label (string) argument: call had 0 parameters' % QGL2.QBIT_ALLOC)
+        return None
+    return chanLabel
 
 if __name__ == '__main__':
     preprocess(sys.argv[1])
