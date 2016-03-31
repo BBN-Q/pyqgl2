@@ -9,6 +9,7 @@ from copy import deepcopy
 from pyqgl2.ast_util import ast2str, NodeError
 from pyqgl2.concur_unroll import is_concur, is_seq, find_all_channels
 from pyqgl2.importer import collapse_name
+from pyqgl2.importer import NameSpaces
 from pyqgl2.lang import QGL2
 from pyqgl2.substitute import getChanLabel
 
@@ -26,6 +27,14 @@ class SingleSequence(object):
         self.qbits = set()
         self.qbit_creates = list()
         self.sequence = list()
+
+        # the imports we need to make in order to satisfy the stubs
+        #
+        # the key is the name of the module (i.e. something like
+        # 'QGL.PulsePrimitives') and the values are sets of import
+        # clauses (i.e. 'foo' or 'foo as bar')
+        #
+        self.stub_imports = dict()
 
     def is_qbit_create(self, node):
         """
@@ -68,6 +77,62 @@ class SingleSequence(object):
         sym_name = node.targets[0].id
         use_name = 'QBIT_%s' % chanLabel
         return (sym_name, use_name, node)
+
+    def find_imports(self, node):
+
+        # find the importer used for this node.  It's possible
+        # that this importer is not complete wrt the full
+        # expansion of the original node, but we ignore this
+        # for now.
+        #
+        importer = NameSpaces(node.qgl_fname)
+
+        default_namespace = node.qgl_fname
+
+        for subnode in ast.walk(node):
+            if (isinstance(subnode, ast.Call) and
+                    isinstance(subnode.func, ast.Name)):
+                funcname = subnode.func.id
+
+                # If we created a node without an qgl_fname,
+                # then use the default namespace instead.
+                # FIXME: This is a hack, but it will work for now.
+                #
+                if not hasattr(subnode, 'qgl_fname'):
+                    namespace = default_namespace
+                else:
+                    namespace = subnode.qgl_fname
+
+                fdef = importer.resolve_sym(namespace, funcname)
+                if fdef and fdef.qgl_stub_import:
+                    # print('FI AST %s' % ast.dump(fdef))
+                    (sym_name, module_name, orig_name) = fdef.qgl_stub_import
+
+                    if orig_name:
+                        import_str = '%s as %s' % (orig_name, sym_name)
+                    else:
+                        import_str = sym_name
+
+                    if module_name not in self.stub_imports:
+                        self.stub_imports[module_name] = set()
+
+                    self.stub_imports[module_name].add(import_str)
+                else:
+                    NodeError.error_msg(subnode,
+                            'cannot find import info for [%s]' % funcname)
+
+        return True
+
+    def create_imports_list(self):
+
+        import_list = list()
+
+        for module_name in sorted(self.stub_imports.keys()):
+            for sym_name in sorted(self.stub_imports[module_name]):
+                import_list.append(
+                        'from %s import %s' % (module_name, sym_name))
+
+        return import_list
 
     def find_sequence(self, node):
 
@@ -123,21 +188,18 @@ class SingleSequence(object):
         # Here we include the imports matching stuff in qgl2.qgl1.py
         # Can we perhaps annotate all the stubs with the proper
         # import statement and use that to figure out what to include here?
-        imports = """    from QGL.Compiler import compile_to_hardware
+        base_imports = """    from QGL.Compiler import compile_to_hardware
     from QGL.PulseSequencePlotter import plot_pulse_files
-    from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
-    from QGL.BlockLabel import BlockLabel
-    from QGL.ControlFlow import Wait, Call, Goto, LoadRepeat, Repeat, Return, Sync, qwait, qif
-    from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS, flat_top_gaussian, echoCR, U90, X90m, AC, Utheta, U
-    from QGL.ChannelLibrary import EdgeFactory
-    from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
 """
+
+        found_imports = ('\n' + indent).join(self.create_imports_list())
 
         # allow QBIT parameters to be overridden
         #
-        preamble = 'def %s(**kwargs):\n' % func_name + imports
-
-        # This is where things may start to break....
+        preamble = 'def %s(**kwargs):\n' % func_name
+        preamble += base_imports
+        preamble += indent + found_imports
+        preamble += '\n\n'
 
         for (sym_name, _use_name, node) in self.qbit_creates:
             preamble += indent + 'if \'' + sym_name + '\' in kwargs:\n'
@@ -178,7 +240,7 @@ def single_sequence(node, func_name):
 
     builder = SingleSequence()
 
-    if builder.find_sequence(node):
+    if builder.find_sequence(node) and builder.find_imports(node):
         code = builder.emit_function(func_name)
 
         NodeError.diag_msg(
