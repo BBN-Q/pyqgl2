@@ -78,6 +78,8 @@ def parse_args(argv):
     parser.add_argument('-s', type=str, dest="suffix", metavar='SUFFIX',
                         default="",
                         help="Compiled filename suffix")
+    parser.add_argument('-o', dest='saveOutput', default=False, action='store_true',
+                        help='Save compiled function to output file')
 
     options = parser.parse_args(argv)
 
@@ -97,7 +99,7 @@ def parse_args(argv):
     return options
 
 
-def main(filename, main_name=None):
+def main(filename, main_name=None, saveOutput=False):
 
     # Process imports in the input file, and find the main.
     # If there's no main, then bail out right away.
@@ -226,6 +228,12 @@ def main(filename, main_name=None):
 
     builder = pyqgl2.single.SingleSequence()
     if builder.find_sequence(new_ptree8):
+        if saveOutput:
+            code = builder.emit_function(fname)
+            newf = os.path.abspath(filename[:-3] + "qgl1.py")
+            with open(newf, 'w') as compiledFile:
+                compiledFile.write(code)
+            print("Saved compiled code to %s" % newf)
         # HACK
         # Assume we have a function creating a single qubit sequence
         # Find it and return it
@@ -345,7 +353,7 @@ def chanSetup(channels=dict()):
 
 if __name__ == '__main__':
     opts = parse_args(sys.argv[1:])
-    resFunction = main(opts.filename, opts.main_name)
+    resFunction = main(opts.filename, opts.main_name, opts.saveOutput)
     if resFunction:
         # Now import the QGL1 things we need 
         from QGL.Compiler import compile_to_hardware
