@@ -263,6 +263,15 @@ def main(filename, main_name=None, saveOutput=False):
     print('LOCALS %s ' % find_types.local_names)
     """
 
+######
+# Code below here is for testing
+# It creates channels that are taken from test_Sequences APS2Helper
+# Run the main with
+# main.py <path to file with a qgl2decl to compile that creates
+#              sequences you want to compile and plot>
+#        -m <name of qgl2main if not decorated>
+#        [-o if you want the compiled qgl1 function saved to a file]
+
 # Store the given channels in the QGL ChannelLibrary
 def finalize_map(mapping, channels):
     from QGL import ChannelLibrary
