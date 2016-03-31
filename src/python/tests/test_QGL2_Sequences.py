@@ -43,7 +43,8 @@ try:
     from qgl2.basic_sequences import RabiAmp, RabiWidth, RabiAmpPi, RabiAmp_NQubits, PulsedSpec, SingleShot
     from qgl2.basic_sequences import Ramsey, InversionRecovery, FlipFlop, SPAM
     from qgl2.basic_sequences import create_RB_seqs, SingleQubitRB, SingleQubitRB_AC, SingleQubitIRB_AC, SimultaneousRB_AC, SingleQubitRBT, TwoQubitRB
-    from qgl2.basic_sequences import HahnEcho, CPMG, create_cal_seqs, AllXY
+    from qgl2.basic_sequences import HahnEcho, CPMG, create_cal_seqs
+    from qgl2.basic_sequences.AllXYqgl1 import AllXY
     from qgl2.basic_sequences import Reset, EchoCRPhase, EchoCRLen, PiRabi
     # These next are never used
     # from qgl2.basic_sequences import Swap, sweep_gateDelay
@@ -55,7 +56,7 @@ except Exception as e:
     sys.exit("Failed to redefine sequences from qgl2.basic_sequences: %s. %s" % (e, traceback.format_exc()))
 
 # For testing as vanilla unit test, must comment out next line
-@qgl2main
+#@qgl2main
 def main():
 
     # Now must redefine all the methods here.

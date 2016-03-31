@@ -29,3 +29,7 @@ return Qubit("alabel") does not
 * rewrite left side of assign of qbits
 * generate sequences from pulses - formatting, brackets
 
+
+* APS2 stack is only 8 or 16 frames. So track nested Call()s and
+  ensure we don't get that far.
+
