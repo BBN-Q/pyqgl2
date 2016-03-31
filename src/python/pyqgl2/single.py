@@ -137,11 +137,7 @@ class SingleSequence(object):
         #
         preamble = 'def %s(**kwargs):\n' % func_name + imports
 
-        # TODO: right now we know that we're about to fail,
-        # because the code we've generated is broken.
-        # FIXME: remove this when it's no longer believed to be true
-        #
-        preamble += indent + 'print("ABOUT TO CRASH")\n'
+        # This is where things may start to break....
 
         for (sym_name, _use_name, node) in self.qbit_creates:
             preamble += indent + 'if \'' + sym_name + '\' in kwargs:\n'
