@@ -673,6 +673,47 @@ class NameSpaces(object):
 
         namespace.add_local_func(ptree.name, ptree)
 
+    def find_stub_import(self, decnode, funcname):
+        """
+        Find the import info encoded in a stub declaration
+
+        TODO: doesn't do anything useful with errors/bad input
+        """
+
+        if not isinstance(decnode, ast.Call):
+            NodeError.fatal_msg(decnode,
+                    'bad use of find_stub_import [%s]' % ast.dump(decnode))
+
+        args = decnode.args
+        n_args = len(args)
+
+        from_name = None
+        orig_name = None
+
+        if n_args == 0:
+            # TODO: should complain
+            pass
+
+        if n_args > 0:
+            if not isinstance(args[0], ast.Str):
+                NodeError.error_msg(decnode,
+                        'qgl2stub arg[0] must be str [%s]' % ast.dump(args[0]))
+            else:
+                from_name = args[0].s
+
+        if n_args > 1:
+            if not isinstance(args[1], ast.Str):
+                NodeError.error_msg(decnode,
+                        'qgl2stub arg[1] must be str [%s]' % ast.dump(args[1]))
+            else:
+                orig_name = args[1].s
+
+        if n_args > 2:
+            # TODO: should complain
+            pass
+
+        return (funcname, from_name, orig_name)
+
     def add_func_decorators(self, module_name, node):
 
         # print('NNN module_name %s ofname %s' % (module_name, self.base_fname))
@@ -681,11 +722,10 @@ class NameSpaces(object):
         qglfunc = False
         other_decorator = False
         qglstub = False # A stub for a QGL1 function; check args but do not inline
+        qglstub_import = False
 
         if node.decorator_list:
             for dec in node.decorator_list:
-                # print('NNN DECLIST %s %s' % (node.name, ast.dump(dec)))
-
                 # qglmain implies qglfunc, but it's permitted to
                 # have both
                 #
@@ -696,6 +736,16 @@ class NameSpaces(object):
                     # A stub for a QGL1 function; check args but do not inline
                     qglfunc = True
                     qglstub = True
+                    NodeError.warning_msg(node,
+                            ('old-style stub for [%s]: no import info' %
+                                node.name))
+                elif (isinstance(dec, ast.Call) and
+                        isinstance(dec.func, ast.Name) and
+                        dec.func.id == QGL2.QSTUB):
+                    qglfunc = True
+                    qglstub = True
+                    qglstub_import = self.find_stub_import(dec, node.name)
+
                 elif isinstance(dec, ast.Name) and (dec.id == QGL2.QDECL):
                     qglfunc = True
                 else:
@@ -712,6 +762,7 @@ class NameSpaces(object):
         # A stub for a QGL1 function; check args but do not inline
         node.qgl_stub = qglstub
         node.qgl_main = qglmain
+        node.qgl_stub_import = qglstub_import
 
         # Only assign the qglmain at the root of the namespace
         # if we're in the base file
