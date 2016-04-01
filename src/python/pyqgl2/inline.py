@@ -604,8 +604,6 @@ def create_inline_procedure(func_ptree, call_ptree):
             isFirst = False
             continue
 
-        orig_call = call_ptree
-
         new_stmnt = rewriter.rewrite(stmnt)
         ast.fix_missing_locations(new_stmnt)
         new_func_body.append(new_stmnt)
@@ -615,9 +613,12 @@ def create_inline_procedure(func_ptree, call_ptree):
         # so that we can trace back the original variables used
         # in the call
         #
-        # TODO: do we need to deepcopy the call_ptree, or is this enough?
+        # We want to preserve the call, and make sure it doesn't
+        # get clobbered.  I'm not sure whether we need to make a
+        # scratch copy of the original call_ptree, but it won't
+        # hurt
         #
-        new_stmnt.qgl2_orig_call = orig_call
+        new_stmnt.qgl2_orig_call = deepcopy(call_ptree)
 
     inlined = setup_locals + new_func_body
 
