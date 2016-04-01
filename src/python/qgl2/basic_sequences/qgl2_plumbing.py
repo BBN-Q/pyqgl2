@@ -1,8 +1,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 from qgl2.qgl2 import qgl2decl, qbit, pulse
-from QGL.ControlFlow import Wait
-from qgl2.qgl1 import Wait
+from qgl2.qgl2 import Sync, Wait
 
 # init will demarcate the beginning of a list of
 # experiments. QGL1 compiler injects WAITs in beginning of
@@ -16,9 +15,15 @@ from qgl2.qgl1 import Wait
 # There is still some discussion needed because the injected wait also serves
 # to synchronize multiple channels and it seems that should still happen automagically for the programmer.
 # There will be multiple ways to call init() and the programmer must choose.
-# Init is the marker of a new sequence
+# init is the marker of a new sequence
+
 @qgl2decl
 def init(q: qbit) -> pulse:
-    # FIXME: Mark as returning a pulse?
-    # For now, just do a wait
+    """
+    Sync() and then Wait()
+
+    Annotated as returning a pulse for backwards compatibility.
+    """
+
+    Sync()
     Wait()
