@@ -77,6 +77,14 @@ def find_all_channels(node):
             elif subnode.id.startswith('EDGE_'):
                 all_channels.add(subnode.id)
 
+        # Look for references to inlined calls; dig out any
+        # channels that might be hiding there despite being
+        # optimized away later.
+        #
+        if hasattr(subnode, 'qgl2_orig_call'):
+            orig_chan = find_all_channels(subnode.qgl2_orig_call)
+            all_channels.update(orig_chan)
+
     return all_channels
 
 class Unroller(ast.NodeTransformer):

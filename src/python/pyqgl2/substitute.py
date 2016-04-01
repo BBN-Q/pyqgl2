@@ -397,6 +397,20 @@ def specialize(func_node, qbit_defs, func_defs, importer, context=None):
     new_func = sub_chan.visit(new_func_node)
     new_func.name = mangled_name
 
+    for subnode in ast.walk(new_func_node):
+        # If the new_func_node has any subnodes that came from
+        # inlined calls that are referenced (via qgl2_orig_call),
+        # then specialize the referenced calls as well.
+        # The reason for this is that we want to keep track of
+        # variables (such as qbits) that might be "optimized away"
+        # if the specialized version of the code doesn't reference
+        # them any more, so we can map things back to channels
+        # at some point.
+        #
+        if hasattr(subnode, 'qgl2_orig_call'):
+            new_subcall = sub_chan.visit(subnode.qgl2_orig_call)
+            subnode.qgl2_orig_call = new_subcall
+
     # add the specialized version of the function to the namespace
     #
     # If context is present, add it to the namespace for that
