@@ -187,7 +187,7 @@ def check_call_parameters(call_ptree):
     captures a lot of the common cases.
     """
 
-    print('CALL TREE %s' % ast.dump(call_ptree))
+    # print('CALL TREE %s' % ast.dump(call_ptree))
 
     # TODO: sanity checks on input
 
@@ -336,18 +336,20 @@ def create_inline_procedure(func_ptree, call_ptree):
     # and a Call.  Otherwise, we can't do anything with it.
     #
     if not isinstance(func_ptree, ast.FunctionDef):
-        print('error: first arg needs to be a FunctionDef %s' %
-                type(func_ptree))
+        NodeError.diag_msg(call_ptree,
+                'first arg must be FunctionDef, not %s' % type(func_ptree))
         return None
 
     if not isinstance(call_ptree, ast.Call):
-        print('error: second arg needs to be a Call %s' %
-                ast.dump(call_ptree))
+        NodeError.diag_msg(call_ptree,
+                'first arg must be Call, not %s' % type(call_ptree))
         return None
 
     if not is_qgl2_def(func_ptree):
-        print('SKIP FUNC NAME %s' % func_ptree.name)
+        NodeError.diag_msg(call_ptree,
+                'skipping inlining [%s]: not declared QGL2' % func_ptree.name)
         return None
+
     if is_qgl2_stub(func_ptree):
         # FIXME: Is this block needed. Running AllXY it
         # is never executed.
