@@ -1,7 +1,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 from qgl2.qgl2 import qgl2decl, qbit, pulse
-from qgl2.qgl2 import Sync, Wait
+from qgl1.qgl1 import Sync, Wait
 
 # init will demarcate the beginning of a list of
 # experiments. QGL1 compiler injects WAITs in beginning of
