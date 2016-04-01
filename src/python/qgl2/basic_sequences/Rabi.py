@@ -13,6 +13,9 @@ from functools import reduce
 import operator
 
 from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main, concur
+from qgl2.qgl1 import Utheta, MEAS, X, Id
+from qgl2.qgl1 import Sync, Wait
+import numpy as np
 
 def RabiAmpq1(qubit: qbit, amps, phase=0, showPlot=False):
     """
@@ -45,6 +48,19 @@ def RabiAmpq1(qubit: qbit, amps, phase=0, showPlot=False):
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
     compileAndPlot(seqs, 'Rabi/Rabi', showPlot)
+
+# For use with pyqgl2.main
+# Note hard coded amplitudes and phase
+@qgl2decl
+def doRabiAmp() -> sequence:
+    q = Qubit('q1')
+    with concur:
+        # FIXME: QGL2 can't handle evaluating this itself
+#        for amp in np.linspace(0,1,11):
+        for amp in [ 0. ,  0.1,  0.2,  0.3,  0.4,  0.5,  0.6,  0.7,  0.8,  0.9,  1. ]:
+            init(q)
+            Utheta(q, amp=amp, phase=0)
+            MEAS(q)
 
 @qgl2decl
 def RabiAmp(qubit: qbit, amps, phase=0, showPlot=False):

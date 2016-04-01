@@ -286,6 +286,7 @@ def finalize_map(mapping, channels):
 # Code stolen from QGL's test_Sequences
 def chanSetup(channels=dict()):
     from QGL.Channels import LogicalMarkerChannel, Measurement, Qubit, PhysicalQuadratureChannel, PhysicalMarkerChannel, Edge
+    from QGL.ChannelLibrary import QubitFactory, MeasFactory, EdgeFactory
     from math import pi
     qubit_names = ['q1','q2']
     logical_names = ['digitizerTrig', 'slaveTrig']
@@ -301,9 +302,9 @@ def chanSetup(channels=dict()):
         mg = LogicalMarkerChannel(label=mgName)
         qg = LogicalMarkerChannel(label=qgName)
 
-        m = Measurement(label=mName, gateChan = mg, trigChan=channels['digitizerTrig'])
+        m = MeasFactory(label=mName, gateChan = mg, trigChan=channels['digitizerTrig'])
 
-        q = Qubit(label=name, gateChan=qg)
+        q = QubitFactory(label=name, gateChan=qg)
         q.pulseParams['length'] = 30e-9
         q.pulseParams['phase'] = pi/2
 
@@ -316,10 +317,14 @@ def chanSetup(channels=dict()):
     channels['cr-gate'] = LogicalMarkerChannel(label='cr-gate')
 
     q1, q2 = channels['q1'], channels['q2']
-    cr = Edge(label="cr", source = q1, target = q2, gateChan = channels['cr-gate'] )
-    cr.pulseParams['length'] = 30e-9
-    cr.pulseParams['phase'] = pi/4
-    channels["cr"] = cr
+    cr = None
+    try:
+        cr = EdgeFactory(q1, q2)
+    except:
+        cr = Edge(label="cr", source = q1, target = q2, gateChan = channels['cr-gate'] )
+        cr.pulseParams['length'] = 30e-9
+        cr.pulseParams['phase'] = pi/4
+        channels["cr"] = cr
 
     mq1q2g = LogicalMarkerChannel(label='M-q1q2-gate')
     channels['M-q1q2-gate']  = mq1q2g
@@ -370,8 +375,13 @@ if __name__ == '__main__':
         import QGL
         import os
 
-        # Hack. Create a basic channel library
-        channels = chanSetup()
+        if QGL.ChannelLibrary.channelLib and 'slaveTrig' in QGL.ChannelLibrary.channelLib:
+            print("Using ChannelLibrary from config")
+            channels = QGL.ChannelLibrary.channelLib
+        else:
+            # Hack. Create a basic channel library
+            print("Creating an APS2ish config with 2 Qubits for testing")
+            channels = chanSetup()
 
         # Create a directory for saving the results
         QGL.config.AWGDir = os.path.abspath(QGL.config.AWGDir + os.path.sep + "qgl2main")

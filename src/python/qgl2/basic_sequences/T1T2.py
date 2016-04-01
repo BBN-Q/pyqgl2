@@ -9,8 +9,11 @@ from QGL.PulseSequencePlotter import plot_pulse_files
 from .helpers import create_cal_seqs
 from .new_helpers import addCalibration, compileAndPlot
 from .qgl2_plumbing import init
+from qgl2.qgl1 import X90, Id, U90, MEAS, X
+from qgl2.qgl1 import Sync, Wait
 
 from scipy.constants import pi
+import numpy as np
 
 def InversionRecoveryq1(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=False):
     """
@@ -153,6 +156,26 @@ def Ramseyq1(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
     compileAndPlot(seqs, fullLabel, showPlot)
+
+# produce a Ramsey sequence on qbit named q
+# pulse spacings: 100ns to 10us step by 100ns
+# TPPIFreq: 1Mhz (arg is in hz)
+@qgl2decl
+def doRamsey() -> sequence:
+    TPPIFreq=0
+    pulseSpacings=np.linspace(100, 10, 100)
+    # Create the phases for the TPPI
+    phases = 2*pi*TPPIFreq*pulseSpacings
+    # Create the basic Ramsey sequence
+    for d,phase in zip(pulseSpacings, phases):
+        init(q)
+        X90(q)
+        Id(q, d)
+        U90(q, phase=phase)
+        MEAS(q)
+
+    # Tack on calibration
+    create_cal_seqs((q,), calRepeats)
 
 @qgl2decl
 def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2, suffix=False):
