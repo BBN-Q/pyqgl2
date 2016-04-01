@@ -227,7 +227,7 @@ def main(filename, main_name=None, saveOutput=False):
             fname = "qgl1Main"
 
     builder = pyqgl2.single.SingleSequence()
-    if builder.find_sequence(new_ptree8):
+    if builder.find_sequence(new_ptree8) and builder.find_imports(new_ptree8):
         if saveOutput:
             code = builder.emit_function(fname)
             newf = os.path.abspath(filename[:-3] + "qgl1.py")

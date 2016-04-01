@@ -108,10 +108,31 @@ def qgl2decl(function):
         assert False, 'qgl2decl should not be directly executed'
     return wrapper
 
-def qgl2stub(function):
-    '''Mark a function that is a stub for a QGL1 function, adding
+def qgl2stub(function, **args):
+    '''
+    Mark a function as a stub for a QGL1 function, and add
     proper annotations.
-    Check the arguments, but do not inline the contents.'''
+
+    Check the arguments, but do not inline the contents.
+
+    If there is a second arg, then it must be a string that defines
+    the name of the module (relative to the active import path)
+    containing the definition of the stub.  If a third arg is
+    also defined, it contains the original name of the symbol
+    in that module.  For example, if the function being decorated
+    as a stub is named 'foo', and it is defined in module
+    'a.b.c' as 'bar', then its stub decorator would be
+
+    @qgl2stub('a.b.c', 'bar')
+
+    and this would instruct the preprocessor to add an import
+    of the form
+
+    from a.b.c import bar as foo
+
+    in the output QGL code.
+    '''
+
     def wrapper(*args, **kwargs):
         assert False, 'qgl2stub should not be directly executed'
     return wrapper

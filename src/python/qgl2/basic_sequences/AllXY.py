@@ -1,12 +1,14 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main, sequence
+from qgl2.qgl2 import Qubit
 
-from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
+#from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
 #from QGL.Compiler import compile_to_hardware
 #from QGL.PulseSequencePlotter import plot_pulse_files
 
 from qgl2.qgl1 import Id, X, Y, X90, Y90, MEAS
+from qgl2.control import *
 
 from .new_helpers import addMeasPulses, repeatSequences, compileAndPlot
 from .new_helpers import IdId, XX, YY, XY, YX, X90Id, Y90Id, X90Y90, Y90X90, X90Y, Y90X, \
