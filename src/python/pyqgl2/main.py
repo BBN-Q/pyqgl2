@@ -222,7 +222,7 @@ def main(filename, main_name=None, saveOutput=False):
     text = base_namespace.pretty_print()
     print('FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % text)
 
-    sync = SynchronizeBlocks(new_ptree7, importer)
+    sync = SynchronizeBlocks(new_ptree7)
     new_ptree8 = sync.visit(deepcopy(new_ptree7))
     print('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8))
 
