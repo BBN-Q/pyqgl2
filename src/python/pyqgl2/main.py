@@ -116,6 +116,20 @@ def main(filename, main_name=None, saveOutput=False):
     ast_text_orig = pyqgl2.ast_util.ast2str(ptree)
     print('ORIGINAL CODE:\n%s' % ast_text_orig)
 
+    # if Wait() and Sync() aren't accessible from the namespace
+    # used by the qglmain, then things are going to fail later;
+    # might as well fail quickly
+    #
+    # TODO: this is a hack, but the approach of adding these
+    # blindly to the namespace is also a hack.  This is a
+    # placeholder until we figure out a cleaner approach.
+    #
+    if (not importer.resolve_sym(ptree.qgl_fname, 'Wait') or
+            not importer.resolve_sym(ptree.qgl_fname, 'Sync')):
+        NodeError.error_msg(ptree,
+                'Wait() and/or Sync() not defined: missing imports?')
+        NodeError.halt_on_error()
+
     ptree1 = ptree
 
     # We may need to iterate over the inline/unroll processes
@@ -208,7 +222,7 @@ def main(filename, main_name=None, saveOutput=False):
     text = base_namespace.pretty_print()
     print('FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % text)
 
-    sync = SynchronizeBlocks(new_ptree7)
+    sync = SynchronizeBlocks(new_ptree7, importer)
     new_ptree8 = sync.visit(deepcopy(new_ptree7))
     print('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8))
 
