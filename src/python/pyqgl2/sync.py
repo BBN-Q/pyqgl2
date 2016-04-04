@@ -97,6 +97,9 @@ class SynchronizeBlocks(ast.NodeTransformer):
         #
         self.all_channels = find_all_channels(node)
 
+        self.blank_wait_ast = ast.parse('Wait()', mode='exec').body[0]
+        self.blank_sync_ast = ast.parse('Sync()', mode='exec').body[0]
+
     def visit_With(self, node):
 
         if is_concur(node):
@@ -153,10 +156,10 @@ class SynchronizeBlocks(ast.NodeTransformer):
             chan_name = ','.join(seq_channels)
 
             new_seq_body = list()
-            # FIXME: QGL1 doesn't have a wait that takes a channel name
-#            wait_ast = ast.parse('WAIT(%s)' % chan_name, mode='exec')
-            wait_ast = ast.parse('Wait()', mode='exec')
-            copy_all_loc(wait_ast, stmnt)
+
+            wait_ast = deepcopy(self.blank_wait_ast)
+            copy_all_loc(wait_ast, node)
+
             new_seq_body.append(wait_ast)
 
             new_seq_body += stmnt.body
@@ -169,8 +172,8 @@ class SynchronizeBlocks(ast.NodeTransformer):
             # ordinarily there will be at least one waveform
             # per seq block (I think)
             #
-            sync_ast = ast.parse('Sync()', mode='exec')
-            copy_all_loc(sync_ast, new_seq_body[-1])
+            sync_ast = deepcopy(self.blank_sync_ast)
+            copy_all_loc(sync_ast, node)
 
             new_seq_body.append(sync_ast)
 
