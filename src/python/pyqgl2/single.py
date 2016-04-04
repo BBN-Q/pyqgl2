@@ -104,7 +104,13 @@ class SingleSequence(object):
                     namespace = subnode.qgl_fname
 
                 fdef = importer.resolve_sym(namespace, funcname)
-                if fdef and fdef.qgl_stub_import:
+                if not fdef:
+                    NodeError.error_msg(subnode,
+                            'cannot find import info for [%s]' % funcname)
+                elif not fdef.qgl_stub_import:
+                    NodeError.error_msg(subnode,
+                            'not a stub: [%s]' % funcname)
+                else:
                     # print('FI AST %s' % ast.dump(fdef))
                     (sym_name, module_name, orig_name) = fdef.qgl_stub_import
 
@@ -117,9 +123,6 @@ class SingleSequence(object):
                         self.stub_imports[module_name] = set()
 
                     self.stub_imports[module_name].add(import_str)
-                else:
-                    NodeError.error_msg(subnode,
-                            'cannot find import info for [%s]' % funcname)
 
         return True
 
