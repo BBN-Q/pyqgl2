@@ -162,8 +162,8 @@ def Ramseyq1(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=
 # TPPIFreq: 1Mhz (arg is in hz)
 @qgl2decl
 def doRamsey() -> sequence:
-    TPPIFreq=0
-    pulseSpacings=np.linspace(100, 10, 100)
+    TPPIFreq=1e6
+    pulseSpacings=np.arange(100e-9, 10e-6, 100e-9)
     # Create the phases for the TPPI
     phases = 2*pi*TPPIFreq*pulseSpacings
     # Create the basic Ramsey sequence
