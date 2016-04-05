@@ -238,6 +238,12 @@ def compileFunction(filename, main_name=None, saveOutput=False,
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
 
+        const_prop = ConstantPropagation()
+        ptree1 = const_prop.prop(ptree1)
+        NodeError.halt_on_error()
+        print('CONSTANT PROPAGATION (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+
         ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
                 context=ptree1)
         NodeError.halt_on_error()
