@@ -168,6 +168,52 @@ def collapse_name(node):
         print('XX UNEXPECTED %s' % ast.dump(node))
         return None
 
+def add_import_from_as(importer, namespace_name, module_name,
+        symbol_name, as_name=None):
+    """
+    Add a from-as import, as if it had appeared in the module with
+    the given namespace_name, iff the apparent name (either the symbol_name,
+    or the as_name if the the as_name is not None) is not already defined
+    in the corresponding namespace.
+
+    For example, if you wanted to add the equivalent of
+
+        from foo.bar import qux as baz
+
+    to the module with the namespace named 'fred.barney' then you
+    could use
+
+        add_import(importer, 'fred.barney', 'foo.bar', 'qux', 'baz')
+
+    Returns True if the symbol already exists or is successfully imported,
+    False otherwise
+    """
+
+    assert isinstance(importer, NameSpaces)
+    assert isinstance(namespace_name, str)
+    assert isinstance(module_name, str)
+    assert isinstance(symbol_name, str)
+    assert (as_name is None) or isinstance(as_name, str)
+
+    if as_name:
+        apparent_name = as_name
+    else:
+        apparent_name = symbol_name
+
+    if not importer.resolve_sym(namespace_name, apparent_name):
+        imp_stmnt = ast.ImportFrom(module=module_name,
+                names=[ast.alias(name=symbol_name, asname=as_name)],
+                level=0)
+
+        importer.add_from_as(
+                importer.path2namespace[namespace_name],
+                module_name, imp_stmnt)
+
+    if importer.resolve_sym(namespace_name, apparent_name):
+        return True
+    else:
+        return False
+
 
 class NameSpace(object):
     """
