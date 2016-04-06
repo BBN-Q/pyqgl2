@@ -105,6 +105,8 @@ def resolve_path(name):
     # (I am ambivalent about this)
     #
     for dirpath in sys.path + ['.']:
+        if not dirpath:
+            continue
         dirpath = os.path.relpath(dirpath)
 
         fpath = os.path.join(dirpath, name_to_fpath)
