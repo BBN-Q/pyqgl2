@@ -603,13 +603,13 @@ def create_inline_procedure(func_ptree, call_ptree):
         # Skip over method docs
         if (isFirst and isinstance(stmnt, ast.Expr) and
                 isinstance(stmnt.value, ast.Str)):
+            isFirst = False
             continue
         isFirst = False
 
         new_stmnt = rewriter.rewrite(stmnt)
         ast.fix_missing_locations(new_stmnt)
         new_func_body.append(new_stmnt)
-        isFirst = False
 
         # stash a reference to the original call in the new_stmnt,
         # so that we can trace back the original variables used
