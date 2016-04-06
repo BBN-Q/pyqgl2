@@ -11,6 +11,7 @@ during prototyping/debugging.  The real driver is in scripts/qgl2prep
 (although it may be renamed).
 """
 
+import ast
 import os
 import re
 import sys
@@ -46,7 +47,7 @@ from pyqgl2.check_waveforms import CheckWaveforms
 from pyqgl2.concur_unroll import Unroller
 from pyqgl2.concur_unroll import QbitGrouper
 from pyqgl2.flatten import Flattener
-from pyqgl2.importer import NameSpaces
+from pyqgl2.importer import NameSpaces, add_import_from_as
 from pyqgl2.inline import Inliner
 from pyqgl2.sequence import SequenceCreator
 from pyqgl2.single import SingleSequence
@@ -115,6 +116,23 @@ def main(filename, main_name=None, saveOutput=False):
     print('-- -- -- -- --')
     ast_text_orig = pyqgl2.ast_util.ast2str(ptree)
     print('ORIGINAL CODE:\n%s' % ast_text_orig)
+
+    # if Wait() and Sync() aren't accessible from the namespace
+    # used by the qglmain, then things are going to fail later;
+    # might as well fail quickly
+    #
+    # TODO: this is a hack, but the approach of adding these
+    # blindly to the namespace is also a hack.  This is a
+    # placeholder until we figure out a cleaner approach.
+    #
+    # if not importer.resolve_sym(ptree.qgl_fname, 'Sync'):
+
+    modname = ptree.qgl_fname
+    if not (add_import_from_as(importer, modname, 'qgl2.qgl1', 'Wait') and
+            add_import_from_as(importer, modname, 'qgl2.qgl1', 'Sync')):
+        NodeError.error_msg(ptree,
+                'Wait() and/or Sync() cannot be found: missing imports?')
+        NodeError.halt_on_error()
 
     ptree1 = ptree
 
@@ -220,7 +238,6 @@ def main(filename, main_name=None, saveOutput=False):
     # Try to guess the proper function name
     fname = main_name
     if not fname:
-        import ast
         if isinstance(ptree, ast.FunctionDef):
             fname = ptree.name
         else:
