@@ -78,7 +78,6 @@ class DebugMsg(object):
     ACTIVE_TAGS = dict()
     ACTIVE_LEVEL = NONE
 
-
     @staticmethod
     def reset():
         DebugMsg.ACTIVE_TAGS = dict()
@@ -138,7 +137,7 @@ class DebugMsg(object):
         return old_level
 
     @staticmethod
-    def debug_msg(msg, level=ALL, tag=None):
+    def log(msg, level=ALL, tag=None):
         """
         Print a debug msg, labeled with the filename, line number, and
         function name that invoked debug_msg
