@@ -243,7 +243,7 @@ def main(filename, main_name=None, saveOutput=False):
         else:
             fname = "qgl1Main"
 
-    builder = pyqgl2.single.SingleSequence()
+    builder = pyqgl2.single.SingleSequence(importer)
     if builder.find_sequence(new_ptree8) and builder.find_imports(new_ptree8):
         if saveOutput:
             code = builder.emit_function(fname)
@@ -254,7 +254,7 @@ def main(filename, main_name=None, saveOutput=False):
         # HACK
         # Assume we have a function creating a single qubit sequence
         # Find it and return it
-        qgl1_main = pyqgl2.single.single_sequence(new_ptree8, fname)
+        qgl1_main = pyqgl2.single.single_sequence(new_ptree8, fname, importer)
         return qgl1_main
     else:
         print("Not a single qubit sequence producing function")

@@ -9,7 +9,6 @@ from copy import deepcopy
 from pyqgl2.ast_util import ast2str, NodeError
 from pyqgl2.concur_unroll import is_concur, is_seq, find_all_channels
 from pyqgl2.importer import collapse_name
-from pyqgl2.importer import NameSpaces
 from pyqgl2.lang import QGL2
 from pyqgl2.substitute import getChanLabel
 
@@ -22,7 +21,9 @@ class SingleSequence(object):
     flattened, grouped, and sequenced already.
     """
 
-    def __init__(self):
+    def __init__(self, importer):
+
+        self.importer = importer
 
         self.qbits = set()
         self.qbit_creates = list()
@@ -80,13 +81,6 @@ class SingleSequence(object):
 
     def find_imports(self, node):
 
-        # find the importer used for this node.  It's possible
-        # that this importer is not complete wrt the full
-        # expansion of the original node, but we ignore this
-        # for now.
-        #
-        importer = NameSpaces(node.qgl_fname)
-
         default_namespace = node.qgl_fname
 
         for subnode in ast.walk(node):
@@ -103,7 +97,7 @@ class SingleSequence(object):
                 else:
                     namespace = subnode.qgl_fname
 
-                fdef = importer.resolve_sym(namespace, funcname)
+                fdef = self.importer.resolve_sym(namespace, funcname)
                 if not fdef:
                     NodeError.error_msg(subnode,
                             'cannot find import info for [%s]' % funcname)
@@ -230,7 +224,7 @@ class SingleSequence(object):
         res =  preamble + seq_str + seqs_str + postamble
         return res
 
-def single_sequence(node, func_name):
+def single_sequence(node, func_name, importer):
     """
     Create a function that encapsulates the QGL code (for a single
     sequence) from the given AST node, which is presumed to already
@@ -241,7 +235,7 @@ def single_sequence(node, func_name):
     so that we know whether or not they've been processed.
     """
 
-    builder = SingleSequence()
+    builder = SingleSequence(importer)
 
     if builder.find_sequence(node) and builder.find_imports(node):
         code = builder.emit_function(func_name)
