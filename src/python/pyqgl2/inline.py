@@ -356,7 +356,7 @@ def create_inline_procedure(func_ptree, call_ptree):
         print('SKIP QGL1 Stub NAME %s' % func_ptree.name)
         return None
 
-    print('FUNC NAME %s' % func_ptree.name)
+    # print('FUNC NAME %s' % func_ptree.name)
 
     # Check whether this is a function we can handle.
     #
@@ -600,11 +600,11 @@ def create_inline_procedure(func_ptree, call_ptree):
 
     isFirst = True
     for stmnt in func_body:
-        if isFirst and isinstance(stmnt, ast.Expr) and isinstance(stmnt.value, ast.Str):
-            # For some reason, method docs are sticking around. Skip them.
-            print("Skip method doc: %s. %s" % (stmnt.value.s, stmnt))
-            isFirst = False
+        # Skip over method docs
+        if (isFirst and isinstance(stmnt, ast.Expr) and
+                isinstance(stmnt.value, ast.Str)):
             continue
+        isFirst = False
 
         new_stmnt = rewriter.rewrite(stmnt)
         ast.fix_missing_locations(new_stmnt)
@@ -781,7 +781,7 @@ def is_qgl_procedure(node):
 
     if not is_qgl2_def(node):
         return False
-    print('FUNC NAME %s' % node.name)
+    # print('FUNC NAME %s' % node.name)
 
     if not node.qgl_func:
         return False
