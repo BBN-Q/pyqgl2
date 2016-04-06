@@ -14,7 +14,6 @@ import operator
 
 from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main, concur
 from qgl2.qgl1 import Utheta, MEAS, X, Id
-from qgl2.qgl1 import Sync, Wait
 import numpy as np
 
 def RabiAmpq1(qubit: qbit, amps, phase=0, showPlot=False):
