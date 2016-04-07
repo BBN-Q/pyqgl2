@@ -112,7 +112,7 @@ def parse_args(argv):
     # directory, add its directory to the search path
     #
     source_dir = os.path.dirname(options.filename)
-    if not source_dir:
+    if source_dir:
         sys.path.append(os.path.normpath(source_dir))
 
     return options
