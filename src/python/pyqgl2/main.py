@@ -297,8 +297,10 @@ def main(filename, main_name=None, saveOutput=False,
 
     builder = pyqgl2.single.SingleSequence(importer)
     if builder.find_sequence(new_ptree8) and builder.find_imports(new_ptree8):
+        code = builder.emit_function(fname)
+        print(('#start function\n%s\n#end function' % code),
+                file=intermediate_fout, flush=True)
         if saveOutput:
-            code = builder.emit_function(fname)
             newf = os.path.abspath(filename[:-3] + "qgl1.py")
             with open(newf, 'w') as compiledFile:
                 compiledFile.write(code)
