@@ -46,6 +46,7 @@ from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_waveforms import CheckWaveforms
 from pyqgl2.concur_unroll import Unroller
 from pyqgl2.concur_unroll import QbitGrouper
+from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.flatten import Flattener
 from pyqgl2.importer import NameSpaces, add_import_from_as
 from pyqgl2.inline import Inliner
@@ -66,6 +67,12 @@ def parse_args(argv):
             type=str, metavar='INPUT-FILENAME',
             default='',
             help='input filename')
+
+    parser.add_argument('-D', '--debug-level',
+            dest='debug_level', type=int, metavar='LEVEL',
+            default=DebugMsg.NONE,
+            help=('Specify the debugging level (0=all, 4=none)' +
+                    '[default=%(default)d)]'))
 
     parser.add_argument('-m',
             dest='main_name', type=str, metavar='FUNCNAME',
@@ -117,6 +124,8 @@ def parse_args(argv):
 
     if options.verbose:
         NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+
+    DebugMsg.set_level(options.debug_level)
 
     return options
 
