@@ -336,17 +336,17 @@ def create_inline_procedure(func_ptree, call_ptree):
     # and a Call.  Otherwise, we can't do anything with it.
     #
     if not isinstance(func_ptree, ast.FunctionDef):
-        NodeError.diag_msg(call_ptree,
+        NodeError.error_msg(call_ptree,
                 'first arg must be FunctionDef, not %s' % type(func_ptree))
         return None
 
     if not isinstance(call_ptree, ast.Call):
-        NodeError.diag_msg(call_ptree,
+        NodeError.error_msg(call_ptree,
                 'second arg must be Call, not %s' % type(call_ptree))
         return None
 
     if not is_qgl2_def(func_ptree):
-        NodeError.diag_msg(call_ptree,
+        NodeError.warning_msg(call_ptree,
                 'skipping inlining [%s]: not declared QGL2' % func_ptree.name)
         return None
 
