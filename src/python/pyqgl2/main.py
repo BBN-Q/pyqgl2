@@ -134,7 +134,7 @@ def main(filename, main_name=None, saveOutput=False,
 
     if intermediate_output:
         try:
-            intermediate_fout = open(intermediate_output, 'a')
+            intermediate_fout = open(intermediate_output, 'w')
         except BaseException as exc:
             NodeError.fatal_msg(None,
                     ('cannot save intermediate output in [%s]' %
