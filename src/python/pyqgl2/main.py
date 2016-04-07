@@ -115,6 +115,9 @@ def parse_args(argv):
     if source_dir:
         sys.path.append(os.path.normpath(source_dir))
 
+    if options.verbose:
+        NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+
     return options
 
 
