@@ -342,7 +342,7 @@ def create_inline_procedure(func_ptree, call_ptree):
 
     if not isinstance(call_ptree, ast.Call):
         NodeError.diag_msg(call_ptree,
-                'first arg must be Call, not %s' % type(call_ptree))
+                'second arg must be Call, not %s' % type(call_ptree))
         return None
 
     if not is_qgl2_def(func_ptree):
