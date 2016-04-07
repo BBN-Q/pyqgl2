@@ -61,26 +61,44 @@ def parse_args(argv):
 
     parser = ArgumentParser(description='Prototype QGL2 driver')
 
-    parser.add_argument(
-            '-m', dest='main_name', default='', type=str, metavar='FUNCNAME',
+    # NOTE: filename is a positional parameter!
+    parser.add_argument('filename',
+            type=str, metavar='INPUT-FILENAME',
+            default='',
+            help='input filename')
+
+    parser.add_argument('-m',
+            dest='main_name', type=str, metavar='FUNCNAME',
+            default='',
             help='Specify a different QGL main function than the default')
 
-    parser.add_argument(
-            '-v', dest='verbose', default=False, action='store_true',
-            help='Run in verbose mode')
+    parser.add_argument('-o',
+            dest='saveOutput',
+            default=False, action='store_true',
+            help='Save compiled function to output file')
 
-    parser.add_argument('filename', type=str, metavar='FILENAME',
-            help='input filename')
-    parser.add_argument('-show', dest='showplot', default=False, action='store_true',
-                        help="show the waveform plots")
-    parser.add_argument('-p', type=str, dest="prefix", metavar='PREFIX',
-                        default="test/test",
-                        help="Compiled file prefix")
-    parser.add_argument('-s', type=str, dest="suffix", metavar='SUFFIX',
-                        default="",
-                        help="Compiled filename suffix")
-    parser.add_argument('-o', dest='saveOutput', default=False, action='store_true',
-                        help='Save compiled function to output file')
+    parser.add_argument('-p',
+            type=str, dest="prefix", metavar='PATH-PREFIX',
+            default="test/test",
+            help="Compiled file prefix [default=%(default)s]")
+
+    parser.add_argument('-s',
+            type=str, dest="suffix", metavar='FILENAME-SUFFIX',
+            default="",
+            help="Compiled filename suffix")
+
+    parser.add_argument('-S', '--save-intermediate',
+            type=str, dest='intermediate_output', metavar='SAVE-FILENAME',
+            default='',
+            help='Save intermediate output to the given file')
+
+    parser.add_argument('-show',
+            dest='showplot', default=False, action='store_true',
+            help="show the waveform plots")
+
+    parser.add_argument('-v', dest='verbose',
+            default=False, action='store_true',
+            help='Run in verbose mode')
 
     options = parser.parse_args(argv)
 
