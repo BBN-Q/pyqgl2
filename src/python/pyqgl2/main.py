@@ -118,7 +118,24 @@ def parse_args(argv):
     return options
 
 
-def main(filename, main_name=None, saveOutput=False):
+def main(filename, main_name=None, saveOutput=False,
+        intermediate_output=None):
+
+    # Always open up a file for the intermediate output,
+    # even if it's just /dev/null, so we don't have to
+    # muddy up the code with endless checks for whether
+    # we're supposed to save the intermediate output
+    #
+    if not intermediate_output:
+        intermediate_output = '/dev/null'
+
+    if intermediate_output:
+        try:
+            intermediate_fout = open(intermediate_output, 'a')
+        except BaseException as exc:
+            NodeError.fatal_msg(None,
+                    ('cannot save intermediate output in [%s]' %
+                        intermediate_output))
 
     # Process imports in the input file, and find the main.
     # If there's no main, then bail out right away.
@@ -131,9 +148,9 @@ def main(filename, main_name=None, saveOutput=False):
 
     ptree = importer.qglmain
 
-    print('-- -- -- -- --')
     ast_text_orig = pyqgl2.ast_util.ast2str(ptree)
-    print('ORIGINAL CODE:\n%s' % ast_text_orig)
+    print(('ORIGINAL CODE:\n%s' % ast_text_orig),
+            file=intermediate_fout, flush=True)
 
     # if Wait() and Sync() aren't accessible from the namespace
     # used by the qglmain, then things are going to fail later;
@@ -173,27 +190,31 @@ def main(filename, main_name=None, saveOutput=False):
         ptree1 = inliner.inline_function(ptree1)
         NodeError.halt_on_error()
 
-        print('INLINED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+        print(('INLINED CODE (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+                file=intermediate_fout, flush=True)
 
         unroller = Unroller()
         ptree1 = unroller.visit(ptree1)
         NodeError.halt_on_error()
 
-        print('UNROLLED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+        print(('UNROLLED CODE (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+                file=intermediate_fout, flush=True)
 
         type_check = CheckType(filename, importer=importer)
         ptree1 = type_check.visit(ptree1)
         NodeError.halt_on_error()
-        print('CHECKED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+        print(('CHECKED CODE (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+                file=intermediate_fout, flush=True)
 
         ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
                 context=ptree1)
         NodeError.halt_on_error()
-        print('SPECIALIZED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+        print(('SPECIALIZED CODE (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+                file=intermediate_fout, flush=True)
 
         if (inliner.change_cnt == 0) and (unroller.change_cnt == 0):
             NodeError.diag_msg(None,
@@ -206,48 +227,58 @@ def main(filename, main_name=None, saveOutput=False):
 
     base_namespace = importer.path2namespace[filename]
     text = base_namespace.pretty_print()
-    print('EXPANDED NAMESPACE:\n%s' % text)
+    print(('EXPANDED NAMESPACE:\n%s' % text),
+            file=intermediate_fout, flush=True)
 
     new_ptree1 = ptree1
 
     sym_check = CheckSymtab(filename, type_check.func_defs, importer)
     new_ptree5 = sym_check.visit(new_ptree1)
     NodeError.halt_on_error()
-    print('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5))
+    print(('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
+            file=intermediate_fout, flush=True)
 
     grouper = QbitGrouper()
     new_ptree6 = grouper.visit(new_ptree5)
     NodeError.halt_on_error()
-    print('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6))
+    print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
+            file=intermediate_fout, flush=True)
 
     flattener = Flattener()
     new_ptree7 = flattener.visit(new_ptree6)
     NodeError.halt_on_error()
-    print('FLATTENED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree7))
+    print(('FLATTENED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree7)),
+            file=intermediate_fout, flush=True)
 
     sequencer = SequenceCreator()
     sequencer.visit(new_ptree7)
-    print('FINAL SEQUENCES:')
-    for qbit in sequencer.qbit2sequence:
-        print('%s:' % qbit)
-        for inst in sequencer.qbit2sequence[qbit]:
-            if inst.startswith('BlockLabel'):
-                txt = re.sub('BlockLabel\(\'', '', inst)
-                txt = re.sub('\'.', ':', txt)
-                print('    %s' % txt)
-            else:
-                print('         %s' % inst)
 
-    print('Final qglmain: %s' % new_ptree7.name)
+    # We're not going to print this, at least not for now,
+    # although it's sometimes a useful pretty-printing
+    if False:
+        print('FINAL SEQUENCES:')
+        for qbit in sequencer.qbit2sequence:
+            print('%s:' % qbit)
+            for inst in sequencer.qbit2sequence[qbit]:
+                if inst.startswith('BlockLabel'):
+                    txt = re.sub('BlockLabel\(\'', '', inst)
+                    txt = re.sub('\'.', ':', txt)
+                    print('    %s' % txt)
+                else:
+                    print('         %s' % inst)
+
+    print(('Final qglmain: %s' % new_ptree7.name),
+            file=intermediate_fout, flush=True)
 
     base_namespace = importer.path2namespace[filename]
     text = base_namespace.pretty_print()
-    print('FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % text)
+    print(('FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % text),
+            file=intermediate_fout, flush=True)
 
     sync = SynchronizeBlocks(new_ptree7)
     new_ptree8 = sync.visit(deepcopy(new_ptree7))
-    print('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8))
-
+    print(('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8)),
+            file=intermediate_fout, flush=True)
 
     # singseq = SingleSequence()
     # singseq.find_sequence(new_ptree8)
@@ -402,7 +433,8 @@ def chanSetup(channels=dict()):
 
 if __name__ == '__main__':
     opts = parse_args(sys.argv[1:])
-    resFunction = main(opts.filename, opts.main_name, opts.saveOutput)
+    resFunction = main(opts.filename, opts.main_name, opts.saveOutput,
+            intermediate_output=opts.intermediate_output)
     if resFunction:
         # Now import the QGL1 things we need 
         from QGL.Compiler import compile_to_hardware
