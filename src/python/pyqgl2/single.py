@@ -68,11 +68,9 @@ class SingleSequence(object):
         if node.value.func.id != QGL2.QBIT_ALLOC:
             return False
 
-        print('FS %s' % ast.dump(node))
-
         chanLabel = getChanLabel(node)
         if not chanLabel:
-            print("***** failed to find chanLabel")
+            NodeError.warning_msg(node, 'failed to find chanLabel')
 
         # HACK FIXME: assumes old-style Qbit allocation
         sym_name = node.targets[0].id
@@ -138,7 +136,6 @@ class SingleSequence(object):
             return False
 
         self.qbits = find_all_channels(node)
-        print('FS %s' % str(type(self.qbits)))
 
         if len(self.qbits) == 0:
             NodeError.error_msg(node, 'no channels found')
