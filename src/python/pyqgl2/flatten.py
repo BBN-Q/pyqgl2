@@ -16,7 +16,7 @@ from copy import deepcopy
 import pyqgl2.ast_util
 
 from pyqgl2.ast_util import NodeError
-from pyqgl2.ast_util import ast2str
+from pyqgl2.ast_util import ast2str, expr2ast
 
 class LabelManager(object):
     """
@@ -137,7 +137,7 @@ class Flattener(ast.NodeTransformer):
         # want, and then parse that to create the AST.
         #
         goto_str = 'Goto(BlockLabel(\'%s\'))' % label
-        goto_ast = ast.parse(goto_str, mode='exec')
+        goto_ast = expr2ast(goto_str)
         return goto_ast
 
     def make_cgoto_call(self, label, condition):
@@ -298,23 +298,17 @@ class Flattener(ast.NodeTransformer):
                         'repeat_start', 'repeat_loop', 'repeat_end',
                         'repeat_repeat', 'repeat_return')
 
-        call_ast = ast.parse(
-                ('Call(BlockLabel(\'%s\'))' % start_label), mode='exec')
-        goto_ast = ast.parse(
-                ('Goto(BlockLabel(\'%s\'))' % end_label), mode='exec')
-        start_ast = ast.parse(
-                ('BlockLabel(\'%s\')' % start_label), mode='exec')
-        load_ast = ast.parse(('LoadRepeat(%d)' % n_iters), mode='exec')
-        loop_ast = ast.parse(('BlockLabel(\'%s\')' % loop_label), mode='exec')
+        call_ast = expr2ast('Call(BlockLabel(\'%s\'))' % start_label)
+        goto_ast = expr2ast('Goto(BlockLabel(\'%s\'))' % end_label)
+        start_ast = expr2ast('BlockLabel(\'%s\')' % start_label)
+        load_ast = expr2ast('LoadRepeat(%d)' % n_iters)
+        loop_ast = expr2ast('BlockLabel(\'%s\')' % loop_label)
 
-        repeat_label_ast = ast.parse(
-                'BlockLabel(\'%s\')' % repeat_label, mode='exec')
-        repeat_ast = ast.parse(
-                ('Repeat(BlockLabel(\'%s\'))' % loop_label), mode='exec')
-        return_label_ast = ast.parse(
-                'BlockLabel(\'%s\')' % return_label, mode='exec')
-        return_ast = ast.parse('Return()', mode='exec')
-        end_ast = ast.parse('BlockLabel(\'%s\')' % end_label, mode='exec')
+        repeat_label_ast = expr2ast('BlockLabel(\'%s\')' % repeat_label)
+        repeat_ast = expr2ast('Repeat(BlockLabel(\'%s\'))' % loop_label)
+        return_label_ast = expr2ast('BlockLabel(\'%s\')' % return_label)
+        return_ast = expr2ast('Return()')
+        end_ast = expr2ast('BlockLabel(\'%s\')' % end_label)
 
         preamble = list([call_ast, goto_ast, start_ast, load_ast, loop_ast])
 
