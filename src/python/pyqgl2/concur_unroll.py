@@ -427,7 +427,8 @@ class Unroller(ast.NodeTransformer):
         if not isinstance(arg, ast.Num):
             return False
         elif not isinstance(arg.n, int):
-            print('ISI not an int')
+            NodeError.warning_msg(arg, 'range value is not an integer?')
+            return False
         else:
             return True
 
@@ -628,7 +629,7 @@ class QbitGrouper(ast.NodeTransformer):
     def visit_With(self, node):
 
         if not is_concur(node):
-            print('IS NOT a concur node')
+            # print('IS NOT a concur node')
             return self.generic_visit(node) # check
 
         # Hackish way to create a seq node to use
