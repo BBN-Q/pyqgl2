@@ -1,6 +1,7 @@
 
-from qgl2.qgl2 import concur, qbit, qgl2decl, Qbit
-from qgl2.qgl2 import Qbit
+from qgl2.qgl2 import concur, qbit, qgl2decl, qgl2main
+from qgl2.qgl1 import Qubit, Id, Y90, Y, X90
+from qgl2.basic_sequences.qgl2_plumbing import init
 
 @qgl2decl
 def func_a(a: qbit, b: qbit, c: qbit):
@@ -18,7 +19,7 @@ def func_c(a: qbit, x: classical):
         mark(a, n)
         for op in [Id, X90]:
             op(a)
-        Y(a, x)
+        Y(a, kwarg1=x)
 
 @qgl2decl
 def func_d(a: qbit, x: classical):
@@ -29,14 +30,14 @@ def func_d(a: qbit, x: classical):
 def func_e(a: qbit, x: classical, n: classical):
     for m in range(100, 102):
         mark2(a, n, m)
-        Id(a) + Y90(a, x)
+        Id(a) + Y90(a, kwarg1=x)
 
 @qgl2main
 def main():
 
-    x = Qbit(1)
-    y = Qbit(2)
-    z = Qbit(3)
+    x = Qubit("1")
+    y = Qubit("2")
+    z = Qubit("3")
 
     func_a(x, y, z)
 

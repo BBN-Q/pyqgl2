@@ -5,7 +5,6 @@ from qgl2.qgl2 import qgl2decl, qbit, qgl2main, concur
 from QGL.PulsePrimitives import Id, X, MEAS, X90, flat_top_gaussian, echoCR
 from QGL.Compiler import compile_to_hardware
 from QGL.ChannelLibrary import EdgeFactory
-from QGL.PulseSequencePlotter import plot_pulse_files
 
 from .helpers import create_cal_seqs
 from .new_helpers import addMeasPulses, addCalibration, compileAndPlot, measConcurrently
@@ -296,7 +295,7 @@ def EchoCRPhaseq1(controlQ: qbit, targetQ: qbit, phases, riseFall=40e-9, amp=1, 
     compileAndPlot(seqs, 'EchoCR/EchoCR', showPlot)
 
 # Imports for testing only
-from qgl2.qgl2 import Qbit
+from qgl2.qgl1 import Qubit
 from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
 import QGL.ChannelLibrary as ChannelLibrary
 import numpy as np
@@ -337,11 +336,9 @@ def main():
 #    }
 #    ChannelLibrary.channelLib.build_connectivity_graph()
 
-    # But the current qgl2 compiler doesn't understand Qubits, only
-    # Qbits. So use that instead when running through the QGL2
-    # compiler, but comment this out when running directly.
-    q1 = Qbit(1)
-    q2 = Qbit(2)
+    # Use stub Qubits, but comment this out when running directly.
+    q1 = Qubit("q1")
+    q2 = Qubit("q2")
 
     print("Run PiRabi")
     PiRabi(q1, q2, np.linspace(0, 4e-6, 11))

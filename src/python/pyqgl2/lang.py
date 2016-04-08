@@ -12,13 +12,18 @@ class QGL2(object):
     QSEQ = 'seq'
     QMAIN = 'qgl2main'
     QDECL = 'qgl2decl'
+    # A stub for a QGL1 function: It's QGL2 but don't inline it
+    QSTUB = 'qgl2stub'
 
     QMODULE = 'qgl2'
 
-    QBIT_ALLOC = 'Qbit'
+    QBIT_ALLOC = 'Qubit'
 
     CLASSICAL = 'classical'
     PULSE = 'pulse'
     QBIT = 'qbit'
     QBIT_LIST = 'qbit_list'
-
+    # like a Wait
+    CONTROL = 'control'
+    # A sequence of pulses
+    SEQUENCE = 'sequence'

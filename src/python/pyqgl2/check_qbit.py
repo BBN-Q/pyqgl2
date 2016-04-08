@@ -26,6 +26,7 @@ from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.ast_util import NodeVisitorWithFname
 from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_waveforms import CheckWaveforms
+from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.lang import QGL2
 
 class FuncParam(object):
@@ -85,14 +86,14 @@ class FindTypes(NodeVisitor):
     not with respect to classical vs quantum) so the following
     code would be considered an error:
 
-    x = Qbit(1)     # x is a reference to a qbit
+    x = Qubit("1")     # x is a reference to a qbit
     x = 14          # reassigning x to a classical value--error!
 
     We also treat the reassignment of references to quantum
     values as errors:
 
-    x = Qbit(1)     # x is a reference to a qbit
-    x = Qbit(2)     # reassignment of x--error!
+    x = Qubit("1")     # x is a reference to a qbit
+    x = Qubit("2")     # reassignment of x--error!
 
     There are several ways that variables come into existance:
     explicit assignment, implicit assignment (keyword arguments),
@@ -161,7 +162,8 @@ class FindTypes(NodeVisitor):
                 NodeError.error_msg(arg,
                         'repeated parameter name \'%s\'' % arg_name)
 
-            if arg_type_name not in ['classical', 'qbit', 'unknown']:
+#            if arg_type_name not in [QGL2.CLASSICAL, QGL2.QBIT, 'unknown', QGL2.CONTROL, QGL2.PULSE, QGL2.SEQUENCE, QGL2.QBIT_LIST]:
+            if arg_type_name not in [QGL2.CLASSICAL, QGL2.QBIT, 'unknown']:
                 NodeError.warning_msg(arg,
                         ('parameter type \'%s\' is not supported' %
                             arg_type_name))
@@ -253,13 +255,13 @@ class FindTypes(NodeVisitor):
                 actual_val = val_bindings[name]
 
                 if isinstance(actual_val, ast.Num):
-                    type_bindings[name] = 'classical'
+                    type_bindings[name] = QGL2.CLASSICAL
 
                 elif isinstance(actual_val, ast.Str):
-                    type_bindings[name] = 'classical'
+                    type_bindings[name] = QGL2.CLASSICAL
 
                 elif isinstance(actual_val, ast.NameConstant):
-                    type_bindings[name] = 'classical'
+                    type_bindings[name] = QGL2.CLASSICAL
 
                 elif isinstance(actual_val, ast.Name):
                     if actual_val.id in scope_types:
@@ -280,7 +282,8 @@ class FindTypes(NodeVisitor):
                         if isinstance(rtype, ast.Name):
                             rtype_name = rtype.id
 
-                            if rtype_name not in ['classical', 'qbit', 'unknown']:
+#                            if rtype_name not in [QGL2.CLASSICAL, QGL2.QBIT, 'unknown', QGL2.SEQUENCE, QGL2.PULSE, QGL2.CONTROL, QGL2.QBIT_LIST]:
+                            if rtype_name not in [QGL2.CLASSICAL, QGL2.QBIT, 'unknown']:
                                 NodeError.warning_msg(arg,
                                         ('parameter type \'%s\' is not supported' %
                                     arg_type_name))
@@ -337,7 +340,7 @@ class FindTypes(NodeVisitor):
     def is_qbit_parameter(self, name):
         if name not in self.parameter_names:
             return False
-        if self.parameter_names[name] != 'qbit':
+        if self.parameter_names[name] != QGL2.QBIT:
             return False
         else:
             return True
@@ -345,7 +348,7 @@ class FindTypes(NodeVisitor):
     def is_qbit_local(self, name):
         if name not in self.local_names:
             return False
-        elif self.local_names[name] != 'qbit':
+        elif self.local_names[name] != QGL2.QBIT:
             return False
         return True
 
@@ -403,16 +406,16 @@ class FindTypes(NodeVisitor):
                 self.warning_msg(node,
                         'aliasing qbit parameter \'%s\' as \'%s\'' %
                         (value.id, name))
-                self.add_type_binding(value, name, 'qbit')
+                self.add_type_binding(value, name, QGL2.QBIT)
                 target.qgl_is_qbit = True
             elif self.is_qbit_local(name):
                 self.warning_msg(node,
                         'aliasing local qbit \'%s\' as \'%s\'' %
                         (value.id, name))
-                self.add_type_binding(value, name, 'qbit')
+                self.add_type_binding(value, name, QGL2.QBIT)
                 target.qgl_is_qbit = True
             else:
-                self.add_type_binding(value, name, 'classical')
+                self.add_type_binding(value, name, QGL2.CLASSICAL)
                 target.qgl_is_qbit = False
 
         elif isinstance(value, ast.Call):
@@ -441,8 +444,8 @@ class FindTypes(NodeVisitor):
                     # have a wandering variable that we know is a qbit,
                     # but we never know which one.
                     #
-                    print('XX EXTENDING LOCAL (%s)' % name)
-                    self.add_type_binding(value, name, 'qbit')
+                    DebugMsg.log('extending local (%s)' % name)
+                    self.add_type_binding(value, name, QGL2.QBIT)
                     target.qgl_is_qbit = True
 
             if not func_def.qgl_func:
@@ -459,15 +462,15 @@ class FindTypes(NodeVisitor):
             # function as it is defined (i.e, as func_def), not as it
             # is imported (i.e., as func_name).
             #
-            # This makes the assumption that ANYTHING named 'Qbit'
+            # This makes the assumption that ANYTHING named 'Qubit'
             # is a Qbit assignment function, which is lame and should
             # be more carefully parameterized.  Things to think about:
             # looking more deeply at its signature and making certain
             # that it looks like the 'right' function and not something
-            # someone mistakenly named 'Qbit' in an unrelated context.
+            # someone mistakenly named 'Qubit' in an unrelated context.
             #
-            if isinstance(value, ast.Call) and (func_def.name == 'Qbit'):
-                self.add_type_binding(value, name, 'qbit')
+            if isinstance(value, ast.Call) and (func_def.name == QGL2.QBIT_ALLOC):
+                self.add_type_binding(value, name, QGL2.QBIT)
 
         return node
 
@@ -501,8 +504,8 @@ class FindTypes(NodeVisitor):
                             ('loop var [%s] hides sym in outer scope' % 
                                 name))
 
-                print('FOR %s' % name)
-                self.add_type_binding(subnode, name, 'classical')
+                DebugMsg.log('FOR (%s)' % name)
+                self.add_type_binding(subnode, name, QGL2.CLASSICAL)
 
         self.visit_body(node.body)
         self.visit_body(node.orelse)
@@ -514,7 +517,7 @@ class FindTypes(NodeVisitor):
                     ('exception var [%s] hides sym in outer scope' % name))
 
             # assume all exceptions are classical
-            self.add_type_binding(subnode, subnode.id, 'classical')
+            self.add_type_binding(subnode, subnode.id, QGL2.CLASSICAL)
         pass
 
     def visit_With(self, node):
@@ -541,7 +544,7 @@ class FindTypes(NodeVisitor):
                 elif isinstance(subnode, ast.Name):
                     name = subnode.id
 
-                    print('GOT WITH %s' % name)
+                    DebugMsg.log('GOT WITH (%s)' % name)
 
                     # Warn the user if they're doing something that's
                     # likely to provoke an error
@@ -550,7 +553,7 @@ class FindTypes(NodeVisitor):
                         NodeError.warn_msg(subnode,
                                 ('with-as var [%s] hides sym in outer scope' % 
                                     name))
-                    self.add_type_binding(subnode, subnode.id, 'classical')
+                    self.add_type_binding(subnode, subnode.id, QGL2.CLASSICAL)
 
         self.visit_body(node.body)
 
@@ -618,7 +621,9 @@ class CheckType(NodeTransformerWithFname):
         target = node.targets[0]
         value = node.value
 
-        print('XX qbit_scope %s %s' % (str(self._qbit_scope()), ast.dump(node)))
+        DebugMsg.log('XX qbit_scope %s %s' %
+                (str(self._qbit_scope()), ast.dump(node)))
+
         if not isinstance(target, ast.Name):
             return node
 
@@ -632,7 +637,8 @@ class CheckType(NodeTransformerWithFname):
             self.error_msg(node, msg)
             return node
 
-        print('XX qbit_scope %s %s' % (str(self._qbit_scope()), ast.dump(node)))
+        DebugMsg.log('XX qbit_scope %s %s' %
+                (str(self._qbit_scope()), ast.dump(node)))
 
         if isinstance(value, ast.Name):
             # print('CHECKING %s' % str(self._qbit_scope()))
@@ -666,7 +672,7 @@ class CheckType(NodeTransformerWithFname):
                     # have a wandering variable that we know is a qbit,
                     # but we never know which one.
                     #
-                    print('XX EXTENDING LOCAL (%s)' % target.id)
+                    DebugMsg.log('XX EXTENDING LOCAL (%s)' % target.id)
                     self._extend_local(target.id)
                     target.qgl_is_qbit = True
 
@@ -679,25 +685,26 @@ class CheckType(NodeTransformerWithFname):
                             func_name)
                 return node
 
-            print('NNN lookup [%s] got %s' % (func_name, str(func_def)))
-            print('NNN FuncDef %s' % ast.dump(func_def))
-            print('NNN CALL [%s]' % func_name)
+            DebugMsg.log('NNN lookup [%s] got %s' %
+                    (func_name, str(func_def)))
+            DebugMsg.log('NNN FuncDef %s' % ast.dump(func_def))
+            DebugMsg.log('NNN CALL [%s]' % func_name)
 
             # When we're figuring out whether something is a call to
             # the Qbit assignment function, we look at the name of the
             # function as it is defined (i.e, as func_def), not as it
             # is imported (i.e., as func_name).
             #
-            # This makes the assumption that ANYTHING named 'Qbit'
+            # This makes the assumption that ANYTHING named 'Qubit'
             # is a Qbit assignment function, which is lame and should
             # be more carefully parameterized.  Things to think about:
             # looking more deeply at its signature and making certain
             # that it looks like the 'right' function and not something
-            # someone mistakenly named 'Qbit' in an unrelated context.
+            # someone mistakenly named 'Qubit' in an unrelated context.
             #
-            if isinstance(value, ast.Call) and (func_def.name == 'Qbit'):
+            if isinstance(value, ast.Call) and (func_def.name == QGL2.QBIT_ALLOC):
                 self._extend_local(target.id)
-                print('XX EXTENDED to include %s %s' %
+                DebugMsg.log('XX EXTENDED to include %s %s' %
                         (target.id, str(self._qbit_local())))
 
         return node
@@ -840,7 +847,7 @@ class FindWaveforms(ast.NodeTransformer):
         localfilename = node.qgl_fname
 
         if self.namespace.returns_pulse(localfilename, localname):
-            print('GOT PULSE [%s:%s]' % (localfilename, localname))
+            DebugMsg.log('GOT PULSE [%s:%s]' % (localfilename, localname))
 
         return node
 
@@ -858,7 +865,7 @@ class FindConcurBlocks(ast.NodeTransformer):
     def visit_With(self, node):
 
         item = node.items[0]
-        print('WITH %s' % ast.dump(node))
+        DebugMsg.log('WITH %s' % ast.dump(node))
         if (not isinstance(item.context_expr, ast.Name) or
                 (item.context_expr.id != QGL2.QCONCUR)):
             return node
@@ -883,7 +890,7 @@ class FindConcurBlocks(ast.NodeTransformer):
         # check_conflicts will halt the program if it detects an error
         #
         qbits_referenced = self.check_conflicts(node)
-        print('qbits in concur block (line: %d): %s' % (
+        DebugMsg.log('qbits in concur block (line: %d): %s' % (
                 node.lineno, str(qbits_referenced)))
 
         """
@@ -923,7 +930,7 @@ class FindQbitReferences(ast.NodeTransformer):
 
     For example, if you do something like
 
-        qbit1 = Qbit(1) # Create a new qbit; qbit1 is marked
+        qbit1 = Qubit("1") # Create a new qbit; qbit1 is marked
         arr[ind] = qbit1
         foo = arr[ind]
 
@@ -938,16 +945,15 @@ class FindQbitReferences(ast.NodeTransformer):
         self.qbit_refs = set()
 
     def visit_Name(self, node):
-        print('XXY ')
 
         if node.id in self.qbit_refs:
-            print('XX GOT qbit already %s' % node.id)
+            DebugMsg.log('XX GOT qbit already %s' % node.id)
             node.qgl_is_qbit = True
         elif hasattr(node, 'qgl_is_qbit') and node.qgl_is_qbit:
-            print('XX GOT qbit %s' % node.id)
+            DebugMsg.log('XX GOT qbit %s' % node.id)
             self.qbit_refs.add(node.id)
         else:
-            print('XX NOT qbit %s' % node.id)
+            DebugMsg.log('XX NOT qbit %s' % node.id)
 
         return node
 

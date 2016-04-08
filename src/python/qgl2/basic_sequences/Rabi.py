@@ -13,6 +13,8 @@ from functools import reduce
 import operator
 
 from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main, concur
+from qgl2.qgl1 import Utheta, MEAS, X, Id
+import numpy as np
 
 def RabiAmpq1(qubit: qbit, amps, phase=0, showPlot=False):
     """
@@ -45,6 +47,19 @@ def RabiAmpq1(qubit: qbit, amps, phase=0, showPlot=False):
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
     compileAndPlot(seqs, 'Rabi/Rabi', showPlot)
+
+# For use with pyqgl2.main
+# Note hard coded amplitudes and phase
+@qgl2decl
+def doRabiAmp() -> sequence:
+    q = Qubit('q1')
+    with concur:
+        # FIXME: QGL2 can't handle evaluating this itself
+#        for amp in np.linspace(0,1,11):
+        for amp in [ 0. ,  0.1,  0.2,  0.3,  0.4,  0.5,  0.6,  0.7,  0.8,  0.9,  1. ]:
+            init(q)
+            Utheta(q, amp=amp, phase=0)
+            MEAS(q)
 
 @qgl2decl
 def RabiAmp(qubit: qbit, amps, phase=0, showPlot=False):
@@ -493,9 +508,9 @@ def Swap(qubit: qbit, mqubit: qbit, delays, showPlot=False):
     return compileAndPlot('Rabi/Rabi', showPlot)
 
 # Imports for testing only
-from qgl2.qgl2 import Qbit
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement
 from QGL import ChannelLibrary
+from qgl2.qgl1 import Qubit
 import numpy as np
 from math import pi
 
@@ -534,11 +549,9 @@ def main():
 #    }
 #    ChannelLibrary.channelLib.build_connectivity_graph()
 
-    # But the current qgl2 compiler doesn't understand Qubits, only
-    # Qbits. So use that instead when running through the QGL2
-    # compiler, but comment this out when running directly.
-    q1 = Qbit(1)
-    q2 = Qbit(2)
+    # Use stub Qubits, but comment this out when running directly.
+    q1 = Qubit("q1")
+    q2 = Qubit("q2")
 
     RabiAmp(q1,  np.linspace(0, 5e-6, 11))
     RabiWidth(q1,  np.linspace(0, 5e-6, 11))

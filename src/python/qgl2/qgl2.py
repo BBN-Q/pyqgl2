@@ -8,8 +8,8 @@ the following snipped at the start of each module that uses
 QGL2 constructs:
 
 from qgl2.qgl2 import concur, qgl2decl, qgl2main
-from qgl2.qgl2 import classical, pulse, qbit, qbit_list
-from qgl2.qgl2 import Qbit
+from qgl2.qgl2 import classical, pulse, qbit, qbit_list, sequence, control, GATHER_SEQUENCES
+from qgl2.qgl1 import *
 """
 
 class SimpleWithObject(object):
@@ -108,6 +108,35 @@ def qgl2decl(function):
         assert False, 'qgl2decl should not be directly executed'
     return wrapper
 
+def qgl2stub(function, **args):
+    '''
+    Mark a function as a stub for a QGL1 function, and add
+    proper annotations.
+
+    Check the arguments, but do not inline the contents.
+
+    If there is a second arg, then it must be a string that defines
+    the name of the module (relative to the active import path)
+    containing the definition of the stub.  If a third arg is
+    also defined, it contains the original name of the symbol
+    in that module.  For example, if the function being decorated
+    as a stub is named 'foo', and it is defined in module
+    'a.b.c' as 'bar', then its stub decorator would be
+
+    @qgl2stub('a.b.c', 'bar')
+
+    and this would instruct the preprocessor to add an import
+    of the form
+
+    from a.b.c import bar as foo
+
+    in the output QGL code.
+    '''
+
+    def wrapper(*args, **kwargs):
+        assert False, 'qgl2stub should not be directly executed'
+    return wrapper
+
 # Symbols used for method signature annotation.  Their value has
 # no meaning; they're only assigned a value so that Python considers
 # them to be valid symbols.
@@ -118,10 +147,8 @@ classical = True
 qbit = True
 qbit_list = True
 pulse = True
+sequence = True
+control = True
 
 concur = Concur()
 seq = Seq()
-
-@qgl2decl
-def Qbit(chan:classical) -> qbit:
-    pass
