@@ -274,3 +274,16 @@ def copy_all_loc(new_node, old_node, recurse=False):
 
     return new_node
 
+def expr2ast(expr_text):
+    """
+    Parse the given text as a module, and then return the
+    first element in the body of that module.
+
+    This is shorthand for the idiom of parsing a single
+    expression, but it doesn't check that the string is
+    a single expression (it could be any number of
+    valid statements)
+    """
+
+    return ast.parse(expr_text, mode='exec').body[0]
+
