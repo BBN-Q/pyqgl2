@@ -2,7 +2,7 @@
 
 import QGL.PulseShapes
 from qgl2.qgl2 import qgl2decl, qbit, sequence, concur
-from qgl2.qgl1 import Qubit, Utheta, MEAS
+from qgl2.qgl1 import Qubit, Utheta, MEAS, X, Id
 from .qgl2_plumbing import init
 import numpy as np
 
@@ -33,3 +33,22 @@ def doRabiWidth() -> sequence:
             Utheta(q, length=l, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh)
             MEAS(q)
 
+@qgl2decl
+def doSingleShot() -> sequence:
+    q = Qubit('q1')
+    init(q)
+    Id(q)
+    MEAS(q)
+    init(q)
+    X(q)
+    MEAS(q)
+
+@qgl2decl
+def doPulsedSpec(specOn = True) -> sequence:
+    q = Qubit('q1')
+    init(q)
+    if specOn:
+        X(q)
+    else:
+        Id(q)
+    MEAS(q)
