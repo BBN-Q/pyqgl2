@@ -154,6 +154,8 @@ class SingleSequence(object):
                     self.sequence += stmnt.body[0].body
                 else:
                     NodeError.diag_msg(stmnt.body[0], 'expected seq?')
+            elif isinstance(stmnt, ast.Expr):
+                self.sequence.append(stmnt)
             else:
                 NodeError.diag_msg(stmnt, 'orphan statement')
 
