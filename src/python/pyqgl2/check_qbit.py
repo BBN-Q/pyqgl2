@@ -26,6 +26,7 @@ from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.ast_util import NodeVisitorWithFname
 from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_waveforms import CheckWaveforms
+from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.lang import QGL2
 
 class FuncParam(object):
@@ -443,7 +444,7 @@ class FindTypes(NodeVisitor):
                     # have a wandering variable that we know is a qbit,
                     # but we never know which one.
                     #
-                    print('XX EXTENDING LOCAL (%s)' % name)
+                    DebugMsg.log('extending local (%s)' % name)
                     self.add_type_binding(value, name, QGL2.QBIT)
                     target.qgl_is_qbit = True
 
@@ -503,7 +504,7 @@ class FindTypes(NodeVisitor):
                             ('loop var [%s] hides sym in outer scope' % 
                                 name))
 
-                print('FOR %s' % name)
+                DebugMsg.log('FOR (%s)' % name)
                 self.add_type_binding(subnode, name, QGL2.CLASSICAL)
 
         self.visit_body(node.body)
@@ -543,7 +544,7 @@ class FindTypes(NodeVisitor):
                 elif isinstance(subnode, ast.Name):
                     name = subnode.id
 
-                    print('GOT WITH %s' % name)
+                    DebugMsg.log('GOT WITH (%s)' % name)
 
                     # Warn the user if they're doing something that's
                     # likely to provoke an error
@@ -620,7 +621,9 @@ class CheckType(NodeTransformerWithFname):
         target = node.targets[0]
         value = node.value
 
-        print('XX qbit_scope %s %s' % (str(self._qbit_scope()), ast.dump(node)))
+        DebugMsg.log('XX qbit_scope %s %s' %
+                (str(self._qbit_scope()), ast.dump(node)))
+
         if not isinstance(target, ast.Name):
             return node
 
@@ -634,7 +637,8 @@ class CheckType(NodeTransformerWithFname):
             self.error_msg(node, msg)
             return node
 
-        print('XX qbit_scope %s %s' % (str(self._qbit_scope()), ast.dump(node)))
+        DebugMsg.log('XX qbit_scope %s %s' %
+                (str(self._qbit_scope()), ast.dump(node)))
 
         if isinstance(value, ast.Name):
             # print('CHECKING %s' % str(self._qbit_scope()))
@@ -668,7 +672,7 @@ class CheckType(NodeTransformerWithFname):
                     # have a wandering variable that we know is a qbit,
                     # but we never know which one.
                     #
-                    print('XX EXTENDING LOCAL (%s)' % target.id)
+                    DebugMsg.log('XX EXTENDING LOCAL (%s)' % target.id)
                     self._extend_local(target.id)
                     target.qgl_is_qbit = True
 
@@ -681,9 +685,10 @@ class CheckType(NodeTransformerWithFname):
                             func_name)
                 return node
 
-            print('NNN lookup [%s] got %s' % (func_name, str(func_def)))
-            print('NNN FuncDef %s' % ast.dump(func_def))
-            print('NNN CALL [%s]' % func_name)
+            DebugMsg.log('NNN lookup [%s] got %s' %
+                    (func_name, str(func_def)))
+            DebugMsg.log('NNN FuncDef %s' % ast.dump(func_def))
+            DebugMsg.log('NNN CALL [%s]' % func_name)
 
             # When we're figuring out whether something is a call to
             # the Qbit assignment function, we look at the name of the
@@ -699,7 +704,7 @@ class CheckType(NodeTransformerWithFname):
             #
             if isinstance(value, ast.Call) and (func_def.name == QGL2.QBIT_ALLOC):
                 self._extend_local(target.id)
-                print('XX EXTENDED to include %s %s' %
+                DebugMsg.log('XX EXTENDED to include %s %s' %
                         (target.id, str(self._qbit_local())))
 
         return node
@@ -842,7 +847,7 @@ class FindWaveforms(ast.NodeTransformer):
         localfilename = node.qgl_fname
 
         if self.namespace.returns_pulse(localfilename, localname):
-            print('GOT PULSE [%s:%s]' % (localfilename, localname))
+            DebugMsg.log('GOT PULSE [%s:%s]' % (localfilename, localname))
 
         return node
 
@@ -860,7 +865,7 @@ class FindConcurBlocks(ast.NodeTransformer):
     def visit_With(self, node):
 
         item = node.items[0]
-        print('WITH %s' % ast.dump(node))
+        DebugMsg.log('WITH %s' % ast.dump(node))
         if (not isinstance(item.context_expr, ast.Name) or
                 (item.context_expr.id != QGL2.QCONCUR)):
             return node
@@ -885,7 +890,7 @@ class FindConcurBlocks(ast.NodeTransformer):
         # check_conflicts will halt the program if it detects an error
         #
         qbits_referenced = self.check_conflicts(node)
-        print('qbits in concur block (line: %d): %s' % (
+        DebugMsg.log('qbits in concur block (line: %d): %s' % (
                 node.lineno, str(qbits_referenced)))
 
         """
@@ -940,16 +945,15 @@ class FindQbitReferences(ast.NodeTransformer):
         self.qbit_refs = set()
 
     def visit_Name(self, node):
-        print('XXY ')
 
         if node.id in self.qbit_refs:
-            print('XX GOT qbit already %s' % node.id)
+            DebugMsg.log('XX GOT qbit already %s' % node.id)
             node.qgl_is_qbit = True
         elif hasattr(node, 'qgl_is_qbit') and node.qgl_is_qbit:
-            print('XX GOT qbit %s' % node.id)
+            DebugMsg.log('XX GOT qbit %s' % node.id)
             self.qbit_refs.add(node.id)
         else:
-            print('XX NOT qbit %s' % node.id)
+            DebugMsg.log('XX NOT qbit %s' % node.id)
 
         return node
 

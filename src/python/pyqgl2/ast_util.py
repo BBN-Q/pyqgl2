@@ -7,12 +7,11 @@ transform, or create a Python parse tree
 """
 
 import ast
-import meta
 import sys
 
 from copy import deepcopy
 
-from pyqgl2.pysourcegen import python_source, dump_python_source
+from pyqgl2.pysourcegen import dump_python_source
 
 class NodeError(object):
     """
@@ -42,7 +41,13 @@ class NodeError(object):
         NODE_ERROR_FATAL : 'fatal'
     }
 
+    # The maximum error level observed so far
+    #
     MAX_ERR_LEVEL = NODE_ERROR_NONE
+
+    # The minumum error level to display on the screen
+    #
+    MUTE_ERR_LEVEL = NODE_ERROR_WARNING
 
     LAST_DIAG_MSG = ''
     LAST_WARNING_MSG = ''
@@ -53,14 +58,15 @@ class NodeError(object):
 
     def __init__(self):
         NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+        NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_ERROR
 
     @staticmethod
     def reset():
-        LAST_DIAG_MSG = ''
-        LAST_WARNING_MSG = ''
-        LAST_ERROR_MSG = ''
-        LAST_FATAL_MSG = ''
-        ALL_PRINTED = set()
+        NodeError.LAST_DIAG_MSG = ''
+        NodeError.LAST_WARNING_MSG = ''
+        NodeError.LAST_ERROR_MSG = ''
+        NodeError.LAST_FATAL_MSG = ''
+        NodeError.ALL_PRINTED = set()
 
     @staticmethod
     def halt_on_error():
@@ -83,7 +89,7 @@ class NodeError(object):
         Print a diagnostic message associated with the given node
         """
 
-        LAST_DIAG_MSG = msg
+        NodeError.LAST_DIAG_MSG = msg
         NodeError._make_msg(node, NodeError.NODE_ERROR_NONE, msg)
 
     @staticmethod
@@ -92,7 +98,7 @@ class NodeError(object):
         Print a warning message associated with the given node
         """
 
-        LAST_WARNING_MSG = msg
+        NodeError.LAST_WARNING_MSG = msg
         NodeError._make_msg(node, NodeError.NODE_ERROR_WARNING, msg)
 
     @staticmethod
@@ -101,7 +107,7 @@ class NodeError(object):
         Print an error message associated with the given node
         """
 
-        LAST_ERROR_MSG = msg
+        NodeError.LAST_ERROR_MSG = msg
         NodeError._make_msg(node, NodeError.NODE_ERROR_ERROR, msg)
 
     @staticmethod
@@ -110,7 +116,7 @@ class NodeError(object):
         Print an fatal error message associated with the given node
         """
 
-        LAST_FATAL_MSG = msg
+        NodeError.LAST_FATAL_MSG = msg
         NodeError._make_msg(node, NodeError.NODE_ERROR_FATAL, msg)
 
     @staticmethod
@@ -154,16 +160,22 @@ class NodeError(object):
 
         text += ('%s: %s' % (level_str, msg))
 
-        # Keep track of what we've printed, so we don't
-        # print it over and over again (for repeated
-        # substitions, inlining, or loop unrolling)
+        # Only print messages that are at level MUTE_ERR_LEVEL
+        # or higher
         #
-        if text not in NodeError.ALL_PRINTED:
-            print('%s' % text)
-            NodeError.ALL_PRINTED.add(text)
+        if level >= NodeError.MUTE_ERR_LEVEL:
+            # Keep track of what we've printed, so we don't
+            # print it over and over again (for repeated
+            # substitions, inlining, or loop unrolling)
+            #
+            if text not in NodeError.ALL_PRINTED:
+                print('%s' % text)
+                NodeError.ALL_PRINTED.add(text)
 
         # If we've encountered a fatal error, then there's no
-        # point in continuing: exit immediately.
+        # point in continuing (even if we haven't printed the
+        # error message): exit immediately.
+        #
         if NodeError.MAX_ERR_LEVEL == NodeError.NODE_ERROR_FATAL:
             sys.exit(1)
 

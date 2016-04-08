@@ -46,6 +46,7 @@ from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_waveforms import CheckWaveforms
 from pyqgl2.concur_unroll import Unroller
 from pyqgl2.concur_unroll import QbitGrouper
+from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.flatten import Flattener
 from pyqgl2.importer import NameSpaces, add_import_from_as
 from pyqgl2.inline import Inliner
@@ -61,26 +62,50 @@ def parse_args(argv):
 
     parser = ArgumentParser(description='Prototype QGL2 driver')
 
-    parser.add_argument(
-            '-m', dest='main_name', default='', type=str, metavar='FUNCNAME',
+    # NOTE: filename is a positional parameter!
+    parser.add_argument('filename',
+            type=str, metavar='INPUT-FILENAME',
+            default='',
+            help='input filename')
+
+    parser.add_argument('-D', '--debug-level',
+            dest='debug_level', type=int, metavar='LEVEL',
+            default=DebugMsg.NONE,
+            help=('Specify the debugging level (0=all, 4=none)' +
+                    '[default=%(default)d)]'))
+
+    parser.add_argument('-m',
+            dest='main_name', type=str, metavar='FUNCNAME',
+            default='',
             help='Specify a different QGL main function than the default')
 
-    parser.add_argument(
-            '-v', dest='verbose', default=False, action='store_true',
-            help='Run in verbose mode')
+    parser.add_argument('-o',
+            dest='saveOutput',
+            default=False, action='store_true',
+            help='Save compiled function to output file')
 
-    parser.add_argument('filename', type=str, metavar='FILENAME',
-            help='input filename')
-    parser.add_argument('-show', dest='showplot', default=False, action='store_true',
-                        help="show the waveform plots")
-    parser.add_argument('-p', type=str, dest="prefix", metavar='PREFIX',
-                        default="test/test",
-                        help="Compiled file prefix")
-    parser.add_argument('-s', type=str, dest="suffix", metavar='SUFFIX',
-                        default="",
-                        help="Compiled filename suffix")
-    parser.add_argument('-o', dest='saveOutput', default=False, action='store_true',
-                        help='Save compiled function to output file')
+    parser.add_argument('-p',
+            type=str, dest="prefix", metavar='PATH-PREFIX',
+            default="test/test",
+            help="Compiled file prefix [default=%(default)s]")
+
+    parser.add_argument('-s',
+            type=str, dest="suffix", metavar='FILENAME-SUFFIX',
+            default="",
+            help="Compiled filename suffix")
+
+    parser.add_argument('-S', '--save-intermediate',
+            type=str, dest='intermediate_output', metavar='SAVE-FILENAME',
+            default='',
+            help='Save intermediate output to the given file')
+
+    parser.add_argument('-show',
+            dest='showplot', default=False, action='store_true',
+            help="show the waveform plots")
+
+    parser.add_argument('-v', dest='verbose',
+            default=False, action='store_true',
+            help='Run in verbose mode')
 
     options = parser.parse_args(argv)
 
@@ -94,13 +119,35 @@ def parse_args(argv):
     # directory, add its directory to the search path
     #
     source_dir = os.path.dirname(options.filename)
-    if not source_dir:
+    if source_dir:
         sys.path.append(os.path.normpath(source_dir))
+
+    if options.verbose:
+        NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+
+    DebugMsg.set_level(options.debug_level)
 
     return options
 
 
-def main(filename, main_name=None, saveOutput=False):
+def main(filename, main_name=None, saveOutput=False,
+        intermediate_output=None):
+
+    # Always open up a file for the intermediate output,
+    # even if it's just /dev/null, so we don't have to
+    # muddy up the code with endless checks for whether
+    # we're supposed to save the intermediate output
+    #
+    if not intermediate_output:
+        intermediate_output = '/dev/null'
+
+    if intermediate_output:
+        try:
+            intermediate_fout = open(intermediate_output, 'w')
+        except BaseException as exc:
+            NodeError.fatal_msg(None,
+                    ('cannot save intermediate output in [%s]' %
+                        intermediate_output))
 
     # Process imports in the input file, and find the main.
     # If there's no main, then bail out right away.
@@ -113,9 +160,9 @@ def main(filename, main_name=None, saveOutput=False):
 
     ptree = importer.qglmain
 
-    print('-- -- -- -- --')
     ast_text_orig = pyqgl2.ast_util.ast2str(ptree)
-    print('ORIGINAL CODE:\n%s' % ast_text_orig)
+    print(('ORIGINAL CODE:\n%s' % ast_text_orig),
+            file=intermediate_fout, flush=True)
 
     # if Wait() and Sync() aren't accessible from the namespace
     # used by the qglmain, then things are going to fail later;
@@ -155,27 +202,31 @@ def main(filename, main_name=None, saveOutput=False):
         ptree1 = inliner.inline_function(ptree1)
         NodeError.halt_on_error()
 
-        print('INLINED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+        print(('INLINED CODE (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+                file=intermediate_fout, flush=True)
 
         unroller = Unroller()
         ptree1 = unroller.visit(ptree1)
         NodeError.halt_on_error()
 
-        print('UNROLLED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+        print(('UNROLLED CODE (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+                file=intermediate_fout, flush=True)
 
         type_check = CheckType(filename, importer=importer)
         ptree1 = type_check.visit(ptree1)
         NodeError.halt_on_error()
-        print('CHECKED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+        print(('CHECKED CODE (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+                file=intermediate_fout, flush=True)
 
         ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
                 context=ptree1)
         NodeError.halt_on_error()
-        print('SPECIALIZED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+        print(('SPECIALIZED CODE (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+                file=intermediate_fout, flush=True)
 
         if (inliner.change_cnt == 0) and (unroller.change_cnt == 0):
             NodeError.diag_msg(None,
@@ -188,48 +239,58 @@ def main(filename, main_name=None, saveOutput=False):
 
     base_namespace = importer.path2namespace[filename]
     text = base_namespace.pretty_print()
-    print('EXPANDED NAMESPACE:\n%s' % text)
+    print(('EXPANDED NAMESPACE:\n%s' % text),
+            file=intermediate_fout, flush=True)
 
     new_ptree1 = ptree1
 
     sym_check = CheckSymtab(filename, type_check.func_defs, importer)
     new_ptree5 = sym_check.visit(new_ptree1)
     NodeError.halt_on_error()
-    print('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5))
+    print(('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
+            file=intermediate_fout, flush=True)
 
     grouper = QbitGrouper()
     new_ptree6 = grouper.visit(new_ptree5)
     NodeError.halt_on_error()
-    print('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6))
+    print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
+            file=intermediate_fout, flush=True)
 
     flattener = Flattener()
     new_ptree7 = flattener.visit(new_ptree6)
     NodeError.halt_on_error()
-    print('FLATTENED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree7))
+    print(('FLATTENED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree7)),
+            file=intermediate_fout, flush=True)
 
     sequencer = SequenceCreator()
     sequencer.visit(new_ptree7)
-    print('FINAL SEQUENCES:')
-    for qbit in sequencer.qbit2sequence:
-        print('%s:' % qbit)
-        for inst in sequencer.qbit2sequence[qbit]:
-            if inst.startswith('BlockLabel'):
-                txt = re.sub('BlockLabel\(\'', '', inst)
-                txt = re.sub('\'.', ':', txt)
-                print('    %s' % txt)
-            else:
-                print('         %s' % inst)
 
-    print('Final qglmain: %s' % new_ptree7.name)
+    # We're not going to print this, at least not for now,
+    # although it's sometimes a useful pretty-printing
+    if False:
+        print('FINAL SEQUENCES:')
+        for qbit in sequencer.qbit2sequence:
+            print('%s:' % qbit)
+            for inst in sequencer.qbit2sequence[qbit]:
+                if inst.startswith('BlockLabel'):
+                    txt = re.sub('BlockLabel\(\'', '', inst)
+                    txt = re.sub('\'.', ':', txt)
+                    print('    %s' % txt)
+                else:
+                    print('         %s' % inst)
+
+    print(('Final qglmain: %s' % new_ptree7.name),
+            file=intermediate_fout, flush=True)
 
     base_namespace = importer.path2namespace[filename]
     text = base_namespace.pretty_print()
-    print('FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % text)
+    print(('FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % text),
+            file=intermediate_fout, flush=True)
 
     sync = SynchronizeBlocks(new_ptree7)
     new_ptree8 = sync.visit(deepcopy(new_ptree7))
-    print('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8))
-
+    print(('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8)),
+            file=intermediate_fout, flush=True)
 
     # singseq = SingleSequence()
     # singseq.find_sequence(new_ptree8)
@@ -245,8 +306,10 @@ def main(filename, main_name=None, saveOutput=False):
 
     builder = pyqgl2.single.SingleSequence(importer)
     if builder.find_sequence(new_ptree8) and builder.find_imports(new_ptree8):
+        code = builder.emit_function(fname)
+        print(('#start function\n%s\n#end function' % code),
+                file=intermediate_fout, flush=True)
         if saveOutput:
-            code = builder.emit_function(fname)
             newf = os.path.abspath(filename[:-3] + "qgl1.py")
             with open(newf, 'w') as compiledFile:
                 compiledFile.write(code)
@@ -384,7 +447,8 @@ def chanSetup(channels=dict()):
 
 if __name__ == '__main__':
     opts = parse_args(sys.argv[1:])
-    resFunction = main(opts.filename, opts.main_name, opts.saveOutput)
+    resFunction = main(opts.filename, opts.main_name, opts.saveOutput,
+            intermediate_output=opts.intermediate_output)
     if resFunction:
         # Now import the QGL1 things we need 
         from QGL.Compiler import compile_to_hardware

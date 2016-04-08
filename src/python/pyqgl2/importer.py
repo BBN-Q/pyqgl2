@@ -65,8 +65,7 @@ def find_sys_path_prefix():
     try:
         path = inspect.getfile(ast)
     except TypeError as exc:
-        print('ERROR: cannot find path to system modules')
-        sys.exit(1)
+        NodeError.fatal_msg(None, 'cannot find path to system modules')
 
     relpath = os.path.relpath(path)
 
@@ -167,7 +166,8 @@ def collapse_name(node):
         return collapse_name(node.value) + '.' + node.attr
     else:
         # TODO: handle this more gracefully
-        print('XX UNEXPECTED %s' % ast.dump(node))
+        NodeError.warning_msg(node,
+                'unexpected failure to resolve [%s]' % ast.dump(node))
         return None
 
 def add_import_from_as(importer, namespace_name, module_name,
@@ -431,19 +431,21 @@ class NameSpaces(object):
             qglmain_def = self.resolve_sym(self.base_fname, qglmain_name)
 
             if not qglmain_def:
-                print('error: no definition for qglmain [%s]' % qglmain_name)
-                sys.exit(1)
+                NodeError.error_msg(None,
+                        'no definition for qglmain [%s]' % qglmain_name)
             elif not qglmain_def.qgl_func:
-                print('error: qglmain [%s] not declared QGL' % qglmain_name)
-                sys.exit(1)
+                NodeError.error_msg(None,
+                        'qglmain [%s] not declared QGL' % qglmain_name)
             else:
                 self.qglmain = qglmain_def
                 qglmain_def.qgl_main = True
 
         if self.qglmain:
-            print('info: using [%s] as qglmain' % self.qglmain.name)
+            NodeError.diag_msg(None,
+                    'using [%s] as qglmain' % self.qglmain.name)
         else:
-            print('warning: no qglmain declared or chosen')
+            NodeError.warning_msg(None,
+                    'warning: no qglmain declared or chosen')
 
     def resolve_sym(self, path, name, depth=0):
         """
@@ -548,7 +550,6 @@ class NameSpaces(object):
         # TODO: error/warning/diagnostics
 
         if path in self.path2ast:
-            print('NN Already in there [%s]' % path)
             return self.path2ast[path]
 
         # TODO: this doesn't do anything graceful if the file
@@ -636,10 +637,12 @@ class NameSpaces(object):
         q_return = None
 
         if node is None:
-            print('NODE IS NONE')
+            NodeError.warning_msg(node, 'unexpected None node')
+            return None
 
         if not isinstance(node, ast.FunctionDef):
-            print('NOT A FUNCTIONDEF %s' % ast.dump(node))
+            NodeError.warning_msg(node,
+                    'expected a FunctionDef, got [%s]' % ast.dump(node))
             return None
 
         if node.returns:
@@ -889,9 +892,9 @@ class NameSpaces(object):
 
         namespace.add_from_as_stmnt(stmnt)
 
-        print('NX orig statement [%s]' % ast.dump(stmnt))
-        print('NX orig statement [%s]' %
-                pyqgl2.ast_util.ast2str(stmnt).strip())
+        # print('NX orig statement [%s]' % ast.dump(stmnt))
+        # print('NX orig statement [%s]' %
+        #         pyqgl2.ast_util.ast2str(stmnt).strip())
 
         # placeholder
         subpath = None
@@ -914,8 +917,6 @@ class NameSpaces(object):
             #
             dir_name = stmnt.qgl_fname.rpartition(os.sep)[0]
 
-            print('NX dirname of current module [%s]' % dir_name)
-
             # If the relative path is for a parent directory, add
             # the proper number of '..' components.  A single '.',
             # however, represents this directory.
@@ -929,20 +930,15 @@ class NameSpaces(object):
                 #
                 dir_name = os.path.relpath(dir_name)
 
-            print('NX dirname with relative [%s]' % dir_name)
-
             # if there's a module name, prepare to test whether it's
             # a file or a directory.  If there's not then the dir_name
             # is the dpath, and there is no fpath
             #
             if module_name:
-                print('NX module_name is [%s]' % module_name)
                 mod_path = os.sep.join(module_name.split('.'))
                 from_path = os.path.join(dir_name, mod_path)
             else:
                 from_path = dir_name
-
-            print('NX from_path is [%s]' % from_path)
 
             # Now figure out what kind of thing is at the end of that
             # path: a module, a package, or a directory:
@@ -953,13 +949,10 @@ class NameSpaces(object):
 
             if os.path.isfile(module_path):
                 subpath = module_path
-                print('NX module [%s]' % subpath)
             elif os.path.isfile(package_path):
                 subpath = package_path
-                print('NX package [%s]' % subpath)
             elif os.path.isdir(dir_path):
                 subpath = from_path
-                print('NX directory [%s]' % subpath)
 
         else:
             # use normal resolution to find the location of module
