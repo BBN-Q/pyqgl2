@@ -209,6 +209,16 @@ class SingleSequence(object):
 
         sequence = [ast2str(item).strip() for item in self.sequence]
 
+        # TODO: check that this is always OK.
+        #
+        # HACK ALERT: this might not always be the right thing to do
+        # but right now extraneous calls to Sync at the start of
+        # program appear to cause a problem, and they don't serve
+        # any known purpose, so skip them.
+        #
+        while sequence[0] == 'Sync()':
+            sequence = sequence[1:]
+
         # TODO there must be a more elegant way to indent this properly
         seq_str = indent + 'seq = [\n' + 2 * indent
         seq_str += (',\n' + 2 * indent).join(sequence)
