@@ -21,8 +21,7 @@ from copy import deepcopy
 import pyqgl2.ast_util
 
 from pyqgl2.ast_util import NodeError
-from pyqgl2.ast_util import ast2str
-from pyqgl2.ast_util import copy_all_loc
+from pyqgl2.ast_util import ast2str, copy_all_loc, expr2ast
 
 from pyqgl2.concur_unroll import is_concur, is_seq, find_all_channels
 
@@ -97,8 +96,8 @@ class SynchronizeBlocks(ast.NodeTransformer):
         #
         self.all_channels = find_all_channels(node)
 
-        self.blank_wait_ast = ast.parse('Wait()', mode='exec').body[0]
-        self.blank_sync_ast = ast.parse('Sync()', mode='exec').body[0]
+        self.blank_wait_ast = expr2ast('Wait()')
+        self.blank_sync_ast = expr2ast('Sync()')
 
     def visit_With(self, node):
 
@@ -184,9 +183,8 @@ class SynchronizeBlocks(ast.NodeTransformer):
             NodeError.diag_msg(stmnt,
                     'channels unreferenced in concur: %s' % str(unseen_chan))
 
-            empty_seq_ast = ast.parse(
-                    'with seq:\n    WAIT(%s)' % str(unseen_chan),
-                    mode='exec')
+            empty_seq_ast = expr2ast(
+                    'with seq:\n    WAIT(%s)' % str(unseen_chan))
             copy_all_loc(empty_seq_ast, node)
             node.body.append(empty_seq_ast)
 

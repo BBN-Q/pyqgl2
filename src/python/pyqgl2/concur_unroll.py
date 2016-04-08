@@ -13,7 +13,7 @@ from copy import deepcopy
 
 import pyqgl2.ast_util
 
-from pyqgl2.ast_util import NodeError
+from pyqgl2.ast_util import expr2ast, NodeError
 from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
 
@@ -427,7 +427,8 @@ class Unroller(ast.NodeTransformer):
         if not isinstance(arg, ast.Num):
             return False
         elif not isinstance(arg.n, int):
-            print('ISI not an int')
+            NodeError.warning_msg(arg, 'range value is not an integer?')
+            return False
         else:
             return True
 
@@ -481,7 +482,7 @@ class Unroller(ast.NodeTransformer):
             iter_cnt = for_node.iter.args[0].n
 
             repeat_txt = 'with Qrepeat(%d):\n    pass' % iter_cnt
-            repeat_ast = ast.parse(repeat_txt, mode='exec').body[0]
+            repeat_ast = expr2ast(repeat_txt)
 
             pyqgl2.ast_util.copy_all_loc(repeat_ast, for_node, recurse=True)
 
@@ -628,7 +629,7 @@ class QbitGrouper(ast.NodeTransformer):
     def visit_With(self, node):
 
         if not is_concur(node):
-            print('IS NOT a concur node')
+            # print('IS NOT a concur node')
             return self.generic_visit(node) # check
 
         # Hackish way to create a seq node to use

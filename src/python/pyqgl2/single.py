@@ -154,8 +154,11 @@ class SingleSequence(object):
                     self.sequence += stmnt.body[0].body
                 else:
                     NodeError.diag_msg(stmnt.body[0], 'expected seq?')
+            elif isinstance(stmnt, ast.Expr):
+                self.sequence.append(stmnt)
             else:
-                NodeError.diag_msg(stmnt, 'orphan statement')
+                NodeError.error_msg(stmnt,
+                        'orphan statement %s' % ast.dump(stmnt))
 
         return True
 
@@ -206,6 +209,16 @@ class SingleSequence(object):
             preamble += indent + '%s = %s\n' % (use_name, sym_name)
 
         sequence = [ast2str(item).strip() for item in self.sequence]
+
+        # TODO: check that this is always OK.
+        #
+        # HACK ALERT: this might not always be the right thing to do
+        # but right now extraneous calls to Sync at the start of
+        # program appear to cause a problem, and they don't serve
+        # any known purpose, so skip them.
+        #
+        while sequence[0] == 'Sync()':
+            sequence = sequence[1:]
 
         # TODO there must be a more elegant way to indent this properly
         seq_str = indent + 'seq = [\n' + 2 * indent
