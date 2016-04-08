@@ -157,7 +157,8 @@ class SingleSequence(object):
             elif isinstance(stmnt, ast.Expr):
                 self.sequence.append(stmnt)
             else:
-                NodeError.error_msg(stmnt, 'orphan statement')
+                NodeError.error_msg(stmnt,
+                        'orphan statement %s' % ast.dump(stmnt))
 
         return True
 
