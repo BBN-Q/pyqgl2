@@ -264,6 +264,7 @@ def main(filename, main_name=None, saveOutput=False,
 
     sequencer = SequenceCreator()
     sequencer.visit(new_ptree7)
+    NodeError.halt_on_error()
 
     # We're not going to print this, at least not for now,
     # although it's sometimes a useful pretty-printing
@@ -289,6 +290,7 @@ def main(filename, main_name=None, saveOutput=False,
 
     sync = SynchronizeBlocks(new_ptree7)
     new_ptree8 = sync.visit(deepcopy(new_ptree7))
+    NodeError.halt_on_error()
     print(('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8)),
             file=intermediate_fout, flush=True)
 
@@ -318,6 +320,7 @@ def main(filename, main_name=None, saveOutput=False,
         # Assume we have a function creating a single qubit sequence
         # Find it and return it
         qgl1_main = pyqgl2.single.single_sequence(new_ptree8, fname, importer)
+        NodeError.halt_on_error()
         return qgl1_main
     else:
         print("Not a single qubit sequence producing function")
