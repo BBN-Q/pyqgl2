@@ -19,7 +19,8 @@ def doInversionRecovery() -> sequence:
         MEAS(q)
 
     # Tack on calibration
-    create_cal_seqs((q,), 2)
+    # FIXME: This doesn't yet work in QGL2
+#    create_cal_seqs((q,), 2)
 
 @qgl2decl
 def doRamsey() -> sequence:
@@ -72,4 +73,5 @@ def doRamsey() -> sequence:
         MEAS(q)
 
     # Tack on calibration
+    # FIXME: create_cal_seqs doesn't yet work in QGL2
     create_cal_seqs((q,), calRepeats)

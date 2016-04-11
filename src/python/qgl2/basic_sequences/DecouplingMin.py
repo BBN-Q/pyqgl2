@@ -21,24 +21,28 @@ def doHahnEcho() -> sequence:
                       4.50000000e-06,   5.00000000e-06]:
         init(q)
         X90(q)
-        Id(q, spacing)
+        # FIXME: spacing arg to Id confuses compiler
+        Id(q, length=spacing)
         Y(q)
-        Id(q, spacing)
+        Id(q, length=spacing)
 #        U90(q, phase=2*pi*periods/len(pulseSpacings)*k)
         U90(q, phase=0)
         MEAS(q)
 
 #    calRepeats = 2
-    create_cal_seqs((q,), 2)
+    # FIXME: create_cal_seqs will not yet work in QGL2
+#    create_cal_seqs((q,), 2)
 
 
 @qgl2decl
 def doCPMG() -> sequence:
     q = Qubit('q1')
 
-    @qgl2decl
-    def idPulse(q: qbit) -> pulse:
-        Id(q, (500e-9 - q.pulseParams['length'])/2)
+    # FIXME: QGL2 functions cannot be nested
+#    @qgl2decl
+#    def idPulse(q: qbit) -> pulse:
+#        # FIXME: arg confuses QGL2 compiler if not a kwarg
+#        Id(q, length=(500e-9 - q.pulseParams['length'])/2)
 
     # FIXME: QGL2 doesn't understand these for loops yet
 
@@ -48,11 +52,15 @@ def doCPMG() -> sequence:
         X90(q)
         # Repeat the t-180-t block rep times
         for _ in range(rep):
-            idPulse(q)
+            # FIXME: QGL2 functions cannot be nested
+            #idPulse(q)
+            Id(q, length=(500e-9 - q.pulseParams['length'])/2)
             Y(q)
-            idPulse(q)
+            Id(q, length=(500e-9 - q.pulseParams['length'])/2)
+            #idPulse(q)
         X90(q)
         MEAS(q)
 
     # Tack on calibration
-    create_cal_seqs((q,), 2)
+    # FIXME: create_cal_seqs will not yet work in QGL2
+#    create_cal_seqs((q,), 2)

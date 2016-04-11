@@ -13,6 +13,8 @@ def doSPAM() -> sequence:
 #    angleSweep = [ 0.        ,  0.15707963,  0.31415927,  0.4712389 ,  0.62831853,
 #                   0.78539816,  0.9424778 ,  1.09955743,  1.25663706,  1.41371669,
 #                   1.57079633]
+
+    # FIXME: QGL2 cannot currently handle this nested function definition
     @qgl2decl
     def spam_seqs(angle) -> sequence:
 #        for rep in range(maxSpamBlocks):

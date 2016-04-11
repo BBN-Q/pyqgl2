@@ -44,10 +44,12 @@ def doSingleShot() -> sequence:
     MEAS(q)
 
 @qgl2decl
-def doPulsedSpec(specOn = True) -> sequence:
+def doPulsedSpec() -> sequence:
     q = Qubit('q1')
+    # FIXME: Want a specOn arg but that currently doesn't work
+    # specOn = True
     init(q)
-    if specOn:
+    if True:
         X(q)
     else:
         Id(q)
