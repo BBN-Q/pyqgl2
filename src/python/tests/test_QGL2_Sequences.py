@@ -3,6 +3,10 @@
 Variant of test_Sequences.py that uses the QGL2 compiled versions of the basic sequences, instead of the 
 built-in versions.
 
+WARNING: This does not work, and likely never will in this form.
+It must be reworked to assume you have separately compiled QGL2 programs into QGL1.
+Even still, it is likely QGL2 sequences will not match QGL1 originals, such that these unit tests will not pass.
+
 Requires python3 anaconda, cppy, atom 1.0.0, latest QGL repo, and the latest
 JSONLibraryUtils repo cloned as a sub-dir to QGL (if use the
 --recurse-submodules arg when cloning QGL, you get it for free).
