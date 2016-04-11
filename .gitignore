@@ -1,3 +1,6 @@
 *.bak
 *.py~
 *.pyc
+.ipynb_checkpoints
+*.txt~
+

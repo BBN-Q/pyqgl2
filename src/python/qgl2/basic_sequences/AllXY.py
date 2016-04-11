@@ -39,17 +39,15 @@ def AllXYq2(q: qbit, showPlot = False):
 @qgl2decl
 def doAllXY() -> sequence:
     q = Qubit(label="q1")
-    # Force the compiler to add a Sync() at the end
-    with concur:
-        # For each of the 21 pulse pairs
-        for func in [IdId, XX, YY, XY, YX, X90Id, Y90Id,
+    # For each of the 21 pulse pairs
+    for func in [IdId, XX, YY, XY, YX, X90Id, Y90Id,
                  X90Y90, Y90X90, X90Y, Y90X, XY90, YX90, X90X,
                  XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90]:
-            # Repeat it twice and do a MEAS at the end of each
-            for i in range(2):
-                init(q)
-                func(q)
-                MEAS(q)
+        # Repeat it twice and do a MEAS at the end of each
+        for i in range(2):
+            init(q)
+            func(q)
+            MEAS(q)
 
 @qgl2decl
 def AllXY(q: qbit, showPlot = False):
@@ -60,17 +58,15 @@ def AllXY(q: qbit, showPlot = False):
 
 @qgl2decl
 def AllXYprev(q: qbit, showPlot = False):
-    # Force the compiler to add a Sync() at the end
-    with concur:
-        # For each of the 21 pulse pairs
-        for func in [IdId, XX, YY, XY, YX, X90Id, Y90Id,
+    # For each of the 21 pulse pairs
+    for func in [IdId, XX, YY, XY, YX, X90Id, Y90Id,
                  X90Y90, Y90X90, X90Y, Y90X, XY90, YX90, X90X,
                  XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90]:
-            # Repeat it twice and do a MEAS at the end of each
-            for i in range(2):
-                init(q)
-                func(q)
-                MEAS(q)
+        # Repeat it twice and do a MEAS at the end of each
+        for i in range(2):
+            init(q)
+            func(q)
+            MEAS(q)
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
     compileAndPlot('AllXY/AllXY', showPlot)
