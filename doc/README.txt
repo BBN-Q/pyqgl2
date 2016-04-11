@@ -6,7 +6,23 @@ programming quantum computers.
 Dependencies
  * Working QGL installation
  * Python 3.5
- * Set PYTHONPATH to <QGL2 install directory>/src/python:<QGL install directory>
+ * Set PYTHONPATH to <QGL2 install directory>/src/python:<QGL install
+ directory>
+
+Expanding on that:
+Requires python3 anaconda, cppy, atom 1.0.0, latest QGL repo, and the latest
+JSONLibraryUtils repo cloned as a sub-dir to QGL (if you use the
+--recurse-submodules arg when cloning QGL, you get it for free).
+E.G.
+pip install cppy; pip install
+git+https://github.com/nucleic/atom.git@1.0.0-dev
+git clone <QGL>
+cd QGL
+git submodule update, or git clone <JSONLibraryUtils>
+
+NOTE: Currently QGL2 requires QGL with Pull Request #16 incorporated.
+
+----
 
 QGL2 is similar to python, but is not python. For some basic
 restrictions / limitations / ways it is not full python, see
