@@ -216,6 +216,42 @@ def add_import_from_as(importer, namespace_name, module_name,
     else:
         return False
 
+def native_import(globals_dict, import_ast):
+    """
+    Do a "native import", modifying the globals_dict with the results.
+
+    This can be ugly if the import executes arbitrary code (i.e.
+    prints things on the screen, or futzes with something else).
+
+    Intended to be used to modify the native_globals member of
+    a NameSpace.
+
+    The import_ast is an AST node representing the import
+    (which MUST be a single import, not a sequence of statements)
+    i.e. "from foo import bar as baz" or "from whatever import *"
+    or "import something"
+
+    If ast_node is not None, it is used to provide an error
+    message linked to the original AST node that contained
+    the import (for the sake of more readable error messages)
+
+    Returns True if successful, False otherwise.
+    """
+
+    # internal sanity checks
+    assert isinstance(globals_dict, dict), 'globals_dict is not a dict'
+    assert (isinstance(import_ast, ast.ImportFrom) or
+            isinstance(import_ast, ast.Import)), 'import_ast is not an import'
+
+    try:
+        text = pyqgl2.ast_util.ast2str(import_ast)
+        NodeError.diag_msg(import_ast, 'processing [%s]' % text)
+        exec(text, globals_dict)
+        return True
+    except BaseException as exc:
+        NodeError.error_msg(import_ast, '[%s] failed: %s' % (text, str(exc)))
+        return False
+
 
 class NameSpace(object):
     """
@@ -259,6 +295,17 @@ class NameSpace(object):
         # came last.
         #
         self.order_added = list()
+
+        # We do a "real" import of the file, using exec, using
+        # the native_globals as the globals().  This means that
+        # we can capture the effect of doing an import on a real
+        # Python processing, without muddying up our own namespace
+        # with the results.  Then we keep the native_globals so
+        # that if we later need to evaluate expressions or
+        # statements in that context, we have it ready to go.
+        #
+        self.native_globals = dict()
+        self.native_globals['__name__'] = 'not_main'
 
     def __repr__(self):
         return self.__str__()
@@ -338,8 +385,9 @@ class NameSpace(object):
         if not path:
             raise ValueError('no module found for [%s]' % module_name)
 
-        if not is_system_file(path):
-            self.import_as[as_name] = path
+        # if not is_system_file(path):
+        #     self.import_as[as_name] = path
+        self.import_as[as_name] = path
 
     def namespace2ast(self):
         """
@@ -840,6 +888,8 @@ class NameSpaces(object):
 
     def add_import_as(self, namespace, stmnt):
 
+        native_import(namespace.native_globals, stmnt)
+
         namespace.add_import_as_stmnt(stmnt)
 
         for imp in stmnt.names:
@@ -848,8 +898,11 @@ class NameSpaces(object):
                 NodeError.warning_msg(
                         stmnt, 'path to [%s] not found' % imp.name)
             elif is_system_file(subpath):
+                print('XXN 1')
                 # TODO not sure if we should flag this,
                 # or make any attempt to handle it.
+                namespace.add_import_as(imp.name, imp.asname) # &&&
+                self.read_import(subpath) # &&&
                 continue
             else:
                 namespace.add_import_as(imp.name, imp.asname)
@@ -892,6 +945,14 @@ class NameSpaces(object):
         package X.  We DO NOT support this feature yet.
 
         """
+
+        # FIXME: horrible hack.  The import statements that we inject
+        # to patch the namespace don't have line numbers in their AST,
+        # so we omit doing a native import on any AST statements that
+        # don't have line numbers.  Not general!
+        #
+        if hasattr(stmnt, 'lineno'):
+            native_import(namespace.native_globals, stmnt)
 
         namespace.add_from_as_stmnt(stmnt)
 
@@ -973,10 +1034,11 @@ class NameSpaces(object):
             NodeError.diag_msg(
                     stmnt, ('path to [%s%s] not found' %
                         ('.' * stmnt.level, module_name)))
-        elif is_system_file(subpath):
-            NodeError.diag_msg(
-                    stmnt, ('import of [%s%s] ignored' %
-                        ('.' * stmnt.level, module_name)))
+        #elif is_system_file(subpath):
+        #    print('XXN 2')
+        #    NodeError.diag_msg(
+        #            stmnt, ('import of [%s%s] ignored' %
+        #                ('.' * stmnt.level, module_name)))
         else:
             self.read_import(subpath)
 
