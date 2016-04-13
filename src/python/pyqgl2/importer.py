@@ -404,22 +404,20 @@ class NameSpace(object):
 
     def native_import(self, text, node):
         """
-        Do a "native import", modifying the globals_dict with the results.
+        Do a "native import", updating self.native_globals
+        with the results.
 
         This can be ugly if the import executes arbitrary code (i.e.
         prints things on the screen, or futzes with something else).
 
-        Intended to be used to modify the native_globals member of
-        a NameSpace.
-
-        The import_ast is an AST node representing the import
-        (which MUST be a single import, not a sequence of statements)
+        The text must be an import statement, or sequence of
+        import statements (ast2str turns a single statement with
+        a list of symbol clauses into a list of statements)
         i.e. "from foo import bar as baz" or "from whatever import *"
         or "import something"
 
-        If ast_node is not None, it is used to provide an error
-        message linked to the original AST node that contained
-        the import (for the sake of more readable error messages)
+        The node is used to create meaningful diagnostic or
+        error messages, and must be provided.
 
         Returns True if successful, False otherwise.
         """
@@ -434,9 +432,6 @@ class NameSpace(object):
             exec(text, self.native_globals)
             return True
         except BaseException as exc:
-            # if we fail because of a relative import, we can usually
-            # cope with it, so don't consider this a failure.
-            #
             if node:
                 caller_fname = node.qgl_fname
             else:
