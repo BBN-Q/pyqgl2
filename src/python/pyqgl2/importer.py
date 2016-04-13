@@ -216,49 +216,13 @@ def add_import_from_as(importer, namespace_name, module_name,
     else:
         return False
 
-def native_import(globals_dict, import_ast):
-    """
-    Do a "native import", modifying the globals_dict with the results.
-
-    This can be ugly if the import executes arbitrary code (i.e.
-    prints things on the screen, or futzes with something else).
-
-    Intended to be used to modify the native_globals member of
-    a NameSpace.
-
-    The import_ast is an AST node representing the import
-    (which MUST be a single import, not a sequence of statements)
-    i.e. "from foo import bar as baz" or "from whatever import *"
-    or "import something"
-
-    If ast_node is not None, it is used to provide an error
-    message linked to the original AST node that contained
-    the import (for the sake of more readable error messages)
-
-    Returns True if successful, False otherwise.
-    """
-
-    # internal sanity checks
-    assert isinstance(globals_dict, dict), 'globals_dict is not a dict'
-    assert (isinstance(import_ast, ast.ImportFrom) or
-            isinstance(import_ast, ast.Import)), 'import_ast is not an import'
-
-    try:
-        text = pyqgl2.ast_util.ast2str(import_ast)
-        NodeError.diag_msg(import_ast, 'processing [%s]' % text)
-        exec(text, globals_dict)
-        return True
-    except BaseException as exc:
-        NodeError.error_msg(import_ast, '[%s] failed: %s' % (text, str(exc)))
-        return False
-
 
 class NameSpace(object):
     """
     Manage the namespace for a single file
     """
 
-    def __init__(self):
+    def __init__(self, path):
 
         # functions and variables defined locally
         #
@@ -305,7 +269,10 @@ class NameSpace(object):
         # statements in that context, we have it ready to go.
         #
         self.native_globals = dict()
+        # don't treat this like a __main__
         self.native_globals['__name__'] = 'not_main'
+        # make sure the __file__ is set properly
+        # self.native_globals['__file__'] = path
 
     def __repr__(self):
         return self.__str__()
@@ -434,6 +401,49 @@ class NameSpace(object):
                 text += pyqgl2.ast_util.ast2str(item_value)
 
         return text
+
+    def native_import(self, text, node):
+        """
+        Do a "native import", modifying the globals_dict with the results.
+
+        This can be ugly if the import executes arbitrary code (i.e.
+        prints things on the screen, or futzes with something else).
+
+        Intended to be used to modify the native_globals member of
+        a NameSpace.
+
+        The import_ast is an AST node representing the import
+        (which MUST be a single import, not a sequence of statements)
+        i.e. "from foo import bar as baz" or "from whatever import *"
+        or "import something"
+
+        If ast_node is not None, it is used to provide an error
+        message linked to the original AST node that contained
+        the import (for the sake of more readable error messages)
+
+        Returns True if successful, False otherwise.
+        """
+
+        # A hack to avoid doing imports on "synthesized" imports
+        # that don't have line numbers in the original source code
+        #
+        if (not node) or (not hasattr(node, 'lineno')):
+            return
+
+        try:
+            exec(text, self.native_globals)
+            return True
+        except BaseException as exc:
+            # if we fail because of a relative import, we can usually
+            # cope with it, so don't consider this a failure.
+            #
+            if node:
+                caller_fname = node.qgl_fname
+            else:
+                caller_fname = '<unknown>'
+            NodeError.error_msg(node,
+                    'in %s [%s] failed: %s' % (caller_fname, text, str(exc)))
+            return False
 
 
 class NameSpaces(object):
@@ -620,9 +630,10 @@ class NameSpaces(object):
                     'cannot open [%s]: %s' % (path, str(exc)))
             return None
 
-    def read_import_str(self, text, path='<stdin>'):
+    def read_import_str(self, text, path='<stdin>', module_name='__main__'):
 
         ptree = ast.parse(text, mode='exec')
+
         self.path2ast[path] = ptree
 
         # label each node with the name of the input file;
@@ -631,6 +642,7 @@ class NameSpaces(object):
         #
         for node in ast.walk(ptree):
             node.qgl_fname = path
+            node.qgl_modname = module_name
 
         # The preprocessor will ignore any imports that are not
         # at the "top level" (imports that happen conditionally,
@@ -655,7 +667,7 @@ class NameSpaces(object):
 
         # Populate the namespace
         #
-        namespace = NameSpace()
+        namespace = NameSpace(path)
         self.path2namespace[path] = namespace
 
         for stmnt in ptree.body:
@@ -888,7 +900,7 @@ class NameSpaces(object):
 
     def add_import_as(self, namespace, stmnt):
 
-        native_import(namespace.native_globals, stmnt)
+        namespace.native_import(pyqgl2.ast_util.ast2str(stmnt), stmnt)
 
         namespace.add_import_as_stmnt(stmnt)
 
@@ -898,11 +910,6 @@ class NameSpaces(object):
                 NodeError.warning_msg(
                         stmnt, 'path to [%s] not found' % imp.name)
             elif is_system_file(subpath):
-                print('XXN 1')
-                # TODO not sure if we should flag this,
-                # or make any attempt to handle it.
-                namespace.add_import_as(imp.name, imp.asname) # &&&
-                self.read_import(subpath) # &&&
                 continue
             else:
                 namespace.add_import_as(imp.name, imp.asname)
@@ -945,14 +952,6 @@ class NameSpaces(object):
         package X.  We DO NOT support this feature yet.
 
         """
-
-        # FIXME: horrible hack.  The import statements that we inject
-        # to patch the namespace don't have line numbers in their AST,
-        # so we omit doing a native import on any AST statements that
-        # don't have line numbers.  Not general!
-        #
-        if hasattr(stmnt, 'lineno'):
-            native_import(namespace.native_globals, stmnt)
 
         namespace.add_from_as_stmnt(stmnt)
 
@@ -1018,10 +1017,20 @@ class NameSpaces(object):
             elif os.path.isdir(dir_path):
                 subpath = from_path
 
+            # Since we don't know what our own module name is,
+            # we can't figure out the "full" name of the relatively
+            # imported module.  FIXME
+            #
+            full_module_name = None
+            NodeError.warning_msg(stmnt,
+                    ('cannot evaluate exprs in a relative import [%s]' %
+                        module_name))
+
         else:
             # use normal resolution to find the location of module
             #
             subpath = resolve_path(module_name)
+            full_module_name = module_name
 
         # There are a lot of reasons why we might not be able
         # to resolve a module name; it could be in a binary file
@@ -1034,11 +1043,10 @@ class NameSpaces(object):
             NodeError.diag_msg(
                     stmnt, ('path to [%s%s] not found' %
                         ('.' * stmnt.level, module_name)))
-        #elif is_system_file(subpath):
-        #    print('XXN 2')
-        #    NodeError.diag_msg(
-        #            stmnt, ('import of [%s%s] ignored' %
-        #                ('.' * stmnt.level, module_name)))
+        elif is_system_file(subpath):
+            NodeError.diag_msg(
+                    stmnt, ('import of [%s%s] ignored' %
+                        ('.' * stmnt.level, module_name)))
         else:
             self.read_import(subpath)
 
@@ -1048,8 +1056,21 @@ class NameSpaces(object):
                             ('deprecated wildcard import from [%s]' %
                                 module_name))
                     self.add_from_wildcard(namespace, subpath, module_name)
+
+                    if full_module_name:
+                        namespace.native_import(
+                                ('from %s import *' % full_module_name), stmnt)
                 else:
                     namespace.add_from_as_path(subpath, imp.name, imp.asname)
+
+                    if full_module_name:
+                        symname = imp.name
+                        if imp.asname:
+                            symname += ' %s' % imp.asname
+                        namespace.native_import(
+                                ('from %s import %s' %
+                                    (full_module_name, symname)),
+                                stmnt)
 
     def add_from_wildcard(self, namespace, path, from_name):
 
