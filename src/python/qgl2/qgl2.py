@@ -101,13 +101,13 @@ class Seq(SimpleWithObject):
 
 
 def qgl2main(function):
-    def wrapper(*args, **kwargs):
-        assert False, 'qgl2main should not be directly executed'
+    def wrapper(*f_args, **f_kwargs):
+        return function
     return wrapper
 
 def qgl2decl(function):
-    def wrapper(*args, **kwargs):
-        assert False, 'qgl2decl should not be directly executed'
+    def wrapper(*f_args, **f_kwargs):
+        return function
     return wrapper
 
 def qgl2stub(function, **args):
@@ -135,8 +135,8 @@ def qgl2stub(function, **args):
     in the output QGL code.
     '''
 
-    def wrapper(*args, **kwargs):
-        assert False, 'qgl2stub should not be directly executed'
+    def wrapper(*f_args, **f_kwargs):
+        return function
     return wrapper
 
 # Symbols used for method signature annotation.  Their value has
