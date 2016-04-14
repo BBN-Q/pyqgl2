@@ -469,7 +469,7 @@ class NameSpace(object):
 
         """
 
-        if (not isinstance(expr, str)) and (not isinstance(expr, ast.Node)):
+        if (not isinstance(expr, str)) and (not isinstance(expr, ast.AST)):
             print('INVALID EXPR type %s' % str(type(expr)))
             return False, None
 
@@ -484,6 +484,21 @@ class NameSpace(object):
                 print('Error in native_eval: %s' % str(exc))
                 return False, None
         else:
+            # If we get AST, this doesn't automatically mean that we can
+            # treat it like an expression, because in the eyes of the
+            # compiler, an expression is something rooted at an
+            # ast.Expression node, and NOT all the kinds of things
+            # that are otherwise considered to be expressions.
+            # So if expr isn't an ast.Expr, wrap it up inside one.
+            # Ugh.
+            #
+            # Another way of doing this would be to convert the expr to
+            # a string and then parse the string as an expression.
+            # That might actually be safer.  TODO: review.
+
+            if not isinstance(expr, ast.Expression):
+                expr = ast.Expression(expr)
+
             try:
                 final_expr = compile(expr, '<nofile>', mode='eval')
             except TypeError as exc:
