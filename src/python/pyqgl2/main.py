@@ -223,7 +223,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
 
-        unroller = Unroller()
+        unroller = Unroller(importer)
         ptree1 = unroller.visit(ptree1)
         NodeError.halt_on_error()
 
