@@ -21,7 +21,8 @@ def doHahnEcho() -> sequence:
                       4.50000000e-06,   5.00000000e-06]:
         init(q)
         X90(q)
-        # FIXME: spacing arg to Id confuses compiler
+        # FIXME: spacing arg to Id confuses compiler without giving it
+        # a keyword
         Id(q, length=spacing)
         Y(q)
         Id(q, length=spacing)
@@ -35,14 +36,15 @@ def doHahnEcho() -> sequence:
 
 
 @qgl2decl
+def idPulseCPMG(q: qbit) -> pulse:
+    # FIXME: arg confuses QGL2 compiler if not a kwarg
+    Id(q, length=(500e-9 - q.pulseParams['length'])/2)
+
+@qgl2decl
 def doCPMG() -> sequence:
     q = Qubit('q1')
 
     # FIXME: QGL2 functions cannot be nested
-#    @qgl2decl
-#    def idPulse(q: qbit) -> pulse:
-#        # FIXME: arg confuses QGL2 compiler if not a kwarg
-#        Id(q, length=(500e-9 - q.pulseParams['length'])/2)
 
     # FIXME: QGL2 doesn't understand these for loops yet
 
@@ -52,12 +54,9 @@ def doCPMG() -> sequence:
         X90(q)
         # Repeat the t-180-t block rep times
         for _ in range(rep):
-            # FIXME: QGL2 functions cannot be nested
-            #idPulse(q)
-            Id(q, length=(500e-9 - q.pulseParams['length'])/2)
+            idPulseCPMG(q)
             Y(q)
-            Id(q, length=(500e-9 - q.pulseParams['length'])/2)
-            #idPulse(q)
+            idPulseCPMG(q)
         X90(q)
         MEAS(q)
 
