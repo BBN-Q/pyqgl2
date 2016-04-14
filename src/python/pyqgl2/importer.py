@@ -352,9 +352,8 @@ class NameSpace(object):
         if not path:
             raise ValueError('no module found for [%s]' % module_name)
 
-        # if not is_system_file(path):
-        #     self.import_as[as_name] = path
-        self.import_as[as_name] = path
+        if not is_system_file(path):
+            self.import_as[as_name] = path
 
     def namespace2ast(self):
         """
