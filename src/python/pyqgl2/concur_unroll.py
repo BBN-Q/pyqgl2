@@ -13,7 +13,7 @@ from copy import deepcopy
 
 import pyqgl2.ast_util
 
-from pyqgl2.ast_util import expr2ast, NodeError
+from pyqgl2.ast_util import expr2ast, NodeError, value2ast
 from pyqgl2.importer import collapse_name
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.lang import QGL2
@@ -516,21 +516,26 @@ class Unroller(ast.NodeTransformer):
         if not isinstance(for_node.iter, ast.List):
             namespace = self.importer.path2namespace[for_node.qgl_fname]
             # TODO: we're not using any local variables yet!
-            # FIXME: this is uninteresting without them
+            # FIXME: this is relatively uninteresting without them
             (success, val) = namespace.native_eval(for_node.iter)
 
-            print('XXT expanded to (%s, %s)' % (str(success), str(val)))
-
             if success:
-                print('EXPANDED VALUE %s' % str(val))
-                # for_node = deepcopy(for_node)
-                # for_node.iter = val
+                # if the val is an iterator or collection, bash
+                # it into a list, because that's all we understand,
+                # and then try to convert the result back into AST
+                #
+                list_val = list(val)
+                ast_val = value2ast(list_val)
 
-            # TODO:  what should we do if this fails?
-            #
-            # If this fails, then we might be stuck, unless some
-            # later substitution "fixes" whatever reason keeps us
-            # from doing the evaluation.
+                # if the evaluation produced a list, then
+                # plug it in to the iterator (after making a
+                # spare copy of the node so we don't clobber
+                # the original function definition)
+                #
+                if ast_val and isinstance(ast_val, ast.List):
+                    print('USING EXPANDED ITER VALUE: %s' % ast.dump(ast_val))
+                    for_node = deepcopy(for_node)
+                    for_node.iter = ast_val
 
         # Now that we've expanded and evaluated the iterator, the
         # iterator really better be a list.
