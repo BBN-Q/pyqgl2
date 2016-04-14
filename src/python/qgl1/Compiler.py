@@ -182,17 +182,17 @@ def pulses_to_waveforms(physicalWires, verbose=False):
     if verbose: print("Converting pulses_to_waveforms:")
     wireOuts = {ch : [] for ch in physicalWires.keys()}
     for ch, seqs in physicalWires.items():
-        if verbose: print("\nLooking at channel %s" % ch)
+        if verbose: print("\nChannel '%s':" % ch)
         for seq in seqs:
             wireOuts[ch].append([])
             for pulse in seq:
                 if not isinstance(pulse, PulseSequencer.Pulse):
                     wireOuts[ch][-1].append(pulse)
-                    if verbose: print(str(pulse))
+                    if verbose: print(" %s" % str(pulse))
                 else:
                     wf = Waveform(pulse)
                     wireOuts[ch][-1].append(wf)
-                    if verbose: print(str(wf))
+                    if verbose: print(" %s" % str(wf))
     return wireOuts
 
 def channel_delay_map(physicalWires):
@@ -243,6 +243,10 @@ def compile_to_hardware(seqs, fileName, suffix='', verbose=False):
         suffix : string to append to end of fileName (e.g. with fileNames = 'test' and suffix = 'foo' might save to test-APSfoo.h5)
     '''
 
+    if verbose:
+        print("QGL2 compile_to_hardware running in verbose mode")
+        print("\nAdd digitizer, blanking pulses, and slave trigger...")
+
     # Add the digitizer trigger to measurements
     PatternUtils.add_digitizer_trigger(seqs)
 
@@ -264,20 +268,20 @@ def compile_to_hardware(seqs, fileName, suffix='', verbose=False):
         print("Compile to hardware failed")
         return
 
-    if verbose: print("\nNow after gating constraints")
+    if verbose: print("\nNow after gating constraints:")
     # apply gating constraints
     for chan, seq in wireSeqs.items():
         if isinstance(chan, Channels.LogicalMarkerChannel):
             wireSeqs[chan] = PatternUtils.apply_gating_constraints(chan.physChan, seq)
         if verbose:
-            print("\nChannel %s" % chan)
+            print("\nChannel '%s':" % chan)
             for elem in seq:
                 if isinstance(elem, list):
                     for e2 in elem:
-                        print(str(e2))
+                        print(" %s" % str(e2))
                     print()
                 else:
-                    print(str(elem))
+                    print(" %s" % str(elem))
 
     # map logical to physical channels
     physWires = map_logical_to_physical(wireSeqs)
@@ -289,14 +293,14 @@ def compile_to_hardware(seqs, fileName, suffix='', verbose=False):
     for chan, wire in physWires.items():
         PatternUtils.delay(wire, delays[chan])
         if verbose:
-            print("\nDelayed wire for chan %s:" % chan)
+            print("\nDelayed wire for chan '%s':" % chan)
             for elem in wire:
                 if isinstance(elem, list):
                     for e2 in elem:
-                        print(str(e2))
+                        print(" %s" % str(e2))
                     print()
                 else:
-                    print(str(elem))
+                    print(" %s" % str(elem))
 
     # generate wf library (base shapes)
     wfs = generate_waveforms(physWires)
@@ -337,12 +341,12 @@ def compile_sequences(seqs, channels=None, verbose=False):
         if verbose: print("Appending a Goto at end to loop")
 
     # Skip this next for QGL2 things
-    # inject function definitions prior to sequences
-    funcDefs = collect_specializations(seqs)
-    if funcDefs:
-        # inject GOTO to jump over definitions
-        funcDefs.insert(0, ControlFlow.Goto(BlockLabel.label(seqs[0])))
-        seqs.insert(0, funcDefs)
+#    # inject function definitions prior to sequences
+#    funcDefs = collect_specializations(seqs)
+#    if funcDefs:
+#        # inject GOTO to jump over definitions
+#        funcDefs.insert(0, ControlFlow.Goto(BlockLabel.label(seqs[0])))
+#        seqs.insert(0, funcDefs)
 
     # use seqs[0] as prototype in case we were not given a set of channels
     wires = compile_sequence(seqs[0], channels, verbose)
@@ -361,14 +365,14 @@ def compile_sequences(seqs, channels=None, verbose=False):
     if verbose:
         print("\nReturning from compile_sequences:")
         for chan in wireSeqs:
-            print("\nChannel %s" % chan)
+            print("\nChannel '%s':" % chan)
             seq = wireSeqs[chan]
             for elem in seq:
                 if isinstance(elem, list):
                     for e2 in elem:
-                        print(str(e2))
+                        print(" %s" % str(e2))
                 else:
-                    print(str(elem))
+                    print(" %s" % str(elem))
 
     return wireSeqs
 
@@ -377,7 +381,7 @@ def compile_sequence(seq, channels=None, verbose=False):
     Takes a list of control flow and pulses, and returns aligned blocks
     separated into individual abstract channels (wires).
     '''
-    if verbose: print("\nIn compile_sequence")
+    if verbose: print("\nIn compile_sequence:")
     #Find the set of logical channels used here and initialize them
     if not channels:
         channels = find_unique_channels(seq)
@@ -387,11 +391,11 @@ def compile_sequence(seq, channels=None, verbose=False):
     # Debugging: what does the sequence look like?
     if verbose:
         for elem in seq:
-            print(str(elem))
+            print(" %s" % str(elem))
 
     if verbose: print("\nSequence before normalizing:")
     for block in normalize(flatten(seq), channels):
-        if verbose: print(str(block))
+        if verbose: print(" %s" % str(block))
         # labels and control flow instructions broadcast to all channels
         if isinstance(block, (BlockLabel.BlockLabel, ControlFlow.ControlInstruction)):
             for chan in channels:
@@ -401,9 +405,11 @@ def compile_sequence(seq, channels=None, verbose=False):
         if block.length == 0:
             for chan in channels:
                 if len(wires[chan]) > 0:
+                    if verbose: print("Modifying pulse on %s: %s" % (chan, wires[chan][-1]))
                     wires[chan][-1] = copy(wires[chan][-1])
                     wires[chan][-1].frameChange += block.pulses[chan].frameChange
                     if chan in ChannelLibrary.channelLib.connectivityG.nodes():
+                        if verbose: print("Doing propagate_node_frame_to_edges")
                         wires = propagate_node_frame_to_edges(wires, chan, block.pulses[chan].frameChange)
                 else:
                     warn("Dropping initial frame change")
@@ -411,13 +417,14 @@ def compile_sequence(seq, channels=None, verbose=False):
         # schedule the block
         for chan in channels:
             # add aligned Pulses (if the block contains a composite pulse, may get back multiple pulses)
-            wires[chan] += schedule(chan, block.pulses[chan], block.length, block.alignment)
+            wires[chan] += schedule(chan, block.pulses[chan],
+                                    block.length, block.alignment, verbose)
     if verbose:
         for chan in wires:
             print()
-            print("compile_sequence Return for channel %s:" % chan)
+            print("compile_sequence Return for channel '%s':" % chan)
             for elem in wires[chan]:
-                print(str(elem))
+                print(" %s" % str(elem))
     return wires
 
 def propagate_node_frame_to_edges(wires, chan, frameChange):
@@ -510,7 +517,7 @@ class Waveform(object):
     def isZero(self):
         return self.amp == 0
 
-def schedule(channel, pulse, blockLength, alignment):
+def schedule(channel, pulse, blockLength, alignment, verbose=False):
     '''
     Converts a Pulse or a CompositePulses into an aligned sequence of Pulses
     by injecting TAPulses before and/or after such that the resulting sequence
@@ -525,7 +532,15 @@ def schedule(channel, pulse, blockLength, alignment):
 
     padLength = blockLength - pulse.length
     if padLength == 0:
-        # no padding element required
+        #if verbose:
+        #    print("   schedule on chan '%s' made no change" % channel)
+        pass
+    else:
+        if verbose:
+            print("   schedule on chan '%s' adding Id len %d align %s" %
+                  (channel, padLength, alignment))
+    if padLength == 0:
+        # no padding element required 
         return pulses
     elif alignment == "left":
         return pulses + [Id(channel, padLength)]
