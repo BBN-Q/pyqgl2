@@ -440,6 +440,69 @@ class NameSpace(object):
                     'in %s [%s] failed: %s' % (caller_fname, text, str(exc)))
             return False
 
+    def native_eval(self, expr, local_variables=None):
+        """
+        Evaluate the given expr, which should be an expression
+        (although this is not currently enforced, except by failure)
+        represented by an AST node or a text string containing a
+        Python expression.
+
+        If local_variables is not None, it is assumed to reference
+        a dictionary containing local bindings.  It should NOT
+        be a reference to the global bindings (either for this
+        namespace, or any other global bindings).
+
+        Returns (success, value), where success indicates whether
+        the evaluation succeeded or failed, and value is the value
+        of the expression.  The process of evaluation the expression
+        may also modify bindings in local_variables,
+
+        Note that if the evaluation of the expression raises an
+        exception, this exception will be caught and the result
+        will be treated as failure (even if the intent of the
+        expression was to raise an exception).  QGL2 doesn't
+        understand exceptions.
+
+        NOTE: this evaluation is not safe, and may damage the
+        environment of the caller.  There is no safeguard against
+        this right now.
+
+        """
+
+        if (not isinstance(expr, str)) and (not isinstance(expr, ast.Node)):
+            print('INVALID EXPR type %s' % str(type(expr)))
+            return False, None
+
+        if isinstance(expr, str):
+            try:
+                final_expr = compile(
+                        ast.parse(expr, mode='eval'), '<nofile>', mode='eval')
+            except SyntaxError as exc:
+                print('Syntax error in native_eval: %s' % str(exc))
+                return False, None
+            except BaseException as exc:
+                print('Error in native_eval: %s' % str(exc))
+                return False, None
+        else:
+            try:
+                final_expr = compile(expr, '<nofile>', mode='eval')
+            except TypeError as exc:
+                print('Type error in native_eval: %s' % str(exc))
+                return False, None
+            except BaseException as exc:
+                print('Error in native_eval: %s' % str(exc))
+                return False, None
+
+        try:
+            if not local_variables:
+                local_variables = dict()
+
+            val = eval(final_expr, self.native_globals, local_variables)
+            return True, val
+        except BaseException as exc:
+            print('eval failure: %s' % str(exc))
+            return False, None
+
 
 class NameSpaces(object):
 
