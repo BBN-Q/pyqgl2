@@ -268,6 +268,9 @@ def compile_to_hardware(seqs, fileName, suffix='', verbose=False):
         print("Compile to hardware failed")
         return
 
+    # This is the point after which even QGL2 probably wants to run
+    # normal stuff
+
     if verbose: print("\nNow after gating constraints:")
     # apply gating constraints
     for chan, seq in wireSeqs.items():
@@ -384,6 +387,7 @@ def compile_sequence(seq, channels=None, verbose=False):
     if verbose: print("\nIn compile_sequence:")
     #Find the set of logical channels used here and initialize them
     if not channels:
+        if verbose: print("<Had no channels>")
         channels = find_unique_channels(seq)
 
     wires = {chan: [] for chan in channels}
@@ -392,6 +396,9 @@ def compile_sequence(seq, channels=None, verbose=False):
     if verbose:
         for elem in seq:
             print(" %s" % str(elem))
+        print("\nChannels:")
+        for chan in channels:
+            print(" %s" % str(chan))
 
     if verbose: print("\nSequence before normalizing:")
     for block in normalize(flatten(seq), channels):
