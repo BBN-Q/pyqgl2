@@ -97,10 +97,12 @@ class Unroller(ast.NodeTransformer):
     code actually recognizes/handles
     """
 
-    def __init__(self):
+    def __init__(self, importer):
 
         self.bindings_stack = list()
         self.change_cnt = 0
+
+        self.importer = importer
 
     def unroll_body(self, body):
         """
@@ -505,6 +507,33 @@ class Unroller(ast.NodeTransformer):
         # return that, rather than just the iterator.
         #
         for_node = self.expand_range(for_node)
+
+        # If it's not a list yet, then try to turn it into one
+        # by evaluating the iter expression.  If successful,
+        # copy the for_node and replace its iter with the
+        # result.
+        #
+        if not isinstance(for_node.iter, ast.List):
+            namespace = self.importer.path2namespace[for_node.qgl_fname]
+            # TODO: we're not using any local variables yet!
+            # FIXME: this is uninteresting without them
+            (success, val) = namespace.native_eval(for_node.iter)
+
+            print('XXT expanded to (%s, %s)' % (str(success), str(val)))
+
+            if success:
+                print('EXPANDED VALUE %s' % str(val))
+                # for_node = deepcopy(for_node)
+                # for_node.iter = val
+
+            # TODO:  what should we do if this fails?
+            #
+            # If this fails, then we might be stuck, unless some
+            # later substitution "fixes" whatever reason keeps us
+            # from doing the evaluation.
+
+        # Now that we've expanded and evaluated the iterator, the
+        # iterator really better be a list.
 
         if not isinstance(for_node.iter, ast.List):
             if unroll_inner:
