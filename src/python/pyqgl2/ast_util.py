@@ -287,3 +287,44 @@ def expr2ast(expr_text):
 
     return ast.parse(expr_text, mode='exec').body[0]
 
+
+def value2ast(value):
+    """
+    Attempt to express the value AST.
+
+    This is done by converting the value to its string
+    representation using its repr, and then parsing
+    that string to create AST.  Note that this is NOT
+    generally possible, because
+
+    a) there are many Python structures whose pretty-printed
+        form fails to capture its full semantic
+
+    b) parsed AST trees are acyclic
+
+    c) many repr implementations are half-baked
+
+    d) some comparisons (i.e. for floating point numbers) may
+        lose precision during conversion
+
+    This function detects when AST conversion causes
+    and exception to be raised, but doesn't try harder
+    than that.  It's up to the caller to apply the
+    proper heuristics/tests for success.
+
+    Returns an ast node if successful, None if not
+    """
+
+    try:
+        candidate_str = repr(value)
+        # print('GOT candidate_str [%s]' % candidate_str)
+        candidate_ast = ast.parse(candidate_str, mode='eval')
+        # print('GOT candidate_ast [%s]' % ast.dump(candidate_ast))
+    except BaseException as exc:
+        print('failure in value2ast_check: %s' % str(exc))
+        return None
+
+    # We want the actual body, not an Expression
+    final_ast = candidate_ast.body
+
+    return final_ast
