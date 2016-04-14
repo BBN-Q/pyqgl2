@@ -1,17 +1,12 @@
 Some current limitations of the QGL2 language
  - including ways it is not Python
 
-* 'label' argument to Qubit() must be a literal string - no variable
-  whose value is a string, no expression, etc
- * EG see `test_Sequences` which loops over qbit names. That won't work.
-* A Qubit() creation is only recognized if it is in an assignemnt. EG
-  x = Qubit("alabel") works, but
-  return Qubit("alabel") does not
 * In general, *args and **kwargs are not well handled - for type
   checking arguments, etc
 * QGL2 looks at variables named `QBIT_*` as canonical qbits. Another
   variable that happens to ahve that name might cause problems.
 * qgl2decl method declarations cannot be nested
+ * Make all functions top level functions
 * Methods with a return statement are not inlined
 * In general, methods with a return statement are not well handled
 * QGL2 tries to tie method calls to qbits. A method call without a
@@ -21,15 +16,26 @@ from qgl2.qgl2 import qgl2decl, qbit, sequence, concur
 from qgl2.qgl1 import MEAS, Qubit, Id, X
 from qgl2.control import *
 from qgl2.basic_sequences.qgl2_plumbing import init
+
+Things to fix:
+
 * Only single qubit programs are currently handled
 * QGL2 does not yet recognize when a variable is constant and can be
   replace with the proper value. Variable arguments and assignments
   to not work as expected yet.
+* 'label' argument to Qubit() must be a literal string - no variable
+  whose value is a string, no expression, etc
+ * EG see `test_Sequences` which loops over qbit names. That won't work.
 * Functions that manipulate control flow like zip and reduce are not
   handled propertly yet.
  * So for example, create_cal_seqs fails.
-* Id() takes an optional  delay/length int/float. This confuses QGL2
-  if supplied.
+* Id() takes an optional delay/length int/float. This confuses QGL2
+  if supplied. Make it a keyword argument and things compile.
+* A Qubit() creation is only recognized if it is in an assignemnt. EG
+  x = Qubit("alabel") works, but
+  return Qubit("alabel") does not
+* Constant or function references are missing their required imports
+  in output code. EG use of numpy.pi or a function reference to QGL.PulseShapes.tanh
 
 Other to do items for QGL2:
 
