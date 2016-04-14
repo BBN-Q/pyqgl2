@@ -410,8 +410,7 @@ def specialize(func_node, qbit_defs, func_defs, importer, context=None):
         # at some point.
         #
         if hasattr(subnode, 'qgl2_orig_call'):
-            new_subcall = sub_chan.visit(subnode.qgl2_orig_call)
-            subnode.qgl2_orig_call = new_subcall
+            subnode.qgl2_orig_call = deepcopy(subnode.qgl2_orig_call)
 
     # add the specialized version of the function to the namespace
     #
