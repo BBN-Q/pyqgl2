@@ -10,7 +10,8 @@ def func_a(a: qbit, b: qbit, c: qbit) -> sequence:
 
 @qgl2decl
 def func_b(a: qbit) -> pulse:
-    X90(a) + Y90(a)
+    X90(a)
+    Y90(a)
 
 @qgl2main
 def main():

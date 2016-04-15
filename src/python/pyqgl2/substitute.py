@@ -382,7 +382,7 @@ def specialize(func_node, qbit_defs, func_defs, importer, context=None):
     recorded in the namespace of that Call, so that it can be
     accessed again we we want to inline the function.
     """
-
+    DebugMsg.log("Doing specialize() on %s" % pyqgl2.ast_util.ast2str(func_node))
     # needs more mangling?
     refs = '_'.join([str(phys_chan) for (fp_name, phys_chan) in qbit_defs])
     mangled_name = func_node.name + '___' + refs
@@ -397,6 +397,7 @@ def specialize(func_node, qbit_defs, func_defs, importer, context=None):
     sub_chan = SubstituteChannel(
             new_func_node.qgl_fname, qbit_defs, func_defs, importer)
     new_func = sub_chan.visit(new_func_node)
+#    DebugMsg.log(" ... after SubstituteChannel.visit() have: %s" % pyqgl2.ast_util.ast2str(new_func))
     new_func.name = mangled_name
 
     for subnode in ast.walk(new_func_node):
@@ -410,6 +411,9 @@ def specialize(func_node, qbit_defs, func_defs, importer, context=None):
         # at some point.
         #
         if hasattr(subnode, 'qgl2_orig_call'):
+            # Do not re-visit this sub-node. We don't need to
+            # re-specialize it, as it has already been inlined.
+            # Just copy it
             subnode.qgl2_orig_call = deepcopy(subnode.qgl2_orig_call)
 
     # add the specialized version of the function to the namespace
