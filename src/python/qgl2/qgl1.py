@@ -38,7 +38,7 @@ def Ytheta(qubit: qbit, amp=0, **kwargs) -> pulse:
     print('Ytheta')
 
 @qgl2stub('QGL.PulsePrimitives')
-def Ztheta(qubit: qbit, amp=0, **kwargs) -> pulse:
+def Ztheta(qubit: qbit, angle=0, **kwargs) -> pulse:
     print('Ztheta')
 
 @qgl2stub('QGL.PulsePrimitives')
@@ -60,6 +60,22 @@ def Y(qubit: qbit, **kwargs) -> pulse:
 @qgl2stub('QGL.PulsePrimitives')
 def Y90(qubit: qbit, **kwargs) -> pulse:
     print('Y90')
+
+@qgl2stub('QGL.PulsePrimitives')
+def Y90m(qubit: qbit, **kwargs) -> pulse:
+    print('Y90m')
+
+@qgl2stub('QGL.PulsePrimitives')
+def Z(qubit: qbit, **kwargs) -> pulse:
+    print('Z')
+
+@qgl2stub('QGL.PulsePrimitives')
+def Z90(qubit: qbit, **kwargs) -> pulse:
+    print('Z90')
+
+@qgl2stub('QGL.PulsePrimitives')
+def Z90m(qubit: qbit, **kwargs) -> pulse:
+    print('Z90m')
 
 @qgl2stub('QGL.PulsePrimitives')
 def U90(qubi: qbit, phase=0, **kwargs) -> pulse:
