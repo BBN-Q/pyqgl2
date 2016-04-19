@@ -130,7 +130,7 @@ def parse_args(argv):
     return options
 
 
-def main(filename, main_name=None, saveOutput=False,
+def compileFunction(filename, main_name=None, saveOutput=False,
         intermediate_output=None):
 
     # Always open up a file for the intermediate output,
@@ -361,9 +361,9 @@ def finalize_map(mapping, channels):
     for name,value in mapping.items():
         channels[name].physChan = channels[value]
 
-        ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
-        ChannelLibrary.channelLib.channelDict = channels
-        ChannelLibrary.channelLib.build_connectivity_graph()
+    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
+    ChannelLibrary.channelLib.channelDict = channels
+    ChannelLibrary.channelLib.build_connectivity_graph()
 
 # Create a basic channel library
 # Code stolen from QGL's test_Sequences
@@ -450,22 +450,23 @@ def chanSetup(channels=dict()):
 
 if __name__ == '__main__':
     opts = parse_args(sys.argv[1:])
-    resFunction = main(opts.filename, opts.main_name, opts.saveOutput,
-            intermediate_output=opts.intermediate_output)
+
+    import QGL
+    if QGL.ChannelLibrary.channelLib and 'slaveTrig' in QGL.ChannelLibrary.channelLib:
+        print("Using ChannelLibrary from config")
+    else:
+        # Hack. Create a basic channel library
+        print("Creating an APS2ish config with 2 Qubits for testing")
+        chanSetup()
+
+    resFunction = compileFunction(opts.filename, opts.main_name, opts.saveOutput,
+                                  intermediate_output=opts.intermediate_output)
     if resFunction:
         # Now import the QGL1 things we need 
         from QGL.Compiler import compile_to_hardware
         from QGL.PulseSequencePlotter import plot_pulse_files
-        import QGL
+        from QGL.ChannelLibrary import QubitFactory
         import os
-
-        if QGL.ChannelLibrary.channelLib and 'slaveTrig' in QGL.ChannelLibrary.channelLib:
-            print("Using ChannelLibrary from config")
-            channels = QGL.ChannelLibrary.channelLib
-        else:
-            # Hack. Create a basic channel library
-            print("Creating an APS2ish config with 2 Qubits for testing")
-            channels = chanSetup()
 
         # Create a directory for saving the results
         QGL.config.AWGDir = os.path.abspath(QGL.config.AWGDir + os.path.sep + "qgl2main")
@@ -473,7 +474,7 @@ if __name__ == '__main__':
             os.makedirs(QGL.config.AWGDir)
 
         # Now execute the returned function, which should produce a list of sequences
-        sequences = resFunction(q=channels['q1'])
+        sequences = resFunction(q=QubitFactory('q1'))
 
         # Now we have a QGL1 list of sequences we can act on
         fileNames = compile_to_hardware(sequences, opts.prefix, opts.suffix)
