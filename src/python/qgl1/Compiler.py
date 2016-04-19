@@ -237,7 +237,7 @@ def collect_specializations(seqs):
         funcDefs += ControlFlow.qfunction_specialization(target)
     return funcDefs
 
-def compile_to_hardware(seqs, fileName, suffix='', verbose=False):
+def compile_to_hardware(seqs, fileName, suffix='', qgl2=False, verbose=False):
     '''
     Compiles 'seqs' to a hardware description and saves it to 'fileName'. Other inputs:
         suffix : string to append to end of fileName (e.g. with fileNames = 'test' and suffix = 'foo' might save to test-APSfoo.h5)
@@ -262,7 +262,7 @@ def compile_to_hardware(seqs, fileName, suffix='', verbose=False):
         channels |= find_unique_channels(seq)
 
     # Compile all the pulses/pulseblocks to sequences of pulses and control flow
-    wireSeqs = compile_sequences(seqs, channels, verbose)
+    wireSeqs = compile_sequences(seqs, channels, qgl2=qgl2, verbose=verbose)
 
     if not validate_linklist_channels(wireSeqs.keys()):
         print("Compile to hardware failed")
@@ -329,7 +329,7 @@ def compile_to_hardware(seqs, fileName, suffix='', verbose=False):
     # Return the filenames we wrote
     return fileList
 
-def compile_sequences(seqs, channels=None, verbose=False):
+def compile_sequences(seqs, channels=None, qgl2=False, verbose=False):
     '''
     Main function to convert sequences to miniLL's and waveform libraries.
     '''
@@ -343,13 +343,13 @@ def compile_sequences(seqs, channels=None, verbose=False):
         seqs[-1].append(ControlFlow.Goto(BlockLabel.label(seqs[0])))
         if verbose: print("Appending a Goto at end to loop")
 
-    # Skip this next for QGL2 things
-#    # inject function definitions prior to sequences
-#    funcDefs = collect_specializations(seqs)
-#    if funcDefs:
-#        # inject GOTO to jump over definitions
-#        funcDefs.insert(0, ControlFlow.Goto(BlockLabel.label(seqs[0])))
-#        seqs.insert(0, funcDefs)
+    # FIXME: Skip this next for QGL2 things
+    # inject function definitions prior to sequences
+    funcDefs = collect_specializations(seqs)
+    if funcDefs:
+        # inject GOTO to jump over definitions
+        funcDefs.insert(0, ControlFlow.Goto(BlockLabel.label(seqs[0])))
+        seqs.insert(0, funcDefs)
 
     # use seqs[0] as prototype in case we were not given a set of channels
     wires = compile_sequence(seqs[0], channels, verbose)
@@ -440,8 +440,9 @@ def propagate_node_frame_to_edges(wires, chan, frameChange):
     '''
     for predecessor in ChannelLibrary.channelLib.connectivityG.predecessors(chan):
         edge = ChannelLibrary.channelLib.connectivityG.edge[predecessor][chan]['channel']
-        wires[edge][-1] = copy(wires[edge][-1])
-        wires[edge][-1].frameChange += frameChange
+        if edge in wires:
+            wires[edge][-1] = copy(wires[edge][-1])
+            wires[edge][-1].frameChange += frameChange
     return wires
 
 def find_unique_channels(seq):
