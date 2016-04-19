@@ -477,6 +477,7 @@ if __name__ == '__main__':
 
         # Now we have a QGL1 list of sequences we can act on
         fileNames = compile_to_hardware(sequences, opts.prefix, opts.suffix)
+#        , qgl2=True, verbose=opts.verbose)
         print(fileNames)
         if opts.showplot:
             plot_pulse_files(fileNames)
