@@ -15,7 +15,9 @@ def doInversionRecovery() -> sequence:
                 4.50000000e-06,   5.00000000e-06]:
         init(q)
         X(q)
-        Id(q, d)
+        # FIXME: We want that to be an arg not a kwarg but the
+        # compiler doesn't like it
+        Id(q, length=d)
         MEAS(q)
 
     # Tack on calibration
