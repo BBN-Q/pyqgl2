@@ -104,6 +104,8 @@ class SubstituteChannel(NodeTransformerWithFname):
             return False
         elif func_def.name == QGL2.QBIT_ALLOC:
             return True
+        elif func_def.name == QGL2.QBIT_ALLOC2:
+            return True
         else:
             return False
 
@@ -246,6 +248,9 @@ class SubstituteChannel(NodeTransformerWithFname):
         if func_ast.name == QGL2.QBIT_ALLOC:
             self.error_msg(node,
                            ("%s() called as a Call. Only when called as an Assign is this treated as a qbit." % QGL2.QBIT_ALLOC))
+        if func_ast.name == QGL2.QBIT_ALLOC2:
+            self.error_msg(node,
+                           ("%s() called as a Call. Only when called as an Assign is this treated as a qbit." % QGL2.QBIT_ALLOC2))
         # Note we allow qgl_stub functions to pass through here,
         # so the arguments are error checked
         if not can_specialize(func_ast):
@@ -483,6 +488,18 @@ def getChanLabel(node):
         DebugMsg.log("Was not a call")
         return None
 
+    funcName = None
+    if isinstance(theNode.func, ast.Name):
+        funcName = theNode.func.id
+    else:
+        # Assume an Attribute
+        temp2 = theNode.func.attr
+        temp1 = theNode.func.value
+        if isintance(temp1, ast.Name):
+            funcName = temp1.id + '.' + temp2
+        else:
+            funcName = temp2
+
     # First ensure there's a label.
     # If there are positional args, assume it is first
     # Otherwise, look for it among keyword args
@@ -497,12 +514,12 @@ def getChanLabel(node):
         # This is a sad, ugly restriction
         if not isinstance(arg0, ast.Str):
             DebugMsg.log('1st param to %s() must be a string - got %s' %
-                    (QGL2.QBIT_ALLOC, arg0))
+                    (funcName, arg0))
             return None
 
         if not isinstance(arg0.s, str):
             DebugMsg.log('1st param to %s() must be a str - got %s' %
-                    (QGL2.QBIT_ALLOC, arg0.s))
+                    (funcName, arg0.s))
             return None
 
         chanLabel = arg0.s
@@ -513,22 +530,22 @@ def getChanLabel(node):
                     kwp = str(kwarg.value)
                     if isinstance(kwarg.value, ast.Str):
                         kwp = kwarg.value.s
-                    DebugMsg.log("%s had a positional arg used as label='%s'. Cannot also have keyword argument label='%s'" % (QGL2.QBIT_ALLOC, chanLabel, kwp))
+                    DebugMsg.log("%s had a positional arg used as label='%s'. Cannot also have keyword argument label='%s'" % (funcName, chanLabel, kwp))
                 labelArg = kwarg.value
                 if not isinstance(labelArg, ast.Str):
-                    DebugMsg.log('label param to %s() must be a string - got %s' % (QGL2.QBIT_ALLOC, labelArg))
+                    DebugMsg.log('label param to %s() must be a string - got %s' % (funcName, labelArg))
                     return None
 
                 if not isinstance(labelArg.s, str):
-                    DebugMsg.log('label param to %s() must be a str - got %s' % (QGL2.QBIT_ALLOC, labelArg.s))
+                    DebugMsg.log('label param to %s() must be a str - got %s' % (funcName, labelArg.s))
                     return None
                 chanLabel = labelArg.s
                 break
         if chanLabel is None:
-            DebugMsg.log("%s() missing required label (string) argument: found no label kwarg and had no positional args" % QGL2.QBIT_ALLOC)
+            DebugMsg.log("%s() missing required label (string) argument: found no label kwarg and had no positional args" % funcName)
             return None
     elif chanLabel is None:
-        DebugMsg.log('%s() missing required label (string) argument: call had 0 parameters' % QGL2.QBIT_ALLOC)
+        DebugMsg.log('%s() missing required label (string) argument: call had 0 parameters' % funcName)
         return None
     return chanLabel
 

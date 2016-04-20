@@ -65,7 +65,8 @@ class SingleSequence(object):
 
         # This is the old name, and needs to be updated
         # TODO: update to new name/signature
-        if node.value.func.id != QGL2.QBIT_ALLOC:
+        if node.value.func.id != QGL2.QBIT_ALLOC and \
+           node.value.func.id != QGL2.QBIT_ALLOC2:
             return False
 
         chanLabel = getChanLabel(node)

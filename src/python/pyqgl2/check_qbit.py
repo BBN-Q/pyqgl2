@@ -86,14 +86,14 @@ class FindTypes(NodeVisitor):
     not with respect to classical vs quantum) so the following
     code would be considered an error:
 
-    x = Qubit("1")     # x is a reference to a qbit
+    x = Qubit(label="1")     # x is a reference to a qbit
     x = 14          # reassigning x to a classical value--error!
 
     We also treat the reassignment of references to quantum
     values as errors:
 
-    x = Qubit("1")     # x is a reference to a qbit
-    x = Qubit("2")     # reassignment of x--error!
+    x = Qubit(label="1")     # x is a reference to a qbit
+    x = Qubit(label="2")     # reassignment of x--error!
 
     There are several ways that variables come into existance:
     explicit assignment, implicit assignment (keyword arguments),
@@ -469,7 +469,8 @@ class FindTypes(NodeVisitor):
             # that it looks like the 'right' function and not something
             # someone mistakenly named 'Qubit' in an unrelated context.
             #
-            if isinstance(value, ast.Call) and (func_def.name == QGL2.QBIT_ALLOC):
+            if isinstance(value, ast.Call) and (func_def.name == QGL2.QBIT_ALLOC or
+                                                func_def.name == QGL2.QBIT_ALLOC2):
                 self.add_type_binding(value, name, QGL2.QBIT)
 
         return node
@@ -702,7 +703,8 @@ class CheckType(NodeTransformerWithFname):
             # that it looks like the 'right' function and not something
             # someone mistakenly named 'Qubit' in an unrelated context.
             #
-            if isinstance(value, ast.Call) and (func_def.name == QGL2.QBIT_ALLOC):
+            if isinstance(value, ast.Call) and (func_def.name == QGL2.QBIT_ALLOC or
+                                                func_def.name == QGL2.QBIT_ALLOC2):
                 self._extend_local(target.id)
                 DebugMsg.log('XX EXTENDED to include %s %s' %
                         (target.id, str(self._qbit_local())))
@@ -930,7 +932,7 @@ class FindQbitReferences(ast.NodeTransformer):
 
     For example, if you do something like
 
-        qbit1 = Qubit("1") # Create a new qbit; qbit1 is marked
+        qbit1 = Qubit(label="1") # Create a new qbit; qbit1 is marked
         arr[ind] = qbit1
         foo = arr[ind]
 
