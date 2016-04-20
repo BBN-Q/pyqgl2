@@ -1,6 +1,6 @@
 from qgl2.qgl2 import qgl2decl, sequence, qbit
 from qgl2.control import *
-from qgl2.qgl1 import Qubit, Y90, X, U, X90, MEAS, Id
+from qgl2.qgl1 import QubitFactory, Y90, X, U, X90, MEAS, Id
 from .qgl2_plumbing import init
 from numpy import pi
 import numpy as np
@@ -22,7 +22,7 @@ def spam_seqs(angle) -> sequence:
 #def doSPAM(angleSweep, maxSpamBlocks=10) -> sequence:
 @qgl2decl
 def doSPAM() -> sequence:
-    q = Qubit('q1')
+    q = QubitFactory('q1')
 #    angleSweep = np.linspace(0, pi/2, 11)
 #    angleSweep = [ 0.        ,  0.15707963,  0.31415927,  0.4712389 ,  0.62831853,
 #                   0.78539816,  0.9424778 ,  1.09955743,  1.25663706,  1.41371669,

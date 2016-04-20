@@ -506,7 +506,7 @@ def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
 from qgl2.qgl2 import qgl2main
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement, Edge
 from QGL import ChannelLibrary
-from qgl2.qgl1 import Qubit
+from qgl2.qgl1 import Qubit, QubitFactory
 import numpy as np
 from math import pi
 import random
@@ -564,8 +564,8 @@ def main():
 #    ChannelLibrary.channelLib.build_connectivity_graph()
 
     # Use stub Qubits, but comment this out when running directly.
-    q1 = Qubit("q1")
-    q2 = Qubit("q2")
+    q1 = QubitFactory("q1")
+    q2 = QubitFactory("q2")
 
     np.random.seed(20152606) # set seed for create_RB_seqs()
     random.seed(20152606) # set seed for random.choice()

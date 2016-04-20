@@ -1,6 +1,6 @@
 import numpy as np
 from qgl2.qgl2 import qgl2decl, sequence, qbit
-from qgl2.qgl1 import Qubit, X90, Id, Y, U90, MEAS, X90
+from qgl2.qgl1 import QubitFactory, X90, Id, Y, U90, MEAS, X90
 from qgl2.control import *
 from .qgl2_plumbing import init
 from .helpers import create_cal_seqs
@@ -42,7 +42,7 @@ def idPulseCPMG(q: qbit) -> pulse:
 
 @qgl2decl
 def doCPMG() -> sequence:
-    q = Qubit('q1')
+    q = QubitFactory('q1')
 
     # FIXME: QGL2 functions cannot be nested
 
