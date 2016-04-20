@@ -462,7 +462,7 @@ class FindTypes(NodeVisitor):
             # function as it is defined (i.e, as func_def), not as it
             # is imported (i.e., as func_name).
             #
-            # This makes the assumption that ANYTHING named 'Qubit'
+            # This makes the assumption that ANYTHING named 'Qubit' or 'QubitFactory'
             # is a Qbit assignment function, which is lame and should
             # be more carefully parameterized.  Things to think about:
             # looking more deeply at its signature and making certain
@@ -696,7 +696,7 @@ class CheckType(NodeTransformerWithFname):
             # function as it is defined (i.e, as func_def), not as it
             # is imported (i.e., as func_name).
             #
-            # This makes the assumption that ANYTHING named 'Qubit'
+            # This makes the assumption that ANYTHING named 'Qubit' or 'QubitFactory'
             # is a Qbit assignment function, which is lame and should
             # be more carefully parameterized.  Things to think about:
             # looking more deeply at its signature and making certain

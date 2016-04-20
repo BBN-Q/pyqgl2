@@ -74,7 +74,7 @@ class SubstituteChannel(NodeTransformerWithFname):
     def is_qbit_creation(self, node):
         """
         Return True if the node is a call to a Qbit creation
-        method (QGL2.QBIT_ALLOC), False otherwise
+        method (QGL2.QBIT_ALLOC or QGL2.QBIT_ALLOC2), False otherwise
 
         Because of the way the namespace is altered by
         imports, the only way to know whether the call is to
@@ -479,7 +479,7 @@ def preprocess(fname, main_name=None):
         sys.exit(1)
 
 def getChanLabel(node):
-    '''Given an Call to Qubit() or an Assign containing such, find the label of the qbit.
+    '''Given an Call to Qubit() or QubitFactory() or an Assign containing such, find the label of the qbit.
     Return None if can't find it.'''
     theNode = node
     if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
