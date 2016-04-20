@@ -124,7 +124,7 @@ def Edge(label, source: qbit, target: qbit, gateChan, **kwargs) -> qbit:
 # Note that this is really a class
 #def Qubit(**kwargs) -> qbit:
 @qgl2stub('QGL.Channels')
-def Qubit(label, gateChan=None, **kwargs) -> qbit:
+def Qubit(label=None, gateChan=None, **kwargs) -> qbit:
     print('Qubit')
 
 # This is used just in testing mains
@@ -157,6 +157,10 @@ def Sync() -> control:
 def EdgeFactory(source: qbit, target: qbit) -> qbit:
     # Is that the right return?
     print('EdgeFactory')
+
+@qgl2stub('QGL.ChannelLibrary')
+def QubitFactory(label, **kwargs) -> qbit:
+    print('QubitFactory')
 
 #from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
 @qgl2stub('QGL.Cliffords')
