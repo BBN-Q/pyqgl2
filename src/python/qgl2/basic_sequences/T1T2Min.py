@@ -1,21 +1,23 @@
 from qgl2.qgl2 import qgl2decl, qbit, sequence
 from .helpers import create_cal_seqs
 from .qgl2_plumbing import init
-from qgl2.qgl1 import Qubit, X, Id, MEAS, U90
+from qgl2.qgl1 import QubitFactory, X, Id, MEAS, U90
 import numpy as np
 from numpy import pi
 
 @qgl2decl
 def doInversionRecovery() -> sequence:
     # delays = np.linspace(0, 5e-6, 11)
-    q = Qubit('q1')
+    q = QubitFactory('q1')
     for d in [  0.00000000e+00,   5.00000000e-07,   1.00000000e-06,
                 1.50000000e-06,   2.00000000e-06,   2.50000000e-06,
                 3.00000000e-06,   3.50000000e-06,   4.00000000e-06,
                 4.50000000e-06,   5.00000000e-06]:
         init(q)
         X(q)
-        Id(q, d)
+        # FIXME: We want that to be an arg not a kwarg but the
+        # compiler doesn't like it
+        Id(q, length=d)
         MEAS(q)
 
     # Tack on calibration
@@ -24,7 +26,7 @@ def doInversionRecovery() -> sequence:
 
 @qgl2decl
 def doRamsey() -> sequence:
-    q = Qubit('q1')
+    q = QubitFactory('q1')
     TPPIFreq=1e6
     # FIXME: QGL2 doesn't deal well with the call to np.arange
     pulseS = [  1.00000000e-07,   2.00000000e-07,   3.00000000e-07,

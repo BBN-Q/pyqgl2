@@ -11,7 +11,7 @@ import sys
 #
 from qgl2.qgl2 import concur, qgl2decl, qgl2main
 from qgl2.qgl2 import classical, pulse, qbit, qbit_list
-from qgl2.qgl1 import Qubit
+from qgl2.qgl1 import QubitFactory
 
 # Examples of import and from statements
 

@@ -4,12 +4,12 @@
 #
 from qgl2.qgl2 import concur, qgl2decl, qgl2main
 from qgl2.qgl2 import classical, pulse, qbit, qbit_list
-from qgl2.qgl1 import Qubit, X90, Y90, MEAS
+from qgl2.qgl1 import QubitFactory, X90, Y90, MEAS
 
 @qgl2decl
 def test_loops(a:qbit, b:qbit):
 
-    x = Qubit("1")
+    x = QubitFactory("1")
     # Next line causes an error - qbit reassignment
     x = r
     # Next line is also an error - no d defined

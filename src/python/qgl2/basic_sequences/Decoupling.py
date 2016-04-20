@@ -213,7 +213,7 @@ def CPMGq1(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
 
 # Imports for testing only
 #from QGL.Channels import Qubit, LogicalMarkerChannel
-from qgl2.qgl1 import Qubit
+from qgl2.qgl1 import Qubit, QubitFactory
 import numpy as np
 from math import pi
 
@@ -226,7 +226,7 @@ def main():
     # b: QGL2 currently only understands the fake Qbits
 #    qg1 = LogicalMarkerChannel(label="q1-gate")
 #    q1 = Qubit(label='q1', gateChan=qg1)
-    q1 = Qubit(label='q1')
+    q1 = QubitFactory(label='q1')
 #    q1.pulseParams['length'] = 30e-9
 #    q1.pulseParams['phase'] = pi/2
 

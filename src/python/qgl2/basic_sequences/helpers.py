@@ -89,5 +89,3 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
 #            newCalSeqs.append([seq, MEAS(*tuple(measChans))])
 #    return newCalSeqs
 
-    # FIXME: QGL2 must return the generated sequences!
-#    return []
