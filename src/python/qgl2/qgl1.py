@@ -30,15 +30,15 @@ def Utheta(qubit: qbit, amp=0, phase=0, label='Utheta', **kwargs) -> pulse:
     print('Utheta')
 
 @qgl2stub('QGL.PulsePrimitives')
-def Xtheta(qubit: qbit, amp=0, **kwargs) -> pulse:
+def Xtheta(qubit: qbit, amp=0, label='Xtheta', **kwargs) -> pulse:
     print('Xtheta')
 
 @qgl2stub('QGL.PulsePrimitives')
-def Ytheta(qubit: qbit, amp=0, **kwargs) -> pulse:
+def Ytheta(qubit: qbit, amp=0, label='Ytheta', **kwargs) -> pulse:
     print('Ytheta')
 
 @qgl2stub('QGL.PulsePrimitives')
-def Ztheta(qubit: qbit, angle=0, **kwargs) -> pulse:
+def Ztheta(qubit: qbit, angle=0, label='Ztheta', **kwargs) -> pulse:
     print('Ztheta')
 
 @qgl2stub('QGL.PulsePrimitives')
