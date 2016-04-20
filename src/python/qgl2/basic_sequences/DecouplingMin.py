@@ -7,7 +7,7 @@ from .helpers import create_cal_seqs
 
 @qgl2decl
 def doHahnEcho() -> sequence:
-    q = Qubit('q1')
+    q = QubitFactory('q1')
 #    pulseSpacings = np.linspace(0, 5e-6, 11)
 #    pulseSpacings = [  0.00000000e+00,   5.00000000e-07,   1.00000000e-06,
 #                       1.50000000e-06,   2.00000000e-06,   2.50000000e-06,
