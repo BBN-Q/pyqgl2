@@ -2,7 +2,7 @@
 from qgl2.qgl2 import concur, seq
 from qgl2.qgl2 import qgl2decl, qgl2main
 from qgl2.qgl2 import classical, pulse, qbit, qbit_list
-from qgl2.qgl1 import Qubit
+from qgl2.qgl1 import QubitFactory
 
 # Note that for this next import to work you must run from the directory containing this file
 import t1
@@ -12,9 +12,9 @@ from t2 import second_level as fred
 @qgl2main
 def main():
 
-    a = Qubit("1")
-    b = Qubit("2")
-    c = Qubit("3")
+    a = QubitFactory("1")
+    b = QubitFactory("2")
+    c = QubitFactory("3")
 
     with concur:
         t1.t1(a, b)

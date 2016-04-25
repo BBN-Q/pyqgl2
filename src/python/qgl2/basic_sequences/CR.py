@@ -295,7 +295,7 @@ def EchoCRPhaseq1(controlQ: qbit, targetQ: qbit, phases, riseFall=40e-9, amp=1, 
     compileAndPlot(seqs, 'EchoCR/EchoCR', showPlot)
 
 # Imports for testing only
-from qgl2.qgl1 import Qubit
+from qgl2.qgl1 import QubitFactory, Qubit
 from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
 import QGL.ChannelLibrary as ChannelLibrary
 import numpy as np
@@ -337,8 +337,8 @@ def main():
 #    ChannelLibrary.channelLib.build_connectivity_graph()
 
     # Use stub Qubits, but comment this out when running directly.
-    q1 = Qubit("q1")
-    q2 = Qubit("q2")
+    q1 = QubitFactory("q1")
+    q2 = QubitFactory("q2")
 
     print("Run PiRabi")
     PiRabi(q1, q2, np.linspace(0, 4e-6, 11))

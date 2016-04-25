@@ -1,13 +1,13 @@
 import numpy as np
 from qgl2.qgl2 import qgl2decl, sequence, qbit
-from qgl2.qgl1 import Qubit, X90, Id, Y, U90, MEAS, X90
+from qgl2.qgl1 import QubitFactory, X90, Id, Y, U90, MEAS, X90
 from qgl2.control import *
 from .qgl2_plumbing import init
 from .helpers import create_cal_seqs
 
 @qgl2decl
 def doHahnEcho() -> sequence:
-    q = Qubit('q1')
+    q = QubitFactory('q1')
 #    pulseSpacings = np.linspace(0, 5e-6, 11)
 #    pulseSpacings = [  0.00000000e+00,   5.00000000e-07,   1.00000000e-06,
 #                       1.50000000e-06,   2.00000000e-06,   2.50000000e-06,
@@ -21,7 +21,8 @@ def doHahnEcho() -> sequence:
                       4.50000000e-06,   5.00000000e-06]:
         init(q)
         X90(q)
-        # FIXME: spacing arg to Id confuses compiler
+        # FIXME: spacing arg to Id confuses compiler without giving it
+        # a keyword
         Id(q, length=spacing)
         Y(q)
         Id(q, length=spacing)
@@ -35,14 +36,15 @@ def doHahnEcho() -> sequence:
 
 
 @qgl2decl
+def idPulseCPMG(q: qbit) -> pulse:
+    # FIXME: arg confuses QGL2 compiler if not a kwarg
+    Id(q, length=(500e-9 - q.pulseParams['length'])/2)
+
+@qgl2decl
 def doCPMG() -> sequence:
-    q = Qubit('q1')
+    q = QubitFactory('q1')
 
     # FIXME: QGL2 functions cannot be nested
-#    @qgl2decl
-#    def idPulse(q: qbit) -> pulse:
-#        # FIXME: arg confuses QGL2 compiler if not a kwarg
-#        Id(q, length=(500e-9 - q.pulseParams['length'])/2)
 
     # FIXME: QGL2 doesn't understand these for loops yet
 
@@ -52,12 +54,9 @@ def doCPMG() -> sequence:
         X90(q)
         # Repeat the t-180-t block rep times
         for _ in range(rep):
-            # FIXME: QGL2 functions cannot be nested
-            #idPulse(q)
-            Id(q, length=(500e-9 - q.pulseParams['length'])/2)
+            idPulseCPMG(q)
             Y(q)
-            Id(q, length=(500e-9 - q.pulseParams['length'])/2)
-            #idPulse(q)
+            idPulseCPMG(q)
         X90(q)
         MEAS(q)
 

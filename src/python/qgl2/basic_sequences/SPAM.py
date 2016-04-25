@@ -149,7 +149,7 @@ def SPAMq1(qubit: qbit, angleSweep, maxSpamBlocks=10, showPlot=False):
 
 # Imports for testing only
 from QGL.Channels import Qubit, LogicalMarkerChannel
-from qgl2.qgl1 import Qubit
+from qgl2.qgl1 import Qubit, QubitFactory
 import numpy as np
 from math import pi
 
@@ -166,7 +166,7 @@ def main():
 #    q1.pulseParams['phase'] = pi/2
 
     # Use stub Qubits, but comment this out when running directly.
-    q1 = Qubit("q1")
+    q1 = QubitFactory("q1")
     SPAM(q1, np.linspace(0, pi/2, 11))
 
 if __name__ == "__main__":

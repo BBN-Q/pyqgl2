@@ -1,7 +1,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main, sequence
-from qgl2.qgl2 import Qubit
+from qgl2.qgl1 import QubitFactory
 
 #from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
 #from QGL.Compiler import compile_to_hardware
@@ -38,7 +38,7 @@ def AllXYq2(q: qbit, showPlot = False):
 
 @qgl2decl
 def doAllXY() -> sequence:
-    q = Qubit(label="q1")
+    q = QubitFactory(label="q1")
     # For each of the 21 pulse pairs
     for func in [IdId, XX, YY, XY, YX, X90Id, Y90Id,
                  X90Y90, Y90X90, X90Y, Y90X, XY90, YX90, X90X,
@@ -73,7 +73,7 @@ def AllXYprev(q: qbit, showPlot = False):
 
 # Imports for testing only
 #from QGL.Channels import Qubit, LogicalMarkerChannel
-from qgl2.qgl1 import Qubit
+from qgl2.qgl1 import QubitFactory
 from math import pi
 
 @qgl2main
@@ -93,7 +93,7 @@ def main():
     # compiler, but comment this out when running directly.
     # And I can't easily make it understand stub Qubits either. Bah.
     # (because it expects the single arg to be an int)
-    q1 = Qubit(label="q1")
+    q1 = QubitFactory(label="q1")
     AllXY(q1)
 
 if __name__ == "__main__":

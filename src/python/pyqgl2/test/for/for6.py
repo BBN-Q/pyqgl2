@@ -1,6 +1,6 @@
 
 from qgl2.qgl2 import concur, qbit, qgl2decl, qgl2main
-from qgl2.qgl1 import Qubit, Id, Y90, Y, X90
+from qgl2.qgl1 import QubitFactory, Id, Y90, Y, X90
 from qgl2.basic_sequences.qgl2_plumbing import init
 
 @qgl2decl
@@ -35,9 +35,9 @@ def func_e(a: qbit, x: classical, n: classical):
 @qgl2main
 def main():
 
-    x = Qubit("1")
-    y = Qubit("2")
-    z = Qubit("3")
+    x = QubitFactory("1")
+    y = QubitFactory("2")
+    z = QubitFactory("3")
 
     func_a(x, y, z)
 

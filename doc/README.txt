@@ -4,10 +4,9 @@ This is the QGL2 language compiler. QGL2 is a python-like language for
 programming quantum computers.
 
 Dependencies
- * Working QGL installation
+ * Working QGL installation (including networkx, bokeh, numpy, scipy, jupyter)
  * Python 3.5
- * Set PYTHONPATH to <QGL2 install directory>/src/python:<QGL install
- directory>
+ * Set PYTHONPATH to <QGL2 install directory>/src/python:<QGL install directory>
 
 Expanding on that:
 Requires python3 anaconda, cppy, atom 1.0.0, latest QGL repo, and the latest
@@ -19,8 +18,6 @@ git+https://github.com/nucleic/atom.git@1.0.0-dev
 git clone <QGL>
 cd QGL
 git submodule update, or git clone <JSONLibraryUtils>
-
-NOTE: Currently QGL2 requires QGL with Pull Request #16 incorporated.
 
 ----
 

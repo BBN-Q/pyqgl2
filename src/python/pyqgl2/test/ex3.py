@@ -7,7 +7,7 @@
 #
 from qgl2.qgl2 import concur, qgl2decl, qgl2main
 from qgl2.qgl2 import classical, pulse, qbit, qbit_list
-from qgl2.qgl1 import Qubit, MEAS, X
+from qgl2.qgl1 import QubitFactory, MEAS, X
 
 
 @qgl2decl
@@ -23,7 +23,7 @@ def initq(a:qbit, b:qbit):
 @qgl2main
 def main():
 
-    q1 = Qubit("1")
-    q2 = Qubit("2")
+    q1 = QubitFactory("1")
+    q2 = QubitFactory("2")
     initq(q1,q2)
     print ("Completed QGL main")
