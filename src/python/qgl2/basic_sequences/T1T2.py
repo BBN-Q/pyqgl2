@@ -9,7 +9,7 @@ from QGL.PulseSequencePlotter import plot_pulse_files
 from .helpers import create_cal_seqs
 from .new_helpers import addCalibration, compileAndPlot
 from .qgl2_plumbing import init
-from qgl2.qgl1 import X90, Id, U90, MEAS, X
+from qgl2.qgl1 import X90, Id, U90, MEAS, X, QubitFactory
 from qgl2.qgl1 import Sync, Wait
 
 from scipy.constants import pi
@@ -162,7 +162,7 @@ def Ramseyq1(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=
 # TPPIFreq: 1Mhz (arg is in hz)
 @qgl2decl
 def doRamsey() -> sequence:
-    q = Qubit('q1')
+    q = QubitFactory('q1')
     TPPIFreq=1e6
     # FIXME: QGL2 doesn't deal well with the call to np.arange
     pulseS = [  1.00000000e-07,   2.00000000e-07,   3.00000000e-07,
@@ -272,7 +272,7 @@ def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2,
 # Imports for testing only
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement
 import QGL.ChannelLibrary as ChannelLibrary
-from qgl2.qgl1 import Qubit
+from qgl2.qgl1 import QubitFactory
 import numpy as np
 from math import pi
 
@@ -305,7 +305,7 @@ def main():
 #    ChannelLibrary.channelLib.build_connectivity_graph()
 
     # Use stub Qubits, but comment this out when running directly.
-    q1 = Qubit("q1")
+    q1 = QubitFactory("q1")
 
     print("Run InversionRecovery")
     InversionRecovery(q1,  np.linspace(0, 5e-6, 11))

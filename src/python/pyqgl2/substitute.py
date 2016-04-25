@@ -74,7 +74,7 @@ class SubstituteChannel(NodeTransformerWithFname):
     def is_qbit_creation(self, node):
         """
         Return True if the node is a call to a Qbit creation
-        method (QGL2.QBIT_ALLOC), False otherwise
+        method (QGL2.QBIT_ALLOC or QGL2.QBIT_ALLOC2), False otherwise
 
         Because of the way the namespace is altered by
         imports, the only way to know whether the call is to
@@ -103,6 +103,8 @@ class SubstituteChannel(NodeTransformerWithFname):
         if not func_def:
             return False
         elif func_def.name == QGL2.QBIT_ALLOC:
+            return True
+        elif func_def.name == QGL2.QBIT_ALLOC2:
             return True
         else:
             return False
@@ -246,6 +248,9 @@ class SubstituteChannel(NodeTransformerWithFname):
         if func_ast.name == QGL2.QBIT_ALLOC:
             self.error_msg(node,
                            ("%s() called as a Call. Only when called as an Assign is this treated as a qbit." % QGL2.QBIT_ALLOC))
+        if func_ast.name == QGL2.QBIT_ALLOC2:
+            self.error_msg(node,
+                           ("%s() called as a Call. Only when called as an Assign is this treated as a qbit." % QGL2.QBIT_ALLOC2))
         # Note we allow qgl_stub functions to pass through here,
         # so the arguments are error checked
         if not can_specialize(func_ast):
@@ -382,7 +387,7 @@ def specialize(func_node, qbit_defs, func_defs, importer, context=None):
     recorded in the namespace of that Call, so that it can be
     accessed again we we want to inline the function.
     """
-
+    DebugMsg.log("Doing specialize() on %s" % pyqgl2.ast_util.ast2str(func_node))
     # needs more mangling?
     refs = '_'.join([str(phys_chan) for (fp_name, phys_chan) in qbit_defs])
     mangled_name = func_node.name + '___' + refs
@@ -397,6 +402,7 @@ def specialize(func_node, qbit_defs, func_defs, importer, context=None):
     sub_chan = SubstituteChannel(
             new_func_node.qgl_fname, qbit_defs, func_defs, importer)
     new_func = sub_chan.visit(new_func_node)
+#    DebugMsg.log(" ... after SubstituteChannel.visit() have: %s" % pyqgl2.ast_util.ast2str(new_func))
     new_func.name = mangled_name
 
     for subnode in ast.walk(new_func_node):
@@ -410,6 +416,9 @@ def specialize(func_node, qbit_defs, func_defs, importer, context=None):
         # at some point.
         #
         if hasattr(subnode, 'qgl2_orig_call'):
+            # Do not re-visit this sub-node. We don't need to
+            # re-specialize it, as it has already been inlined.
+            # Just copy it
             subnode.qgl2_orig_call = deepcopy(subnode.qgl2_orig_call)
 
     # add the specialized version of the function to the namespace
@@ -470,7 +479,7 @@ def preprocess(fname, main_name=None):
         sys.exit(1)
 
 def getChanLabel(node):
-    '''Given an Call to Qubit() or an Assign containing such, find the label of the qbit.
+    '''Given an Call to Qubit() or QubitFactory() or an Assign containing such, find the label of the qbit.
     Return None if can't find it.'''
     theNode = node
     if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
@@ -478,6 +487,18 @@ def getChanLabel(node):
     if not isinstance(theNode, ast.Call):
         DebugMsg.log("Was not a call")
         return None
+
+    funcName = None
+    if isinstance(theNode.func, ast.Name):
+        funcName = theNode.func.id
+    else:
+        # Assume an Attribute
+        temp2 = theNode.func.attr
+        temp1 = theNode.func.value
+        if isintance(temp1, ast.Name):
+            funcName = temp1.id + '.' + temp2
+        else:
+            funcName = temp2
 
     # First ensure there's a label.
     # If there are positional args, assume it is first
@@ -493,12 +514,12 @@ def getChanLabel(node):
         # This is a sad, ugly restriction
         if not isinstance(arg0, ast.Str):
             DebugMsg.log('1st param to %s() must be a string - got %s' %
-                    (QGL2.QBIT_ALLOC, arg0))
+                    (funcName, arg0))
             return None
 
         if not isinstance(arg0.s, str):
             DebugMsg.log('1st param to %s() must be a str - got %s' %
-                    (QGL2.QBIT_ALLOC, arg0.s))
+                    (funcName, arg0.s))
             return None
 
         chanLabel = arg0.s
@@ -509,22 +530,22 @@ def getChanLabel(node):
                     kwp = str(kwarg.value)
                     if isinstance(kwarg.value, ast.Str):
                         kwp = kwarg.value.s
-                    DebugMsg.log("%s had a positional arg used as label='%s'. Cannot also have keyword argument label='%s'" % (QGL2.QBIT_ALLOC, chanLabel, kwp))
+                    DebugMsg.log("%s had a positional arg used as label='%s'. Cannot also have keyword argument label='%s'" % (funcName, chanLabel, kwp))
                 labelArg = kwarg.value
                 if not isinstance(labelArg, ast.Str):
-                    DebugMsg.log('label param to %s() must be a string - got %s' % (QGL2.QBIT_ALLOC, labelArg))
+                    DebugMsg.log('label param to %s() must be a string - got %s' % (funcName, labelArg))
                     return None
 
                 if not isinstance(labelArg.s, str):
-                    DebugMsg.log('label param to %s() must be a str - got %s' % (QGL2.QBIT_ALLOC, labelArg.s))
+                    DebugMsg.log('label param to %s() must be a str - got %s' % (funcName, labelArg.s))
                     return None
                 chanLabel = labelArg.s
                 break
         if chanLabel is None:
-            DebugMsg.log("%s() missing required label (string) argument: found no label kwarg and had no positional args" % QGL2.QBIT_ALLOC)
+            DebugMsg.log("%s() missing required label (string) argument: found no label kwarg and had no positional args" % funcName)
             return None
     elif chanLabel is None:
-        DebugMsg.log('%s() missing required label (string) argument: call had 0 parameters' % QGL2.QBIT_ALLOC)
+        DebugMsg.log('%s() missing required label (string) argument: call had 0 parameters' % funcName)
         return None
     return chanLabel
 

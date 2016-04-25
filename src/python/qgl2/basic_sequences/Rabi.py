@@ -13,7 +13,7 @@ from functools import reduce
 import operator
 
 from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main, concur
-from qgl2.qgl1 import Utheta, MEAS, X, Id
+from qgl2.qgl1 import Utheta, MEAS, X, Id, QubitFactory
 import numpy as np
 
 def RabiAmpq1(qubit: qbit, amps, phase=0, showPlot=False):
@@ -52,7 +52,7 @@ def RabiAmpq1(qubit: qbit, amps, phase=0, showPlot=False):
 # Note hard coded amplitudes and phase
 @qgl2decl
 def doRabiAmp() -> sequence:
-    q = Qubit('q1')
+    q = QubitFactory('q1')
 
     # FIXME: QGL2 can't handle evaluating this itself
 #        for amp in np.linspace(0,1,11):
@@ -127,7 +127,7 @@ def RabiWidthq1(qubit: qbit, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.ta
 
 @qgl2decl
 def doRabiWidth() -> sequence:
-    q = Qubit("q1")
+    q = QubitFactory("q1")
 
 #        for l in np.linspace(0, 5e-6, 11):
     for l in [  0.00000000e+00,   5.00000000e-07,   1.00000000e-06,
@@ -523,7 +523,7 @@ def Swap(qubit: qbit, mqubit: qbit, delays, showPlot=False):
 # Imports for testing only
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement
 from QGL import ChannelLibrary
-from qgl2.qgl1 import Qubit
+from qgl2.qgl1 import Qubit, QubitFactory
 import numpy as np
 from math import pi
 
@@ -563,8 +563,8 @@ def main():
 #    ChannelLibrary.channelLib.build_connectivity_graph()
 
     # Use stub Qubits, but comment this out when running directly.
-    q1 = Qubit("q1")
-    q2 = Qubit("q2")
+    q1 = QubitFactory("q1")
+    q2 = QubitFactory("q2")
 
     RabiAmp(q1,  np.linspace(0, 5e-6, 11))
     RabiWidth(q1,  np.linspace(0, 5e-6, 11))

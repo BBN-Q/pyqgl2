@@ -15,6 +15,7 @@ import pyqgl2.ast_util
 
 from pyqgl2.ast_util import expr2ast, NodeError
 from pyqgl2.importer import collapse_name
+from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.lang import QGL2
 
 def is_concur(node):
@@ -446,7 +447,7 @@ class Unroller(ast.NodeTransformer):
         a default value of True, which we can change if it's a bad
         idea.
         """
-
+        DebugMsg.log("Unrolling a for loop %s" % for_node)
         # The iter has to be an ordinary ast.List, or a range expression.
         # expression.  Except for range expressions, it is not enough
         # for it to be an expression that evaluates to a list or
