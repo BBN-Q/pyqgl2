@@ -1,5 +1,5 @@
 from qgl2.qgl2 import concur, qbit, qgl2decl, sequence, pulse, qgl2main
-from qgl2.qgl1 import Qubit, X90, Y90
+from qgl2.qgl1 import QubitFactory, X90, Y90
 
 
 @qgl2decl
