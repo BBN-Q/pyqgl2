@@ -36,7 +36,7 @@ def doRabiWidth() -> sequence:
 # An example of expanding an expression (a call to np.linspace)
 @qgl2decl
 def doRabiAmp2() -> sequence:
-    q = Qubit("q1")
+    q = QubitFactory("q1")
     for l in np.linspace(0, 5e-6, 11):
         init(q)
         # FIXME: QGL2 loses the import needed for this QGL function
