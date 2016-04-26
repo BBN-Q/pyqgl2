@@ -244,12 +244,12 @@ def compileFunction(filename, main_name=None, saveOutput=False,
         # print('CONSTANT PROPAGATION (iteration %d):\n%s' %
         #         (iteration, pyqgl2.ast_util.ast2str(ptree1)))
 
-        # ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
-        #         context=ptree1)
-        # NodeError.halt_on_error()
-        # print(('SPECIALIZED CODE (iteration %d):\n%s' %
-        #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-        #         file=intermediate_fout, flush=True)
+        ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
+                context=ptree1)
+        NodeError.halt_on_error()
+        print(('SPECIALIZED CODE (iteration %d):\n%s' %
+                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+                file=intermediate_fout, flush=True)
 
         if (inliner.change_cnt == 0) and (unroller.change_cnt == 0):
             NodeError.diag_msg(None,
