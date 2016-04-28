@@ -337,7 +337,10 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
             # Now write these sequences
             # FIXME: Then magically get the sequences here....
             # This needs to get refactored....
-            fileNames = compile_to_hardware([], 'RB/RB', suffix='_{0}'.format(2*ct+1+1*(not isOne)))
+            fileNames = compile_to_hardware([], 'RB/RB',
+                                            suffix='_{0}'.format(2*ct+1+1*(not
+                                                                           isOne)),
+                                            qgl2=True)
 
             doCt += numRandomizations
             isOne = not isOne
@@ -439,7 +442,8 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False
             MEAS(qubit)
         # FIXME: Then magically get the sequences here....
         # This needs to get refactored....
-        fileNames = compile_to_hardware([], 'RBT/RBT', suffix='_{0}'.format(ct+1))
+        fileNames = compile_to_hardware([], 'RBT/RBT',
+                                        suffix='_{0}'.format(ct+1), qgl2=True)
 
     if showPlot:
         plot_pulse_files(fileNames)
