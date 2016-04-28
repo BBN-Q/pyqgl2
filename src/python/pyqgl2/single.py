@@ -27,7 +27,7 @@ class SingleSequence(object):
 
         self.qbits = set()
         self.qbit_creates = list()
-        self.sequence = list()
+        self.sequences = list()
 
         # the imports we need to make in order to satisfy the stubs
         #
@@ -141,26 +141,44 @@ class SingleSequence(object):
         if len(self.qbits) == 0:
             NodeError.error_msg(node, 'no channels found')
             return False
-        elif len(self.qbits) > 1:
-            NodeError.error_msg(node, 'more than one channel found')
-            return False
+#        elif len(self.qbits) > 1:
+#            NodeError.error_msg(node, 'more than one channel found')
+#            return False
 
-        for stmnt in node.body:
+        lineNo = -1
+        while lineNo+1 < len(node.body):
+            lineNo += 1
+            print("Line %d of %d" % (lineNo+1, len(node.body)))
+            stmnt = node.body[lineNo]
+            print("Looking at stmnt %s" % stmnt)
             assignment = self.is_qbit_create(stmnt)
             if assignment:
                 self.qbit_creates.append(assignment)
                 continue
             elif is_concur(stmnt):
-                if is_seq(stmnt.body[0]):
-                    self.sequence += stmnt.body[0].body
-                else:
-                    NodeError.diag_msg(stmnt.body[0], 'expected seq?')
+                print("Found concur at line %d: %s" % (lineNo+1,stmnt))
+                for s in stmnt.body:
+                    lineNo += 1
+                    if is_seq(s):
+                        print("With seq next at line %d: %s" % (lineNo+1,s))
+                        self.sequences.append(list())
+                        print("Append body %s" % s.body)
+                        for s2 in s.body:
+                            print(ast2str(s2))
+                        self.sequences[-1] += s.body
+                        lineNo += len(s.body)
+                    else:
+                        print("Not seq next at line %d: %s" % (lineNo+1,s))
+                        self.sequences[-1] += s
+                  #else:
+                  #  NodeError.diag_msg(stmnt.body[0], 'expected seq?')
             elif isinstance(stmnt, ast.Expr):
-                self.sequence.append(stmnt)
+                print("Append expr %s" % stmnt)
+                self.sequences[-1].append(stmnt)
             else:
                 NodeError.error_msg(stmnt,
                         'orphan statement %s' % ast.dump(stmnt))
-
+        print("Seqs: %s" % self.sequences)
         return True
 
     def emit_function(self, func_name='qgl1_main'):
@@ -209,30 +227,40 @@ class SingleSequence(object):
         for (sym_name, use_name, _node) in self.qbit_creates:
             preamble += indent + '%s = %s\n' % (use_name, sym_name)
 
-        sequence = [ast2str(item).strip() for item in self.sequence]
+        seqs_def = indent + 'seqs = list()\n'
+        seqs_str = ''
+        seq_strs = list()
 
-        # TODO: check that this is always OK.
-        #
-        # HACK ALERT: this might not always be the right thing to do
-        # but right now extraneous calls to Sync at the start of
-        # program appear to cause a problem, and they don't serve
-        # any known purpose, so skip them.
-        #
-        while sequence[0] == 'Sync()':
-            sequence = sequence[1:]
+        for seq in self.sequences:
+            print("Looking at seq %s" % seq)
+            sequence = [ast2str(item).strip() for item in seq]
+            print ("It is %s" % sequence)
+            # TODO: check that this is always OK.
+            #
+            # HACK ALERT: this might not always be the right thing to do
+            # but right now extraneous calls to Sync at the start of
+            # program appear to cause a problem, and they don't serve
+            # any known purpose, so skip them.
+            #
+            while sequence[0] == 'Sync()':
+                sequence = sequence[1:]
 
-        # TODO there must be a more elegant way to indent this properly
-        seq_str = indent + 'seq = [\n' + 2 * indent
-        seq_str += (',\n' + 2 * indent).join(sequence)
-        seq_str += '\n' + indent + ']\n'
+            # TODO there must be a more elegant way to indent this properly
+            seq_str = indent + 'seq = [\n' + 2 * indent
+            seq_str += (',\n' + 2 * indent).join(sequence)
+            seq_str += '\n' + indent + ']\n'
+            seq_strs.append(seq_str)
 
-        # That was a single sequence. We want a list of sequences
-        # FIXME: Really, we want a new sequence every time the source code used Init()
-        seqs_str = indent + 'seqs = [seq]\n'
+        for seq_str in seq_strs:
+            seqs_str += seq_str
+
+            # That was a single sequence. We want a list of sequences
+            # FIXME: Really, we want a new sequence every time the source code used Init()
+            seqs_str += indent + 'seqs += [seq]\n'
 
         postamble = indent + 'return seqs\n'
 
-        res =  preamble + seq_str + seqs_str + postamble
+        res =  preamble + seqs_def + seqs_str + postamble
         return res
 
 def single_sequence(node, func_name, importer):
