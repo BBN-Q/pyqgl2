@@ -1,4 +1,4 @@
-from qgl2.qgl1 import QubitFactory, Id, X
+from qgl2.qgl1 import QubitFactory, Id, X, MEAS
 from qgl2.qgl2 import qgl2decl, sequence, concur, seq
 from qgl2.basic_sequences.qgl2_plumbing import init
 
@@ -27,3 +27,4 @@ def multiQbitTest2() -> sequence:
             init(q)
             Id(q)
             X(q)
+            MEAS(q)
