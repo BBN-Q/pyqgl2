@@ -8,7 +8,6 @@ from .qgl2 import qbit, pulse, qgl2stub, sequence, qbit_list, control
 
 # Start with functions that are used by the BasicSequences
 #from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS, flat_top_gaussian, echoCR, U90, X90m, AC, Utheta, U
-#from QGL.Compiler import compile_to_hardware
 #from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
 #from QGL.ControlFlow import qwait, qif, Wait
 #from QGL.ChannelLibrary import EdgeFactory
@@ -105,11 +104,6 @@ def MEAS(q: qbit, *args, **kwargs) -> pulse:
 @qgl2stub('QGL.PulsePrimitives')
 def U(qubit: qbit, phase=0, **kwargs) -> pulse:
     print('U')
-
-#from QGL.Compiler import compile_to_hardware
-# No longer declaring this qgl2stub cause don't need to annotate it any more
-#def compile_to_hardware(seqs: qgl2GeneratedSequences, fileName, suffix=''):
-#    print('compile_to_hardware')
 
 #from QGL.Channels import Qubit, Edge, LogicalMarkerChannel
 # Edge used in test mains
