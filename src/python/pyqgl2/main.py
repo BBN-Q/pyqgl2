@@ -490,8 +490,8 @@ if __name__ == '__main__':
             set_log_level()
 
         # Now we have a QGL1 list of sequences we can act on
-        fileNames = compile_to_hardware(sequences, opts.prefix, opts.suffix)
-#        , qgl2=True, verbose=opts.verbose)
+        fileNames = compile_to_hardware(sequences, opts.prefix,
+                                        opts.suffix, qgl2=True)
         print(fileNames)
         if opts.showplot:
             plot_pulse_files(fileNames)
