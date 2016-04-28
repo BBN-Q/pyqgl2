@@ -174,6 +174,8 @@ class SingleSequence(object):
                   #  NodeError.diag_msg(stmnt.body[0], 'expected seq?')
             elif isinstance(stmnt, ast.Expr):
                 print("Append expr %s" % stmnt)
+                if len(self.sequences) == 0:
+                    self.sequences.append(list())
                 self.sequences[-1].append(stmnt)
             else:
                 NodeError.error_msg(stmnt,
