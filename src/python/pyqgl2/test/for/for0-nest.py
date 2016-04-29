@@ -24,7 +24,7 @@ def func_a(q: qbit) -> pulse:
 @qgl2main
 def main():
 
-    q = Qubit("1")
+    q = QubitFactory("1")
     func_c(q)
     
 
