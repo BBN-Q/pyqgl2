@@ -10,6 +10,115 @@ from copy import deepcopy
 from pyqgl2.ast_util import NodeError
 from pyqgl2.importer import NameSpaces
 
+def insert_keyword(kwargs, key, value):
+
+    if not isinstance(key, str):
+        return 'key is not a string'
+    elif key in kwargs:
+        return 'key [%s] already defined' % key
+    else:
+        kwargs[key] = value
+        return None
+
+def compute_actuals(call_ast, importer, local_variables=None):
+    """
+    """
+
+    # If this fails, we're off to a rocky start.  We could have
+    # a degenerate environment for simple mathematical expressions,
+    # but even those are fraught with ambiguity in Python
+    #
+    # TODO: some defensive programming here
+    #
+    namespace = importer.path2namespace[call_ast.qgl_fname]
+
+    pos_args = list()
+    kw_args = dict()
+
+    for i in range(len(call_ast.args)):
+        arg = call_ast.args[i]
+
+        # If the argument is starred, then we need to find the list
+        # that this expression evaluates to, and then append this
+        # to the list of positional args
+        #
+        if isinstance(arg, ast.Starred):
+
+            (success, value) = namespace.native_eval(arg.value,
+                    local_variables=local_variables)
+
+            if not success:
+                print('EV confusion at arg %d [%s]' % (i, call_ast))
+                # TODO: need to handle this; we're dead
+                return None, None
+
+            # Coerce any list-like thing to be a real list.
+            # If anything goes wrong, it should throw a TypeError.
+            #
+            try:
+                value = list(value)
+            except TypeError as exc:
+                print('EV confusion: %s' % str(exc))
+                return None, None
+
+            # If the resulting list is empty, then DON'T add the empty
+            # list to the args.  Empty starred actuals are discarded.
+            #
+            if len(value) > 0:
+                pos_args += value
+        else:
+            (success, value) = namespace.native_eval(arg,
+                    local_variables=local_variables)
+
+            if not success:
+                print('EV confusion at arg %d [%s]' % (i, call_ast))
+                # TODO: need to handle this; we're dead
+                return None, None
+
+            pos_args.append(value)
+
+        # TODO: is there anything else it could be, besides Starred and "Normal"?
+
+    for i in range(len(call_ast.keywords)):
+        arg = call_ast.keywords[i]
+
+        (success, expr_val) = namespace.native_eval(arg.value,
+                local_variables=local_variables)
+        if not success:
+            print('EV confusion at arg %d [%s]' % (i, call_ast))
+            # TODO: need to handle this; we're dead
+
+        # A ** actual appears in the keyword actuals as a argument
+        # with no name (unlike a * actual, which has its own node type)
+        # so if we see a "nameless" keyword parameter then we know
+        # it's actually a reference to a dictionary we need to pull in
+        #
+        if arg.arg == None:
+
+            # TODO: the expr_val might be anything, but only a subclass
+            # of dictionary-like things will actually work!
+            #
+            if not isinstance(expr_val, dict):
+                print('EV failure: expected a dict with **')
+                return None, None
+
+            # TODO: wrap this up in a test to make sure that keys()
+            # and lookups actually work.
+
+            for key in expr_val.keys():
+                msg = insert_keyword(kw_args, key, expr_val[key])
+                if msg:
+                    print('EV failure: %s' % msg)
+                    return None, None
+        else:
+            msg = insert_keyword(kw_args, arg.arg, expr_val)
+            if msg:
+                print('EV failure: %s' % msg)
+                return None, None
+
+    return pos_args, kw_args
+
+
 class SimpleEvaluator(NodeTransformer):
 
     def __init__(self, importer, local_context):
@@ -85,31 +194,10 @@ class SimpleEvaluator(NodeTransformer):
 
         return context
 
-    def call_context(self, call_ast, func_ast):
-        """
-        Wrapper for initial_context
-
-        FIXME: Only handles positional parameters
-        """
-
-        assert isinstance(func_ast, ast.Call), 'call_ast must be Call'
-        assert isinstance(func_ast, ast.FunctionDef), 'func_ast must be FunctionDef'
-
-        namespace = self.importer.path2namespace[call_ast.qgl_fname]
-
-        args = list()
-        for i in range(len(call_ast.args)):
-            (success, value) = namespace.native_eval(call_ast.args[i])
-            if not success:
-                print('EV confusion at arg %d [%s]' % (i, call_ast))
-                # TODO: need to handle this; we're dead
-            else:
-                args.append(value)
-
-        return self.initial_context(args, dict(), func_ast)
-
     def visit_Assign(self, node):
-        return node
+
+        if self.is_qbit_creation(node.value):
+            return node
 
         # figure out whether it's a call, or an expr.
 
@@ -132,7 +220,6 @@ class SimpleEvaluator(NodeTransformer):
         # for effect.
 
         # otherwise, let's see if we can evaluate it.
-        ...
 
 
 if __name__ == '__main__':
@@ -148,4 +235,25 @@ if __name__ == '__main__':
     NodeError.halt_on_error()
 
     ptree = importer.qglmain
+
+    test_calls = [
+            'foo(1, 2, 3, e=55)',
+            'foo(a, b, c)',
+            'foo(a + b, b + c, 2 * c)',
+            'foo(a, *[11, 12, 13])',
+            'foo(a, *l1)',
+    ]
+
+    for call in test_calls:
+        t1 = ast.parse(call, mode='eval')
+        t1 = t1.body
+        print('T1 %s' % ast.dump(t1))
+        t1.qgl_fname = ptree.qgl_fname
+
+        loc = { 'a' : 100, 'b' : 101, 'c' : 102, 'l1' : [22, 23] }
+
+        (pos, kwa) = compute_actuals(t1, importer, local_variables=loc)
+        print('T1 %s [%s] [%s]' % (call, str(pos), str(kwa)))
+
+
 
