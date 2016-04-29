@@ -476,9 +476,22 @@ if __name__ == '__main__':
         # Now execute the returned function, which should produce a list of sequences
         sequences = resFunction(q=QubitFactory('q1'))
 
+#        # Get length
+#        from pyqgl2.pulselength import pulseLengths
+#        length = pulseLengths(sequences)
+#        print("Sequence length: %s" % length)
+
+        # In verbose mode, turn on DEBUG python logging for the QGL Compiler
+        if opts.verbose:
+            import logging
+            from QGL.Compiler import set_log_level
+            # Note this acts on QGL.Compiler at DEBUG by default
+            # Could specify other levels, loggers
+            set_log_level()
+
         # Now we have a QGL1 list of sequences we can act on
-        fileNames = compile_to_hardware(sequences, opts.prefix, opts.suffix)
-#        , qgl2=True, verbose=opts.verbose)
+        fileNames = compile_to_hardware(sequences, opts.prefix,
+                                        opts.suffix, qgl2=True)
         print(fileNames)
         if opts.showplot:
             plot_pulse_files(fileNames)

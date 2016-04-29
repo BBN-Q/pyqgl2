@@ -68,7 +68,8 @@ def compileAndPlot(listOfSequences, filePrefix, showPlot=False, suffix=''):
     Maybe soon again but not now: 
     Return a handle to the plot window; caller can hold it to prevent window destruction.
     """
-    fileNames = compile_to_hardware(listOfSequences, filePrefix, suffix)
+    fileNames = compile_to_hardware(listOfSequences, filePrefix,
+                                    suffix, qgl2=True)
     print(fileNames)
 
     if showPlot:
