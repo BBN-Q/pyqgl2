@@ -441,15 +441,16 @@ class NameSpace(object):
 
     def native_exec(self, stmnt, local_variables=None):
 
-        return self.native_eval(stmnt, local_variables=local_variables,
-                mode='exec')
+        _val, success = self.native_eval(stmnt,
+                local_variables=local_variables, mode='exec')
+        return success
 
     def native_eval(self, expr, local_variables=None, mode='eval'):
         """
-        Evaluate the given expr, which should be an expression
-        (although this is not currently enforced, except by failure)
-        represented by an AST node or a text string containing a
-        Python expression.
+        Evaluate the given expr, which may be an expression or a
+        statement represented by an AST node or a text string.
+        If mode is 'eval', then the expr must be an expression,
+        but if it is 'exec' then it may be a statement.
 
         If local_variables is not None, it is assumed to reference
         a dictionary containing local bindings.  It should NOT
@@ -461,7 +462,7 @@ class NameSpace(object):
         of the expression.  The process of evaluation the expression
         may also modify bindings in local_variables,
 
-        Note that if the evaluation of the expression raises an
+        Note that if the evaluation of the expr raises an
         exception, this exception will be caught and the result
         will be treated as failure (even if the intent of the
         expression was to raise an exception).  QGL2 doesn't
@@ -470,7 +471,6 @@ class NameSpace(object):
         NOTE: this evaluation is not safe, and may damage the
         environment of the caller.  There is no safeguard against
         this right now.
-
         """
 
         if (not isinstance(expr, str)) and (not isinstance(expr, ast.AST)):
