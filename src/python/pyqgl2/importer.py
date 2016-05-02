@@ -439,7 +439,12 @@ class NameSpace(object):
                     'in %s [%s] failed: %s' % (caller_fname, text, str(exc)))
             return False
 
-    def native_eval(self, expr, local_variables=None):
+    def native_exec(self, stmnt, local_variables=None):
+
+        return self.native_eval(stmnt, local_variables=local_variables,
+                mode='exec')
+
+    def native_eval(self, expr, local_variables=None, mode='eval'):
         """
         Evaluate the given expr, which should be an expression
         (although this is not currently enforced, except by failure)
@@ -472,49 +477,38 @@ class NameSpace(object):
             print('INVALID EXPR type %s' % str(type(expr)))
             return False, None
 
-        if isinstance(expr, str):
-            try:
-                final_expr = compile(
-                        ast.parse(expr, mode='eval'), '<nofile>', mode='eval')
-            except SyntaxError as exc:
-                print('Syntax error in native_eval: %s' % str(exc))
-                return False, None
-            except BaseException as exc:
-                print('Error in native_eval: %s' % str(exc))
-                return False, None
+        # If we get AST, then there are many variations on what
+        # we could get (it could look like an Expr, or an Expression,
+        # or a Module, etc.  By converting the AST to a text string,
+        # this removes all of the ambiguity and lets us parse the
+        # program again, in the local context.
+        #
+        # This is inefficient for the computer (to keep going back and
+        # forth between text and parse trees) but efficient for the
+        # implementer.
+        #
+        if isinstance(expr, ast.AST):
+            expr_str = pyqgl2.ast_util.ast2str(expr)
         else:
-            # If we get AST, this doesn't automatically mean that we can
-            # treat it like an expression, because in the eyes of the
-            # compiler, an expression is something rooted at an
-            # ast.Expression node, and NOT all the kinds of things
-            # that are otherwise considered to be expressions.
-            # So if expr isn't an ast.Expr, wrap it up inside one.
-            # Ugh.
-            #
-            # Another way of doing this would be to convert the expr to
-            # a string and then parse the string as an expression.
-            # That might actually be safer.  TODO: review.
-
-            if not isinstance(expr, ast.Expression):
-                expr = ast.Expression(expr)
-
-            try:
-                final_expr = compile(expr, '<nofile>', mode='eval')
-            except TypeError as exc:
-                print('Type error in native_eval: %s' % str(exc))
-                return False, None
-            except BaseException as exc:
-                print('Error in native_eval: %s' % str(exc))
-                return False, None
+            expr_str = expr
 
         try:
-            if not local_variables:
+            final_expr = compile(expr_str, '<nofile>', mode=mode)
+        except SyntaxError as exc:
+            print('Syntax error in native_eval: %s' % str(exc))
+            return False, None
+        except BaseException as exc:
+            print('Error in native_eval: %s' % str(exc))
+            return False, None
+
+        try:
+            if local_variables is None:
                 local_variables = dict()
 
             val = eval(final_expr, self.native_globals, local_variables)
             return True, val
         except BaseException as exc:
-            print('eval failure: %s' % str(exc))
+            print('eval failure [%s]: %s' % (expr_str, str(exc)))
             return False, None
 
 
