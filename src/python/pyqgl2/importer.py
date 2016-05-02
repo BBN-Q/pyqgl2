@@ -441,7 +441,7 @@ class NameSpace(object):
 
     def native_exec(self, stmnt, local_variables=None):
 
-        _val, success = self.native_eval(stmnt,
+        success, _val = self.native_eval(stmnt,
                 local_variables=local_variables, mode='exec')
         return success
 
