@@ -7,8 +7,9 @@ import ast
 from ast import NodeTransformer
 from copy import deepcopy
 
-from pyqgl2.ast_util import NodeError
+from pyqgl2.ast_util import NodeError, ast2str
 from pyqgl2.importer import NameSpaces
+from pyqgl2.single import is_qbit_create
 
 def insert_keyword(kwargs, key, value):
 
@@ -118,20 +119,63 @@ def compute_actuals(call_ast, importer, local_variables=None):
 
     return pos_args, kw_args
 
+def check_actuals(func_ast, pos_args, kw_args, call_ast=None, qbits=None):
+    """
+    Confirm that the actual parameters (as given by pos_args and kw_args)
+    correctly match the declaration of the function (as provided in the
+    func_ast, and return a new dictionary that maps formal parameter names
+    to their actual values for this invocation.
 
-class SimpleEvaluator(NodeTransformer):
+    The call_ast, if provided, is used to provide tag errors and warnings
+    with the location of the call, but is not used otherwise.
 
-    def __init__(self, importer, local_context):
+    The qbits map, if provided, is used to label variables that are known
+    to be qbits (FIXME this is clunky)
+
+    The checks are:
+
+    a) are there enough pos_args to match the function definition
+
+    b) are there any kw_args that are not expected?
+
+    c) are there any required kw_args that are absent?
+
+    d) are any parameters specified more than once?
+
+    FIXME this needs to be described more tightly
+    """
+
+    return dict() # FIXME doesn't do anything
+
+
+
+class SimpleEvaluator(object):
+
+    def __init__(self, importer, local_context, local_types=None):
 
         self.importer = importer
 
         if not local_context:
             local_context = dict() # degenerate context
 
+            # If there's no local context, then ignore any local types
+            # that we're given, because they must be bogus
+            #
+            # TODO: could add a sanity check for this.
+
+            local_types = None
+
+        if not local_types:
+            local_types = dict() # degenerate types
+
         assert isinstance(local_context, dict), 'local_context must be a dict'
+        assert isinstance(local_types, dict), 'local_types must be a dict'
 
         self.locals_stack = list()
-        self.locals_stack += list(local_context)
+        self.locals_stack.append(local_context)
+
+        self.types_stack = list()
+        self.types_stack.append(local_types)
 
     def push_context(self, values=None):
 
@@ -194,12 +238,40 @@ class SimpleEvaluator(NodeTransformer):
 
         return context
 
-    def visit_Assign(self, node):
+    def update_node(self, node):
+        """
+        Update a node by replacing its variable references with the
+        values bound to those variables in the current context
 
-        if self.is_qbit_creation(node.value):
-            return node
+        Returns the new, potentially modified node
+        """
 
-        # figure out whether it's a call, or an expr.
+        NodeError.error_msg(node, 'update_node not implemented yet')
+        return node
+
+    def do_assignment(self, node):
+        """
+        Handle an assignment statement by creating/updating local bindings
+        """
+
+        # FIXME: this isn't right.  We need to handle this case correctly
+        #
+        qbit_create = is_qbit_create(node)
+        if qbit_create:
+            # TODO: need to track the creation of the qbit.  This is
+            # currently done elsewhere.
+            return True
+
+        local_variables = self.locals_stack[-1]
+
+        namespace = self.importer.path2namespace[node.qgl_fname]
+        success = namespace.native_exec(node, local_variables=local_variables)
+        if not success:
+            NodeError.error_msg(node, 'failed to evaluate [%s]' % ast2str(node))
+            return False
+
+        print('EV locals %s' % str(self.locals_stack[-1]))
+        return True
 
     def do_call(self, call_node):
 
@@ -255,5 +327,9 @@ if __name__ == '__main__':
         (pos, kwa) = compute_actuals(t1, importer, local_variables=loc)
         print('T1 %s [%s] [%s]' % (call, str(pos), str(kwa)))
 
+    evaluator = SimpleEvaluator(importer, None)
+    for stmnt in ptree.body:
+        if isinstance(stmnt, ast.Assign):
+            evaluator.do_assignment(stmnt)
 
 
