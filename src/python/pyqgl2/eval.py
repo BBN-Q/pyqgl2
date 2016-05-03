@@ -403,7 +403,7 @@ class EvalTransformer(object):
         # set to zero every time visit() is called, and then
         # incremented every time a change is made
         #
-        self.changes_made = 0
+        self.change_cnt = 0
 
     def visit(self, orig_node):
         """
@@ -418,7 +418,7 @@ class EvalTransformer(object):
         assert isinstance(orig_node, ast.FunctionDef), \
                 ('expected ast.FunctionDef, got %s' % type(node))
 
-        self.changes_made = 0
+        self.change_cnt = 0
         node = deepcopy(orig_node)
 
         new_body = list()
@@ -479,9 +479,14 @@ class EvalTransformer(object):
                 # TODO: is there any other way to reference range()?
                 # For example, via builtins?
                 #
+                if isinstance(stmnt.iter, ast.Call):
+                    print('EV CALL? %s' % ast.dump(stmnt.iter))
+
                 if (isinstance(stmnt.iter, ast.Call) and
-                        (stmnt.iter.func.id == 'range')):
-                    continue
+                        isinstance(stmnt.iter.func, ast.Name) and
+                        stmnt.iter.func.id == 'range'):
+                    print('EV GOT A RANGE')
+                    # continue
 
                 success, new_iter = self.eval_state.do_iters(stmnt.iter)
                 if success:
@@ -489,7 +494,7 @@ class EvalTransformer(object):
                             (ast2str(stmnt.iter), ast2str(new_iter)))
 
                     stmnt.iter = new_iter
-                    self.changes_made += 1
+                    self.change_cnt += 1
 
             elif isinstance(stmnt, ast.If):
                 # if is't an "if" statement, try to figure out
@@ -499,20 +504,29 @@ class EvalTransformer(object):
 
                 success, test = self.eval_state.do_test(stmnt.test)
                 if success:
+                    # Even though we don't know whether we're going
+                    # to make any "real" changes, we figured something out
+                    # that we didn't figure out before, so we count
+                    # it as a change
+                    #
+                    self.change_cnt += 1
+
                     if test:
                         stmnt_list = stmnt.body
                     else:
                         stmnt_list = stmnt.orelse
 
-                    # TODO: skip over pass statements, or anything after
-                    # a 'break' or 'continue' statement.
                     for substmnt in stmnt_list:
+                        # skip over pass statements
+                        #
+                        # TODO: could also omit anything after a break
+                        # or continue statement, because they'll
+                        # be unreachable
+                        #
                         if isinstance(substmnt, ast.Pass):
                             continue
 
-                        print('EV peval [%s]' % ast.dump(substmnt))
                         new_body.append(substmnt)
-                        print('EV peval %s' % ast2str(substmnt))
 
             else:
                 # TODO: we could add more sanity checks here,
