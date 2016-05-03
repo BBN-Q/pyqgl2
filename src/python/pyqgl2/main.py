@@ -46,6 +46,7 @@ from pyqgl2.check_waveforms import CheckWaveforms
 from pyqgl2.concur_unroll import Unroller
 from pyqgl2.concur_unroll import QbitGrouper
 from pyqgl2.debugmsg import DebugMsg
+from pyqgl2.eval import EvalTransformer, SimpleEvaluator
 from pyqgl2.flatten import Flattener
 from pyqgl2.importer import NameSpaces, add_import_from_as
 from pyqgl2.inline import Inliner
@@ -238,11 +239,11 @@ def compileFunction(filename, main_name=None, saveOutput=False,
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
 
-        # const_prop = ConstantPropagation()
-        # ptree1 = const_prop.prop(ptree1)
-        # NodeError.halt_on_error()
-        # print('CONSTANT PROPAGATION (iteration %d):\n%s' %
-        #         (iteration, pyqgl2.ast_util.ast2str(ptree1)))
+        evaluator = EvalTransformer(SimpleEvaluator(importer, None))
+        ptree1 = evaluator.visit(ptree1)
+
+        print('PARTIAL EVALUATION (iteration %d):\n%s' %
+                 (iteration, pyqgl2.ast_util.ast2str(ptree1)))
 
         ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
                 context=ptree1)
