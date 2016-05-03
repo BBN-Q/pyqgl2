@@ -207,100 +207,6 @@ class Unroller(ast.NodeTransformer):
 
             return list([if_node])
 
-    def expand_range(self, for_node):
-        """
-        If the iter for the ast.For node is a call to range(),
-        then attempt to expand it into a list of integers,
-        and return the resulting new ast.For node.
-
-        If the expansion fails, return the original node (and
-        in some cases print diagnostics).
-        """
-
-        assert isinstance(for_node, ast.For)
-
-        if not isinstance(for_node.iter, ast.Call):
-            return for_node
-        elif not isinstance(for_node.iter.func, ast.Name):
-            return for_node
-        elif collapse_name(for_node.iter.func) != 'range':
-            return for_node
-
-        args = for_node.iter.args
-
-        start = 0
-        stop = 0
-        step = 1
-
-        ast_start = None
-        ast_step = None
-
-        arg_cnt = len(args)
-
-        if arg_cnt == 0:
-            NodeError.error_msg(for_node.iter,
-                    'not enough parameters to range()')
-            return for_node
-        if arg_cnt == 1:
-            ast_stop = args[0]
-        elif arg_cnt == 2:
-            ast_start = args[0]
-            ast_stop = args[1]
-        elif arg_cnt == 3:
-            ast_start = args[0]
-            ast_stop = args[1]
-            ast_step = args[2]
-        else:
-            NodeError.error_msg(for_node.iter,
-                    'too many parameters to range()')
-            return for_node
-
-        # Once we do constant propogation correctly,
-        # this should be less of an issue, but right now
-        # we can only handle calls to range with numeric
-        # parameters
-        #
-        if ast_start:
-            if isinstance(ast_start, ast.Num):
-                start = ast_start.n
-            else:
-                NodeError.warning_msg(ast_start,
-                        'cannot use as range start; not a constant')
-                return for_node
-
-        if ast_stop:
-            if isinstance(ast_stop, ast.Num):
-                stop = ast_stop.n
-            else:
-                NodeError.warning_msg(ast_stop,
-                        'cannot use as range stop; not a constant')
-                return for_node
-
-        if ast_step:
-            if isinstance(ast_step, ast.Num):
-                step = ast_step.n
-            else:
-                NodeError.warning_msg(ast_step,
-                        'cannot use as range step; not a constant')
-                return for_node
-
-        # Finally, we can do the expansion.
-
-        new_for_node = deepcopy(for_node)
-
-        new_for_node.iter = ast.List()
-        pyqgl2.ast_util.copy_all_loc(new_for_node.iter, for_node.iter)
-
-        new_elts = list()
-        for val in range(start, stop, step):
-            new_elt = ast.Num(n=val)
-            pyqgl2.ast_util.copy_all_loc(new_elt, for_node.iter)
-            new_elts.append(new_elt)
-
-        new_for_node.iter.elts = new_elts
-
-        return new_for_node
-
     def check_value_types(self, target, values):
         """
         check that the list contains simple expressions:
@@ -500,16 +406,9 @@ class Unroller(ast.NodeTransformer):
 
             return list([repeat_ast])
 
-        # if the iter element of the "for" loop is a range expression,
-        # and we can evaluate it to a constant list, do so now.
-        # When we do so, we may alter the loop itself, so
-        # expand_range will make a copy of the for loop node and
-        # return that, rather than just the iterator.
-        #
-        # XXX for_node = self.expand_range(for_node)
-
-        # Now that we've expanded and evaluated the iterator, the
-        # iterator really better be a list.
+        # If we've expanded and evaluated for_node.iter, then
+        # we expect it to be a list.  This might not have happened
+        # yet, however.
 
         if not isinstance(for_node.iter, ast.List):
             if unroll_inner:
