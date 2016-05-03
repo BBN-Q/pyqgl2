@@ -574,6 +574,18 @@ class NameSpaces(object):
             NodeError.warning_msg(None,
                     'warning: no qglmain declared or chosen')
 
+        # This is a hack to make sure that the base file
+        # is read in as a "native import".  Since there isn't
+        # an explicit "import" of this file anywhere, we don't
+        # have an AST node that contains the code for this import.
+        # We can't use None, because this importer uses this as
+        # a sentinel value, so we use self.qgl2main.  This is
+        # bogus -- we should make a fake node for this purpose
+        # FIXME
+        text = open(self.base_fname, 'r').read()
+        namespace = self.path2namespace[self.base_fname]
+        namespace.native_import(text, self.qglmain)
+
     def resolve_sym(self, path, name, depth=0):
         """
         Attempt to resolve the symbol with the given name within
