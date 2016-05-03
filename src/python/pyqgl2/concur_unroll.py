@@ -506,36 +506,7 @@ class Unroller(ast.NodeTransformer):
         # expand_range will make a copy of the for loop node and
         # return that, rather than just the iterator.
         #
-        for_node = self.expand_range(for_node)
-
-        # If it's not a list yet, then try to turn it into one
-        # by evaluating the iter expression.  If successful,
-        # copy the for_node and replace its iter with the
-        # result.
-        #
-        if not isinstance(for_node.iter, ast.List):
-            namespace = self.importer.path2namespace[for_node.qgl_fname]
-            # TODO: we're not using any local variables yet!
-            # FIXME: this is relatively uninteresting without them
-            (success, val) = namespace.native_eval(for_node.iter)
-
-            if success:
-                # if the val is an iterator or collection, bash
-                # it into a list, because that's all we understand,
-                # and then try to convert the result back into AST
-                #
-                list_val = list(val)
-                ast_val = value2ast(list_val)
-
-                # if the evaluation produced a list, then
-                # plug it in to the iterator (after making a
-                # spare copy of the node so we don't clobber
-                # the original function definition)
-                #
-                if ast_val and isinstance(ast_val, ast.List):
-                    print('USING EXPANDED ITER VALUE: %s' % ast.dump(ast_val))
-                    for_node = deepcopy(for_node)
-                    for_node.iter = ast_val
+        # XXX for_node = self.expand_range(for_node)
 
         # Now that we've expanded and evaluated the iterator, the
         # iterator really better be a list.
