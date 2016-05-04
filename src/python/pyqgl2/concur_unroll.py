@@ -283,18 +283,46 @@ class Unroller(ast.NodeTransformer):
 
     def is_simple_iteration(self, for_node):
         """
+        returns (success, count), where success is True if the loop is
+        a "simple iteration" (a single loop variable, which is never
+        referenced inside the loop), and count is the number of times
+        that the loop iterates.
+
+        We could handle loops with multiple targets (as long as
+        none of them are ever referenced), but we don't deal with
+        this case yet.  The iters either needs to be a literal list
+        (ast.List) or a call to the simple form of range().
         """
 
         assert isinstance(for_node, ast.For)
 
-        if not isinstance(for_node.iter, ast.Call):
-            return False
-        elif not isinstance(for_node.iter.func, ast.Name):
-            return False
-        elif collapse_name(for_node.iter.func) != 'range':
-            return False
-        elif not isinstance(for_node.target, ast.Name):
-            return False
+        if not isinstance(for_node.target, ast.Name):
+            return False, 0
+
+        if (isinstance(for_node.iter, ast.Call) and
+                isinstance(for_node.iter.func, ast.Name) and
+                (collapse_name(for_node.iter.func) == 'range')):
+
+            # We can only handle simple things right now:
+            # a simple range, with a simple parameter.
+            #
+            args = for_node.iter.args
+            if len(args) != 1:
+                return False, 0
+
+            arg = args[0]
+            if not isinstance(arg, ast.Num):
+                return False, 0
+            elif not isinstance(arg.n, int):
+                NodeError.warning_msg(arg, 'range value is not an integer?')
+                return False, 0
+
+            iter_cnt = arg.n
+        elif isinstance(for_node.iter, ast.List):
+            print('EV GOT LIST')
+            iter_cnt = len(for_node.iter.elts)
+        else:
+            return False, 0
 
         # Search through the body, looking for any of the following:
         #
@@ -312,34 +340,9 @@ class Unroller(ast.NodeTransformer):
                     NodeError.diag_msg(subnode,
                             ('ref to loop var [%s] disables Qrepeat' %
                                 subnode.id))
-                    return False
-                #
-                # PERMIT break and continue statements inside Qrepeat blocks
-                #
-                # elif isinstance(subnode, ast.Break):
-                #     NodeError.diag_msg(subnode,
-                #             '"break" statement disables Qrepeat')
-                #     return False
-                # elif isinstance(subnode, ast.Continue):
-                #     NodeError.diag_msg(subnode,
-                #             '"continue" statement disables Qrepeat')
-                #     return False
+                    return False, 0
 
-        # We can only handle simple things right now:
-        # a simple range, with a simple parameter.
-        #
-        args = for_node.iter.args
-        if len(args) != 1:
-            return False
-
-        arg = args[0]
-        if not isinstance(arg, ast.Num):
-            return False
-        elif not isinstance(arg.n, int):
-            NodeError.warning_msg(arg, 'range value is not an integer?')
-            return False
-        else:
-            return True
+        return True, iter_cnt
 
     def for_unroller(self, for_node, unroll_inner=True):
         """
@@ -384,12 +387,11 @@ class Unroller(ast.NodeTransformer):
         # of iterations.  The flattener will turn this
         # into the proper ASP2 code.
         #
-        if self.is_simple_iteration(for_node):
+        (is_simple, iter_cnt) = self.is_simple_iteration(for_node)
+        if is_simple:
             # If is_simple_iteration returns True, then this
             # chain of derefs should just work...
             #
-            iter_cnt = for_node.iter.args[0].n
-
             repeat_txt = 'with Qrepeat(%d):\n    pass' % iter_cnt
             repeat_ast = expr2ast(repeat_txt)
 
