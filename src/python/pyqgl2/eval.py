@@ -433,7 +433,8 @@ class EvalTransformer(object):
             #
             if isinstance(stmnt, ast.Pass):
                 continue
-            elif (isinstance(stmnt, ast.Expr) and isinstance(stmnt.value, ast.Str)):
+            elif (isinstance(stmnt, ast.Expr) and
+                    isinstance(stmnt.value, ast.Str)):
                 continue
 
             elif isinstance(stmnt, ast.Assign):
@@ -449,7 +450,8 @@ class EvalTransformer(object):
 
                 new_body.append(stmnt)
 
-            elif isinstance(stmnt, ast.Expr) and isinstance(stmnt.value, ast.Call):
+            elif (isinstance(stmnt, ast.Expr) and
+                    isinstance(stmnt.value, ast.Call)):
                 # If it's a call, it could be a function declared to
                 # be a qgl2stub or a qgl2decl, in which case we leave
                 # alone.  We'll attempt to call anything else.
@@ -459,42 +461,33 @@ class EvalTransformer(object):
                 success = self.eval_state.do_call(stmnt.value)
                 print('EV did call %s' % str(success))
 
-            elif (isinstance(stmnt, ast.For) and
-                    (not isinstance(stmnt.iter, ast.List))):
+            elif isinstance(stmnt, ast.For):
 
-                # TODO: if the resulting iter has length 0, then
-                # just the contents of the loop's orelse (if any)
-                # into the new_body.
+                if not isinstance(stmnt.iter, ast.List):
+
+                    success, new_iter = self.eval_state.do_iters(stmnt.iter)
+                    if not success:
+                        # we'll try again later
+                        new_body.append(stmnt)
+                        continue
+
+                    print('EV iter evaluated %s to %s' %
+                            (ast2str(stmnt.iter), ast2str(new_iter)))
+                    print('EV2 iter evaluated to %s' % ast.dump(new_iter))
+
+                    if not isinstance(new_iter, ast.List):
+                        NodeError.error_msg(stmnt.iter,
+                                'iter does not evaluate to list')
+                        break
+                    else:
+                        stmnt.iter = new_iter
+                        self.change_cnt += 1
+
+                # NOTE: detection of simple iteration (and conversion
+                # to Qrepeat, if possible) is done in the loop unroller,
+                # not here.  This function only tries to expand the elts.
 
                 new_body.append(stmnt)
-
-                # if it's a for loop, and the iters isn't a list, then
-                # see if we can make progress on this.
-
-                # if the iter is a call to range(), then skip it.
-                # We handle range() as a special case in the unroller
-                # (and if someone redefines range(), then they're
-                # in trouble!)
-                #
-                # TODO: is there any other way to reference range()?
-                # For example, via builtins?
-                #
-                if isinstance(stmnt.iter, ast.Call):
-                    print('EV CALL? %s' % ast.dump(stmnt.iter))
-
-                if (isinstance(stmnt.iter, ast.Call) and
-                        isinstance(stmnt.iter.func, ast.Name) and
-                        stmnt.iter.func.id == 'range'):
-                    print('EV GOT A RANGE')
-                    # continue
-
-                success, new_iter = self.eval_state.do_iters(stmnt.iter)
-                if success:
-                    print('EV changed %s to %s' %
-                            (ast2str(stmnt.iter), ast2str(new_iter)))
-
-                    stmnt.iter = new_iter
-                    self.change_cnt += 1
 
             elif isinstance(stmnt, ast.If):
                 # if is't an "if" statement, try to figure out
