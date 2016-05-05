@@ -222,7 +222,8 @@ class SimpleEvaluator(object):
         assert (not args) or isinstance(args, list)
         assert (not kwargs) or isinstance(kwargs, dict)
 
-        assert isinstance(func_ast, ast.FunctionDef), 'func_ast must be FunctionDef'
+        assert isinstance(func_ast, ast.FunctionDef), \
+                'func_ast must be FunctionDef'
 
         arg_names = [arg.arg for arg in func_ast.args.args]
 
@@ -261,9 +262,11 @@ class SimpleEvaluator(object):
         local_variables = self.locals_stack[-1]
 
         namespace = self.importer.path2namespace[node.qgl_fname]
-        success, val = namespace.native_eval(node, local_variables=local_variables)
+        success, val = namespace.native_eval(node,
+                local_variables=local_variables)
         if not success:
-            NodeError.error_msg(node, 'failed to evaluate [%s]' % ast2str(node))
+            NodeError.error_msg(node,
+                    'failed to evaluate [%s]' % ast2str(node))
             return False, None
         else:
             return True, val
@@ -277,9 +280,11 @@ class SimpleEvaluator(object):
         local_variables = self.locals_stack[-1]
 
         namespace = self.importer.path2namespace[node.qgl_fname]
-        success, val = namespace.native_eval(node, local_variables=local_variables)
+        success, val = namespace.native_eval(node,
+                local_variables=local_variables)
         if not success:
-            NodeError.error_msg(node, 'failed to evaluate [%s]' % ast2str(node))
+            NodeError.error_msg(node,
+                    'failed to evaluate [%s]' % ast2str(node))
             return False, None
 
         # TODO: review whether this always works.
@@ -327,7 +332,8 @@ class SimpleEvaluator(object):
         namespace = self.importer.path2namespace[node.qgl_fname]
         success = namespace.native_exec(node, local_variables=local_variables)
         if not success:
-            NodeError.error_msg(node, 'failed to evaluate [%s]' % ast2str(node))
+            NodeError.error_msg(node,
+                    'failed to evaluate [%s]' % ast2str(node))
             return False
 
         print('EV locals %s' % str(self.locals_stack[-1]))
@@ -361,7 +367,8 @@ class SimpleEvaluator(object):
         namespace = self.importer.path2namespace[call_node.qgl_fname]
         print('EV NS %s' % namespace)
         local_variables = self.locals_stack[-1]
-        success = namespace.native_exec(call_node, local_variables=local_variables)
+        success = namespace.native_exec(call_node,
+                local_variables=local_variables)
         if not success:
             NodeError.error_msg(call_node,
                     'failed to evaluate [%s]' % ast2str(call_node))
