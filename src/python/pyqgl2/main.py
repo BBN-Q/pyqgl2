@@ -346,6 +346,95 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print('LOCALS %s ' % find_types.local_names)
     """
 
+def getAWG(channel):
+    '''Given a channel, find its AWG'''
+    from QGL.Channels import LogicalChannel, Measurement, Qubit, PhysicalChannel
+    import logging
+    logger = logging.getLogger('QGL.Compiler.qgl2')
+    phys = channel
+    awg = None
+    if hasattr(channel, 'physChan'):
+        phys = channel.physChan
+        # logger.debug("Channel '%s' has physical channel '%s'", channel, phys)
+    elif not isinstance(channel, PhysicalChannel):
+        logger.debug("No physChan attribute on channel '%s'", channel)
+
+    # if isinstance(channel, Measurement):
+    #     logger.debug("'%s' uses gate: %s, trigger: %s", channel, channel.gateChan, channel.trigChan)
+    # if isinstance(channel, Qubit):
+    #     logger.debug("'%s' has gate: '%s'", channel, channel.gateChan)
+    if hasattr(phys, 'AWG'):
+        awg = phys.AWG
+        # logger.debug("Physical Channel '%s' had AWG '%s'", phys, awg)
+    else:
+        logger.error("Config incomplete? Found no AWG for '%s'", channel)
+
+    return awg
+
+def qgl2_compile_to_hardware(seqs, filename, suffix=''):
+    '''Custom compile_to_hardware for QGL2 that calls
+    c2h once per sequence, specifically asking that the slaveTrigger be added only for the single 
+    channel that actually shares an AWG with the slaveTrigger.'''
+    from QGL.Compiler import find_unique_channels, compile_to_hardware
+    from QGL.Channels import Qubit as qgl1Qubit
+    from QGL import ChannelLibrary
+    import logging
+    logger = logging.getLogger('QGL.Compiler.qgl2')
+    # Find the channel for each sequence
+    seqIdxToChannelMap = dict()
+    for idx, seq in enumerate(seqs):
+        chs = find_unique_channels(seq)
+        for ch in chs:
+            # FIXME: Or just exclude Measurement channels?
+            if isinstance(ch, qgl1Qubit):
+                seqIdxToChannelMap[idx] = ch
+                logger.debug("Sequence %d is channel %s", idx, ch)
+                logger.debug(" - which is AWG '%s'", getAWG(ch))
+                break
+
+    # if logger.isEnabledFor(logging.DEBUG):
+    #     for chan in ChannelLibrary.channelLib.values():
+    #         awg = getAWG(chan)
+    #         if awg:
+    #             logger.debug("Channel '%s' is on AWG '%s'", chan, awg)
+
+    # Find the sequence whose channel's AWG is same as slave Channel, if
+    # any. Avoid sequences without a qubit channel if any.
+    slaveSeqInd = None
+    slaveAWG = getAWG(ChannelLibrary.channelLib['slaveTrig'])
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("Slave trig is on AWG '%s'", slaveAWG)
+        logger.debug("Digitizer is on AWG '%s'", getAWG(ChannelLibrary.channelLib['digitizerTrig']))
+    for idx, seq in enumerate(seqs):
+        seqChan = seqIdxToChannelMap.get(idx, None)
+        if seqChan and getAWG(seqChan) == slaveAWG:
+            slaveSeqInd = idx
+            logger.debug("Found slave trigger on sequence %d with channel %s", idx, seqChan)
+            break
+    # If nothing in the program uses the slave's AWG, pick any channel in use
+    if slaveSeqInd is None:
+        slaveSeqInd = list(seqIdxToChannelMap.keys())[0]
+        logger.debug("Randomly putting slaveTrig on sequence %d", slaveSeqInd)
+
+    # Now we call c2h for each seq
+    files = set()
+    for idx,seq in enumerate(seqs):
+        if idx not in seqIdxToChannelMap:
+            # Indicates an error - that empty sequence
+            logger.debug("Sequence %d has no channel - skip", idx)
+            continue
+        if idx == slaveSeqInd:
+            logger.debug("Asking for slave trig with sequence %d", idx)
+            newfiles = compile_to_hardware([seq], filename, suffix, qgl2=True, addQGL2SlaveTrigger=True)
+            logger.debug("Produced files: %s", newfiles)
+            files = files.union(newfiles)
+        else:
+            logger.debug("Asking for sequence %d", idx)
+            newfiles = compile_to_hardware([seq], filename, suffix, qgl2=True)
+            logger.debug("Produced files: %s", newfiles)
+            files = files.union(newfiles)
+    return files
+
 ######
 # Code below here is for testing
 # It creates channels that are taken from test_Sequences APS2Helper
@@ -463,7 +552,6 @@ if __name__ == '__main__':
                                   intermediate_output=opts.intermediate_output)
     if resFunction:
         # Now import the QGL1 things we need 
-        from QGL.Compiler import compile_to_hardware
         from QGL.PulseSequencePlotter import plot_pulse_files
         from QGL.ChannelLibrary import QubitFactory
         import os
@@ -490,8 +578,8 @@ if __name__ == '__main__':
             set_log_level()
 
         # Now we have a QGL1 list of sequences we can act on
-        fileNames = compile_to_hardware(sequences, opts.prefix,
-                                        opts.suffix, qgl2=True)
+        fileNames = qgl2_compile_to_hardware(sequences, opts.prefix,
+                                        opts.suffix)
         print(fileNames)
         if opts.showplot:
             plot_pulse_files(fileNames)

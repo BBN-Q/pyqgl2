@@ -28,3 +28,9 @@ def multiQbitTest2() -> sequence:
             Id(q)
             X(q)
             MEAS(q)
+@qgl2decl
+def simpleSingle() -> sequence:
+    q2 = QubitFactory('q2')
+    init(q2)
+    X(q2)
+    MEAS(q2)
