@@ -39,7 +39,7 @@ class TempVarManager(object):
         self.index = None
 
     @staticmethod
-    def create_temp_var_manager(name_prefix='__qgl2_tmp'):
+    def create_temp_var_manager(name_prefix='___qgl2_tmp'):
         if name_prefix in TempVarManager.NAME2REF:
             return TempVarManager.NAME2REF[name_prefix]
 
@@ -55,7 +55,16 @@ class TempVarManager(object):
 
         base = '%s_%.3d' % (self.name_prefix, self.index)
         if orig_name:
-            return '%s_%s' % (orig_name, base)
+
+            # if the name that we're converting to a temp
+            # is already a temp name, then try to find the
+            # original root name and use that name instead.
+            #
+            components = orig_name.split(self.name_prefix, 1)
+            if len(components) == 2:
+                orig_name = components[0]
+
+            return '%s%s' % (orig_name, base)
         else:
             return base
 
@@ -587,10 +596,7 @@ def create_inline_procedure(func_ptree, call_ptree):
     # it's all fictitious) so that any error messages generated
     # later make some sense
     #
-    # We give the source file a name that signifies that it's
-    # rewritten code.  (I'm ambivalent about this)
-    #
-    source_file = '_mod_' + call_ptree.qgl_fname
+    source_file = call_ptree.qgl_fname
     for assignment in setup_locals:
         for subnode in ast.walk(assignment):
             subnode.qgl_fname = source_file
