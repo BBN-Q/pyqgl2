@@ -27,7 +27,7 @@ class SingleSequence(object):
 
         self.qbits = set()
         self.qbit_creates = list()
-        self.sequences = list()
+        self.sequences = dict() # From channel to list of pulses
 
         # the imports we need to make in order to satisfy the stubs
         #
@@ -141,46 +141,48 @@ class SingleSequence(object):
         if len(self.qbits) == 0:
             NodeError.error_msg(node, 'no channels found')
             return False
-#        elif len(self.qbits) > 1:
-#            NodeError.error_msg(node, 'more than one channel found')
-#            return False
+        else:
+            NodeError.diag_msg(node, "Found channels %s" % self.qbits)
 
         lineNo = -1
         while lineNo+1 < len(node.body):
             lineNo += 1
-            #print("Line %d of %d" % (lineNo+1, len(node.body)))
+            # print("Line %d of %d" % (lineNo+1, len(node.body)))
             stmnt = node.body[lineNo]
-            #print("Looking at stmnt %s" % stmnt)
+            # print("Looking at stmnt %s" % stmnt)
             assignment = self.is_qbit_create(stmnt)
             if assignment:
                 self.qbit_creates.append(assignment)
                 continue
             elif is_concur(stmnt):
-                #print("Found concur at line %d: %s" % (lineNo+1,stmnt))
+                # print("Found concur at line %d: %s" % (lineNo+1,stmnt))
                 for s in stmnt.body:
-                    lineNo += 1
                     if is_seq(s):
+                        # print("Found with seq for qbits %s: %s" % (s.qgl_chan_list, ast2str(s)))
                         #print("With seq next at line %d: %s" % (lineNo+1,s))
-                        self.sequences.append(list())
-                        #print("Append body %s" % s.body)
-                        for s2 in s.body:
-                            print(ast2str(s2))
-                        self.sequences[-1] += s.body
-                        lineNo += len(s.body)
+                        if str(s.qgl_chan_list) not in self.sequences:
+                            self.sequences[str(s.qgl_chan_list)] = list()
+                        thisSeq = self.sequences[str(s.qgl_chan_list)]
+                        # print("Append body %s" % s.body)
+                        # for s2 in s.body:
+                        #     print(ast2str(s2))
+                        thisSeq += s.body
+                        #print("lineNo now %d" % lineNo)
                     else:
-                        #print("Not seq next at line %d: %s" % (lineNo+1,s))
-                        self.sequences[-1] += s
-                  #else:
-                  #  NodeError.diag_msg(stmnt.body[0], 'expected seq?')
+                        NodeError.error_msg(s, "Not seq next at line %d: %s" % (lineNo+1,s))
             elif isinstance(stmnt, ast.Expr):
-                #print("Append expr %s" % stmnt)
-                if len(self.sequences) == 0:
-                    self.sequences.append(list())
-                self.sequences[-1].append(stmnt)
+                if len(self.qbits) == 1:
+                    # print("Append expr %s to sequence for %s" % (ast2str(stmnt), self.qbits))
+                    if len(self.sequences) == 0:
+                        self.sequences[list(self.qbits)[0]] = list()
+                    self.sequences[list(self.qbits)[0]].append(stmnt)
+                else:
+                    NodeError.error_msg(stmnt,
+                                        'orphan statement %s' % ast.dump(stmnt))
             else:
                 NodeError.error_msg(stmnt,
                         'orphan statement %s' % ast.dump(stmnt))
-        #print("Seqs: %s" % self.sequences)
+        # print("Seqs: %s" % self.sequences)
         return True
 
     def emit_function(self, func_name='qgl1_main'):
@@ -232,7 +234,7 @@ class SingleSequence(object):
         seqs_str = ''
         seq_strs = list()
 
-        for seq in self.sequences:
+        for seq in self.sequences.values():
             #print("Looking at seq %s" % seq)
             sequence = [ast2str(item).strip() for item in seq]
             #print ("It is %s" % sequence)
