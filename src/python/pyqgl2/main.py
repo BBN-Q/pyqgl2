@@ -392,25 +392,23 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
                 logger.debug(" - which is AWG '%s'", getAWG(ch))
                 break
 
-    # if logger.isEnabledFor(logging.DEBUG):
-    #     for chan in ChannelLibrary.channelLib.values():
-    #         awg = getAWG(chan)
-    #         if awg:
-    #             logger.debug("Channel '%s' is on AWG '%s'", chan, awg)
-
     # Find the sequence whose channel's AWG is same as slave Channel, if
     # any. Avoid sequences without a qubit channel if any.
     slaveSeqInd = None
     slaveAWG = getAWG(ChannelLibrary.channelLib['slaveTrig'])
+
+    # Note there will be 1 digitizer per measurement channel, on same AWG
+    # as its meas channel
+
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug("Slave trig is on AWG '%s'", slaveAWG)
-        logger.debug("Digitizer is on AWG '%s'", getAWG(ChannelLibrary.channelLib['digitizerTrig']))
     for idx, seq in enumerate(seqs):
         seqChan = seqIdxToChannelMap.get(idx, None)
         if seqChan and getAWG(seqChan) == slaveAWG:
             slaveSeqInd = idx
             logger.debug("Found slave trigger on sequence %d with channel %s", idx, seqChan)
             break
+
     # If nothing in the program uses the slave's AWG, pick any channel in use
     if slaveSeqInd is None:
         slaveSeqInd = list(seqIdxToChannelMap.keys())[0]
@@ -423,16 +421,16 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
             # Indicates an error - that empty sequence
             logger.debug("Sequence %d has no channel - skip", idx)
             continue
+        doSlave = False
         if idx == slaveSeqInd:
-            logger.debug("Asking for slave trig with sequence %d", idx)
-            newfiles = compile_to_hardware([seq], filename, suffix, qgl2=True, addQGL2SlaveTrigger=True)
-            logger.debug("Produced files: %s", newfiles)
-            files = files.union(newfiles)
+            logger.debug("Asking for slave trigger with sequence %d", idx)
+            doSlave = True
         else:
             logger.debug("Asking for sequence %d", idx)
-            newfiles = compile_to_hardware([seq], filename, suffix, qgl2=True)
-            logger.debug("Produced files: %s", newfiles)
-            files = files.union(newfiles)
+
+        newfiles = compile_to_hardware([seq], filename, suffix, qgl2=True, addQGL2SlaveTrigger=doSlave)
+        logger.debug("Produced files: %s", newfiles)
+        files = files.union(newfiles)
     return files
 
 ######
