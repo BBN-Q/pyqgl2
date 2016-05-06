@@ -244,31 +244,34 @@ def compileFunction(filename, main_name=None, saveOutput=False,
 
     new_ptree1 = ptree1
 
+    # Make sure that functions that take qbits are getting qbits
     sym_check = CheckSymtab(filename, type_check.func_defs, importer)
     new_ptree5 = sym_check.visit(new_ptree1)
     NodeError.halt_on_error()
     print(('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
             file=intermediate_fout, flush=True)
 
+    # Take with concur blocks and produce with seq blocks for each QBIT_* or EDGE_* referenced therein
     grouper = QbitGrouper()
     new_ptree6 = grouper.visit(new_ptree5)
     NodeError.halt_on_error()
     print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
             file=intermediate_fout, flush=True)
 
+    # Try to flatten out repeat, range, ifs
     flattener = Flattener()
     new_ptree7 = flattener.visit(new_ptree6)
     NodeError.halt_on_error()
     print(('FLATTENED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree7)),
             file=intermediate_fout, flush=True)
 
-    sequencer = SequenceCreator()
-    sequencer.visit(new_ptree7)
-    NodeError.halt_on_error()
-
     # We're not going to print this, at least not for now,
     # although it's sometimes a useful pretty-printing
     if False:
+        sequencer = SequenceCreator()
+        sequencer.visit(new_ptree7)
+        NodeError.halt_on_error()
+
         print('FINAL SEQUENCES:')
         for qbit in sequencer.qbit2sequence:
             print('%s:' % qbit)
@@ -429,8 +432,11 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
             logger.debug("Asking for sequence %d", idx)
 
         newfiles = compile_to_hardware([seq], filename, suffix, qgl2=True, addQGL2SlaveTrigger=doSlave)
-        logger.debug("Produced files: %s", newfiles)
-        files = files.union(newfiles)
+        if newfiles:
+            logger.debug("Produced files: %s", newfiles)
+            files = files.union(newfiles)
+        else:
+            logger.debug("Produced no new files")
     return files
 
 ######

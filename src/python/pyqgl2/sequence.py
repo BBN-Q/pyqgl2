@@ -11,6 +11,10 @@ from pyqgl2.concur_unroll import is_concur, is_seq, find_all_channels
 from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
 
+# Dead code
+# Produces per channel strings/sequences
+# Only use is in an 'if False' in main.py
+
 class SequenceCreator(ast.NodeVisitor):
     """
     Create a list of sequence lists for a given AST
