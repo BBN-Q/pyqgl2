@@ -645,6 +645,9 @@ class QbitGrouper(ast.NodeTransformer):
         for qbits, stmnts in groups:
             new_seq = deepcopy(seq_node)
             new_seq.body = stmnts
+            # Mark an attribute on new_seq naming the qbits
+            new_seq.qgl_chan_list = qbits
+            NodeError.diag_msg(node, "Adding new with seq marked with qbits %s" % (str(qbits)))
             new_body.append(new_seq)
 
         node.body = new_body
