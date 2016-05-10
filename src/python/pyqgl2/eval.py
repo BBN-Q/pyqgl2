@@ -10,7 +10,9 @@ from copy import deepcopy
 import pyqgl2.ast_util
 import pyqgl2.inline
 
+
 from pyqgl2.ast_util import NodeError, ast2str
+from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.importer import NameSpaces
 from pyqgl2.single import is_qbit_create
 
@@ -339,6 +341,28 @@ class SimpleEvaluator(object):
         print('EV locals %s' % str(self.locals_stack[-1]))
         return True
 
+    def fake_assignment(self, target_ast, values):
+        """
+        Fake the assignment of the given values to the given targets.
+
+        The targets are specified as AST, but the values are the
+        native Python values.
+
+        This assignment is presumed to be compatible; we don't check
+        (although we do try to detect failures).
+        """
+
+        if isinstance(target_ast, ast.Name):
+            local_variables = self.locals_stack[-1]
+            local_variables[target_ast.id] = values
+        elif (isinstance(target_ast, ast.Tuple) or
+                isinstance(target_ast, ast.List)):
+            for i in range(len(target_ast.elts)):
+                self.fake_assignment(target_ast.elts[i], values[i])
+        else:
+            DebugMsg.log('bogus target_ast [%s]' % ast.dump(target_ast),
+                    DebugMsg.HIGH)
+
     def do_call(self, call_node):
         """
         Incomplete
@@ -407,6 +431,12 @@ class EvalTransformer(object):
 
         self.eval_state = eval_state
 
+        # a list of assignment statements to evaluate before
+        # anything else, to compute the values used later at runtime
+        #
+        self.preamble_stmnts = list()
+        self.preamble_values = list()
+
         # set to zero every time visit() is called, and then
         # incremented every time a change is made
         #
@@ -425,18 +455,38 @@ class EvalTransformer(object):
         assert isinstance(orig_node, ast.FunctionDef), \
                 ('expected ast.FunctionDef, got %s' % type(node))
 
+        # every time we do a visit, "replay" the preamble to
+        # bring the current state up-to-date.
+        #
+
+        for stmnt in self.preamble_stmnts:
+            # use the old value from preamble_values
+            # don't recompute anything
+            #
+            if isinstance(stmnt, ast.Assign):
+                self.do_assignment(stmnt.targets, self.preamble_values)
+
         self.change_cnt = 0
         node = deepcopy(orig_node)
+        node.body = self.do_body(node.body)
+        return node
+
+    def do_body(self, body):
 
         new_body = list()
 
-        for stmnt_index in range(len(node.body)):
-            stmnt = node.body[stmnt_index]
+        for stmnt_index in range(len(body)):
+            stmnt = body[stmnt_index]
+
+            print('EV stmnt todo %s' % ast.dump(stmnt))
 
             # Skip over any pass statements or comment strings.
             #
             # TODO we might want to keep some record that we saw them,
             # but we don't want to emit them.  Right now we discard them.
+            #
+            # TODO: I don't think we can always omit a pass statement.
+            # only if we've removed the calling context as well.
             #
             if isinstance(stmnt, ast.Pass):
                 continue
@@ -469,9 +519,11 @@ class EvalTransformer(object):
                 print('EV did call %s' % str(success))
 
             elif isinstance(stmnt, ast.For):
+                print('EV ast.For check')
 
                 if not isinstance(stmnt.iter, ast.List):
 
+                    print('EV ast.For iter not ast.List')
                     success, new_iter = self.eval_state.do_iters(stmnt.iter)
                     if not success:
                         # we'll try again later
@@ -546,14 +598,54 @@ class EvalTransformer(object):
             pyqgl2.ast_util.copy_all_loc(new_pass, orig_node)
             new_body.append(new_pass)
 
-        node.body = new_body
-
         print('EV final\n%s' % ast2str(node))
-        return node
+        return new_node
 
 
 if __name__ == '__main__':
  
+    def test_calls():
+        test_calls = [
+                'foo(1, 2, 3, e=55)',
+                'foo(a, b, c)',
+                'foo(a + b, b + c, 2 * c)',
+                'foo(a, *[11, 12, 13])',
+                'foo(a, *l1)',
+        ]
+
+        for call in test_calls:
+            t1 = ast.parse(call, mode='eval')
+            t1 = t1.body
+            print('T1 %s' % ast.dump(t1))
+            t1.qgl_fname = ptree.qgl_fname
+
+            loc = { 'a' : 100, 'b' : 101, 'c' : 102, 'l1' : [22, 23] }
+
+            (pos, kwa) = compute_actuals(t1, importer, local_variables=loc)
+            print('T1 %s [%s] [%s]' % (call, str(pos), str(kwa)))
+
+    def test_fake_assignment(importer):
+
+        test_assignments = [
+                [ 'a = 12', 12 ],
+                [ '(a, b) = ("a", "b")', ('a', 'b') ],
+                [ '(A, [B, C]) = ("A", ("B", "C"))', ('A', ('B', 'C')) ],
+                [ 'x, [y, z], w = "x", ["y", "z"], "w"',
+                    ('x', ['y', 'z'], 'w') ],
+                [ 'a, b = "a", ("1", "2", "3")',
+                    ('a', ('1', '2', '3')) ],
+        ]
+
+        for (text, val) in test_assignments:
+            t1 = ast.parse(text, mode='exec')
+            t1 = t1.body[0]
+            print('T1 %s' % ast.dump(t1))
+
+            evaluator = SimpleEvaluator(importer, None)
+
+            evaluator.fake_assignment(t1.targets[0], val)
+            print('result [%s] [%s]' % (text, evaluator.locals_stack))
+
     file_name = 'aaa.py'
     main_name = 't1'
 
@@ -564,26 +656,12 @@ if __name__ == '__main__':
 
     NodeError.halt_on_error()
 
+    test_fake_assignment(importer)
+
     ptree = importer.qglmain
 
-    test_calls = [
-            'foo(1, 2, 3, e=55)',
-            'foo(a, b, c)',
-            'foo(a + b, b + c, 2 * c)',
-            'foo(a, *[11, 12, 13])',
-            'foo(a, *l1)',
-    ]
 
-    for call in test_calls:
-        t1 = ast.parse(call, mode='eval')
-        t1 = t1.body
-        print('T1 %s' % ast.dump(t1))
-        t1.qgl_fname = ptree.qgl_fname
 
-        loc = { 'a' : 100, 'b' : 101, 'c' : 102, 'l1' : [22, 23] }
-
-        (pos, kwa) = compute_actuals(t1, importer, local_variables=loc)
-        print('T1 %s [%s] [%s]' % (call, str(pos), str(kwa)))
 
     evaluator = SimpleEvaluator(importer, None)
     for stmnt in ptree.body:
@@ -592,5 +670,4 @@ if __name__ == '__main__':
 
     et = EvalTransformer(SimpleEvaluator(importer, None))
     ptree2 = et.visit(ptree)
-
 
