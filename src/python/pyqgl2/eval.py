@@ -715,6 +715,10 @@ if __name__ == '__main__':
                 [ 'a1[1] = "A"', "A" ],
                 [ 'a2[1][2] = "A12"', "A12" ],
                 [ 'a3[1][2][3] = "A123"', "A123" ],
+                [ 'a1[identity(0)] = "A0"', "A0" ],
+                [ 'a2[identity(0)][identity(1)] = "A01"', "A01" ],
+                [ 'a2[identity(2)][identity(3)] = "A23"', "A23" ],
+                [ 'a2[identity(0) + 1][identity(1) + 1] = "A12"', "A12" ],
         ]
 
         for (text, val) in test_assignments:
