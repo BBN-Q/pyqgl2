@@ -352,13 +352,77 @@ class SimpleEvaluator(object):
         (although we do try to detect failures).
         """
 
+        namespace = self.importer.path2namespace[target_ast.qgl_fname]
+
+        local_variables = self.locals_stack[-1]
+        scratch_locals = deepcopy(local_variables)
+
+        self.fake_assignment_worker(
+                target_ast, values, scratch_locals, namespace)
+
+        self.locals_stack[-1] = scratch_locals
+
+    def fake_assignment_worker(self,
+            target_ast, values, scratch_locals, namespace):
+
         if isinstance(target_ast, ast.Name):
-            local_variables = self.locals_stack[-1]
-            local_variables[target_ast.id] = values
+            scratch_locals[target_ast.id] = values
         elif (isinstance(target_ast, ast.Tuple) or
                 isinstance(target_ast, ast.List)):
             for i in range(len(target_ast.elts)):
-                self.fake_assignment(target_ast.elts[i], values[i])
+                self.fake_assignment_worker(
+                        target_ast.elts[i], values[i],
+                        scratch_locals, namespace)
+        elif isinstance(target_ast, ast.Subscript):
+
+            # In this case, we don't have an ideal situation
+            # because the Python rules for evaluating subscripts
+            # within tuples are weird.
+
+            # TODO: detect subscripts within tuples, and warn
+            # the user about potential weirdness
+
+            # TODO: there are many things that can go wrong here,
+            # and we don't deal with many of them gracefully.
+
+            node = target_ast.value
+            while not isinstance(node, ast.Name):
+                node = node.value
+            name = node.id
+
+            slices = list()
+            node = target_ast
+            while isinstance(node, ast.Subscript):
+                slices.append(node.slice.value)
+                node = node.value
+
+            slices.reverse()
+            local_variables = self.locals_stack[-1]
+
+            ref = scratch_locals[name]
+            for i in range(len(slices) - 1):
+                slice_ast = slices[i]
+                text = ast2str(slice_ast)
+                (success, ind) = namespace.native_eval(text,
+                        local_variables=local_variables)
+                if success:
+                    ref = ref[ind]
+                else:
+                    NodeError.error_msg(slice_ast,
+                            'could not eval slice expr [%s]' % text)
+                    return
+
+            slice_ast = slices[-1]
+            text = ast2str(slice_ast)
+            (success, ind) = namespace.native_eval(text,
+                    local_variables=local_variables)
+            if success:
+                ref[ind] = values
+            else:
+                NodeError.error_msg(slice_ast,
+                        'could not eval slice expr [%s]' % text)
+                return
+
         else:
             DebugMsg.log('bogus target_ast [%s]' % ast.dump(target_ast),
                     DebugMsg.HIGH)
@@ -455,21 +519,35 @@ class EvalTransformer(object):
         assert isinstance(orig_node, ast.FunctionDef), \
                 ('expected ast.FunctionDef, got %s' % type(node))
 
-        # every time we do a visit, "replay" the preamble to
-        # bring the current state up-to-date.
-        #
-
-        for stmnt in self.preamble_stmnts:
-            # use the old value from preamble_values
-            # don't recompute anything
-            #
-            if isinstance(stmnt, ast.Assign):
-                self.do_assignment(stmnt.targets, self.preamble_values)
-
         self.change_cnt = 0
         node = deepcopy(orig_node)
+
+        self.setup_locals()
+
         node.body = self.do_body(node.body)
         return node
+
+    def setup_locals(self):
+
+        # TODO: should we empty out the local variables in
+        # self.eval_state before we start?
+        # How do we leave them in the correct initial state, with
+        # the actuals for the current call and nothing else?
+
+        # every time we do a visit, "replay" the preamble to
+        # bring the current state up-to-date.  We don't do this
+        # by re-evaluating things, but just by setting up the
+        # local state to recreate the assignments
+        #
+        # use the old value from preamble_values
+        # don't recompute anything
+        #
+        for i in range(len(self.preamble_stmnts)):
+            stmnt = self.preamble_stmnts[i]
+            value = self.preamble_values[i]
+
+            if isinstance(stmnt, ast.Assign):
+                self.eval_state.fake_assignment(stmnt.targets[0], value)
 
     def do_body(self, body):
 
@@ -589,7 +667,7 @@ class EvalTransformer(object):
                 new_body.append(stmnt)
                 print('EV unhandled [%s]' % ast.dump(stmnt))
 
-        # If we've pruned everything out of the body, 
+        # If we've pruned everything out of the body,
         # then insert a pass statement to keep things
         # syntactically correct
         #
@@ -598,12 +676,12 @@ class EvalTransformer(object):
             pyqgl2.ast_util.copy_all_loc(new_pass, orig_node)
             new_body.append(new_pass)
 
-        print('EV final\n%s' % ast2str(node))
-        return new_node
+        print('EV final\n%s' % str([ast2str(n) for n in new_body]))
+        return new_body
 
 
 if __name__ == '__main__':
- 
+
     def test_calls():
         test_calls = [
                 'foo(1, 2, 3, e=55)',
@@ -634,17 +712,48 @@ if __name__ == '__main__':
                     ('x', ['y', 'z'], 'w') ],
                 [ 'a, b = "a", ("1", "2", "3")',
                     ('a', ('1', '2', '3')) ],
+                [ 'a1[1] = "A"', "A" ],
+                [ 'a2[1][2] = "A12"', "A12" ],
+                [ 'a3[1][2][3] = "A123"', "A123" ],
         ]
 
         for (text, val) in test_assignments:
             t1 = ast.parse(text, mode='exec')
             t1 = t1.body[0]
+
+            # set the qgl_fname, so that there's a namespace
+            #
+            for subnode in ast.walk(t1):
+                subnode.qgl_fname = 'aaa.py'
+
             print('T1 %s' % ast.dump(t1))
 
             evaluator = SimpleEvaluator(importer, None)
+            local_variables = evaluator.locals_stack[-1]
+            local_variables['a1'] = ['x', 'y', 'z', 'w']
+            local_variables['a2'] = [
+                    ['x0', 'y0', 'z0', 'w0'],
+                    ['x1', 'y1', 'z1', 'w1'],
+                    ['x2', 'y2', 'z2', 'w2'],
+                    ['x3', 'y3', 'z3', 'w3'],
+            ]
+            local_variables['a3'] = [
+                    [
+                    ['x00', 'y00', 'z00', 'w00'],
+                    ['x01', 'y01', 'z01', 'w01'],
+                    ['x02', 'y02', 'z02', 'w02'] ],
+                    [
+                    ['x10', 'y10', 'z10', 'w10'],
+                    ['x11', 'y11', 'z11', 'w11'],
+                    ['x12', 'y12', 'z12', 'w12'] ],
+                    [
+                    ['x20', 'y20', 'z20', 'w20'],
+                    ['x21', 'y21', 'z21', 'w21'],
+                    ['x22', 'y22', 'z22', 'w22'] ],
+            ]
 
             evaluator.fake_assignment(t1.targets[0], val)
-            print('result [%s] [%s]' % (text, evaluator.locals_stack))
+            print('result [%s] [%s]' % (text, evaluator.locals_stack[-1]))
 
     file_name = 'aaa.py'
     main_name = 't1'
@@ -655,13 +764,10 @@ if __name__ == '__main__':
         NodeError.fatal_msg(None, 'no qglmain function found')
 
     NodeError.halt_on_error()
+    ptree = importer.qglmain
+    print('PTREE %s' % ptree.qgl_fname)
 
     test_fake_assignment(importer)
-
-    ptree = importer.qglmain
-
-
-
 
     evaluator = SimpleEvaluator(importer, None)
     for stmnt in ptree.body:
