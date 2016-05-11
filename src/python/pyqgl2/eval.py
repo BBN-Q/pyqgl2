@@ -327,19 +327,29 @@ class SimpleEvaluator(object):
         if qbit_create:
             # TODO: need to track the creation of the qbit.  This is
             # currently done elsewhere.
-            return True
+            print('EV: ERROR: must handle qbit_create')
+            return True, None
 
         local_variables = self.locals_stack[-1]
 
         namespace = self.importer.path2namespace[node.qgl_fname]
-        success = namespace.native_exec(node, local_variables=local_variables)
+        rval = node.value
+
+        success, values = namespace.native_eval(
+                node.value, local_variables=local_variables)
         if not success:
             NodeError.error_msg(node,
                     'failed to evaluate [%s]' % ast2str(node))
-            return False
+            return False, None
 
         print('EV locals %s' % str(self.locals_stack[-1]))
-        return True
+
+        # Now we need to update the state we're tracking
+
+        self.fake_assignment_worker(node.targets[0], values,
+                local_variables, namespace)
+
+        return True, values
 
     def fake_assignment(self, target_ast, values):
         """
@@ -427,31 +437,50 @@ class SimpleEvaluator(object):
             DebugMsg.log('bogus target_ast [%s]' % ast.dump(target_ast),
                     DebugMsg.HIGH)
 
+    NONQGL2 = 0
+    QGL2STUB = 1
+    QGL2DECL = 2
+    ERROR = -1
+
     def do_call(self, call_node):
         """
-        Incomplete
+        Pseudo-execute a call.
+        
+        If it's a call to a stub function, then we don't do anything
+        now, because we'll actually execute it later.  Return QGL2STUB.
+
+        If it's a call to a qgl2decl function, then return QGL2DECL.
+        This call should be inlined, so this is a temporary failure:
+        we need to inline the function, and then try again.
+
+        Anything else, we don't execute, and return NONQGL2.  This
+        means that the function is executed only for a side effect,
+        and we're not really sure what to do with it yet.
+
+        If there's an error, return ERROR.
         """
 
         funcname = pyqgl2.importer.collapse_name(call_node.func)
         func_ast = self.importer.resolve_sym(call_node.qgl_fname, funcname)
         if not func_ast:
-            # TODO: should this be fatal?  Not sure how we can recover.
-            #
-            print('EV NO AST: ERROR')
-            return False
+            NodeError.error_msg(call_node,
+                    ('no function definition found for [%s]' %
+                        ast.dump(call_node.func)))
+            return self.ERROR
 
         # if it's a stub, then leave it alone.
         if pyqgl2.inline.is_qgl2_stub(func_ast):
             print('EV IS QGL2STUB: passing through')
-            return True
+            return self.QGL2STUB
         elif pyqgl2.inline.is_qgl2_def(func_ast):
             print('EV IS QGL2DECL: passing through')
-            return True
+            return self.QGL2DECL
 
         # otherwise, let's see if we can evaluate it.  We do this only
         # for its side effects; we don't care what the value returned
         # by the call is (or if there even is one).
 
+        """
         namespace = self.importer.path2namespace[call_node.qgl_fname]
         print('EV NS %s' % namespace)
         local_variables = self.locals_stack[-1]
@@ -463,8 +492,9 @@ class SimpleEvaluator(object):
             return False
 
         print('EV locals %s' % str(self.locals_stack[-1]))
+        """
 
-        return True
+        return self.NONQGL2
 
 
 class EvalTransformer(object):
@@ -506,6 +536,17 @@ class EvalTransformer(object):
         #
         self.change_cnt = 0
 
+    def print_state(self):
+
+        print('EVS: PREAMBLE:')
+        for stmnt in self.preamble_stmnts:
+            print('    %s' % ast2str(stmnt).strip())
+
+        print('EVS: LOCALS:')
+        local_variables = self.eval_state.locals_stack[-1]
+        for key in sorted(local_variables.keys()):
+            print('    %s = %s' % (key, str(local_variables[key])))
+
     def visit(self, orig_node):
         """
         Visit a function definition, transforming it according to
@@ -522,9 +563,16 @@ class EvalTransformer(object):
         self.change_cnt = 0
         node = deepcopy(orig_node)
 
+        # restore the last known set of locals before
+        # trying to process the body of the node
+        #
         self.setup_locals()
 
         node.body = self.do_body(node.body)
+
+        # For debugging purposes, print out what we have stored up.
+        self.print_state()
+
         return node
 
     def setup_locals(self):
@@ -553,8 +601,19 @@ class EvalTransformer(object):
 
         new_body = list()
 
+        # still_valid is True as long as we're making progress
+        # on converting the body.  As soon as we hit anything we
+        # can't process, we immediately stop and append the rest of
+        # the body as-is.
+        #
+        still_valid = True
+
         for stmnt_index in range(len(body)):
             stmnt = body[stmnt_index]
+
+            if not still_valid:
+                new_body.append(stmnt)
+                continue
 
             print('EV stmnt todo %s' % ast.dump(stmnt))
 
@@ -567,34 +626,67 @@ class EvalTransformer(object):
             # only if we've removed the calling context as well.
             #
             if isinstance(stmnt, ast.Pass):
+                self.change_cnt += 1
                 continue
+
             elif (isinstance(stmnt, ast.Expr) and
                     isinstance(stmnt.value, ast.Str)):
+                self.change_cnt += 1
                 continue
 
             elif isinstance(stmnt, ast.Assign):
-                success = self.eval_state.do_assignment(stmnt)
-                print('EV did assignment %s' % str(success))
+                # FIXME: this isn't quite right yet.  We need to
+                # handle the case of qbit creation better.
+                # Right now it's handled elsewhere, but it could
+                # be handled here.
+                if is_qbit_create(stmnt):
+                    print('EV: QBIT CREATION (punting)')
+                    new_body.append(stmnt)
+                    continue
 
-                # TODO: if we've successfully computed the value of
-                # the assignment, then we don't need it again,
-                # unless it is necessary for a future pass.  Once
-                # we're certain we're done with it, we can get
-                # rid of it -- but this can and should wait until
-                # the final flattening, I think.
-
-                new_body.append(stmnt)
+                success, values = self.eval_state.do_assignment(stmnt)
+                if success:
+                    self.change_cnt += 1
+                    print('EV did assignment [%s]' % ast2str(stmnt))
+                    self.preamble_stmnts.append(stmnt)
+                    self.preamble_values.append(values)
+                else:
+                    print('EV FAILED assignment [%s]' % ast2str(stmnt))
+                    # maybe we'll be successful next time.
+                    # (unlikely, but possible)
+                    new_body.append(stmnt)
 
             elif (isinstance(stmnt, ast.Expr) and
                     isinstance(stmnt.value, ast.Call)):
-                # If it's a call, it could be a function declared to
-                # be a qgl2stub or a qgl2decl, in which case we leave
-                # alone.  We'll attempt to call anything else.
+                # If it's a call, we need to figure out whether it's
+                # something we should leave alone, expand, or consider
+                # to be an error.
 
                 new_body.append(stmnt)
 
+                # XXX should we keep it, or get rid of it?
                 success = self.eval_state.do_call(stmnt.value)
-                print('EV did call %s' % str(success))
+                if success == self.eval_state.ERROR:
+                    # Ooops.  Fail hard.
+                    still_valid = False
+                    break
+                elif success == self.eval_state.QGL2DECL:
+                    # We can't proceed, with the evaluation,
+                    # but leave the stmnt in the new body,
+                    # in the hope that we can expand it later.
+                    #
+                    new_body.append(stmnt)
+                    still_valid = False
+                    continue
+                elif success == self.eval_state.QGL2STUB:
+                    # real success
+                    new_body.append(stmnt)
+                elif success == self.eval_state.NONQGL2:
+                    # We don't know what to do...  punt.
+                    NodeError.error_msg(stmnt,
+                            'not sure how to handle [%s]' % ast2str(stmnt))
+                    still_valid = False
+                    continue
 
             elif isinstance(stmnt, ast.For):
                 print('EV ast.For check')
@@ -606,6 +698,7 @@ class EvalTransformer(object):
                     if not success:
                         # we'll try again later
                         new_body.append(stmnt)
+                        still_valid = False
                         continue
 
                     print('EV iter evaluated %s to %s' %
@@ -615,10 +708,12 @@ class EvalTransformer(object):
                     if not isinstance(new_iter, ast.List):
                         NodeError.error_msg(stmnt.iter,
                                 'iter does not evaluate to list')
+                        still_valid = False
                         break
                     else:
                         stmnt.iter = new_iter
                         self.change_cnt += 1
+                        still_valid = False
 
                 # NOTE: detection of simple iteration (and conversion
                 # to Qrepeat, if possible) is done in the loop unroller,
@@ -665,6 +760,7 @@ class EvalTransformer(object):
                 # but there are things that could go wrong.
 
                 new_body.append(stmnt)
+                still_valid = False
                 print('EV unhandled [%s]' % ast.dump(stmnt))
 
         # If we've pruned everything out of the body,
@@ -677,6 +773,7 @@ class EvalTransformer(object):
             new_body.append(new_pass)
 
         print('EV final\n%s' % str([ast2str(n) for n in new_body]))
+
         return new_body
 
 
