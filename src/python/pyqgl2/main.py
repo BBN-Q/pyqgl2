@@ -36,7 +36,6 @@ sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
 
 import pyqgl2.ast_util
 import pyqgl2.inline
-import pyqgl2.single
 
 from pyqgl2.ast_util import NodeError
 from pyqgl2.check_qbit import CheckType
@@ -51,7 +50,7 @@ from pyqgl2.flatten import Flattener
 from pyqgl2.importer import NameSpaces, add_import_from_as
 from pyqgl2.inline import Inliner
 from pyqgl2.sequence import SequenceCreator
-from pyqgl2.single import SingleSequence
+from pyqgl2.sequences import SequenceExtractor, get_sequence_function
 from pyqgl2.substitute import specialize
 from pyqgl2.sync import SynchronizeBlocks
 
@@ -297,9 +296,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print(('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8)),
             file=intermediate_fout, flush=True)
 
-    # singseq = SingleSequence()
-    # singseq.find_sequence(new_ptree8)
-    # singseq.emit_function()
+    # Done. Time to generate the QGL1
 
     # Try to guess the proper function name
     fname = main_name
@@ -309,25 +306,10 @@ def compileFunction(filename, main_name=None, saveOutput=False,
         else:
             fname = "qgl1Main"
 
-    builder = pyqgl2.single.SingleSequence(importer)
-    if builder.find_sequence(new_ptree8) and builder.find_imports(new_ptree8):
-        code = builder.emit_function(fname)
-        print(('#start function\n%s\n#end function' % code),
-                file=intermediate_fout, flush=True)
-        if saveOutput:
-            newf = os.path.abspath(filename[:-3] + "qgl1.py")
-            with open(newf, 'w') as compiledFile:
-                compiledFile.write(code)
-            print("Saved compiled code to %s" % newf)
-        # HACK
-        # Assume we have a function creating a single qubit sequence
-        # Find it and return it
-        qgl1_main = pyqgl2.single.single_sequence(new_ptree8, fname, importer)
-        NodeError.halt_on_error()
-        return qgl1_main
-    else:
-        print("Not a single qubit sequence producing function")
-        return None
+    # Get the QGL1 function that produces the proper sequences
+    qgl1_main = get_sequence_function(new_ptree8, fname, importer, intermediate_fout, saveOutput, filename)
+    NodeError.halt_on_error()
+    return qgl1_main
 
     """
     wav_check = CheckWaveforms(type_check.func_defs, importer)
