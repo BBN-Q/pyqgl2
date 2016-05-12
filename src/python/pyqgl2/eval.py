@@ -14,8 +14,7 @@ import pyqgl2.inline
 from pyqgl2.ast_util import NodeError, ast2str
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.importer import NameSpaces
-from pyqgl2.inline import NameRewriter
-from pyqgl2.inline import NameRewriter, TempVarManager
+from pyqgl2.inline import NameFinder, NameRewriter, TempVarManager
 from pyqgl2.single import is_qbit_create
 
 def insert_keyword(kwargs, key, value):
@@ -549,6 +548,11 @@ class EvalTransformer(object):
         #
         self.change_cnt = 0
 
+        # we rewrite variable names to make each variable
+        # single-assignment
+        #
+        self.rewriter = NameRewriter()
+
     def print_state(self):
 
         print('EVS: PREAMBLE:')
@@ -569,6 +573,8 @@ class EvalTransformer(object):
         provided by the NodeTransformer classes, but this isn't a
         NodeTransformer.
         """
+
+        print('EV VISIT ENTRY')
 
         assert isinstance(orig_node, ast.FunctionDef), \
                 ('expected ast.FunctionDef, got %s' % type(node))
@@ -610,6 +616,27 @@ class EvalTransformer(object):
             if isinstance(stmnt, ast.Assign):
                 self.eval_state.fake_assignment(stmnt.targets[0], value)
 
+    def rewrite_assign(self, stmnt):
+
+        name_finder = NameFinder()
+
+        target_var_names, dotted_var_names = name_finder.find_names(
+                stmnt.targets[0])
+
+        if dotted_var_names:
+            NodeError.warning_msg(stmnt.targets[0],
+                    ('assignment to attributes is unreliable in QGL2 %s' %
+                        str(list(dotted_var_names))))
+
+        tmp_targets = TempVarManager.create_temp_var_manager(
+                name_prefix='___ass')
+
+        for name in target_var_names:
+            self.rewriter.add_mapping(
+                    name, tmp_targets.create_tmp_name(name))
+
+        self.rewriter.rewrite(stmnt.targets[0])
+
     def do_for(self, stmnt):
         """
         Unroll a for loop.
@@ -618,10 +645,17 @@ class EvalTransformer(object):
         loop can be replaced with a Qrepeat statement.  TODO FIXME
         """
 
+        print('EV DO_FOR ENTRY')
+
+        name_finder = NameFinder()
+
         # TODO: sanity checking
 
         success, loop_values = self.eval_state.eval_expr(stmnt.iter)
         if not success:
+            NodeError.error_msg(stmnt.iter,
+                    ('could not evaluate iter expression [%s]' %
+                        ast2str(stmnt.iter).strip()))
             return False, None
 
         tmp_iters = TempVarManager.create_temp_var_manager(
@@ -634,14 +668,25 @@ class EvalTransformer(object):
         new_stmnts = list()
 
         targets = stmnt.target
-        loop_var_names = pyqgl2.inline.names_in_ptree(targets)
+        loop_var_names, dotted_var_names = name_finder.find_names(targets)
+        print('EV X2 [%s][%s]' % (str(loop_var_names), dotted_var_names))
+
+        # TODO: what should we do with dotted names?  We don't really
+        # know what to do with them in a generalized way, because we
+        # can't reliably tell what they represent.  For now, we'll
+        # just warn the user.
+
+        if dotted_var_names:
+            NodeError.warning_msg(targets,
+                    ('assignment to attributes is unreliable in QGL2 %s' %
+                        str(list(dotted_var_names))))
 
         iters_txt = '%s = %s' % (
                 loop_iters_name, ast2str(stmnt.iter).strip())
-        print('EVF iters_txt [%s]' % iters_txt)
-
         iters_ast = ast.parse(iters_txt, mode='exec').body[0]
         pyqgl2.ast_util.copy_all_loc(iters_ast, stmnt.iter, recurse=True)
+
+        print('EVF iters_txt [%s]' % iters_txt)
         print('EVF qgl2fname %s' % iters_ast.qgl_fname)
 
         self.preamble_stmnts.append(iters_ast)
@@ -649,16 +694,13 @@ class EvalTransformer(object):
 
         for i in range(len(loop_values)):
 
-            rewriter = NameRewriter()
-
-            new_names = dict()
-
             for name in loop_var_names:
-                rewriter.add_mapping(name, tmp_targets.create_tmp_name(name))
+                self.rewriter.add_mapping(
+                        name, tmp_targets.create_tmp_name(name))
 
             new_targets = deepcopy(targets)
 
-            rewriter.rewrite(new_targets)
+            self.rewriter.rewrite(new_targets)
 
             new_body = deepcopy(stmnt.body)
 
@@ -679,7 +721,7 @@ class EvalTransformer(object):
             self.preamble_values.append(loop_values[i])
 
             for substmnt in new_body:
-                rewriter.rewrite(substmnt)
+                self.rewriter.rewrite(substmnt)
 
             for x in new_body:
                 print('EV FOR0 type %s' % str(type(x)))
@@ -721,6 +763,11 @@ class EvalTransformer(object):
         for stmnt_index in range(len(body)):
             stmnt = body[stmnt_index]
 
+            # replace the names of variables in this statement with
+            # the single-assignment names
+            #
+            self.rewriter.rewrite(stmnt)
+
             print('EV finali %s' % str([type(n) for n in new_body]))
 
             if not still_valid:
@@ -755,6 +802,8 @@ class EvalTransformer(object):
                     print('EV: QBIT CREATION (punting)')
                     new_body.append(stmnt)
                     continue
+
+                self.rewrite_assign(stmnt)
 
                 success, values = self.eval_state.do_assignment(stmnt)
                 if success:
