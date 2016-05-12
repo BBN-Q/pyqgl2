@@ -632,8 +632,9 @@ class EvalTransformer(object):
                 name_prefix='___ass')
 
         for name in target_var_names:
-            self.rewriter.add_mapping(
-                    name, tmp_targets.create_tmp_name(name))
+            new_name = tmp_targets.create_tmp_name(name)
+            print('EV RA %s -> %s' % (name, new_name))
+            self.rewriter.add_mapping(name, new_name)
 
         self.rewriter.rewrite(stmnt.targets[0])
 
@@ -692,17 +693,24 @@ class EvalTransformer(object):
         self.preamble_stmnts.append(iters_ast)
         self.preamble_values.append(loop_values)
 
+        body_template = stmnt.body
+        targets_template = targets
+
         for i in range(len(loop_values)):
 
-            for name in loop_var_names:
-                self.rewriter.add_mapping(
-                        name, tmp_targets.create_tmp_name(name))
+            new_body = deepcopy(body_template)
+            new_targets = deepcopy(targets_template)
 
-            new_targets = deepcopy(targets)
+            loop_var_names, _ = name_finder.find_names(new_targets)
+            for name in loop_var_names:
+                new_name = tmp_targets.create_tmp_name(name)
+                print('EV Fl loop var %s -> %s' % (name, new_name))
+                self.rewriter.add_mapping(name, new_name)
 
             self.rewriter.rewrite(new_targets)
 
-            new_body = deepcopy(stmnt.body)
+            # targets_template = new_targets
+            # body_template = new_body
 
             # Fake the assignment, to update the current variable bindings
             #
@@ -719,9 +727,6 @@ class EvalTransformer(object):
 
             self.preamble_stmnts.append(assign_ast)
             self.preamble_values.append(loop_values[i])
-
-            for substmnt in new_body:
-                self.rewriter.rewrite(substmnt)
 
             for x in new_body:
                 print('EV FOR0 type %s' % str(type(x)))
@@ -763,11 +768,6 @@ class EvalTransformer(object):
         for stmnt_index in range(len(body)):
             stmnt = body[stmnt_index]
 
-            # replace the names of variables in this statement with
-            # the single-assignment names
-            #
-            self.rewriter.rewrite(stmnt)
-
             print('EV finali %s' % str([type(n) for n in new_body]))
 
             if not still_valid:
@@ -803,6 +803,11 @@ class EvalTransformer(object):
                     new_body.append(stmnt)
                     continue
 
+                # replace the names of variables in this statement with
+                # the single-assignment names
+                #
+                self.rewriter.rewrite(stmnt.value)
+
                 self.rewrite_assign(stmnt)
 
                 success, values = self.eval_state.do_assignment(stmnt)
@@ -819,6 +824,9 @@ class EvalTransformer(object):
 
             elif (isinstance(stmnt, ast.Expr) and
                     isinstance(stmnt.value, ast.Call)):
+
+                self.rewriter.rewrite(stmnt)
+
                 # If it's a call, we need to figure out whether it's
                 # something we should leave alone, expand, or consider
                 # to be an error.
@@ -872,6 +880,8 @@ class EvalTransformer(object):
                 # the replace this statement with either the "if"
                 # or "else" clause.
 
+                self.rewriter.rewrite(stmnt)
+
                 success, test = self.eval_state.do_test(stmnt.test)
                 if not success:
                     NodeError.error_msg(stmnt,
@@ -907,6 +917,8 @@ class EvalTransformer(object):
                 # looking for things that shouldn't ever happen.
                 # Right now we just assume that anything else is OK,
                 # but there are things that could go wrong.
+
+                self.rewriter.rewrite(stmnt)
 
                 new_body.append(stmnt)
                 still_valid = False
