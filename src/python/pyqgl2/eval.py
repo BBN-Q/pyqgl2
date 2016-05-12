@@ -14,6 +14,8 @@ import pyqgl2.inline
 from pyqgl2.ast_util import NodeError, ast2str
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.importer import NameSpaces
+from pyqgl2.inline import NameRewriter
+from pyqgl2.inline import NameRewriter, TempVarManager
 from pyqgl2.single import is_qbit_create
 
 def insert_keyword(kwargs, key, value):
@@ -315,6 +317,16 @@ class SimpleEvaluator(object):
         #
         return True, val_ast.body
 
+    def eval_expr(self, expr):
+
+        print('EV EE %s' % ast2str(expr))
+        local_variables = self.locals_stack[-1]
+        namespace = self.importer.path2namespace[expr.qgl_fname]
+
+        success, values = namespace.native_eval(
+                expr, local_variables=local_variables)
+
+        return success, values
 
     def do_assignment(self, node):
         """
@@ -362,6 +374,7 @@ class SimpleEvaluator(object):
         (although we do try to detect failures).
         """
 
+        print('EV FA to [%s]' % ast2str(target_ast))
         namespace = self.importer.path2namespace[target_ast.qgl_fname]
 
         local_variables = self.locals_stack[-1]
@@ -597,6 +610,82 @@ class EvalTransformer(object):
             if isinstance(stmnt, ast.Assign):
                 self.eval_state.fake_assignment(stmnt.targets[0], value)
 
+    def do_for(self, stmnt):
+        """
+        Unroll a for loop.
+
+        This is currently done WITHOUT checking whether the for
+        loop can be replaced with a Qrepeat statement.  TODO FIXME
+        """
+
+        # TODO: sanity checking
+
+        success, loop_values = self.eval_state.eval_expr(stmnt.iter)
+        if not success:
+            return False, None
+
+        tmp_iters = TempVarManager.create_temp_var_manager(
+                name_prefix='___iter')
+        loop_iters_name = tmp_iters.create_tmp_name('for_iter')
+
+        tmp_targets = TempVarManager.create_temp_var_manager(
+                name_prefix='___targ')
+
+        new_stmnts = list()
+
+        targets = stmnt.target
+        loop_var_names = pyqgl2.inline.names_in_ptree(targets)
+
+        iters_txt = '%s = %s' % (
+                loop_iters_name, ast2str(stmnt.iter).strip())
+        print('EVF iters_txt [%s]' % iters_txt)
+
+        iters_ast = ast.parse(iters_txt, mode='exec').body[0]
+        pyqgl2.ast_util.copy_all_loc(iters_ast, stmnt.iter, recurse=True)
+        print('EVF qgl2fname %s' % iters_ast.qgl_fname)
+
+        self.preamble_stmnts.append(iters_ast)
+        self.preamble_values.append(loop_values)
+
+        for i in range(len(loop_values)):
+
+            rewriter = NameRewriter()
+
+            new_names = dict()
+
+            for name in loop_var_names:
+                rewriter.add_mapping(name, tmp_targets.create_tmp_name(name))
+
+            new_targets = deepcopy(targets)
+
+            rewriter.rewrite(new_targets)
+
+            new_body = deepcopy(stmnt.body)
+
+            # Insert a new statement for assigning the loop targets
+            # from the loop variables array
+
+            assign_txt = '%s = %s[%d]' % (
+                    ast2str(new_targets), loop_iters_name, i)
+            assign_ast = ast.parse(assign_txt, mode='exec').body[0]
+            pyqgl2.ast_util.copy_all_loc(
+                    assign_ast, stmnt.body[0], recurse=True)
+
+            self.preamble_stmnts.append(assign_ast)
+            self.preamble_values.append(loop_values[i])
+
+            for substmnt in new_body:
+                rewriter.rewrite(substmnt)
+                new_stmnts.append(substmnt)
+
+        for ns in self.preamble_stmnts:
+            print('EVF pre %s' % ast2str(ns).strip())
+        for ns in new_stmnts:
+            print('EVF run %s' % ast2str(ns).strip())
+
+        return True, new_stmnts
+
+
     def do_body(self, body):
 
         new_body = list()
@@ -691,35 +780,19 @@ class EvalTransformer(object):
             elif isinstance(stmnt, ast.For):
                 print('EV ast.For check')
 
-                if not isinstance(stmnt.iter, ast.List):
-
-                    print('EV ast.For iter not ast.List')
-                    success, new_iter = self.eval_state.do_iters(stmnt.iter)
-                    if not success:
-                        # we'll try again later
-                        new_body.append(stmnt)
-                        still_valid = False
-                        continue
-
-                    print('EV iter evaluated %s to %s' %
-                            (ast2str(stmnt.iter), ast2str(new_iter)))
-                    print('EV2 iter evaluated to %s' % ast.dump(new_iter))
-
-                    if not isinstance(new_iter, ast.List):
-                        NodeError.error_msg(stmnt.iter,
-                                'iter does not evaluate to list')
-                        still_valid = False
-                        break
-                    else:
-                        stmnt.iter = new_iter
-                        self.change_cnt += 1
-                        still_valid = False
-
                 # NOTE: detection of simple iteration (and conversion
-                # to Qrepeat, if possible) is done in the loop unroller,
-                # not here.  This function only tries to expand the elts.
+                # to Qrepeat, if possible) is not done here.
+                # An old example of this is done in the loop unroller.
+                # The do_for function only tries to expand the elts.
 
-                new_body.append(stmnt)
+                success, new_stmnts = self.do_for(stmnt)
+                if not success:
+                    NodeError.error_msg(stmnt,
+                            'failed to unroll [%s]' % ast2str(stmnt))
+                    still_valid = False
+                    continue
+
+                new_body += new_stmnts
 
             elif isinstance(stmnt, ast.If):
                 # if is't an "if" statement, try to figure out
