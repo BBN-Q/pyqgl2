@@ -662,6 +662,10 @@ class EvalTransformer(object):
 
             new_body = deepcopy(stmnt.body)
 
+            # Fake the assignment, to update the current variable bindings
+            #
+            self.eval_state.fake_assignment(new_targets, loop_values[i])
+
             # Insert a new statement for assigning the loop targets
             # from the loop variables array
 
@@ -676,7 +680,24 @@ class EvalTransformer(object):
 
             for substmnt in new_body:
                 rewriter.rewrite(substmnt)
-                new_stmnts.append(substmnt)
+
+            for x in new_body:
+                print('EV FOR0 type %s' % str(type(x)))
+
+            # and now recurse, to expand this copy of the body
+            #
+            new_body = self.do_body(new_body)
+
+            if len(new_body) > 0:
+                for x in new_body:
+                    print('EV FOR1 type %s' % str(type(x)))
+
+                new_stmnts += new_body
+
+                for x in new_stmnts:
+                    print('EV FOR2 type %s' % str(type(x)))
+            else:
+                print('EV FOR3 no additions')
 
         for ns in self.preamble_stmnts:
             print('EVF pre %s' % ast2str(ns).strip())
@@ -699,6 +720,8 @@ class EvalTransformer(object):
 
         for stmnt_index in range(len(body)):
             stmnt = body[stmnt_index]
+
+            print('EV finali %s' % str([type(n) for n in new_body]))
 
             if not still_valid:
                 new_body.append(stmnt)
@@ -791,6 +814,8 @@ class EvalTransformer(object):
                     continue
 
                 new_body += new_stmnts
+                for x in new_body:
+                    print('EV type %s' % str(type(x)))
 
             elif isinstance(stmnt, ast.If):
                 # if is't an "if" statement, try to figure out
@@ -799,30 +824,34 @@ class EvalTransformer(object):
                 # or "else" clause.
 
                 success, test = self.eval_state.do_test(stmnt.test)
-                if success:
-                    # Even though we don't know whether we're going
-                    # to make any "real" changes, we figured something out
-                    # that we didn't figure out before, so we count
-                    # it as a change
-                    #
-                    self.change_cnt += 1
+                if not success:
+                    NodeError.error_msg(stmnt,
+                            'failed to evaluate test [%s]' % ast2str(stmnt))
+                    still_valid = False
+                    break
 
-                    if test:
-                        stmnt_list = stmnt.body
-                    else:
-                        stmnt_list = stmnt.orelse
+                # Even though we don't know whether we're going
+                # to make any "real" changes, we figured something out
+                # that we didn't figure out before, so we count
+                # it as a change
+                #
+                self.change_cnt += 1
 
-                    for substmnt in stmnt_list:
-                        # skip over pass statements
-                        #
-                        # TODO: could also omit anything after a break
-                        # or continue statement, because they'll
-                        # be unreachable
-                        #
-                        if isinstance(substmnt, ast.Pass):
-                            continue
+                if test:
+                    stmnt_list = stmnt.body
+                else:
+                    stmnt_list = stmnt.orelse
 
-                        new_body.append(substmnt)
+                print('EV IF body types %s' % str([type(x) for x in stmnt_list]))
+
+                # cull out toplevel pass statements
+                #
+                stmnt_list = [ substmnt for substmnt in stmnt_list
+                        if not isinstance(substmnt, ast.Pass) ]
+
+                if len(stmnt_list) > 0:
+                    expanded_body = self.do_body(stmnt_list)
+                    new_body += expanded_body
 
             else:
                 # TODO: we could add more sanity checks here,
@@ -838,11 +867,12 @@ class EvalTransformer(object):
         # then insert a pass statement to keep things
         # syntactically correct
         #
-        if len(new_body) == 0:
-            new_pass = ast.Pass()
-            pyqgl2.ast_util.copy_all_loc(new_pass, orig_node)
-            new_body.append(new_pass)
+        # if len(new_body) == 0:
+        #     new_pass = ast.Pass()
+        #     pyqgl2.ast_util.copy_all_loc(new_pass, body[0])
+        #     new_body.append(new_pass)
 
+        print('EV finalt %s' % str([type(n) for n in new_body]))
         print('EV final %s' % str([ast2str(n) for n in new_body]))
 
         return new_body
