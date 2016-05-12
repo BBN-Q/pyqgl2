@@ -58,7 +58,7 @@ class NodeError(object):
 
     def __init__(self):
         NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_NONE
-        NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_ERROR
+        NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_WARNING
 
     @staticmethod
     def reset():
