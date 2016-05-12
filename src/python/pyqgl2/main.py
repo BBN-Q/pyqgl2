@@ -213,6 +213,13 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     # do this, but instead assume the worst if the program is complex
     # enough to look like it's "probably" divergent.
     #
+
+    # Unlike some of the other transformers, the EvalTransformer
+    # builds up state from call to call, so we don't want to
+    # create a new instance for each iteration.
+    #
+    evaluator = EvalTransformer(SimpleEvaluator(importer, None))
+
     MAX_ITERS = 20
     for iteration in range(MAX_ITERS):
 
@@ -239,7 +246,6 @@ def compileFunction(filename, main_name=None, saveOutput=False,
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
 
-        evaluator = EvalTransformer(SimpleEvaluator(importer, None))
         ptree1 = evaluator.visit(ptree1)
 
         print('PARTIAL EVALUATION (iteration %d):\n%s' %
@@ -252,7 +258,8 @@ def compileFunction(filename, main_name=None, saveOutput=False,
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
 
-        if (inliner.change_cnt == 0) and (unroller.change_cnt == 0):
+        if ((inliner.change_cnt == 0) and (unroller.change_cnt == 0) and
+                (evaluator.change_cnt == 0)):
             NodeError.diag_msg(None,
                     ('expansion converged after iteration %d' % iteration))
             break
