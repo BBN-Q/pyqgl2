@@ -751,8 +751,6 @@ class EvalTransformer(object):
                 # something we should leave alone, expand, or consider
                 # to be an error.
 
-                new_body.append(stmnt)
-
                 # XXX should we keep it, or get rid of it?
                 success = self.eval_state.do_call(stmnt.value)
                 if success == self.eval_state.ERROR:
@@ -845,7 +843,7 @@ class EvalTransformer(object):
             pyqgl2.ast_util.copy_all_loc(new_pass, orig_node)
             new_body.append(new_pass)
 
-        print('EV final\n%s' % str([ast2str(n) for n in new_body]))
+        print('EV final %s' % str([ast2str(n) for n in new_body]))
 
         return new_body
 
