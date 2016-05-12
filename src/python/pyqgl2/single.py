@@ -99,6 +99,7 @@ class SingleSequence(object):
 
                 fdef = self.importer.resolve_sym(namespace, funcname)
                 if not fdef:
+                    print('ERROR %s funcname' % funcname)
                     NodeError.error_msg(subnode,
                             'cannot find import info for [%s]' % funcname)
                 elif not fdef.qgl_stub_import:
@@ -186,7 +187,7 @@ class SingleSequence(object):
         # print("Seqs: %s" % self.sequences)
         return True
 
-    def emit_function(self, func_name='qgl1_main'):
+    def emit_function(self, func_name='qgl1_main', setup=None):
         """
         Create a function that, when run, creates the context
         in which the sequence is evaluated, and evaluate it.
@@ -267,7 +268,7 @@ class SingleSequence(object):
         res =  preamble + seqs_def + seqs_str + postamble
         return res
 
-def single_sequence(node, func_name, importer):
+def single_sequence(node, func_name, importer, setup=None):
     """
     Create a function that encapsulates the QGL code (for a single
     sequence) from the given AST node, which is presumed to already
@@ -281,7 +282,7 @@ def single_sequence(node, func_name, importer):
     builder = SingleSequence(importer)
 
     if builder.find_sequence(node) and builder.find_imports(node):
-        code = builder.emit_function(func_name)
+        code = builder.emit_function(func_name, setup=setup)
 
         NodeError.diag_msg(
                 node, 'generated code:\n#start\n%s\n#end code' % code)
