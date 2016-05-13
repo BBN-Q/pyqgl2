@@ -6,9 +6,9 @@ from QGL.PulsePrimitives import X, Id, MEAS, X90, U90
 from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
-from .helpers import create_cal_seqs
-from .new_helpers import addCalibration, compileAndPlot
-from .qgl2_plumbing import init
+from qgl2.basic_sequences.helpers import create_cal_seqs
+from qgl2.basic_sequences.new_helpers import addCalibration, compileAndPlot
+from qgl2.qgl2 import init
 from qgl2.qgl1 import X90, Id, U90, MEAS, X, QubitFactory
 from qgl2.qgl1 import Sync, Wait
 

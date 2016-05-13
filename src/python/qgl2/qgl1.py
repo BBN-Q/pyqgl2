@@ -4,7 +4,7 @@
 # how to handle these functions
 
 # The annotations are defined in here
-from .qgl2 import qbit, pulse, qgl2stub, sequence, qbit_list, control
+from qgl2.qgl2 import qbit, pulse, qgl2stub, sequence, qbit_list, control
 
 # Start with functions that are used by the BasicSequences
 #from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS, flat_top_gaussian, echoCR, U90, X90m, AC, Utheta, U

@@ -6,8 +6,8 @@ from QGL.PulsePrimitives import X, U, Y90, X90, MEAS, Id
 from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
-from .new_helpers import compileAndPlot, addMeasPulse
-from .qgl2_plumbing import init
+from qgl2.basic_sequences.new_helpers import compileAndPlot, addMeasPulse
+from qgl2.qgl2 import init
 
 from itertools import chain
 from numpy import pi

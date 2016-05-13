@@ -1,6 +1,6 @@
 from qgl2.qgl2 import qgl2decl, qbit, sequence
-from .helpers import create_cal_seqs
-from .qgl2_plumbing import init
+from qgl2.basic_sequences.helpers import create_cal_seqs
+from qgl2.qgl2 import init
 from qgl2.qgl1 import QubitFactory, X, Id, MEAS, U90
 import numpy as np
 from numpy import pi

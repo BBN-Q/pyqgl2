@@ -7,9 +7,9 @@ from QGL.PulseSequencePlotter import plot_pulse_files
 from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
 from QGL.Compiler import compile_to_hardware
 
-from .helpers import create_cal_seqs
-from .new_helpers import compileAndPlot
-from .qgl2_plumbing import init
+from qgl2.basic_sequences.helpers import create_cal_seqs
+from qgl2.basic_sequences.new_helpers import compileAndPlot
+from qgl2.qgl2 import init
 
 from csv import reader
 from functools import reduce
