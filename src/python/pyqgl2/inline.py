@@ -632,6 +632,56 @@ def create_inline_procedure(func_ptree, call_ptree):
 
     return inlined
 
+class NameFinder(ast.NodeVisitor):
+    """
+    A visitor for finding the names referenced by a node
+
+    See find_names() for more info
+    """
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.simple_names = set()
+        self.dotted_names = set()
+
+    def visit_Attribute(self, node):
+        name = collapse_name(node)
+        self.dotted_names.add(name)
+
+    def visit_Name(self, node):
+        self.simple_names.add(node.id)
+
+    def find_names(self, node):
+        """
+        Find the simple names (purely local names) and the
+        "dotted" names (attributes of an instance, class,
+        or module) referenced by a given AST node.
+
+        Returns (simple, dotted) where "simple" is the set
+        of simple names and "dotted" is the set of dotted names.
+
+        Note that this skips NameConstants, because these
+        names are fixed symbols in Python 3.4+ and cannot be
+        renamed or modified (and therefore they're not really
+        "local" names at all).
+        """
+
+        self.reset()
+        self.visit(node)
+
+        return self.simple_names, self.dotted_names
+
+    def find_local_names(self, node):
+        """
+        A specialized form of find_names that only
+        returns the local names
+        """
+
+        simple, _dotted = self.find_names(node)
+        return simple
+
 def names_in_ptree(ptree):
     """
     Return a set of all of the Name strings in ptree
