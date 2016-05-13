@@ -652,7 +652,10 @@ class EvalTransformer(object):
 
         # TODO: sanity checking
 
-        success, loop_values = self.eval_state.eval_expr(stmnt.iter)
+        iter_copy = deepcopy(stmnt.iter)
+        self.rewriter.rewrite(iter_copy)
+
+        success, loop_values = self.eval_state.eval_expr(iter_copy)
         if not success:
             NodeError.error_msg(stmnt.iter,
                     ('could not evaluate iter expression [%s]' %
@@ -683,7 +686,7 @@ class EvalTransformer(object):
                         str(list(dotted_var_names))))
 
         iters_txt = '%s = %s' % (
-                loop_iters_name, ast2str(stmnt.iter).strip())
+                loop_iters_name, ast2str(iter_copy).strip())
         iters_ast = ast.parse(iters_txt, mode='exec').body[0]
         pyqgl2.ast_util.copy_all_loc(iters_ast, stmnt.iter, recurse=True)
 
