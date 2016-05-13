@@ -915,6 +915,21 @@ class EvalTransformer(object):
                     expanded_body = self.do_body(stmnt_list)
                     new_body += expanded_body
 
+            elif isinstance(stmnt, ast.With):
+                # If it's a "with" statement, then make a new "with"
+                # statement with a rewritten body
+                #
+                # TODO: need to also rewrite the target itself,
+                # because it might be an expression (like "Qrepeat(x)")
+
+                new_with = deepcopy(stmnt)
+                for item in new_with.items:
+                    self.rewriter.rewrite(item)
+
+                new_with.body = self.do_body(new_with.body)
+
+                new_body.append(new_with)
+
             else:
                 # TODO: we could add more sanity checks here,
                 # looking for things that shouldn't ever happen.
