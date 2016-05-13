@@ -318,7 +318,6 @@ class SimpleEvaluator(object):
 
     def eval_expr(self, expr):
 
-        print('EV EE %s' % ast2str(expr))
         local_variables = self.locals_stack[-1]
         namespace = self.importer.path2namespace[expr.qgl_fname]
 
@@ -353,7 +352,7 @@ class SimpleEvaluator(object):
                     'failed to evaluate [%s]' % ast2str(node))
             return False, None
 
-        print('EV locals %s' % str(self.locals_stack[-1]))
+        # print('EV locals %s' % str(self.locals_stack[-1]))
 
         # Now we need to update the state we're tracking
 
@@ -373,7 +372,7 @@ class SimpleEvaluator(object):
         (although we do try to detect failures).
         """
 
-        print('EV FA to [%s]' % ast2str(target_ast))
+        # print('EV FA to [%s]' % ast2str(target_ast))
         namespace = self.importer.path2namespace[target_ast.qgl_fname]
 
         local_variables = self.locals_stack[-1]
@@ -482,10 +481,10 @@ class SimpleEvaluator(object):
 
         # if it's a stub, then leave it alone.
         if pyqgl2.inline.is_qgl2_stub(func_ast):
-            print('EV IS QGL2STUB: passing through')
+            # print('EV IS QGL2STUB: passing through')
             return self.QGL2STUB
         elif pyqgl2.inline.is_qgl2_def(func_ast):
-            print('EV IS QGL2DECL: passing through')
+            # print('EV IS QGL2DECL: passing through')
             return self.QGL2DECL
 
         # otherwise, let's see if we can evaluate it.  We do this only
@@ -574,8 +573,6 @@ class EvalTransformer(object):
         NodeTransformer.
         """
 
-        print('EV VISIT ENTRY')
-
         assert isinstance(orig_node, ast.FunctionDef), \
                 ('expected ast.FunctionDef, got %s' % type(node))
 
@@ -590,7 +587,7 @@ class EvalTransformer(object):
         node.body = self.do_body(node.body)
 
         # For debugging purposes, print out what we have stored up.
-        self.print_state()
+        # self.print_state()
 
         return node
 
@@ -633,7 +630,7 @@ class EvalTransformer(object):
 
         for name in target_var_names:
             new_name = tmp_targets.create_tmp_name(name)
-            print('EV RA %s -> %s' % (name, new_name))
+            # print('EV RA %s -> %s' % (name, new_name))
             self.rewriter.add_mapping(name, new_name)
 
         self.rewriter.rewrite(stmnt.targets[0])
@@ -645,8 +642,6 @@ class EvalTransformer(object):
         This is currently done WITHOUT checking whether the for
         loop can be replaced with a Qrepeat statement.  TODO FIXME
         """
-
-        print('EV DO_FOR ENTRY')
 
         name_finder = NameFinder()
 
@@ -673,7 +668,7 @@ class EvalTransformer(object):
 
         targets = stmnt.target
         loop_var_names, dotted_var_names = name_finder.find_names(targets)
-        print('EV X2 [%s][%s]' % (str(loop_var_names), dotted_var_names))
+        # print('EV X2 [%s][%s]' % (str(loop_var_names), dotted_var_names))
 
         # TODO: what should we do with dotted names?  We don't really
         # know what to do with them in a generalized way, because we
@@ -690,8 +685,8 @@ class EvalTransformer(object):
         iters_ast = ast.parse(iters_txt, mode='exec').body[0]
         pyqgl2.ast_util.copy_all_loc(iters_ast, stmnt.iter, recurse=True)
 
-        print('EVF iters_txt [%s]' % iters_txt)
-        print('EVF qgl2fname %s' % iters_ast.qgl_fname)
+        # print('EVF iters_txt [%s]' % iters_txt)
+        # print('EVF qgl2fname %s' % iters_ast.qgl_fname)
 
         self.preamble_stmnts.append(iters_ast)
         self.preamble_values.append(loop_values)
@@ -707,7 +702,7 @@ class EvalTransformer(object):
             loop_var_names, _ = name_finder.find_names(new_targets)
             for name in loop_var_names:
                 new_name = tmp_targets.create_tmp_name(name)
-                print('EV Fl loop var %s -> %s' % (name, new_name))
+                # print('EV Fl loop var %s -> %s' % (name, new_name))
                 self.rewriter.add_mapping(name, new_name)
 
             self.rewriter.rewrite(new_targets)
@@ -731,28 +726,23 @@ class EvalTransformer(object):
             self.preamble_stmnts.append(assign_ast)
             self.preamble_values.append(loop_values[i])
 
-            for x in new_body:
-                print('EV FOR0 type %s' % str(type(x)))
+            # for x in new_body:
+            #     print('EV FOR0 type %s' % str(type(x)))
 
             # and now recurse, to expand this copy of the body
             #
             new_body = self.do_body(new_body)
 
             if len(new_body) > 0:
-                for x in new_body:
-                    print('EV FOR1 type %s' % str(type(x)))
-
                 new_stmnts += new_body
-
-                for x in new_stmnts:
-                    print('EV FOR2 type %s' % str(type(x)))
             else:
-                print('EV FOR3 no additions')
+                # print('EV FOR3 no additions')
+                pass
 
-        for ns in self.preamble_stmnts:
-            print('EVF pre %s' % ast2str(ns).strip())
-        for ns in new_stmnts:
-            print('EVF run %s' % ast2str(ns).strip())
+        # for ns in self.preamble_stmnts:
+        #     print('EVF pre %s' % ast2str(ns).strip())
+        # for ns in new_stmnts:
+        #     print('EVF run %s' % ast2str(ns).strip())
 
         return True, new_stmnts
 
@@ -771,13 +761,9 @@ class EvalTransformer(object):
         for stmnt_index in range(len(body)):
             stmnt = body[stmnt_index]
 
-            print('EV finali %s' % str([type(n) for n in new_body]))
-
             if not still_valid:
                 new_body.append(stmnt)
                 continue
-
-            print('EV stmnt todo %s' % ast.dump(stmnt))
 
             # Skip over any pass statements or comment strings.
             #
@@ -802,7 +788,7 @@ class EvalTransformer(object):
                 # Right now it's handled elsewhere, but it could
                 # be handled here.
                 if is_qbit_create(stmnt):
-                    print('EV: QBIT CREATION (punting)')
+                    # print('EV: QBIT CREATION (punting)')
                     new_body.append(stmnt)
                     continue
 
@@ -816,14 +802,14 @@ class EvalTransformer(object):
                 success, values = self.eval_state.do_assignment(stmnt)
                 if success:
                     self.change_cnt += 1
-                    print('EV did assignment [%s]' % ast2str(stmnt))
+                    # print('EV did assignment [%s]' % ast2str(stmnt))
                     self.preamble_stmnts.append(stmnt)
                     self.preamble_values.append(values)
                 else:
-                    print('EV FAILED assignment [%s]' % ast2str(stmnt))
-                    # maybe we'll be successful next time.
-                    # (unlikely, but possible)
-                    new_body.append(stmnt)
+                    still_valid = False
+                    NodeError.error_msg(stmnt,
+                            'assignment failed [%s]' % ast2str(stmnt))
+                    break
 
             elif (isinstance(stmnt, ast.Expr) and
                     isinstance(stmnt.value, ast.Call)):
@@ -859,7 +845,7 @@ class EvalTransformer(object):
                     continue
 
             elif isinstance(stmnt, ast.For):
-                print('EV ast.For check')
+                # print('EV ast.For check')
 
                 # NOTE: detection of simple iteration (and conversion
                 # to Qrepeat, if possible) is not done here.
@@ -874,8 +860,6 @@ class EvalTransformer(object):
                     continue
 
                 new_body += new_stmnts
-                for x in new_body:
-                    print('EV type %s' % str(type(x)))
 
             elif isinstance(stmnt, ast.If):
                 # if is't an "if" statement, try to figure out
@@ -903,8 +887,6 @@ class EvalTransformer(object):
                     stmnt_list = stmnt.body
                 else:
                     stmnt_list = stmnt.orelse
-
-                print('EV IF body types %s' % str([type(x) for x in stmnt_list]))
 
                 # cull out toplevel pass statements
                 #
@@ -946,13 +928,13 @@ class EvalTransformer(object):
         # then insert a pass statement to keep things
         # syntactically correct
         #
+        # TODO should this be done here?  Probably better
+        # to let the caller decide whether to insert something
+        #
         # if len(new_body) == 0:
         #     new_pass = ast.Pass()
         #     pyqgl2.ast_util.copy_all_loc(new_pass, body[0])
         #     new_body.append(new_pass)
-
-        print('EV finalt %s' % str([type(n) for n in new_body]))
-        print('EV final %s' % str([ast2str(n) for n in new_body]))
 
         return new_body
 
