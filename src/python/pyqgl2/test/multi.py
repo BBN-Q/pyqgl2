@@ -1,6 +1,6 @@
 from qgl2.qgl1 import QubitFactory, Id, X, MEAS, Y
 from qgl2.qgl2 import qgl2decl, sequence, concur, seq
-from qgl2.basic_sequences.qgl2_plumbing import init
+from qgl2.qgl2 import init
 
 @qgl2decl
 def multiQbitTest() -> sequence:

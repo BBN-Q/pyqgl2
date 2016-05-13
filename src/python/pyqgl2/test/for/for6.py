@@ -1,7 +1,7 @@
 
 from qgl2.qgl2 import concur, qbit, qgl2decl, qgl2main
 from qgl2.qgl1 import QubitFactory, Id, Y90, Y, X90
-from qgl2.basic_sequences.qgl2_plumbing import init
+from qgl2.qgl2 import init
 
 @qgl2decl
 def func_a(a: qbit, b: qbit, c: qbit):
