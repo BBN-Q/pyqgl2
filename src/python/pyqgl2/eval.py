@@ -14,7 +14,8 @@ import pyqgl2.inline
 from pyqgl2.ast_util import NodeError, ast2str
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.importer import NameSpaces
-from pyqgl2.inline import NameFinder, NameRewriter, TempVarManager
+from pyqgl2.inline import NameFinder, NameRedirector, NameRewriter
+from pyqgl2.inline import TempVarManager
 from pyqgl2.single import is_qbit_create
 
 def insert_keyword(kwargs, key, value):
@@ -526,7 +527,7 @@ class EvalTransformer(object):
     to handle loops, stub functions, or qgl2decl'd functions
     """
 
-    def __init__(self, eval_state):
+    def __init__(self, eval_state, redirect_table_name='qv'):
         """
         eval_state is a SimpleEvaluator instance
         """
@@ -552,6 +553,8 @@ class EvalTransformer(object):
         #
         self.rewriter = NameRewriter()
 
+        self.redirect_name = redirect_table_name
+
     def print_state(self):
 
         print('EVS: PREAMBLE:')
@@ -562,6 +565,56 @@ class EvalTransformer(object):
         local_variables = self.eval_state.locals_stack[-1]
         for key in sorted(local_variables.keys()):
             print('    %s = %s' % (key, str(local_variables[key])))
+
+    def replace_bindings(self, stmnts):
+        """
+        Walk through a list of statements, replacing all of the
+        references to variables with references to dictionary
+        entries, creating a dictionary capturing the references
+        (as a member) as a side effect.  This is a destructive
+        operation that edits the stmnts in place.
+
+        Returns the new dictionary.
+
+        Assumes that the stmnts have already been transformed
+        into single-assignment form, and the values have all
+        been precomputed.  Names that are not present in the
+        local variables are unchanged by this procedure, and
+        their presence is not considered to be unusual (although
+        for the purpose of debugging, we note them for now).
+        """
+
+        new_values = dict()
+
+        local_variables = self.eval_state.locals_stack[-1]
+
+        name_finder = NameFinder()
+        name_redirector = NameRedirector(
+                values=new_values, table_name=self.redirect_name)
+
+        for stmnt in stmnts:
+
+            # First, update the values dictionary to make
+            # sure that it contains all the values referenced
+            # in the statements
+            #
+            names, _dotted_names = name_finder.find_names(stmnt)
+            for name in names:
+                if name in local_variables:
+                    new_values[name] = local_variables[name]
+                else:
+                    # for debugging only
+                    print('EV RB sym absent [%s]' % name)
+
+            # This assumes that the rewriting can always be done
+            # in place, and reuse the top level node of the
+            # statement, so we don't need to capture it.
+            #
+            # TODO: verify this.
+            #
+            name_redirector.visit(stmnt)
+
+        return new_values
 
     def visit(self, orig_node):
         """
