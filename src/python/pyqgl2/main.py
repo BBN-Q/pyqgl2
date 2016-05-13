@@ -130,7 +130,7 @@ def parse_args(argv):
 
 
 def compileFunction(filename, main_name=None, saveOutput=False,
-        intermediate_output=None):
+                    intermediate_output=None):
 
     # Always open up a file for the intermediate output,
     # even if it's just /dev/null, so we don't have to
@@ -151,7 +151,25 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     # Process imports in the input file, and find the main.
     # If there's no main, then bail out right away.
 
-    importer = NameSpaces(filename, main_name)
+    # The 'filename' could really be the source for the function
+    code = None
+    # Detect that ths is code, not a filename
+    # FIXME: Is there a better way to do this?
+    if ("qgl2decl" in filename or "qgl2main" in filename) and "def " in filename:
+        NodeError.diag_msg(None, "Treating filename as code")
+        code = filename
+        filename = sys.argv[0] # Could use <stdin> instead
+    else:
+        try:
+            relPath = os.path.relpath(filename)
+        except Exception as e:
+            # If that wasn't a good path, treat it as code
+            NodeError.diag_msg(None, "Failed to make relpath from %s: %s" % (filename, e))
+            code = filename
+            filename = sys.argv[0] # Could use <stdin> instead
+#            filename = "<stdin>"
+
+    importer = NameSpaces(filename, main_name, code)
     if not importer.qglmain:
         NodeError.fatal_msg(None, 'no qglmain function found')
 
@@ -236,8 +254,12 @@ def compileFunction(filename, main_name=None, saveOutput=False,
         NodeError.error_msg(None,
                 ('expansion did not converge after %d iterations' % MAX_ITERS))
 
-    base_namespace = importer.path2namespace[filename]
-    text = base_namespace.pretty_print()
+    # If we got raw code, then we may have no source file to use
+    if not filename or filename == '<stdin>':
+        text = '<stdin>'
+    else:
+        base_namespace = importer.path2namespace[filename]
+        text = base_namespace.pretty_print()
     print(('EXPANDED NAMESPACE:\n%s' % text),
             file=intermediate_fout, flush=True)
 
@@ -285,8 +307,9 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print(('Final qglmain: %s' % new_ptree7.name),
             file=intermediate_fout, flush=True)
 
-    base_namespace = importer.path2namespace[filename]
-    text = base_namespace.pretty_print()
+    # These values are set above
+    #base_namespace = importer.path2namespace[filename]
+    #text = base_namespace.pretty_print()
     print(('FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % text),
             file=intermediate_fout, flush=True)
 
@@ -307,7 +330,11 @@ def compileFunction(filename, main_name=None, saveOutput=False,
             fname = "qgl1Main"
 
     # Get the QGL1 function that produces the proper sequences
-    qgl1_main = get_sequence_function(new_ptree8, fname, importer, intermediate_fout, saveOutput, filename)
+    # But if we started with raw code, we may have no filename
+    filen = filename
+    if not filename or filename == '<stdin>':
+        filen = "myprogram.py"
+    qgl1_main = get_sequence_function(new_ptree8, fname, importer, intermediate_fout, saveOutput, filen)
     NodeError.halt_on_error()
     return qgl1_main
 
@@ -338,6 +365,9 @@ def getAWG(channel):
     logger = logging.getLogger('QGL.Compiler.qgl2')
     phys = channel
     awg = None
+    if channel is None:
+        logger.debug("None channel has no AWG")
+        return None
     if hasattr(channel, 'physChan'):
         phys = channel.physChan
         # logger.debug("Channel '%s' has physical channel '%s'", channel, phys)
@@ -380,7 +410,13 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     # Find the sequence whose channel's AWG is same as slave Channel, if
     # any. Avoid sequences without a qubit channel if any.
     slaveSeqInd = None
-    slaveAWG = getAWG(ChannelLibrary.channelLib['slaveTrig'])
+    slaveTrig = None
+    slaveAWG = None
+    try:
+        slaveTrig = ChannelLibrary.channelLib['slaveTrig']
+        slaveAWG = getAWG(slaveTrig)
+    except KeyError as ke:
+        logger.warning("Found no slave trigger configured")
 
     # Note there will be 1 digitizer per measurement channel, on same AWG
     # as its meas channel
