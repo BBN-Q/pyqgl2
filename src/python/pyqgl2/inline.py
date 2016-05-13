@@ -682,6 +682,42 @@ class NameFinder(ast.NodeVisitor):
         simple, _dotted = self.find_names(node)
         return simple
 
+class NameRedirector(ast.NodeTransformer):
+    """
+    A visitor for finding the names referenced by a node
+
+    See find_names() for more info
+    """
+
+    def __init__(self, values=None, table_name='_T'):
+
+        self.table_name = table_name
+        self.values = values
+
+    def visit_Attribute(self, node):
+        return node
+
+    def visit_Name(self, node):
+
+        name = node.id
+        # if the name doesn't have an entry in the values
+        # table, then we can't transform it
+        #
+        if name not in self.values:
+            return node
+
+        # TODO: if the value is something we can represent
+        # by value (i.e. an integer, or a list of strings) then
+        # replace its reference with its value rather than
+        # replacing the reference with a reference to the new
+        # table.
+
+        redirection = ast.Subscript(
+                value=ast.Name(id=self.table_name, ctx=ast.Load()),
+                slice=ast.Index(value=ast.Str(s=name)))
+        return redirection
+
+
 def names_in_ptree(ptree):
     """
     Return a set of all of the Name strings in ptree
