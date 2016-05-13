@@ -232,12 +232,12 @@ def compileFunction(filename, main_name=None, saveOutput=False,
                 file=intermediate_fout, flush=True)
 
         unroller = Unroller(importer)
-        ptree1 = unroller.visit(ptree1)
-        NodeError.halt_on_error()
+        # ptree1 = unroller.visit(ptree1)
+        # NodeError.halt_on_error()
 
-        print(('UNROLLED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-                file=intermediate_fout, flush=True)
+        # print(('UNROLLED CODE (iteration %d):\n%s' %
+        #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+        #         file=intermediate_fout, flush=True)
 
         type_check = CheckType(filename, importer=importer)
         ptree1 = type_check.visit(ptree1)
@@ -245,11 +245,6 @@ def compileFunction(filename, main_name=None, saveOutput=False,
         print(('CHECKED CODE (iteration %d):\n%s' %
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
-
-        ptree1 = evaluator.visit(ptree1)
-
-        print('PARTIAL EVALUATION (iteration %d):\n%s' %
-                 (iteration, pyqgl2.ast_util.ast2str(ptree1)))
 
         ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
                 context=ptree1)
