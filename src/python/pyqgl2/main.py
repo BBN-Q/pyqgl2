@@ -36,7 +36,6 @@ sys.path.append(os.path.normpath(os.path.join(DIRNAME, '..')))
 
 import pyqgl2.ast_util
 import pyqgl2.inline
-import pyqgl2.single
 
 from pyqgl2.ast_util import NodeError
 from pyqgl2.check_qbit import CheckType
@@ -51,7 +50,7 @@ from pyqgl2.flatten import Flattener
 from pyqgl2.importer import NameSpaces, add_import_from_as
 from pyqgl2.inline import Inliner
 from pyqgl2.sequence import SequenceCreator
-from pyqgl2.single import SingleSequence
+from pyqgl2.sequences import SequenceExtractor, get_sequence_function
 from pyqgl2.substitute import specialize
 from pyqgl2.sync import SynchronizeBlocks
 
@@ -131,7 +130,7 @@ def parse_args(argv):
 
 
 def compileFunction(filename, main_name=None, saveOutput=False,
-        intermediate_output=None):
+                    intermediate_output=None):
 
     # Always open up a file for the intermediate output,
     # even if it's just /dev/null, so we don't have to
@@ -152,7 +151,25 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     # Process imports in the input file, and find the main.
     # If there's no main, then bail out right away.
 
-    importer = NameSpaces(filename, main_name)
+    # The 'filename' could really be the source for the function
+    code = None
+    # Detect that ths is code, not a filename
+    # FIXME: Is there a better way to do this?
+    if ("qgl2decl" in filename or "qgl2main" in filename) and "def " in filename:
+        NodeError.diag_msg(None, "Treating filename as code")
+        code = filename
+        filename = sys.argv[0] # Could use <stdin> instead
+    else:
+        try:
+            relPath = os.path.relpath(filename)
+        except Exception as e:
+            # If that wasn't a good path, treat it as code
+            NodeError.diag_msg(None, "Failed to make relpath from %s: %s" % (filename, e))
+            code = filename
+            filename = sys.argv[0] # Could use <stdin> instead
+#            filename = "<stdin>"
+
+    importer = NameSpaces(filename, main_name, code)
     if not importer.qglmain:
         NodeError.fatal_msg(None, 'no qglmain function found')
 
@@ -237,38 +254,45 @@ def compileFunction(filename, main_name=None, saveOutput=False,
         NodeError.error_msg(None,
                 ('expansion did not converge after %d iterations' % MAX_ITERS))
 
-    base_namespace = importer.path2namespace[filename]
-    text = base_namespace.pretty_print()
+    # If we got raw code, then we may have no source file to use
+    if not filename or filename == '<stdin>':
+        text = '<stdin>'
+    else:
+        base_namespace = importer.path2namespace[filename]
+        text = base_namespace.pretty_print()
     print(('EXPANDED NAMESPACE:\n%s' % text),
             file=intermediate_fout, flush=True)
 
     new_ptree1 = ptree1
 
+    # Make sure that functions that take qbits are getting qbits
     sym_check = CheckSymtab(filename, type_check.func_defs, importer)
     new_ptree5 = sym_check.visit(new_ptree1)
     NodeError.halt_on_error()
     print(('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
             file=intermediate_fout, flush=True)
 
+    # Take with concur blocks and produce with seq blocks for each QBIT_* or EDGE_* referenced therein
     grouper = QbitGrouper()
     new_ptree6 = grouper.visit(new_ptree5)
     NodeError.halt_on_error()
     print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
             file=intermediate_fout, flush=True)
 
+    # Try to flatten out repeat, range, ifs
     flattener = Flattener()
     new_ptree7 = flattener.visit(new_ptree6)
     NodeError.halt_on_error()
     print(('FLATTENED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree7)),
             file=intermediate_fout, flush=True)
 
-    sequencer = SequenceCreator()
-    sequencer.visit(new_ptree7)
-    NodeError.halt_on_error()
-
     # We're not going to print this, at least not for now,
     # although it's sometimes a useful pretty-printing
     if False:
+        sequencer = SequenceCreator()
+        sequencer.visit(new_ptree7)
+        NodeError.halt_on_error()
+
         print('FINAL SEQUENCES:')
         for qbit in sequencer.qbit2sequence:
             print('%s:' % qbit)
@@ -283,8 +307,9 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print(('Final qglmain: %s' % new_ptree7.name),
             file=intermediate_fout, flush=True)
 
-    base_namespace = importer.path2namespace[filename]
-    text = base_namespace.pretty_print()
+    # These values are set above
+    #base_namespace = importer.path2namespace[filename]
+    #text = base_namespace.pretty_print()
     print(('FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % text),
             file=intermediate_fout, flush=True)
 
@@ -294,9 +319,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print(('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8)),
             file=intermediate_fout, flush=True)
 
-    # singseq = SingleSequence()
-    # singseq.find_sequence(new_ptree8)
-    # singseq.emit_function()
+    # Done. Time to generate the QGL1
 
     # Try to guess the proper function name
     fname = main_name
@@ -306,25 +329,14 @@ def compileFunction(filename, main_name=None, saveOutput=False,
         else:
             fname = "qgl1Main"
 
-    builder = pyqgl2.single.SingleSequence(importer)
-    if builder.find_sequence(new_ptree8) and builder.find_imports(new_ptree8):
-        code = builder.emit_function(fname)
-        print(('#start function\n%s\n#end function' % code),
-                file=intermediate_fout, flush=True)
-        if saveOutput:
-            newf = os.path.abspath(filename[:-3] + "qgl1.py")
-            with open(newf, 'w') as compiledFile:
-                compiledFile.write(code)
-            print("Saved compiled code to %s" % newf)
-        # HACK
-        # Assume we have a function creating a single qubit sequence
-        # Find it and return it
-        qgl1_main = pyqgl2.single.single_sequence(new_ptree8, fname, importer)
-        NodeError.halt_on_error()
-        return qgl1_main
-    else:
-        print("Not a single qubit sequence producing function")
-        return None
+    # Get the QGL1 function that produces the proper sequences
+    # But if we started with raw code, we may have no filename
+    filen = filename
+    if not filename or filename == '<stdin>':
+        filen = "myprogram.py"
+    qgl1_main = get_sequence_function(new_ptree8, fname, importer, intermediate_fout, saveOutput, filen)
+    NodeError.halt_on_error()
+    return qgl1_main
 
     """
     wav_check = CheckWaveforms(type_check.func_defs, importer)
@@ -345,6 +357,105 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print('PARAMS %s ' % find_types.parameter_names)
     print('LOCALS %s ' % find_types.local_names)
     """
+
+def getAWG(channel):
+    '''Given a channel, find its AWG'''
+    from QGL.Channels import LogicalChannel, Measurement, Qubit, PhysicalChannel
+    import logging
+    logger = logging.getLogger('QGL.Compiler.qgl2')
+    phys = channel
+    awg = None
+    if channel is None:
+        logger.debug("None channel has no AWG")
+        return None
+    if hasattr(channel, 'physChan'):
+        phys = channel.physChan
+        # logger.debug("Channel '%s' has physical channel '%s'", channel, phys)
+    elif not isinstance(channel, PhysicalChannel):
+        logger.debug("No physChan attribute on channel '%s'", channel)
+
+    # if isinstance(channel, Measurement):
+    #     logger.debug("'%s' uses gate: %s, trigger: %s", channel, channel.gateChan, channel.trigChan)
+    # if isinstance(channel, Qubit):
+    #     logger.debug("'%s' has gate: '%s'", channel, channel.gateChan)
+    if hasattr(phys, 'AWG'):
+        awg = phys.AWG
+        # logger.debug("Physical Channel '%s' had AWG '%s'", phys, awg)
+    else:
+        logger.error("Config incomplete? Found no AWG for '%s'", channel)
+
+    return awg
+
+def qgl2_compile_to_hardware(seqs, filename, suffix=''):
+    '''Custom compile_to_hardware for QGL2 that calls
+    c2h once per sequence, specifically asking that the slaveTrigger be added only for the single 
+    channel that actually shares an AWG with the slaveTrigger.'''
+    from QGL.Compiler import find_unique_channels, compile_to_hardware
+    from QGL.Channels import Qubit as qgl1Qubit
+    from QGL import ChannelLibrary
+    import logging
+    logger = logging.getLogger('QGL.Compiler.qgl2')
+    # Find the channel for each sequence
+    seqIdxToChannelMap = dict()
+    for idx, seq in enumerate(seqs):
+        chs = find_unique_channels(seq)
+        for ch in chs:
+            # FIXME: Or just exclude Measurement channels?
+            if isinstance(ch, qgl1Qubit):
+                seqIdxToChannelMap[idx] = ch
+                logger.debug("Sequence %d is channel %s", idx, ch)
+                logger.debug(" - which is AWG '%s'", getAWG(ch))
+                break
+
+    # Find the sequence whose channel's AWG is same as slave Channel, if
+    # any. Avoid sequences without a qubit channel if any.
+    slaveSeqInd = None
+    slaveTrig = None
+    slaveAWG = None
+    try:
+        slaveTrig = ChannelLibrary.channelLib['slaveTrig']
+        slaveAWG = getAWG(slaveTrig)
+    except KeyError as ke:
+        logger.warning("Found no slave trigger configured")
+
+    # Note there will be 1 digitizer per measurement channel, on same AWG
+    # as its meas channel
+
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("Slave trig is on AWG '%s'", slaveAWG)
+    for idx, seq in enumerate(seqs):
+        seqChan = seqIdxToChannelMap.get(idx, None)
+        if seqChan and getAWG(seqChan) == slaveAWG:
+            slaveSeqInd = idx
+            logger.debug("Found slave trigger on sequence %d with channel %s", idx, seqChan)
+            break
+
+    # If nothing in the program uses the slave's AWG, pick any channel in use
+    if slaveSeqInd is None:
+        slaveSeqInd = list(seqIdxToChannelMap.keys())[0]
+        logger.debug("Randomly putting slaveTrig on sequence %d", slaveSeqInd)
+
+    # Now we call c2h for each seq
+    files = set()
+    for idx,seq in enumerate(seqs):
+        if idx not in seqIdxToChannelMap:
+            # Indicates an error - that empty sequence
+            logger.debug("Sequence %d has no channel - skip", idx)
+            continue
+        doSlave = False
+        if idx == slaveSeqInd:
+            logger.debug("Asking for slave trigger with sequence %d", idx)
+            doSlave = True
+        else:
+            logger.debug("Asking for sequence %d", idx)
+
+        newfiles = compile_to_hardware([seq], filename, suffix, qgl2=True, addQGL2SlaveTrigger=doSlave)
+        if newfiles:
+            logger.debug("Produced files: %s", newfiles)
+            files = files.union(newfiles)
+        else:
+            logger.debug("Produced no new files")
+    return files
 
 ######
 # Code below here is for testing
@@ -463,7 +574,6 @@ if __name__ == '__main__':
                                   intermediate_output=opts.intermediate_output)
     if resFunction:
         # Now import the QGL1 things we need 
-        from QGL.Compiler import compile_to_hardware
         from QGL.PulseSequencePlotter import plot_pulse_files
         from QGL.ChannelLibrary import QubitFactory
         import os
@@ -490,8 +600,8 @@ if __name__ == '__main__':
             set_log_level()
 
         # Now we have a QGL1 list of sequences we can act on
-        fileNames = compile_to_hardware(sequences, opts.prefix,
-                                        opts.suffix, qgl2=True)
+        fileNames = qgl2_compile_to_hardware(sequences, opts.prefix,
+                                        opts.suffix)
         print(fileNames)
         if opts.showplot:
             plot_pulse_files(fileNames)

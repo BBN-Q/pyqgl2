@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qgl2main
+from qgl2.qgl2 import qgl2decl, qbit, qgl2main, sequence
 
 from QGL.PulsePrimitives import X, Id, MEAS, X90, U90
 from QGL.Compiler import compile_to_hardware

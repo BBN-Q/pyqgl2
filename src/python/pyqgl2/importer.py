@@ -410,7 +410,10 @@ class NameSpaces(object):
         # The error/warning messages are clearer if we always
         # use the relpath
         #
-        self.base_fname = os.path.relpath(path)
+        if not path or path == '<stdin>':
+            self.base_fname = '<stdin>'
+        else:
+            self.base_fname = os.path.relpath(path)
 
         # Reference to the main function; initially None because
         # we haven't read it in yet

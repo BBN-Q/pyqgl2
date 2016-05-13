@@ -154,6 +154,19 @@ class SynchronizeBlocks(ast.NodeTransformer):
 
             chan_name = ','.join(seq_channels)
 
+            # mark stmnt with chan_name or seq_channels in another way
+            if hasattr(stmnt, 'qgl_chan_list'):
+                oldChanSet = set(stmnt.qgl_chan_list)
+                newChanSet = seq_channels
+                oldMissing = newChanSet - oldChanSet
+                oldExtra = oldChanSet - newChanSet
+                if len(oldMissing) > 0:
+                    NodeError.diag_msg(stmnt, 'marked chan list %s was missing %s' % (str(oldChanSet), str(oldMissing)))
+                if len(oldExtra) > 0:
+                    NodeError.diag_msg(stmnt, 'marked chan list %s had extra %s' % (str(oldChanSet), str(oldExtra)))
+            NodeError.diag_msg(stmnt, 'Marking chan list %s' % (str(seq_channels)))
+            stmnt.qgl_chan_list = list(seq_channels)
+
             new_seq_body = list()
 
             wait_ast = deepcopy(self.blank_wait_ast)
@@ -184,7 +197,9 @@ class SynchronizeBlocks(ast.NodeTransformer):
                     'channels unreferenced in concur: %s' % str(unseen_chan))
 
             empty_seq_ast = expr2ast(
-                    'with seq:\n    WAIT(%s)' % str(unseen_chan))
+                    'with seq:\n    Wait()')
+            # Mark empty_seq_ast with unseen_chan
+            empty_seq_ast.qgl_chan_list = [unseen_chan]
             copy_all_loc(empty_seq_ast, node)
             node.body.append(empty_seq_ast)
 

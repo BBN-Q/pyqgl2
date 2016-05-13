@@ -1,5 +1,8 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
+# See get_sequence_function (the main entrypoint), and
+# for a sample usage, see main.py.
+
 import ast
 import os
 import sys
@@ -12,9 +15,12 @@ from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
 from pyqgl2.substitute import getChanLabel
 
-class SingleSequence(object):
+class SequenceExtractor(object):
     """
-    Create a sequence list for a single QBIT
+    Create QGL1 code from a modified AST
+
+    This class has the logic to take the input QGL2 AST as modified by the compiler,
+    and produce a QGL1 function reference suitable for execution.
 
     Note: this assumes that the AST is for one function
     definition that has already been inlined, successfully
@@ -25,8 +31,8 @@ class SingleSequence(object):
 
         self.importer = importer
 
-        self.qbits = set()
-        self.qbit_creates = list()
+        self.qbits = set()  # from find_all_channels
+        self.qbit_creates = list() # of sym_name, use_name, node tuples
         self.sequences = dict() # From channel to list of pulses
 
         # the imports we need to make in order to satisfy the stubs
@@ -79,6 +85,7 @@ class SingleSequence(object):
         return (sym_name, use_name, node)
 
     def find_imports(self, node):
+        '''Fill in self.stub_imports with all the per module imports needed'''
 
         default_namespace = node.qgl_fname
 
@@ -120,6 +127,8 @@ class SingleSequence(object):
         return True
 
     def create_imports_list(self):
+        '''Using the stub_imports created by find_imports,
+        create a list of import statement strings to include in the function.'''
 
         import_list = list()
 
@@ -130,7 +139,12 @@ class SingleSequence(object):
 
         return import_list
 
-    def find_sequence(self, node):
+    def find_sequences(self, node):
+        '''
+        Input AST node is the main function definition.
+        Use is_qbit_create to get qbit creation statements,
+        and walk the AST to find sequence elements to create the sequences
+        on the object.'''
 
         if not isinstance(node, ast.FunctionDef):
             NodeError.fatal_msg(node, 'not a function definition')
@@ -182,13 +196,24 @@ class SingleSequence(object):
             else:
                 NodeError.error_msg(stmnt,
                         'orphan statement %s' % ast.dump(stmnt))
+
         # print("Seqs: %s" % self.sequences)
+        if not self.sequences:
+            NodeError.error_msg(node, "No per qbit sequences found")
+            return False
+        # FIXME: Is this a requirement?
+        # if not self.qbit_creates:
+        #     NodeError.error_msg(node, "No qbit creation statements found")
+        #     return False
         return True
 
     def emit_function(self, func_name='qgl1_main'):
         """
         Create a function that, when run, creates the context
         in which the sequence is evaluated, and evaluate it.
+
+        Assumes find_imports and find_sequences have already
+        been called.
 
         func_name is the name for the function, if provided.
         I'm not certain that the name has any significance
@@ -204,12 +229,13 @@ class SingleSequence(object):
 
         # FIXME: Ugliness
         # In the proper namespace we need to import all the QGL1 functions
-        # that this method is using / might use
+        # that this method is using / might use.
         # Here we include the imports matching stuff in qgl2.qgl1.py
-        # Can we perhaps annotate all the stubs with the proper
-        # import statement and use that to figure out what to include here?
-        base_imports = """    from QGL.PulseSequencePlotter import plot_pulse_files
-"""
+        # as required by create_imports_list(), plus
+        # extras as required.
+#        base_imports = """    from QGL.PulseSequencePlotter import plot_pulse_files
+#"""
+        base_imports = ''
 
         found_imports = ('\n' + indent).join(self.create_imports_list())
 
@@ -256,9 +282,6 @@ class SingleSequence(object):
 
         for seq_str in seq_strs:
             seqs_str += seq_str
-
-            # That was a single sequence. We want a list of sequences
-            # FIXME: Really, we want a new sequence every time the source code used Init()
             seqs_str += indent + 'seqs += [seq]\n'
 
         postamble = indent + 'return seqs\n'
@@ -266,10 +289,10 @@ class SingleSequence(object):
         res =  preamble + seqs_def + seqs_str + postamble
         return res
 
-def single_sequence(node, func_name, importer):
+def get_sequence_function(node, func_name, importer, intermediate_fout=None, saveOutput=False, filename=None):
     """
-    Create a function that encapsulates the QGL code (for a single
-    sequence) from the given AST node, which is presumed to already
+    Create a function that encapsulates the QGL code
+    from the given AST node, which is presumed to already
     be fully pre-processed.
 
     TODO: we don't test that the node is fully pre-processed.
@@ -277,10 +300,18 @@ def single_sequence(node, func_name, importer):
     so that we know whether or not they've been processed.
     """
 
-    builder = SingleSequence(importer)
+    builder = SequenceExtractor(importer)
 
-    if builder.find_sequence(node) and builder.find_imports(node):
+    if builder.find_sequences(node) and builder.find_imports(node):
         code = builder.emit_function(func_name)
+        if intermediate_fout:
+            print(('#start function\n%s\n#end function' % code),
+                  file=intermediate_fout, flush=True)
+        if saveOutput and filename:
+            newf = os.path.abspath(filename[:-3] + "qgl1.py")
+            with open(newf, 'w') as compiledFile:
+                compiledFile.write(code)
+            print("Saved compiled code to %s" % newf)
 
         NodeError.diag_msg(
                 node, 'generated code:\n#start\n%s\n#end code' % code)
@@ -288,10 +319,10 @@ def single_sequence(node, func_name, importer):
         # TODO: we might want to pass in elements of the local scope
         scratch_scope = dict()
         eval(compile(code, '<none>', mode='exec'), globals(), scratch_scope)
+        NodeError.halt_on_error()
 
         return scratch_scope[func_name]
     else:
         NodeError.fatal_msg(
-                node, 'find_sequence failed: not a single sequence')
+                node, 'find_sequences failed')
         return None
-
