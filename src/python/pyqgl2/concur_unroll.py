@@ -13,7 +13,7 @@ from copy import deepcopy
 
 import pyqgl2.ast_util
 
-from pyqgl2.ast_util import expr2ast, NodeError, value2ast
+from pyqgl2.ast_util import ast2str, expr2ast, NodeError, value2ast
 from pyqgl2.importer import collapse_name
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.lang import QGL2
@@ -84,6 +84,9 @@ def find_all_channels(node):
         #
         if hasattr(subnode, 'qgl2_orig_call'):
             orig_chan = find_all_channels(subnode.qgl2_orig_call)
+            # print('FAC %s -> %s' %
+            #         (ast2str(subnode.qgl2_orig_call).strip(),
+            #             str(orig_chan)))
             all_channels.update(orig_chan)
 
     return all_channels
@@ -688,6 +691,8 @@ class QbitGrouper(ast.NodeTransformer):
         for stmnt in expanded_stmnts:
 
             qbits_referenced = list(find_qbits_func(stmnt))
+            # print('GR %s -> %s' %
+            #         (ast2str(stmnt).strip(), str(qbits_referenced)))
 
             if len(qbits_referenced) == 0:
                 # print('unexpected: no qbit referenced')
