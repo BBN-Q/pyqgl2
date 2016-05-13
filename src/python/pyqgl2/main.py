@@ -263,6 +263,16 @@ def compileFunction(filename, main_name=None, saveOutput=False,
         NodeError.error_msg(None,
                 ('expansion did not converge after %d iterations' % MAX_ITERS))
 
+    print('CALLING EVALUATOR')
+    ptree1 = evaluator.visit(ptree1)
+
+    # Dump out all the variable bindings, for debugging purposes
+    #
+    # print('EV total state:')
+    # evaluator.print_state()
+
+    print('EVALUATIOR RESULT:\n%s' % pyqgl2.ast_util.ast2str(ptree1))
+
     # If we got raw code, then we may have no source file to use
     if not filename or filename == '<stdin>':
         text = '<stdin>'
@@ -294,6 +304,8 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     NodeError.halt_on_error()
     print(('FLATTENED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree7)),
             file=intermediate_fout, flush=True)
+
+    evaluator.replace_bindings(new_ptree7.body)
 
     # We're not going to print this, at least not for now,
     # although it's sometimes a useful pretty-printing
