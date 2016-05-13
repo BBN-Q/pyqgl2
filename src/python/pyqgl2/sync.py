@@ -192,7 +192,7 @@ class SynchronizeBlocks(ast.NodeTransformer):
             stmnt.body = new_seq_body
 
         for unseen_chan in self.all_channels - seen_channels:
-            print('DIAG %s' % ast2str(stmnt))
+            #print('DIAG %s' % ast2str(stmnt))
             NodeError.diag_msg(stmnt,
                     'channels unreferenced in concur: %s' % str(unseen_chan))
 
