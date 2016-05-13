@@ -6,9 +6,9 @@ from QGL.PulsePrimitives import Id, X, MEAS, X90, flat_top_gaussian, echoCR
 from QGL.Compiler import compile_to_hardware
 from QGL.ChannelLibrary import EdgeFactory
 
-from .helpers import create_cal_seqs
-from .new_helpers import addMeasPulses, addCalibration, compileAndPlot, measConcurrently
-from .qgl2_plumbing import init
+from qgl2.basic_sequences.helpers import create_cal_seqs
+from qgl2.basic_sequences.new_helpers import addMeasPulses, addCalibration, compileAndPlot, measConcurrently
+from qgl2.qgl2 import init
 
 @qgl2decl
 def PiRabi(controlQ: qbit, targetQ: qbit, lengths, riseFall=40e-9, amp=1, phase=0, calRepeats=2, showPlot=False):

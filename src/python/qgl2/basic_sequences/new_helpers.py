@@ -2,8 +2,7 @@
 
 from qgl2.qgl2 import qgl2decl, qbit_list, qbit, concur, pulse, sequence
 
-from .helpers import create_cal_seqs
-#from .qgl2_plumbing import qgl2AddSequences, sequence_list
+from qgl2.basic_sequences.helpers import create_cal_seqs
 
 #from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
 from QGL.Compiler import compile_to_hardware

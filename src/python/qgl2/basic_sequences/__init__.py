@@ -8,17 +8,20 @@
 # and then in the method:
 #     return QGL1RabiAmp(qubit, amps, phase, showPlot)
 
-from .Rabi import RabiAmp, RabiWidth, RabiAmpPi, RabiAmp_NQubits, PulsedSpec, SingleShot
-from .T1T2 import Ramsey, InversionRecovery
-from .FlipFlop import FlipFlop
-from .SPAM import SPAM
-from .RB import create_RB_seqs, SingleQubitRB, SingleQubitRB_AC, SingleQubitIRB_AC, SimultaneousRB_AC, SingleQubitRBT, TwoQubitRB
-from .Decoupling import HahnEcho, CPMG
-from .helpers import create_cal_seqs
-from .CR import EchoCRPhase, EchoCRLen, PiRabi
-from .AllXY import AllXY
-from .Feedback import Reset
-from .qgl2_plumbing import init
+# These are the imports QGL used. Try leaving these out.
+
+#from .Rabi import RabiAmp, RabiWidth, RabiAmpPi, RabiAmp_NQubits, PulsedSpec, SingleShot
+#from .T1T2 import Ramsey, InversionRecovery
+#from .FlipFlop import FlipFlop
+#from .SPAM import SPAM
+#from .RB import create_RB_seqs, SingleQubitRB, SingleQubitRB_AC, SingleQubitIRB_AC, SimultaneousRB_AC, SingleQubitRBT, TwoQubitRB
+#from .Decoupling import HahnEcho, CPMG
+#from .helpers import create_cal_seqs
+#from .CR import EchoCRPhase, EchoCRLen, PiRabi
+#from .AllXY import AllXY
+#from .Feedback import Reset
+#from .qgl2_plumbing import init
+
 # These next are not in the original and not used in QGL
 #from .Rabi import Swap
 #from .BlankingSweeps import sweep_gateDelay

@@ -3,7 +3,7 @@
 import QGL.PulseShapes
 from qgl2.qgl2 import qgl2decl, qbit, sequence, concur
 from qgl2.qgl1 import QubitFactory, Utheta, MEAS, X, Id
-from .qgl2_plumbing import init
+from qgl2.qgl2 import init
 import numpy as np
 
 # For use with pyqgl2.main
