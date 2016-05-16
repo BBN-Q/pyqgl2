@@ -150,6 +150,8 @@ class Flattener(ast.NodeTransformer):
                 args=list([ast.Str(s=label), condition]),
                 keywords=list()))
 
+        pyqgl2.ast_util.copy_all_loc(goto_ast, condition, recurse=True)
+
         return goto_ast
 
     def make_label_call(self, label):
