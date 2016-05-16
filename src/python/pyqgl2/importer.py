@@ -508,7 +508,17 @@ class NameSpace(object):
             val = eval(final_expr, self.native_globals, local_variables)
             return True, val
         except BaseException as exc:
-            print('eval failure [%s]: %s' % (expr_str, str(exc)))
+            # If the expr was AST and came from the preprocessor,
+            # try to format the error message accordingly
+            #
+            # Otherwise just attempt to print something meaningful
+            #
+            if isinstance(expr, ast.AST) and hasattr(expr, 'qgl_fname'):
+                NodeError.error_msg(expr,
+                        ('eval failure [%s]: %s' %
+                            (expr_str.strip(), str(exc))))
+            else:
+                print('eval failure [%s]: %s' % (expr_str.strip(), str(exc)))
             return False, None
 
 
