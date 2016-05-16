@@ -69,6 +69,10 @@ class NodeError(object):
         NodeError.ALL_PRINTED = set()
 
     @staticmethod
+    def error_detected():
+        return NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR
+
+    @staticmethod
     def halt_on_error():
         """
         The ordinary use of NodeError is to continue on after encountering
@@ -80,7 +84,7 @@ class NodeError(object):
         halt.
         """
 
-        if NodeError.MAX_ERR_LEVEL >= NodeError.NODE_ERROR_ERROR:
+        if NodeError.error_detected():
             sys.exit(1)
 
     @staticmethod
