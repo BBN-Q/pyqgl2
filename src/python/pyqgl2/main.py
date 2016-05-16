@@ -265,6 +265,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
 
     print('CALLING EVALUATOR')
     ptree1 = evaluator.visit(ptree1)
+    NodeError.halt_on_error()
 
     # Dump out all the variable bindings, for debugging purposes
     #
