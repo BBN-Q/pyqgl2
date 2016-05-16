@@ -270,7 +270,7 @@ class SimpleEvaluator(object):
                 local_variables=local_variables)
         if not success:
             NodeError.error_msg(node,
-                    'failed to evaluate [%s]' % ast2str(node))
+                    'failed to evaluate [%s]' % ast2str(node).strip())
             return False, None
         else:
             return True, val
@@ -288,7 +288,7 @@ class SimpleEvaluator(object):
                 local_variables=local_variables)
         if not success:
             NodeError.error_msg(node,
-                    'failed to evaluate [%s]' % ast2str(node))
+                    'failed to evaluate [%s]' % ast2str(node).strip())
             return False, None
 
         # TODO: review whether this always works.
@@ -350,7 +350,7 @@ class SimpleEvaluator(object):
                 node.value, local_variables=local_variables)
         if not success:
             NodeError.error_msg(node,
-                    'failed to evaluate [%s]' % ast2str(node))
+                    'failed to evaluate [%s]' % ast2str(node).strip())
             return False, None
 
         # print('EV locals %s' % str(self.locals_stack[-1]))
@@ -457,7 +457,7 @@ class SimpleEvaluator(object):
     def do_call(self, call_node):
         """
         Pseudo-execute a call.
-        
+
         If it's a call to a stub function, then we don't do anything
         now, because we'll actually execute it later.  Return QGL2STUB.
 
@@ -799,6 +799,116 @@ class EvalTransformer(object):
 
         return True, new_stmnts
 
+    def do_if(self, stmnt):
+        """
+        Evaluate/expand an "if" statement
+
+        Return a tuple (success, body), where success is True
+        if the expansion should be considered successful, and body
+        is the resulting list of statements.
+
+        We only handle two types of conditionals here:
+
+        1. conditionals that involve only classical values that
+            can be computed at compile-time (that DO NOT depend
+            on quantum variables)
+
+        2. a conditional based on measurement of a single
+            quantum variable
+
+            For example:
+
+            "if MEAS(qbit0):" or "if not MEAS(qbit0)"
+
+        It is not legal to mix the two, although the attempt
+        to detect violations may be incomplete (FIXME)
+
+        For classical conditions, we can compute the outcome at
+        compiletime; we evaluate the condition, and then return
+        either body statements or the orelse statements.
+
+        For quantum conditions, we leave the work for a later pass.
+        """
+
+        self.rewriter.rewrite(stmnt)
+
+        # check the test to see whether it is classical or quantum
+
+        is_classical, test = self.is_classical_test(stmnt.test)
+
+        # If we ran into an error in is_classical_test, then
+        # give up immediately.  This can mean that there was a
+        # quantum value hidden somewhere in the test, but it can
+        # also indicate other kinds of errors.  In any case, we
+        # should not continue.
+        #
+        if NodeError.error_detected():
+            return False, list()
+        elif is_classical:
+            return self.do_if_classical(stmnt, test)
+        else:
+            return self.do_if_quantum(stmnt)
+
+    def is_classical_test(self, test_expr):
+        """
+        Test whether a test expression is classical or quantum
+
+        Return (is_classical, value), where is_classical is True if
+        the expression is purely classical, False otherwise, and
+        value is the truth-value of the expression if it is classical.
+        (if the expression is quantum, then the truth-value must
+        be determined at run-time)
+
+        One of the ways that we test whether the expression is
+        classical is by attempting to compute it; if the evaluation
+        fails, then one possible reason is that it is quantum.
+        If it succeeds, we save (and return) the result so that
+        we can avoid re-evaluating the expression, because it
+        might not be idempotent or pure, and we don't want to
+        incur a second set of side effects.
+        """
+
+        if (isinstance(test_expr, ast.Call) and
+                (test_expr.func.id == 'MEAS')):
+            return False, False
+
+        # If this fails, it should print out a useful
+        # error message and it should set the error detection
+        # bit, so that when the caller sees that that this
+        # has failed, it can do react accordingly.
+        #
+        return self.eval_state.do_test(test_expr)
+
+    def do_if_classical(self, stmnt, test):
+
+        # Even though we don't know whether we're going
+        # to make any "real" changes, we figured something out
+        # that we didn't figure out before, so we count
+        # it as a change
+        #
+        self.change_cnt += 1
+
+        if test:
+            stmnt_list = stmnt.body
+        else:
+            stmnt_list = stmnt.orelse
+
+        # cull out toplevel pass statements
+        #
+        stmnt_list = [ substmnt for substmnt in stmnt_list
+                if not isinstance(substmnt, ast.Pass) ]
+
+        if len(stmnt_list) > 0:
+            expanded_body = self.do_body(stmnt_list)
+        else:
+            expanded_body = list()
+
+        return True, expanded_body
+
+    def do_if_quantum(self, stmnt):
+        NodeError.fatal_msg(stmnt, 'UNIMPLEMENTED do_if_quantum')
+
+        return False, list()
 
     def do_body(self, body):
 
@@ -812,6 +922,14 @@ class EvalTransformer(object):
         still_valid = True
 
         for stmnt_index in range(len(body)):
+
+            # If an error has been detected (during the previous
+            # element, or somewhere within a recursive call) then
+            # bail out now
+            #
+            if NodeError.error_detected():
+                break
+
             stmnt = body[stmnt_index]
 
             if not still_valid:
@@ -908,47 +1026,18 @@ class EvalTransformer(object):
                 success, new_stmnts = self.do_for(stmnt)
                 if not success:
                     NodeError.error_msg(stmnt,
-                            'failed to unroll [%s]' % ast2str(stmnt))
+                            'failed to unroll [%s]' % ast2str(stmnt).strip())
                     still_valid = False
                     continue
 
                 new_body += new_stmnts
 
             elif isinstance(stmnt, ast.If):
-                # if is't an "if" statement, try to figure out
-                # whether the condition is determined, and if so
-                # the replace this statement with either the "if"
-                # or "else" clause.
-
-                self.rewriter.rewrite(stmnt)
-
-                success, test = self.eval_state.do_test(stmnt.test)
+                success, if_body = self.do_if(stmnt)
                 if not success:
-                    NodeError.error_msg(stmnt,
-                            'failed to evaluate test [%s]' % ast2str(stmnt))
-                    still_valid = False
                     break
 
-                # Even though we don't know whether we're going
-                # to make any "real" changes, we figured something out
-                # that we didn't figure out before, so we count
-                # it as a change
-                #
-                self.change_cnt += 1
-
-                if test:
-                    stmnt_list = stmnt.body
-                else:
-                    stmnt_list = stmnt.orelse
-
-                # cull out toplevel pass statements
-                #
-                stmnt_list = [ substmnt for substmnt in stmnt_list
-                        if not isinstance(substmnt, ast.Pass) ]
-
-                if len(stmnt_list) > 0:
-                    expanded_body = self.do_body(stmnt_list)
-                    new_body += expanded_body
+                new_body += if_body
 
             elif isinstance(stmnt, ast.With):
                 # If it's a "with" statement, then make a new "with"
