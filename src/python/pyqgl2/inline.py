@@ -706,15 +706,26 @@ class NameRedirector(ast.NodeTransformer):
         if name not in self.values:
             return node
 
-        # TODO: if the value is something we can represent
+        # If the value is something we can represent
         # by value (i.e. an integer, or a list of strings) then
         # replace its reference with its value rather than
         # replacing the reference with a reference to the new
         # table.
+        #
+        # TODO: expand what we can represent as literals
+        # (i.e. add simple lists, tuples).
+        # TODO: add a comment, if possible, with the name of the variable
 
-        redirection = ast.Subscript(
-                value=ast.Name(id=self.table_name, ctx=ast.Load()),
-                slice=ast.Index(value=ast.Str(s=name)))
+        value = self.values[name]
+        if isinstance(value, int) or isinstance(value, float):
+            redirection = ast.Num(n=value)
+        elif isinstance(value, str):
+            redirection = ast.Str(s=value)
+        else:
+            redirection = ast.Subscript(
+                    value=ast.Name(id=self.table_name, ctx=ast.Load()),
+                    slice=ast.Index(value=ast.Str(s=name)))
+
         return redirection
 
 
