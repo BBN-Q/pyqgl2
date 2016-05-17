@@ -871,6 +871,11 @@ class EvalTransformer(object):
         if (isinstance(test_expr, ast.Call) and
                 (test_expr.func.id == 'MEAS')):
             return False, False
+        elif (isinstance(test_expr, ast.UnaryOp) and
+                isinstance(test_expr.op, ast.Not) and
+                isinstance(test_expr.operand, ast.Call) and
+                (test_expr.operand.func.id == 'MEAS')):
+            return False, False
 
         # If this fails, it should print out a useful
         # error message and it should set the error detection
@@ -906,9 +911,9 @@ class EvalTransformer(object):
         return True, expanded_body
 
     def do_if_quantum(self, stmnt):
-        NodeError.fatal_msg(stmnt, 'UNIMPLEMENTED do_if_quantum')
+        NodeError.warning_msg(stmnt, 'UNIMPLEMENTED do_if_quantum')
 
-        return False, list()
+        return True, list([stmnt])
 
     def do_body(self, body):
 
