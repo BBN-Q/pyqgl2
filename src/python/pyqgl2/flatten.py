@@ -140,19 +140,18 @@ class Flattener(ast.NodeTransformer):
         goto_ast = expr2ast(goto_str)
         return goto_ast
 
-    def make_cgoto_call(self, label, condition):
+    def make_cgoto_call(self, label, node, mask):
         """
         Create a conditional goto call
         """
 
-        goto_ast = ast.Expr(value=ast.Call(
-                func=ast.Name(id='Qcond', ctx=ast.Load()),
-                args=list([ast.Str(s=label), condition]),
-                keywords=list()))
+        cmp_ast = expr2ast('CmpEq(%s)' % str(mask))
+        label_ast = expr2ast('Goto(BlockLabel(\'%s\'))' % label)
 
-        pyqgl2.ast_util.copy_all_loc(goto_ast, condition, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(cmp_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(label_ast, node, recurse=True)
 
-        return goto_ast
+        return list([cmp_ast, label_ast])
 
     def make_label_call(self, label):
 
@@ -350,8 +349,8 @@ class Flattener(ast.NodeTransformer):
             #
             pass
         else:
-            cond_ast = self.make_cgoto_call(end_label, node.test)
-            new_body.append(cond_ast)
+            cond_stmnts = self.make_cgoto_call(end_label, node.test)
+            new_body += cond_stmnts
 
         self.loop_label_stack.append((start_label, end_label))
 
@@ -369,19 +368,39 @@ class Flattener(ast.NodeTransformer):
         expressions that represent the flattened sequence
         """
 
+        # make sure that the test is a qbit measurement.
+        # This is the only kind of test that should survive
+        # to this point; classical test would have already
+        # been executed.
+        #
+        # We can only handle "MEAS(x)" and "not MEAS(x)"
+        # as quantum conditionals right now.
+
+        if isinstance(node.test, ast.Call) and node.test.func.id == 'MEAS':
+            mask = 1
+        elif (isinstance(node.test, ast.UnaryOp) and
+                isinstance(node.test.op, ast.Not) and
+                isinstance(node.test.operand, ast.Call) and
+                (node.test.operand.func.id == 'MEAS')):
+            mask = 0
+        else:
+            NodeError.error_msg(node.test,
+                    'unhandled test express [%s]' % ast2str(node.test))
+
         else_label, end_label = LabelManager.allocate_labels(
                 'if_else', 'if_end')
 
         if node.orelse:
-            cond_ast = self.make_cgoto_call(else_label, node.test)
+            cond_ast = self.make_cgoto_call(else_label, node.test, mask)
         else:
-            cond_ast = self.make_cgoto_call(end_label, node.test)
+            cond_ast = self.make_cgoto_call(end_label, node.test, mask)
+
+        # cond_ast is actually a list of AST nodes
+        new_body = cond_ast
 
         end_goto_ast = self.make_ugoto_call(end_label)
         else_ast = self.make_label_call(else_label)
         end_label_ast = self.make_label_call(end_label)
-
-        new_body = list([cond_ast])
 
         new_body += self.flatten_body(node.body)
 
