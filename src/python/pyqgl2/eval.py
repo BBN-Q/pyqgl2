@@ -911,7 +911,9 @@ class EvalTransformer(object):
         return True, expanded_body
 
     def do_if_quantum(self, stmnt):
-        NodeError.warning_msg(stmnt, 'UNIMPLEMENTED do_if_quantum')
+        stmnt.body = self.do_body(stmnt.body)
+        if stmnt.orelse:
+            stmnt.orelse = self.do_body(stmnt.orelse)
 
         return True, list([stmnt])
 
