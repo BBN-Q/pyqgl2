@@ -3,6 +3,7 @@
 # Copyright 2015 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 import ast
+import builtins
 
 from ast import NodeVisitor
 from copy import deepcopy
@@ -658,12 +659,18 @@ class CheckType(NodeTransformerWithFname):
             func_name = pyqgl2.importer.collapse_name(value.func)
             func_def = self.importer.resolve_sym(value.qgl_fname, func_name)
 
-            # If we can't find the function definition, or it's not declared
-            # to be QGL, then we can't handle it.  Return immediately.
+            # If we can't find the function definition, check to see
+            # whether it's a builtin.  If we can't find it, or it's
+            # not declared to be QGL, then we can't handle it.
+            # Return immediately.
+            #
+            # TODO the way we check whether a function is a builtin
+            # is a non-portable hack.
             #
             if not func_def:
-                NodeError.error_msg(
-                        value, 'function [%s] not defined' % func_name)
+                if func_name not in __builtins__:
+                    NodeError.error_msg(
+                            value, 'function [%s] not defined' % func_name)
                 return node
 
             if func_def.returns:
