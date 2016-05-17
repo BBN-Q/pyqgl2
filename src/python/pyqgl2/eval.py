@@ -357,7 +357,12 @@ class SimpleEvaluator(object):
 
         # Now we need to update the state we're tracking
 
-        self.fake_assignment_worker(node.targets[0], values,
+        if isinstance(node, ast.Assign):
+            target = node.targets[0]
+        else:
+            target = node.target
+
+        self.fake_assignment_worker(target, values,
                 local_variables, namespace)
 
         return True, values
@@ -475,10 +480,13 @@ class SimpleEvaluator(object):
         funcname = pyqgl2.importer.collapse_name(call_node.func)
         func_ast = self.importer.resolve_sym(call_node.qgl_fname, funcname)
         if not func_ast:
-            NodeError.error_msg(call_node,
-                    ('no function definition found for [%s]' %
-                        ast.dump(call_node.func)))
-            return self.ERROR
+            if funcname in __builtins__:
+                return self.NONQGL2
+            else:
+                NodeError.error_msg(call_node,
+                        ('no function definition found for [%s]' %
+                            ast.dump(call_node.func)))
+                return self.ERROR
 
         # if it's a stub, then leave it alone.
         if pyqgl2.inline.is_qgl2_stub(func_ast):
@@ -670,11 +678,15 @@ class EvalTransformer(object):
 
         name_finder = NameFinder()
 
-        target_var_names, dotted_var_names = name_finder.find_names(
-                stmnt.targets[0])
+        if isinstance(stmnt, ast.Assign):
+            target = stmnt.targets[0]
+        else:
+            target = stmnt.target
+
+        target_var_names, dotted_var_names = name_finder.find_names(target)
 
         if dotted_var_names:
-            NodeError.warning_msg(stmnt.targets[0],
+            NodeError.warning_msg(target,
                     ('assignment to attributes is unreliable in QGL2 %s' %
                         str(list(dotted_var_names))))
 
@@ -686,7 +698,7 @@ class EvalTransformer(object):
             # print('EV RA %s -> %s' % (name, new_name))
             self.rewriter.add_mapping(name, new_name)
 
-        self.rewriter.rewrite(stmnt.targets[0])
+        self.rewriter.rewrite(target)
 
     def do_for(self, stmnt):
         """
@@ -798,6 +810,64 @@ class EvalTransformer(object):
         #     print('EVF run %s' % ast2str(ns).strip())
 
         return True, new_stmnts
+
+    def do_while(self, stmnt):
+        """
+        Evaluate/expand a "while" statement
+
+        Like do_if, except that it may expand the body an
+        arbitrary number of times (for a classical test).
+        """
+
+        if stmnt.orelse:
+            NodeError.error_msg(stmnt.orelse,
+                    'QGL2 while statements cannot have an else clause')
+            return False, list()
+
+        new_stmnt = deepcopy(stmnt)
+        self.rewriter.rewrite(new_stmnt)
+
+        is_classical, test = self.is_classical_test(new_stmnt.test)
+        if is_classical:
+            if test:
+                return self.do_classical_while(new_stmnt, test)
+            else:
+                return True, list()
+        else:
+            return self.do_quantum_while(new_stmnt)
+
+    def do_classical_while(self, stmnt, test):
+
+        # We know we're going to go through the body at
+        # least once, if we get here at all (because the
+        # test must have been true the first time it was
+        # evaluated.
+        #
+        new_body = self.do_body(stmnt.body)
+
+        while True:
+            # Make a copy, so that the rewriter changes the
+            # copy for the *next* iteration
+            #
+            stmnt = deepcopy(stmnt)
+            self.rewriter.rewrite(stmnt)
+
+            is_classical, test = self.is_classical_test(stmnt.test)
+            if not is_classical:
+                NodeError.error_msg(stmnt,
+                        'test changed from classical to quantum?')
+                return False, list()
+            elif test:
+                new_body += self.do_body(stmnt.body)
+            else:
+                break
+
+        return True, new_body
+
+    def do_quantum_while(self, stmnt):
+
+        stmnt.body = self.do_body(stmnt.body)
+        return True, list([stmnt])
 
     def do_if(self, stmnt):
         """
@@ -921,13 +991,6 @@ class EvalTransformer(object):
 
         new_body = list()
 
-        # still_valid is True as long as we're making progress
-        # on converting the body.  As soon as we hit anything we
-        # can't process, we immediately stop and append the rest of
-        # the body as-is.
-        #
-        still_valid = True
-
         for stmnt_index in range(len(body)):
 
             # If an error has been detected (during the previous
@@ -938,10 +1001,6 @@ class EvalTransformer(object):
                 break
 
             stmnt = body[stmnt_index]
-
-            if not still_valid:
-                new_body.append(stmnt)
-                continue
 
             # Skip over any pass statements or comment strings.
             #
@@ -960,7 +1019,8 @@ class EvalTransformer(object):
                 self.change_cnt += 1
                 continue
 
-            elif isinstance(stmnt, ast.Assign):
+            elif (isinstance(stmnt, ast.Assign) or
+                    isinstance(stmnt, ast.AugAssign)):
                 # FIXME: this isn't quite right yet.  We need to
                 # handle the case of qbit creation better.
                 # Right now it's handled elsewhere, but it could
@@ -984,7 +1044,6 @@ class EvalTransformer(object):
                     self.preamble_stmnts.append(stmnt)
                     self.preamble_values.append(values)
                 else:
-                    still_valid = False
                     NodeError.error_msg(stmnt,
                             'assignment failed [%s]' % ast2str(stmnt))
                     break
@@ -1002,7 +1061,6 @@ class EvalTransformer(object):
                 success = self.eval_state.do_call(stmnt.value)
                 if success == self.eval_state.ERROR:
                     # Ooops.  Fail hard.
-                    still_valid = False
                     break
                 elif success == self.eval_state.QGL2DECL:
                     # We can't proceed, with the evaluation,
@@ -1010,16 +1068,17 @@ class EvalTransformer(object):
                     # in the hope that we can expand it later.
                     #
                     new_body.append(stmnt)
-                    still_valid = False
                     continue
                 elif success == self.eval_state.QGL2STUB:
                     # real success
                     new_body.append(stmnt)
                 elif success == self.eval_state.NONQGL2:
                     # We don't know what to do...  punt.
-                    NodeError.error_msg(stmnt,
-                            'not sure how to handle [%s]' % ast2str(stmnt))
-                    still_valid = False
+                    self.eval_state.eval_expr(stmnt)
+                    print('NSH %s' % ast2str(stmnt))
+                    NodeError.warning_msg(stmnt,
+                            ('not sure how to handle [%s]' %
+                                ast2str(stmnt).strip()))
                     continue
 
             elif isinstance(stmnt, ast.For):
@@ -1034,7 +1093,6 @@ class EvalTransformer(object):
                 if not success:
                     NodeError.error_msg(stmnt,
                             'failed to unroll [%s]' % ast2str(stmnt).strip())
-                    still_valid = False
                     continue
 
                 new_body += new_stmnts
@@ -1045,6 +1103,13 @@ class EvalTransformer(object):
                     break
 
                 new_body += if_body
+
+            elif isinstance(stmnt, ast.While):
+                success, while_body = self.do_while(stmnt)
+                if not success:
+                    break
+
+                new_body += while_body
 
             elif isinstance(stmnt, ast.With):
                 # If it's a "with" statement, then make a new "with"
@@ -1070,7 +1135,6 @@ class EvalTransformer(object):
                 self.rewriter.rewrite(stmnt)
 
                 new_body.append(stmnt)
-                still_valid = False
                 print('EV unhandled [%s]' % ast.dump(stmnt))
 
         # If we've pruned everything out of the body,
