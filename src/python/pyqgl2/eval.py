@@ -454,6 +454,7 @@ class SimpleEvaluator(object):
             DebugMsg.log('bogus target_ast [%s]' % ast.dump(target_ast),
                     DebugMsg.HIGH)
 
+
     NONQGL2 = 0
     QGL2STUB = 1
     QGL2DECL = 2
@@ -535,7 +536,9 @@ class EvalTransformer(object):
     to handle loops, stub functions, or qgl2decl'd functions
     """
 
-    def __init__(self, eval_state, redirect_table_name='qv'):
+    PRECOMPUTED_VALUES = dict()
+
+    def __init__(self, eval_state):
         """
         eval_state is a SimpleEvaluator instance
         """
@@ -561,7 +564,17 @@ class EvalTransformer(object):
         #
         self.rewriter = NameRewriter()
 
-        self.redirect_name = redirect_table_name
+        # redirect_global looks like a variable, but it is NOT.
+        # The redirect_global MUST be the name of the dictionary
+        # used to store the table of precomputed local values,
+        # as it is visible within the emitted "QGL1" function.
+        #
+        # redirect_name is a shorter, convenient name of a
+        # local-scope variable used to cache a reference to
+        # the global named by redirect_global.
+        #
+        self.redirect_global_name = 'PRECOMPUTED_VALUES'
+        self.redirect_name = '_v'
 
     def print_state(self):
 
@@ -621,6 +634,18 @@ class EvalTransformer(object):
             # TODO: verify this.
             #
             name_redirector.visit(stmnt)
+
+        # Stash a reference to new_values in PRECOMPUTED_VALUES,
+        # so we can find it again within the QGL1 function we
+        # create.
+        #
+        # Implementation note: this needs to be via a class reference,
+        # not an instance reference, because even though
+        # self.PRECOMPUTED_VALUES and EvalTransformer.PRECOMPUTED_VALUES
+        # initially reference the same thing, reassigning self.*
+        # will not change EvalTransformer.*.
+        #
+        EvalTransformer.PRECOMPUTED_VALUES = new_values
 
         return new_values
 
@@ -699,6 +724,38 @@ class EvalTransformer(object):
             self.rewriter.add_mapping(name, new_name)
 
         self.rewriter.rewrite(target)
+
+    def setup(self):
+        """
+        Generate the list of statements needed to set up the
+        classical variables; these statements will be inserted
+        inserted into the QGL1 function after the Qubit setup
+        and prior to the creation of the sequences
+
+        Currently there is little to do, other than importing
+        the EvalTransformer and then finding a reference to
+        the EvalTransformer's dict of cached values
+        """
+
+        stmnts = list()
+
+        # Even though EvalTransformer *should* be in the namespace
+        # where the function we're creating will be executed, it
+        # doesn't seem to be able to find it, so import it again.
+        #
+        # This may be a latent bug, because this behavior is unexpected
+        # and probably means I misunderstood some nuance of the
+        # Python execution algorithm.
+        #
+        local_imp = 'from %s import %s' % (__name__, type(self).__name__)
+        local_ref = '%s = %s.%s' % (
+                self.redirect_name,
+                type(self).__name__, self.redirect_global_name)
+
+        stmnts.append(ast.parse(local_imp, mode='exec').body[0])
+        stmnts.append(ast.parse(local_ref, mode='exec').body[0])
+
+        return stmnts
 
     def do_for(self, stmnt):
         """
