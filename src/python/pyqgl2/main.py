@@ -356,7 +356,9 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     filen = filename
     if not filename or filename == '<stdin>':
         filen = "myprogram.py"
-    qgl1_main = get_sequence_function(new_ptree8, fname, importer, intermediate_fout, saveOutput, filen)
+    qgl1_main = get_sequence_function(new_ptree8, fname,
+            importer, intermediate_fout, saveOutput, filen,
+            setup=evaluator.setup())
     NodeError.halt_on_error()
     return qgl1_main
 
