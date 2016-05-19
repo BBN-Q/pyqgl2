@@ -445,6 +445,7 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     from QGL.Compiler import find_unique_channels, compile_to_hardware
     from QGL.Channels import Qubit as qgl1Qubit
     from QGL import ChannelLibrary
+    from pyqgl2.evenblocks import replaceWaits
     import logging
     logger = logging.getLogger('QGL.Compiler.qgl2')
     # Find the channel for each sequence
@@ -458,6 +459,9 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
                 logger.debug("Sequence %d is channel %s", idx, ch)
                 logger.debug(" - which is AWG '%s'", getAWG(ch))
                 break
+
+    # Try to replace WAIT commands with Id pulses where possible
+    seqs = replaceWaits(seqs, seqIdxToChannelMap)
 
     # Find the sequence whose channel's AWG is same as slave Channel, if
     # any. Avoid sequences without a qubit channel if any.
