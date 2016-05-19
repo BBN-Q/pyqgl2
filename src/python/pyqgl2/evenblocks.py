@@ -20,7 +20,6 @@ import logging
 
 logger = logging.getLogger('QGL.Compiler.qgl2')
 
-
 # Convenience functions to identify pulse/control elements
 def isWait(pulse): return isinstance(pulse, Wait)
 def isSync(pulse): return isinstance(pulse, Sync)
@@ -70,19 +69,17 @@ def replaceWaits(seqs, seqIdxToChannelMap):
     waitIdxesBySeqInd = dict()
 
     # First loop over each sequence, building up a count of waits in each and a dict by seqInd with the indices of the waits.
-    for seq, seqInd in enumerate(seqs):
+    for seqInd, seq in enumerate(seqs):
         startCursorBySeqInd[seqInd] = 0
-        thisWaitCnt = 0
         waitIdxes = list()
-        for elem, ind in enumerate(seq):
+        for ind, elem in enumerate(seq):
             if isWait(elem):
-                thisWaitCnt += 1
                 waitIdxes.append(ind)
-        waitIdxesBySeqInd[seqInd] = waitIxes
+        waitIdxesBySeqInd[seqInd] = waitIdxes
 
     # If some sequence has a different number of Waits, we can't do these replacements
-    maxWait = max(length(waitIdxesBySeqInd[i]) for i in waitIdxesBySeqInd)
-    minWait = min(length(waitIdxesBySeqInd[i]) for i in waitIdxesBySeqInd)
+    maxWait = max([len(waitIdxesBySeqInd[i]) for i in waitIdxesBySeqInd])
+    minWait = min([len(waitIdxesBySeqInd[i]) for i in waitIdxesBySeqInd])
     if maxWait != minWait:
         # Some sequence has diff # of waits
         logger.info("Cannot replace any Waits with pause (Id) pulses; # Waits ranges from %d to %d", minWait, maxWait)
@@ -92,14 +89,14 @@ def replaceWaits(seqs, seqIdxToChannelMap):
     waitCnt = maxWait
 
     # If all sequences start with a wait, skip it
-    while all(isWait(seq[waitIdxesBySeqInd[seqInd][curWait]]) for seq,seqInd in enumerate(seqs)):
+    while curWait < waitCnt and all([isWait(seq[waitIdxesBySeqInd[seqInd][curWait]]) for seqInd, seq in enumerate(seqs)]):
         curWait += 1
 
     # If we skipped some waits and there is more to do,
     # Then push forward the cursor for each sequence where we'll start in measuring
     # lengths
     if curWait > 0 and curWait < waitCnt:
-        for seq, seqInd in enumerate(seqs):
+        for seqInd, seq in enumerate(seqs):
             startCursorBySeqInd[seqInd] = waitIdxesBySeqInd[seqInd][curWait - 1] + 1
 
     # Store the length of the current sub-segment for each sequence
@@ -114,7 +111,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
         logger.debug("Starting wait block %d", curWait)
         # Is this block of indeterminate length
         nonDet = False
-        for seq, seqInd in enumerate(seqs):
+        for seqInd, seq in enumerate(seqs):
             logger.debug("Starting seq %d", seqInd)
 
             # Clear the length for this sequence
@@ -152,7 +149,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                 if isWait(elem):
                     if curInd == nextWaitInd:
                         logger.debug("Got up to next Wait at %d", curInd)
-                        len += pulseLength(elem)
+                        curlen += pulseLengths(elem)
                         break # out of this while loop
                     else:
                         raise Exception("Seq %d found unexpected %s at %d. Didn't expect it until %d" % (seqInd, elem, curInd, nextWaitInd))
@@ -182,13 +179,13 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                     rptStartInd.append(curInd+1)
                     rptStartElem.append(seq[curInd+1])
 
-                    curlen += pulseLength(elem)
+                    curlen += pulseLengths(elem)
                     rptStartLen.append(curlen)
                     curInd += 1
                     continue
 
                 if isRepeat(elem):
-                    curlen += pulseLength(elem)
+                    curlen += pulseLengths(elem)
                     # When we get here, we've already added to curLen the result of doing this once
                     if not rptCnt:
                         # FIXME: Ignore instead? Use NodeError?
@@ -266,11 +263,11 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                     callTarget = elem.target
                     retInd.append(curInd+1)
                     logger.debug("Got %s at %d pointing at %s", elem, curInd, elem.target)
-                    curlen += pulseLength(elem)
+                    curlen += pulseLengths(elem)
 
                     # Look for the call target from here forward to next Wait
                     foundTarget = False
-                    for e2, ind2 in enumerate(seq[curInd+1:nextWaitInd-1]):
+                    for ind2, e2 in enumerate(seq[curInd+1:nextWaitInd-1]):
                         if e2 == callTarget:
                             curInd = ind2
                             foundTarget = True
@@ -284,7 +281,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
 
                 if isReturn(elem):
                     # Should have seen a call that put a return index in our list
-                    curlen += pulseLength(elem)
+                    curlen += pulseLengths(elem)
                     if not retInd:
                         raise Exception("Sequence %d at %d: Have no saved index to go back to for %s" % (seqInd, curInd, elem))
                     ri = retInd.pop()
@@ -295,24 +292,24 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                 if isGoto(elem):
                     # Jump to line with given label
                     gotoElem = elem.target
-                    curlen += pulseLength(elem)
+                    curlen += pulseLengths(elem)
 
                     foundTarget = False
                     logger.debug("Got %s at %d pointing at %s", elem, curInd, gotoElem)
-                    for e2, ind2 in enumerate(Seq[curInd+1:nextWaitInd-1]):
+                    for ind2, e2 in enumerate(Seq[curInd+1:nextWaitInd-1]):
                         if e2 == gotoElem:
                             curInd = ind2
                             foundTarget = True
                             break
                     if foundTarget:
                         logger.debug("Jumping to target at %d", curInd)
-                        continue:
+                        continue
                     # FIXME: Exception or log and continue?
                     raise Exception("Sequence %d at %d: Failed to find %s target %s from there to next wait at %d" % (seqInd, curInd, elem, elem.target, nextWaitInd-1))
 
                 # Normal case: Add length of this element and move to next element
                 logger.debug("%s a normal element - add its length and move on", elem)
-                curlen += pulseLength(elem)
+                curlen += pulseLengths(elem)
                 curInd += 1
             # End of while loop over elements in this block in this sequence
 
@@ -343,7 +340,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
             # * compile_to_hardware already does this, so don't do it again
 
         # Move all start pointers past the Wait that ended that block
-        for s2, sidx2 in enumerate(seqs):
+        for sidx2, s2 in enumerate(seqs):
             startCursorBySeqInd[sidx2] = waitIdxesBySeqInd[sidx2][curWait]+1
 
         # Move on to next sub segment / wait block
@@ -357,10 +354,10 @@ def replaceWaits(seqs, seqIdxToChannelMap):
 def replaceWait(seqs, inds, lengths, chanBySeq):
     '''Replace the wait at the given inds (indexes) in all sequences with the proper Id pulse'''
     maxBlockLen = max(lengths.values())
-    for seq, seqInd in enumerate(seqs):
+    for seqInd, seq in enumerate(seqs):
         ind = inds[seqInd] # Index of the Wait
         idlen = maxBlockLen - lengths[seqInd] # Length of Id pulse to pause till last channel done
-	logger.info("Sequence %d: Replacing %s with Id(%s, length=%d)", seqInd, seq[ind],
+        logger.info("Sequence %d: Replacing %s with Id(%s, length=%d)", seqInd, seq[ind],
                     chanBySeq[seqInd], idlen)
         seq[ind] = Id(chanBySeq[seqInd], idlen)
     return seqs
