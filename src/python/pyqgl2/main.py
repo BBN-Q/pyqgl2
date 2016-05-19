@@ -448,6 +448,7 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     from pyqgl2.evenblocks import replaceWaits
     import logging
     logger = logging.getLogger('QGL.Compiler.qgl2')
+
     # Find the channel for each sequence
     seqIdxToChannelMap = dict()
     for idx, seq in enumerate(seqs):

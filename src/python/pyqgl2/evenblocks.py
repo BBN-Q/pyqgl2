@@ -104,7 +104,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
 
     # Store the length of the current sub-segment for each sequence
     curSeqLengthBySeqInd = dict()
-    
+
     # Now loop over each sub-segment
     # That is, the pulses after the last Wait and up through the next wait
     # For each, we have to count up the length in each sequence, handling repeats/gotos
@@ -116,6 +116,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
         nonDet = False
         for seq, seqInd in enumerate(seqs):
             logger.debug("Starting seq %d", seqInd)
+
             # Clear the length for this sequence
             curSeqLengthBySeqInd[seqInd] = 0
             # Shorthand to use for adding as we go
@@ -126,11 +127,9 @@ def replaceWaits(seqs, seqIdxToChannelMap):
             rptCount = []
             # How long is this repeat block (if any)
             rptLen = []
-            # Index into sequence where the repeat block if any starts
+            # Index into sequence where the repeat block if any might start (right after LoadRepeat say)
             rptStartInd = []
-            # Index into sequence where the repeat block if any ends
-            rptEndInd = []
-            # Element in sequence where repeat block starts if known
+            # Element in sequence where repeat block starts if known, or best guess
             rptStartElem = []
             # Length of current sub-block before we started the current repeat, if any
             rptStartLen = []
@@ -138,17 +137,18 @@ def replaceWaits(seqs, seqIdxToChannelMap):
             # LIFO stack of Index where the next return should go back to (set on seeing a Call)
             # - LIFO so you can nest such call/returns
             retInd = []
-            
+
             # Index into this sequence of the next Wait command
             nextWaitInd = waitIdxesBySeqInd[seqInd][curWait]
             # Index into sequence where we are currently looking
             # starts at startCursorBySeqInd
             curInd = startCursorBySeqInd[seqInd]
-            # Now look at each seq element from the curCursor/next up to nextWaitInd
+
+            # Now look at each seq element from the current spot (curInd) up to nextWaitInd (index of next Wait)
             while curInd <= nextWaitInd:
                 elem = seq[curInd]
 
-                # If we reached the end, stop
+                # If we reached the end, stop (should be Wait)
                 if isWait(elem):
                     if curInd == nextWaitInd:
                         logger.debug("Got up to next Wait at %d", curInd)
@@ -158,7 +158,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                         raise Exception("Seq %d found unexpected %s at %d. Didn't expect it until %d" % (seqInd, elem, curInd, nextWaitInd))
                 elif curInd == nextWaitInd:
                     raise Exception("Seq %d found unexpected %s at %d. Expected Wait" % (seqInd, elem, curInd))
-                
+
                 # If this is a comparison of some kind,
                 # then this block is of indeterminate length,
                 # so we can't replace the Wait
@@ -171,15 +171,17 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                 # NOTE: Here I assume that a Wait in the middle of a repeat block is illegal
                 if isLoadRepeat(elem):
                     if elem.value < 1:
+                        # FIXME: raise Exception instead?
                         logger.warning("Sequence %d at %d got %s with value %d: Treat as 1", seqInd, curInd, elem, elem.value)
                         elem.value = 1
                     logger.debug("Found %s for %d at %d. Len so far: %d", elem, elem.value, curInd, curlen)
                     rptCnt.append(elem.value)
 
-                    # Guess that the repeat will want to go to line after LoadRepeat
+                    # Guess that the repeat will want to go to line after LoadRepeat - if not, we'll start looking there
+                    # for the proper destination
                     rptStartInd.append(curInd+1)
                     rptStartElem.append(seq[curInd+1])
-                    
+
                     curlen += pulseLength(elem)
                     rptStartLen.append(curlen)
                     curInd += 1
@@ -191,9 +193,12 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                     if not rptCnt:
                         # FIXME: Ignore instead? Use NodeError?
                         raise Exception("Sequence %d got %s at %d without a LoadRepeat" % (seqInd, elem, curInd))
+
                     # Get the # of times left to repeat
                     rc = rptCnt[len(rptCnt)-1] - 1
                     logger.debug("Found %s at %d target %s. Remaining repeats %d", elem, curInd, elem.target, rc)
+
+                    # If there are no more repeats, move on
                     if rc <= 0:
                         # Just finished last time through the loop
                         # Clear all the repeat variables
@@ -203,17 +208,15 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                         while len(rptStartElem) > len(rptCnt):
                             rptStartElem.pop()
                         rptStartLen.pop()
-                        while len(rptEndInd) > len(rptCnt):
-                            rptEndInd.pop()
                         # Move on to the next element
                         curInd += 1
                         continue
 
-                    # If we get here, we need to repeat that block
+                    # If we get here, we need to repeat that block at least once
                     # Update the repeats remaining counter
                     rptCnt[len(rptCnt)-1] = rc
 
-                    # Back when we got the LoadRepeat, we guessed where to start from
+                    # Back when we got the LoadRepeat (or looked back to find target), we guessed where to start from
                     # If the guess is still in place and matches what we want, just use that and move on
                     if len(rptCnt) == len(rptStartElem) and rptCnt[len(rptCnt)-1] and elem.target == rptStartElem[len(rptStartElem)-1]:
                         # We guessed correctly where to start repeat from
@@ -231,18 +234,15 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                             rptStartElem.pop()
                         while len(rptStartLen) > len(rptCnt):
                             rptStartLen.pop()
-                        while len(rptEndInd) > len(rptCnt):
-                            rptEndInd.pop()
                         # Move on to the next element
                         curInd += 1
                         continue
                     else:
-                        logger.debug("Go back to look for target (wasn't stashed guess %s", rptStartElem[len(rptStartElem)-1])
+                        logger.debug("Go back to look for target (wasn't stashed guess %s)", rptStartElem[len(rptStartElem)-1])
                         # Go back to find the blocklabel to repeat from
                         # We go back to rptStartInd and loop forward until we find elem.target.
                         # Then set curInd to that ind, set startElem to the elem.target
                         # and set StartLen to curLen
-                        rptEndInd.append(curInd)
                         rptStartElem[len(rptStartElem)-1] = elem.target
                         rptStartLen[len(rptStartLen)-1] = curLen
                         idx = rptStartInd[len(rptStartInd)-1]
@@ -261,10 +261,14 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                 # End of handling Repeat
 
                 if isCall(elem):
+                    # A call has a matching Return. We will need to return to the line after this.
+                    # Note we assume no intervening Wait.
                     callTarget = elem.target
                     retInd.append(curInd+1)
                     logger.debug("Got %s at %d pointing at %s", elem, curInd, elem.target)
                     curlen += pulseLength(elem)
+
+                    # Look for the call target from here forward to next Wait
                     foundTarget = False
                     for e2, ind2 in enumerate(seq[curInd+1:nextWaitInd-1]):
                         if e2 == callTarget:
@@ -279,6 +283,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                     raise Exception("Sequence %d at %d: Failed to find %s target %s from there to next wait at %d" % (seqInd, curInd, elem, elem.target, nextWaitInd-1))
 
                 if isReturn(elem):
+                    # Should have seen a call that put a return index in our list
                     curlen += pulseLength(elem)
                     if not retInd:
                         raise Exception("Sequence %d at %d: Have no saved index to go back to for %s" % (seqInd, curInd, elem))
@@ -288,10 +293,12 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                     continue
 
                 if isGoto(elem):
+                    # Jump to line with given label
                     gotoElem = elem.target
                     curlen += pulseLength(elem)
+
                     foundTarget = False
-                    logger.debug("Got %s at %d poingint at %s", elem, curInd, gotoElem)
+                    logger.debug("Got %s at %d pointing at %s", elem, curInd, gotoElem)
                     for e2, ind2 in enumerate(Seq[curInd+1:nextWaitInd-1]):
                         if e2 == gotoElem:
                             curInd = ind2
@@ -312,10 +319,11 @@ def replaceWaits(seqs, seqIdxToChannelMap):
             # If this was nonDet, stop looping over sequences for this block
             if nonDet:
                 break
+
             # Record the length we found
             curSeqLengthBySeqInd[seqInd] = curlen
 
-            # I want this to be pointing at the final wait
+            # I want us to be pointing at the final wait now: Make sure
             if not isWait(seq[curInd]) or not curInd == nextWaitInd:
                 raise Exception("Sequence %d: Expected when done with walking a wait block to be pointing at that last wait but stopped at %d:%s not %d:%s" % (seqInd, curInd, seq[curInd], nextWaitInd, seq[nextWaitInd]))
 
@@ -343,6 +351,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
     # End of while loop over wait blocks
 
     # Now we have replaced Waits with Id pulses where possible
+    logger.debug("Done replacing Waits with Ids where possible")
     return seqs
 
 def replaceWait(seqs, inds, lengths, chanBySeq):
