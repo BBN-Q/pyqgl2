@@ -461,6 +461,16 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
                 logger.debug(" - which is AWG '%s'", getAWG(ch))
                 break
 
+    # Hack: skip the empty sequence(s) now before doing anything else
+    useseqs = list()
+    for idx, seq in enumerate(seqs):
+        if idx not in seqIdxToChannelMap:
+            # Indicates an error - that empty sequence
+            logger.debug("Sequence %d has no channel - skip", idx)
+            continue
+        useseqs.append(seq)
+    seqs = useseqs
+
     # Try to replace WAIT commands with Id pulses where possible
     seqs = replaceWaits(seqs, seqIdxToChannelMap)
 
@@ -496,11 +506,7 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     # Start as a set so filenames are unique,
     # but return as a list so it can be a dictionary key
     files = set()
-    for idx,seq in enumerate(seqs):
-        if idx not in seqIdxToChannelMap:
-            # Indicates an error - that empty sequence
-            logger.debug("Sequence %d has no channel - skip", idx)
-            continue
+    for idx, seq in enumerate(seqs):
         doSlave = False
         if idx == slaveSeqInd:
             logger.debug("Asking for slave trigger with sequence %d", idx)
@@ -644,11 +650,6 @@ if __name__ == '__main__':
 
         # Now execute the returned function, which should produce a list of sequences
         sequences = resFunction(q=QubitFactory('q1'))
-
-#        # Get length
-#        from pyqgl2.pulselength import pulseLengths
-#        length = pulseLengths(sequences)
-#        print("Sequence length: %s" % length)
 
         # In verbose mode, turn on DEBUG python logging for the QGL Compiler
         if opts.verbose:
