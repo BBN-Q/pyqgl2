@@ -13,8 +13,9 @@
 # * There is no Wait between a Repeat and its target
 # * When all channels start with a Wait, leave that Wait alone
 
-from QGL.ControlFlow import Goto, Call, Return, LoadRepeat, Repeat, Wait, LoadCmp, Sync, ComparisonInstruction
-from QGL.PulseSequencer import Pulse
+from QGL.ControlFlow import Goto, Call, Return, LoadRepeat, Repeat, Wait, LoadCmp, Sync, ComparisonInstruction, ControlInstruction
+from QGL.PulseSequencer import Pulse, CompositePulse, PulseBlock
+from QGL.PulsePrimitives import Id
 
 import logging
 
@@ -87,20 +88,25 @@ def replaceWaits(seqs, seqIdxToChannelMap):
 
     # All sequences have this # of waits for us to process
     waitCnt = maxWait
+    logger.debug("\nSequences have %d waits", waitCnt)
 
     # If all sequences start with a wait, skip it
-    while curWait < waitCnt and all([isWait(seq[waitIdxesBySeqInd[seqInd][curWait]]) for seqInd, seq in enumerate(seqs)]):
+    while curWait < waitCnt and all([isWait(seq[curWait]) for seq in seqs]):
+        logger.debug("Skipping a wait at spot %d", curWait)
         curWait += 1
 
     # If we skipped some waits and there is more to do,
     # Then push forward the cursor for each sequence where we'll start in measuring
     # lengths
     if curWait > 0 and curWait < waitCnt:
+        logger.debug("Skipped some waits. Now at wait %d of %d", curWait, waitCnt)
         for seqInd, seq in enumerate(seqs):
             startCursorBySeqInd[seqInd] = waitIdxesBySeqInd[seqInd][curWait - 1] + 1
 
     # Store the length of the current sub-segment for each sequence
     curSeqLengthBySeqInd = dict()
+
+    logger.debug("Ready to loop over %d wait blocks", waitCnt - curWait)
 
     # Now loop over each sub-segment
     # That is, the pulses after the last Wait and up through the next wait
@@ -112,7 +118,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
         # Is this block of indeterminate length
         nonDet = False
         for seqInd, seq in enumerate(seqs):
-            logger.debug("Starting seq %d", seqInd)
+            logger.debug("Starting sequence %d", seqInd)
 
             # Clear the length for this sequence
             curSeqLengthBySeqInd[seqInd] = 0
@@ -148,13 +154,13 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                 # If we reached the end, stop (should be Wait)
                 if isWait(elem):
                     if curInd == nextWaitInd:
-                        logger.debug("Got up to next Wait at %d", curInd)
+                        logger.debug("Got up to next Wait at index %d", curInd)
                         curlen += pulseLengths(elem)
                         break # out of this while loop
                     else:
-                        raise Exception("Seq %d found unexpected %s at %d. Didn't expect it until %d" % (seqInd, elem, curInd, nextWaitInd))
+                        raise Exception("Sequence %d found unexpected %s at %d. Didn't expect it until %d" % (seqInd, elem, curInd, nextWaitInd))
                 elif curInd == nextWaitInd:
-                    raise Exception("Seq %d found unexpected %s at %d. Expected Wait" % (seqInd, elem, curInd))
+                    raise Exception("Sequence %d found unexpected %s at %d. Expected Wait" % (seqInd, elem, curInd))
 
                 # If this is a comparison of some kind,
                 # then this block is of indeterminate length,
@@ -308,7 +314,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                     raise Exception("Sequence %d at %d: Failed to find %s target %s from there to next wait at %d" % (seqInd, curInd, elem, elem.target, nextWaitInd-1))
 
                 # Normal case: Add length of this element and move to next element
-                logger.debug("%s a normal element - add its length and move on", elem)
+                logger.debug("%s is a normal element - add its length and move on", elem)
                 curlen += pulseLengths(elem)
                 curInd += 1
             # End of while loop over elements in this block in this sequence
@@ -348,7 +354,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
     # End of while loop over wait blocks
 
     # Now we have replaced Waits with Id pulses where possible
-    logger.debug("Done replacing Waits with Ids where possible")
+    logger.debug("Done replacing Waits with Ids where possible.\n")
     return seqs
 
 def replaceWait(seqs, inds, lengths, chanBySeq):
