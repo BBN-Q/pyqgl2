@@ -576,6 +576,20 @@ class EvalTransformer(object):
         self.redirect_global_name = 'PRECOMPUTED_VALUES'
         self.redirect_name = '_v'
 
+        # condition variables set to indicate whether we're inside
+        # a loop, and whether a "break" or "continue" has been
+        # executed in a substatement of the loop.
+        #
+        # TODO: I don't think that we need to stack these, since
+        # we'll always know from context where we are.  But I haven't
+        # proven that this is always true (nor have a proven that
+        # stacking these might not be the easiest thing to do...)
+        # Think about this.
+        #
+        self.in_loop = True
+        self.seen_break = False
+        self.seen_continue = False
+
     def print_state(self):
 
         print('EVS: PREAMBLE:')
@@ -861,6 +875,16 @@ class EvalTransformer(object):
                 # print('EV FOR3 no additions')
                 pass
 
+            # if we've seen a "continue", then continue, but if we've
+            # seen a "break", then we need to break out of this loop.
+            # In either case, we need to clear the condition bits.
+            #
+            if self.seen_continue:
+                self.seen_continue = False
+            if self.seen_break:
+                self.seen_break = False
+                break
+
         # for ns in self.preamble_stmnts:
         #     print('EVF pre %s' % ast2str(ns).strip())
         # for ns in new_stmnts:
@@ -885,13 +909,20 @@ class EvalTransformer(object):
         self.rewriter.rewrite(new_stmnt)
 
         is_classical, test = self.is_classical_test(new_stmnt.test)
+
+        was_in_loop = self.in_loop
+        self.in_loop = True
+
         if is_classical:
             if test:
-                return self.do_classical_while(new_stmnt, test)
+                success, new_stmnts = self.do_classical_while(new_stmnt, test)
             else:
-                return True, list()
+                success, new_stmnts = True, list()
         else:
-            return self.do_quantum_while(new_stmnt)
+            success, new_stmnts = self.do_quantum_while(new_stmnt)
+
+        self.in_loop = was_in_loop
+        return success, new_stmnts
 
     def do_classical_while(self, stmnt, test):
 
@@ -971,10 +1002,17 @@ class EvalTransformer(object):
         #
         if NodeError.error_detected():
             return False, list()
-        elif is_classical:
-            return self.do_if_classical(stmnt, test)
+
+        was_in_loop = self.in_loop
+        self.in_loop = True
+
+        if is_classical:
+            success, new_stmnts = self.do_if_classical(stmnt, test)
         else:
-            return self.do_if_quantum(stmnt)
+            success, new_stmnts = self.do_if_quantum(stmnt)
+
+        self.in_loop = was_in_loop
+        return success, new_stmnts
 
     def is_classical_test(self, test_expr):
         """
@@ -1049,6 +1087,13 @@ class EvalTransformer(object):
         new_body = list()
 
         for stmnt_index in range(len(body)):
+
+            # TODO: if we've seen a "break" or "continue" but we're
+            # not inside a nested statement that supports these,
+            # then something is wrong
+            # 
+            if self.seen_break or self.seen_continue:
+                break
 
             # If an error has been detected (during the previous
             # element, or somewhere within a recursive call) then
@@ -1182,6 +1227,16 @@ class EvalTransformer(object):
                 new_with.body = self.do_body(new_with.body)
 
                 new_body.append(new_with)
+
+            # For "break" and "continue" statements, mark the conditions
+            # and then abandon the processing of the rest of the body
+            #
+            elif isinstance(stmnt, ast.Break):
+                self.seen_break = True
+                break
+            elif isinstance(stmnt, ast.Continue):
+                self.seen_continue = True
+                break
 
             else:
                 # TODO: we could add more sanity checks here,
