@@ -586,9 +586,10 @@ class EvalTransformer(object):
         # stacking these might not be the easiest thing to do...)
         # Think about this.
         #
-        self.in_loop = True
+        self.in_loop = False
         self.seen_break = False
         self.seen_continue = False
+        self.in_quantum_condition = False
 
     def print_state(self):
 
@@ -954,7 +955,10 @@ class EvalTransformer(object):
 
     def do_quantum_while(self, stmnt):
 
+        was_in_quantum_condition = self.in_quantum_condition
+        self.in_quantum_condition = True
         stmnt.body = self.do_body(stmnt.body)
+        self.in_quantum_condition = was_in_quantum_condition
         return True, list([stmnt])
 
     def do_if(self, stmnt):
@@ -1076,10 +1080,15 @@ class EvalTransformer(object):
         return True, expanded_body
 
     def do_if_quantum(self, stmnt):
+
+        was_in_quantum_condition = self.in_quantum_condition
+        self.in_quantum_condition = True
+
         stmnt.body = self.do_body(stmnt.body)
         if stmnt.orelse:
             stmnt.orelse = self.do_body(stmnt.orelse)
 
+        self.in_quantum_condition = was_in_quantum_condition
         return True, list([stmnt])
 
     def do_body(self, body):
@@ -1230,13 +1239,18 @@ class EvalTransformer(object):
 
             # For "break" and "continue" statements, mark the conditions
             # and then abandon the processing of the rest of the body
+            # iff we're executing this as the result of a classical
+            # predicate.  If we can reach here as the result of a quantum
+            # predicate, then we need to keep going.
             #
             elif isinstance(stmnt, ast.Break):
-                self.seen_break = True
-                break
+                if not self.in_quantum_condition:
+                    self.seen_break = True
+                    break
             elif isinstance(stmnt, ast.Continue):
-                self.seen_continue = True
-                break
+                if not self.in_quantum_condition:
+                    self.seen_continue = True
+                    break
 
             else:
                 # TODO: we could add more sanity checks here,
