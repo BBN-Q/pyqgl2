@@ -463,13 +463,31 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
 
     # Hack: skip the empty sequence(s) now before doing anything else
     useseqs = list()
+    decr = 0 # How much to decrement the index
+    toDecr = dict() # Map of old index to amount to decrement
     for idx, seq in enumerate(seqs):
         if idx not in seqIdxToChannelMap:
             # Indicates an error - that empty sequence
             logger.debug("Sequence %d has no channel - skip", idx)
+            decr = decr+1
             continue
+        if decr:
+            toDecr[idx] = decr
+            logger.debug("Will shift index of sequence %d by %d", idx, decr)
         useseqs.append(seq)
     seqs = useseqs
+    if decr:
+        newmap = dict()
+        for ind in seqIdxToChannelMap:
+            if ind in toDecr:
+                newmap[ind-decr] = seqIdxToChannelMap[ind]
+                logger.debug("Sequence %d (channel %s) is now sequence %d", ind, seqIdxToChannelMap[ind], ind-decr)
+            elif ind in seqIdxToChannelMap:
+                logger.debug("Sequence %d keeping map to %s", ind, seqIdxToChannelMap[ind])
+                newmap[ind] = seqIdxToChannelMap[ind]
+            else:
+                logger.debug("Dropping (empty) sequence %d", ind)
+        seqIdxToChannelMap = newmap
 
     # Try to replace WAIT commands with Id pulses where possible
     seqs = replaceWaits(seqs, seqIdxToChannelMap)
