@@ -15,6 +15,7 @@ from pyqgl2.ast_util import NodeError, ast2str
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import NameFinder, NameRedirector, NameRewriter
+from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.inline import TempVarManager
 from pyqgl2.single import is_qbit_create
 
@@ -153,7 +154,6 @@ def check_actuals(func_ast, pos_args, kw_args, call_ast=None, qbits=None):
     """
 
     return dict() # FIXME doesn't do anything
-
 
 
 class SimpleEvaluator(object):
@@ -491,7 +491,8 @@ class SimpleEvaluator(object):
 
         # if it's a stub, then leave it alone.
         if pyqgl2.inline.is_qgl2_stub(func_ast):
-            # print('EV IS QGL2STUB: passing through')
+            print('EV IS QGL2STUB: passing through')
+            print('EV STUB %s' % ast.dump(call_node))
             return self.QGL2STUB
         elif pyqgl2.inline.is_qgl2_def(func_ast):
             # print('EV IS QGL2DECL: passing through')
@@ -785,7 +786,11 @@ class EvalTransformer(object):
         # TODO: sanity checking
 
         iter_copy = deepcopy(stmnt.iter)
+
+        print('DOF iter_copy %s' % ast.dump(iter_copy))
         self.rewriter.rewrite(iter_copy)
+        print('DOFs iter_copy %s' % ast.dump(iter_copy))
+        print('DOFt %s' % str(self.rewriter.name2name))
 
         success, loop_values = self.eval_state.eval_expr(iter_copy)
         if not success:
@@ -793,6 +798,8 @@ class EvalTransformer(object):
                     ('could not evaluate iter expression [%s]' %
                         ast2str(stmnt.iter).strip()))
             return False, None
+
+        print('DOFu %s' % str(loop_values))
 
         tmp_iters = TempVarManager.create_temp_var_manager(
                 name_prefix='___iter')
@@ -1132,12 +1139,26 @@ class EvalTransformer(object):
 
             elif (isinstance(stmnt, ast.Assign) or
                     isinstance(stmnt, ast.AugAssign)):
-                # FIXME: this isn't quite right yet.  We need to
-                # handle the case of qbit creation better.
-                # Right now it's handled elsewhere, but it could
-                # be handled here.
+                # If the assignment is due to qbit creation
+                # then we have some housekeeping to do.
+                # We create a fake value (a QubitPlaceholder instance)
+                # to assign to the target, and then update the locals
+                # with this binding.
+                #
+                # FIXME this only handles a limited set of all
+                # the ways qbits might be created.  It would be
+                # better to actually invoke the QubitFactory here,
+                # although that would break any other things.
+                #
                 if is_qbit_create(stmnt):
-                    # print('EV: QBIT CREATION (punting)')
+                    self.rewriter.rewrite(stmnt.value)
+                    sym_name, use_name, _node = is_qbit_create(stmnt)
+
+                    qbit = QubitPlaceholder.factory(use_name)
+
+                    local_variables = self.eval_state.locals_stack[-1]
+                    local_variables[sym_name] = qbit
+                    # print('EV: QBIT CREATE %s' % ast.dump(stmnt))
                     new_body.append(stmnt)
                     continue
 
