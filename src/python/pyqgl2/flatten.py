@@ -349,7 +349,11 @@ class Flattener(ast.NodeTransformer):
             #
             pass
         else:
-            cond_stmnts = self.make_cgoto_call(end_label, node.test)
+            # TODO: this call to cgoto_call is BOGUS FIXME.
+            # The parameters for cgoto_call, and the way it
+            # depends on the mask, are mockups
+            #
+            cond_stmnts = self.make_cgoto_call(end_label, node.test, 1)
             new_body += cond_stmnts
 
         self.loop_label_stack.append((start_label, end_label))
