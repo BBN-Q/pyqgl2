@@ -8,7 +8,32 @@ from copy import deepcopy
 from pyqgl2.ast_util import NodeError
 from pyqgl2.importer import NameSpaces
 from pyqgl2.importer import collapse_name
+
 import pyqgl2.ast_util
+
+class QubitPlaceholder(object):
+    """
+    Placeholder for a Qubit/Channel
+
+    It would be preferable to use the actual Qubit object
+    here, but that requires closer integration with QGL1
+    """
+
+    # mapping from label to reference
+    KNOWN_QUBITS = dict()
+
+    def __init__(self, use_name):
+        self.use_name = use_name
+
+    @staticmethod
+    def factory(use_name, **kwargs):
+
+        mapping = QubitPlaceholder.KNOWN_QUBITS
+
+        if use_name not in mapping:
+            mapping[use_name] = QubitPlaceholder(use_name, **kwargs)
+        return mapping[use_name]
+
 
 class TempVarManager(object):
     """
@@ -91,6 +116,18 @@ class NameRewriter(ast.NodeTransformer):
         elif node.id in self.name2name:
             node.id = self.name2name[node.id]
 
+        return node
+
+    def visit_Expr(self, node):
+        """
+        If the expression is a Call, then rewrite the original call
+        as well, so that we can find the bindings later
+        """
+
+        if hasattr(node, 'qgl2_orig_call'):
+            node.qgl2_orig_call = self.rewrite(node.qgl2_orig_call)
+
+        self.generic_visit(node)
         return node
 
     def add_constant(self, old_name, value_ptree):
@@ -712,15 +749,24 @@ class NameRedirector(ast.NodeTransformer):
         # replacing the reference with a reference to the new
         # table.
         #
+        # As special case, we replace references to qubits
+        # with their special QBIT_ name.  This is a bit of
+        # a hack; the downstream code expects to see just
+        # the name.
+        #
         # TODO: expand what we can represent as literals
         # (i.e. add simple lists, tuples).
+        #
         # TODO: add a comment, if possible, with the name of the variable
 
         value = self.values[name]
+
         if isinstance(value, int) or isinstance(value, float):
             redirection = ast.Num(n=value)
         elif isinstance(value, str):
             redirection = ast.Str(s=value)
+        elif isinstance(value, QubitPlaceholder):
+            redirection = ast.Name(id=value.use_name, ctx=ast.Load())
         else:
             redirection = ast.Subscript(
                     value=ast.Name(id=self.table_name, ctx=ast.Load()),
