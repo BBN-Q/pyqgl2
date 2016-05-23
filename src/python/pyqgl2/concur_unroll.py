@@ -14,8 +14,9 @@ from copy import deepcopy
 import pyqgl2.ast_util
 
 from pyqgl2.ast_util import ast2str, expr2ast, NodeError, value2ast
-from pyqgl2.importer import collapse_name
 from pyqgl2.debugmsg import DebugMsg
+from pyqgl2.importer import collapse_name
+from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.lang import QGL2
 
 def is_concur(node):
@@ -56,7 +57,7 @@ def is_seq(node):
 
     return False
 
-def find_all_channels(node):
+def find_all_channels(node, local_vars=None):
     """
     Reinitialze the set of all_channels to be the set of
     all channels referenced in the AST rooted at the given
@@ -66,24 +67,34 @@ def find_all_channels(node):
     channels lexically.  FIXME
     """
 
+    if not local_vars:
+        local_vars = dict()
+
+    print('LV %s %s' % (ast.dump(node), str(local_vars)))
+
     all_channels = set()
 
     for subnode in ast.walk(node):
         if isinstance(subnode, ast.Name):
 
             # Ugly hard-coded assumption about channel names: FIXME
-
+            #
+            # Also look for bindings to QubitPlaceholders
+            #
             if subnode.id.startswith('QBIT_'):
                 all_channels.add(subnode.id)
             elif subnode.id.startswith('EDGE_'):
                 all_channels.add(subnode.id)
+            elif ((subnode.id in local_vars) and
+                    (isinstance(local_vars[subnode.id], QubitPlaceholder))):
+                all_channels.add(local_vars[subnode.id].use_name)
 
         # Look for references to inlined calls; dig out any
         # channels that might be hiding there despite being
         # optimized away later.
         #
         if hasattr(subnode, 'qgl2_orig_call'):
-            orig_chan = find_all_channels(subnode.qgl2_orig_call)
+            orig_chan = find_all_channels(subnode.qgl2_orig_call, local_vars)
             # print('FAC %s -> %s' %
             #         (ast2str(subnode.qgl2_orig_call).strip(),
             #             str(orig_chan)))
@@ -533,8 +544,12 @@ class QbitGrouper(ast.NodeTransformer):
     TODO: this is just a prototype and needs some refactoring
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, local_vars=None):
+
+        if not local_vars:
+            local_vars = dict()
+
+        self.local_vars = local_vars
 
     def visit_With(self, node):
 
@@ -556,7 +571,8 @@ class QbitGrouper(ast.NodeTransformer):
             new_seq.body = stmnts
             # Mark an attribute on new_seq naming the qbits
             new_seq.qgl_chan_list = qbits
-            NodeError.diag_msg(node, "Adding new with seq marked with qbits %s" % (str(qbits)))
+            NodeError.diag_msg(node,
+                    "Adding new with seq marked with qbits %s" % (str(qbits)))
             new_body.append(new_seq)
 
         node.body = new_body
@@ -586,8 +602,7 @@ class QbitGrouper(ast.NodeTransformer):
         else:
             return True
 
-    @staticmethod
-    def group_stmnts(stmnts, find_qbits_func=None):
+    def group_stmnts(self, stmnts, find_qbits_func=None):
         """
         Return a list of statement groups, where each group is a tuple
         (qbit_list, stmnt_list) where qbit_list is a list of all of
@@ -675,7 +690,7 @@ class QbitGrouper(ast.NodeTransformer):
             #
             if QbitGrouper.is_qrepeat(stmnt):
 
-                rep_groups = QbitGrouper.group_stmnts(stmnt.body)
+                rep_groups = self.group_stmnts(stmnt.body)
                 for partition, substmnts in rep_groups:
                     # lazy way to create the specialized qrepeat:
                     # copy the whole thing, and then throw away
@@ -690,7 +705,7 @@ class QbitGrouper(ast.NodeTransformer):
 
         for stmnt in expanded_stmnts:
 
-            qbits_referenced = list(find_qbits_func(stmnt))
+            qbits_referenced = list(find_qbits_func(stmnt, self.local_vars))
             # print('GR %s -> %s' %
             #         (ast2str(stmnt).strip(), str(qbits_referenced)))
 
