@@ -8,9 +8,13 @@
 
 # Some assumptions:
 # * All channels have identical # of Waits
-# * There is no Wait between a Call and its Return
-# * There is no Wait between a LoadRepeat and its Repeat
-# * There is no Wait between a Repeat and its target
+# * LoadRepeat comes before label and before the Repeat
+# * Currently, cannot be a Wait between the start label and the Repeat
+#   * That must change
+# * Currently Call must go to something later.
+#   * That must change
+# * Currently, cannot be a Wait between Call and its Return
+#   * That must change
 # * When all channels start with a Wait, leave that Wait alone
 
 from QGL.ControlFlow import Goto, Call, Return, LoadRepeat, Repeat, Wait, LoadCmp, Sync, ComparisonInstruction, ControlInstruction
