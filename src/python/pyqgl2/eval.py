@@ -592,6 +592,11 @@ class EvalTransformer(object):
         self.seen_continue = False
         self.in_quantum_condition = False
 
+        # the 'use names' (i.e. QBIT_1) for qbits known to be
+        # allocated
+        #
+        self.allocated_qbits = set()
+
     def print_state(self):
 
         print('EVS: PREAMBLE:')
@@ -641,7 +646,24 @@ class EvalTransformer(object):
                     new_values[name] = local_variables[name]
                 else:
                     # for debugging only
-                    print('EV RB sym absent [%s]' % name)
+                    # let's see if it's a qbit, and if it's
+                    # not a qbit, let's see if it's a stub
+                    #
+                    if name in self.allocated_qbits:
+                        # print('EV RB qbit [%s]' % name)
+                        pass
+                    elif self.eval_state.importer.resolve_sym(
+                            stmnt.qgl_fname, name):
+                        # print('EV RB func [%s]' % name)
+                        pass
+                    else:
+                        # This isn't always an error: it will
+                        # fail for global variables, which we
+                        # don't treat completely consistently
+                        # (typically 'concur' and 'seq')
+                        #
+                        print('EV RB sym absent [%s] in %s' %
+                                (name, stmnt.qgl_fname))
 
             # This assumes that the rewriting can always be done
             # in place, and reuse the top level node of the
@@ -1155,6 +1177,8 @@ class EvalTransformer(object):
                     sym_name, use_name, _node = is_qbit_create(stmnt)
 
                     qbit = QubitPlaceholder.factory(use_name)
+
+                    self.allocated_qbits.add(use_name)
 
                     local_variables = self.eval_state.locals_stack[-1]
                     local_variables[sym_name] = qbit
