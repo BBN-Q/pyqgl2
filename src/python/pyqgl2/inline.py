@@ -767,6 +767,7 @@ class NameRedirector(ast.NodeTransformer):
             redirection = ast.Str(s=value)
         elif isinstance(value, QubitPlaceholder):
             redirection = ast.Name(id=value.use_name, ctx=ast.Load())
+            redirection.qgl_is_qbit = True
         else:
             redirection = ast.Subscript(
                     value=ast.Name(id=self.table_name, ctx=ast.Load()),
