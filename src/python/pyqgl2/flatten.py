@@ -311,6 +311,16 @@ class Flattener(ast.NodeTransformer):
         return_ast = expr2ast('Return()')
         end_ast = expr2ast('BlockLabel(\'%s\')' % end_label)
 
+        pyqgl2.ast_util.copy_all_loc(call_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(goto_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(start_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(load_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(loop_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(repeat_label_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(repeast_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(return_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(end_ast, node, recurse=True)
+
         preamble = list([call_ast, goto_ast, start_ast, load_ast, loop_ast])
 
         self.loop_label_stack.append((repeat_label, return_label))
@@ -338,8 +348,11 @@ class Flattener(ast.NodeTransformer):
 
         start_ast = self.make_label_call(start_label)
         end_ast = self.make_label_call(end_label)
-
         loop_ast = self.make_ugoto_call(start_label)
+
+        pyqgl2.ast_util.copy_all_loc(start_label, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(end_label, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(loop_ast, node, recurse=True)
 
         new_body = list([start_ast])
 
@@ -405,6 +418,10 @@ class Flattener(ast.NodeTransformer):
         end_goto_ast = self.make_ugoto_call(end_label)
         else_ast = self.make_label_call(else_label)
         end_label_ast = self.make_label_call(end_label)
+
+        pyqgl2.ast_util.copy_all_loc(end_goto_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(else_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(end_label_ast, node, recurse=True)
 
         new_body += self.flatten_body(node.body)
 
