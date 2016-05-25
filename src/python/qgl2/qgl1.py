@@ -146,6 +146,38 @@ def Wait() -> control:
 def Sync() -> control:
     print('Sync')
 
+@qgl2stub('QGL.ControlFlow')
+def LoadCmp() -> control:
+    print('LoadCmp')
+
+@qgl2stub('QGL.ControlFlow')
+def ComparisonInstruction(mask, operator) -> control:
+    print('CMP %s %s' % (operator, mask))
+
+# Note that these Cmp functions don't really need to be stubs,
+# they can be run as is. But making them stubs ensures
+# the imports work out.
+# mask is an int, used by the APS2 like so:
+# (op << 8) | (mask & 0xff)
+# Where op is an int for the comparator, as in:
+# EQUAL       = 0x0
+# NOTEQUAL    = 0x1
+# GREATERTHAN = 0x2
+# LESSTHAN    = 0x3
+
+@qgl2stub('QGL.ControlFlow')
+def CmpEq(mask) -> control:
+    return ComparisonInstruction(mask, '==')
+@qgl2stub('QGL.ControlFlow')
+def CmpNeq(mask) -> control:
+    return ComparisonInstruction(mask, "!=")
+@qgl2stub('QGL.ControlFlow')
+def CmpLt(mask) -> control:
+    return ComparisonInstruction(mask, "<")
+@qgl2stub('QGL.ControlFlow')
+def CmpGt(mask) -> control:
+    return ComparisonInstruction(mask, ">")
+
 #from QGL.ChannelLibrary import EdgeFactory
 @qgl2stub('QGL.ChannelLibrary')
 def EdgeFactory(source: qbit, target: qbit) -> qbit:
@@ -176,12 +208,12 @@ def clifford_seq(c, q1: qbit, q2: qbit = None) -> sequence:
 
 @qgl2stub('QGL.ControlFlow')
 def Goto(target) -> control:
-    # Note target is a BlockLabel
+    # target is a BlockLabel
     pass
 
 @qgl2stub('QGL.ControlFlow')
 def LoadRepeat(value) -> control:
-    # Value is an int
+    # Value is an int # of times to repeat
     pass
 
 @qgl2stub('QGL.ControlFlow')
@@ -191,6 +223,7 @@ def Call(target) -> control:
 
 @qgl2stub('QGL.ControlFlow')
 def Return() -> control:
+    # Goes back to where you did Call()
     pass
 
 @qgl2stub('QGL.ControlFlow')
