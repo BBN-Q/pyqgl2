@@ -146,6 +146,30 @@ def Wait() -> control:
 def Sync() -> control:
     print('Sync')
 
+@qgl2stub('QGL.ControlFlow')
+def LoadCmp() -> control:
+    print('LoadCmp')
+
+@qgl2stub('QGL.ControlFlow')
+def ComparisonInstruction(mask, operator) -> control:
+    print('CMP %s %s' % (operator, mask))
+
+# Note that thes Cmp functions don't really need to be stubs,
+# they can be run as is. But making them stubs ensures
+# the imports work out
+@qgl2stub('QGL.ControlFlow')
+def CmpEq(mask) -> control:
+    return ComparisonInstruction(mask, '==')
+@qgl2stub('QGL.ControlFlow')
+def CmpNeq(mask) -> control:
+    return ComparisonInstruction(mask, "!=")
+@qgl2stub('QGL.ControlFlow')
+def CmpLt(mask) -> control:
+    return ComparisonInstruction(mask, "<")
+@qgl2stub('QGL.ControlFlow')
+def CmpGt(mask) -> control:
+    return ComparisonInstruction(mask, ">")
+
 #from QGL.ChannelLibrary import EdgeFactory
 @qgl2stub('QGL.ChannelLibrary')
 def EdgeFactory(source: qbit, target: qbit) -> qbit:
