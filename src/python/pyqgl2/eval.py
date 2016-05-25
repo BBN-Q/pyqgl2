@@ -800,8 +800,17 @@ class EvalTransformer(object):
         Unroll a for loop.
 
         This is currently done WITHOUT checking whether the for
-        loop can be replaced with a Qrepeat statement.  TODO FIXME
+        loop can be replaced with a Qrepeat statement.  This might
+        be done here, but it might be better done in the flattener.
         """
+
+        # placeholder root node for the new Qfor
+        #
+        root = ast.With(
+                items=list([ast.withitem(
+                    context_expr=ast.Name(id='Qfor', ctx=ast.Load()),
+                    optional_vars=None)]),
+                body=list())
 
         name_finder = NameFinder()
 
@@ -830,7 +839,7 @@ class EvalTransformer(object):
         tmp_targets = TempVarManager.create_temp_var_manager(
                 name_prefix='___targ')
 
-        new_stmnts = list()
+        iters_list = list()
 
         targets = stmnt.target
         loop_var_names, dotted_var_names = name_finder.find_names(targets)
@@ -861,6 +870,14 @@ class EvalTransformer(object):
         targets_template = targets
 
         for i in range(len(loop_values)):
+
+            # placeholder node for the new Qiter
+            #
+            iter_root = ast.With(
+                    items=list([ast.withitem(
+                        context_expr=ast.Name(id='Qiter', ctx=ast.Load()),
+                        optional_vars=None)]),
+                    body=list())
 
             new_body = deepcopy(body_template)
             new_targets = deepcopy(targets_template)
@@ -900,10 +917,12 @@ class EvalTransformer(object):
             new_body = self.do_body(new_body)
 
             if len(new_body) > 0:
-                new_stmnts += new_body
+                iter_root.body = new_body
+                iters_list.append(iter_root)
             else:
                 # print('EV FOR3 no additions')
                 pass
+
 
             # if we've seen a "continue", then continue, but if we've
             # seen a "break", then we need to break out of this loop.
@@ -920,7 +939,11 @@ class EvalTransformer(object):
         # for ns in new_stmnts:
         #     print('EVF run %s' % ast2str(ns).strip())
 
-        return True, new_stmnts
+        root.body = iters_list
+
+        print('EV NL %s' % ast.dump(root))
+
+        return True, list([root])
 
     def do_while(self, stmnt):
         """
@@ -1273,6 +1296,8 @@ class EvalTransformer(object):
                 #
                 # TODO: need to also rewrite the target itself,
                 # because it might be an expression (like "Qrepeat(x)")
+
+                print('WITH %s' % ast.dump(stmnt))
 
                 new_with = deepcopy(stmnt)
                 for item in new_with.items:
