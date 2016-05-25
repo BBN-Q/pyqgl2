@@ -217,6 +217,8 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     MAX_ITERS = 20
     for iteration in range(MAX_ITERS):
 
+        print('ITERATION %d' % iteration)
+
         inliner = Inliner(importer)
         ptree1 = inliner.inline_function(ptree1)
         NodeError.halt_on_error()
@@ -240,12 +242,12 @@ def compileFunction(filename, main_name=None, saveOutput=False,
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
 
-        ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
-                context=ptree1)
-        NodeError.halt_on_error()
-        print(('SPECIALIZED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-                file=intermediate_fout, flush=True)
+        # ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
+        #         context=ptree1)
+        # NodeError.halt_on_error()
+        # print(('SPECIALIZED CODE (iteration %d):\n%s' %
+        #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+        #         file=intermediate_fout, flush=True)
 
         # If we include the unroller, or check for changes by the
         # specializer, then we would also check for their changes here.
@@ -267,12 +269,23 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     ptree1 = evaluator.visit(ptree1)
     NodeError.halt_on_error()
 
+    print('EVALUATOR RESULT:\n%s' % pyqgl2.ast_util.ast2str(ptree1))
+
     # Dump out all the variable bindings, for debugging purposes
     #
     # print('EV total state:')
     # evaluator.print_state()
 
-    print('EVALUATOR RESULT:\n%s' % pyqgl2.ast_util.ast2str(ptree1))
+    evaluator.replace_bindings(ptree1.body)
+
+    print('EVALUATOR REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1))
+
+    # ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
+    #         context=ptree1)
+    # NodeError.halt_on_error()
+    # print(('SPECIALIZED CODE (iteration %d):\n%s' %
+    #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+    #         file=intermediate_fout, flush=True)
 
     # If we got raw code, then we may have no source file to use
     if not filename or filename == '<stdin>':
@@ -293,7 +306,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
             file=intermediate_fout, flush=True)
 
     # Take with concur blocks and produce with seq blocks for each QBIT_* or EDGE_* referenced therein
-    grouper = QbitGrouper()
+    grouper = QbitGrouper(evaluator.eval_state.locals_stack[-1])
     new_ptree6 = grouper.visit(new_ptree5)
     NodeError.halt_on_error()
     print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
