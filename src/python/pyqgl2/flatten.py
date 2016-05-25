@@ -182,6 +182,17 @@ class Flattener(ast.NodeTransformer):
         else:
             return True
 
+    def is_with_label(self, node, label):
+        item = node.items[0].context_expr
+
+        if not isinstance(item, ast.Name):
+            return False
+        elif item.id != label:
+            return False
+        else:
+            print('GOT with-label [%s]' % label)
+            return True
+
     def visit_FunctionDef(self, node):
         return self.flatten_node_body(node)
 
@@ -189,6 +200,10 @@ class Flattener(ast.NodeTransformer):
 
         if self.is_with_qrepeat(node):
             return self.repeat_flattener(node)
+        elif self.is_with_label(node, 'Qfor'):
+            return self.qfor_flattener(node)
+        elif self.is_with_label(node, 'Qiter'):
+            return self.qiter_flattener(node)
         else:
             return self.flatten_node_body(node)
 
@@ -258,6 +273,55 @@ class Flattener(ast.NodeTransformer):
                 body=new_body, orelse=list())
 
         return dbg_if
+
+    def qfor_flattener(self, node):
+        """
+        flatten a 'with Qfor' block
+        """
+
+        # figure out what to do here.  Mostly modifying the
+        # the context to make sure that the "break" reference
+        # points to the right things, and scooping out the
+        # guts and returning them.
+
+        (end_label,) = LabelManager.allocate_labels('qfor_end')
+        end_ast = expr2ast('BlockLabel(\'%s\')' % end_label)
+
+        # the bogus label should be replaced by the qiter_flattener
+        # with the label for the next iteration, if any.  It should
+        # never be emitted.
+        #
+        self.loop_label_stack.append(('BOGUS_LABEL', end_label))
+
+        new_stmnts = list()
+        for subnode in node.body:
+            if not self.is_with_label(subnode, 'Qiter'):
+                print('UNEXPECTED non-Qiter node')
+                new_stmnts += self.qiter_flattener(subnode)
+
+        self.loop_label_stack.pop()
+
+        new_stmnts.append(end_ast)
+
+        return new_stmnts
+
+    def qiter_flattener(self, node):
+        """
+        flatten a 'with Qiter' block
+        """
+
+        # Modify the continue reference to point to the
+        # end of the current iteration.
+
+        (next_start_label,) = LabelManager.allocate_labels('next_iter')
+
+        (old_start_label, end_label) = self.loop_label_stack.pop()
+        self.loop_label_stack.append((next_start_label, end_label))
+
+        end_ast = expr2ast('BlockLabel(\'%s\')' % next_start_label)
+        pyqgl2.ast_util.copy_all_loc(end_ast, node, recurse=True)
+
+        return node.body + [end_ast]
 
     def repeat_flattener(self, node):
         """
