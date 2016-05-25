@@ -70,8 +70,6 @@ def find_all_channels(node, local_vars=None):
     if not local_vars:
         local_vars = dict()
 
-    print('LV %s %s' % (ast.dump(node), str(local_vars)))
-
     all_channels = set()
 
     for subnode in ast.walk(node):
@@ -602,6 +600,101 @@ class QbitGrouper(ast.NodeTransformer):
         else:
             return True
 
+    @staticmethod
+    def is_with_label(node, label):
+        """
+        TODO: there's code in other places that duplicates this;
+        combine into a single function
+        """
+
+        if not isinstance(node, ast.With):
+            return False
+        elif not isinstance(node.items[0].context_expr, ast.Name):
+            return False
+        elif node.items[0].context_expr.id != label:
+            return False
+        else:
+            print('GROUPER: got label [%s]' % label)
+            return True
+
+    def group_stmnts2(self, stmnts, find_qbits_func=None):
+        """
+        A different approach to grouping statements,
+        which (hopefully) will work more cleanly on deep
+        structures.  See group_stmnts for a basic overview
+        of what this function attempts to do.
+
+        The basic approach taken by this method is:
+
+        a) find all the qbits referenced by the stmnts
+
+        b) for each qbit referenced:
+
+            i) make a copy of the stmnts
+
+            ii) for each qbit, traverse the copy, removing
+                any statement that does not reference that qbit.
+                (this is a recursive process, if the statements
+                are themselves compound)
+
+            iii) for each copy, remove any statements made
+                degenerate by removing substatements (for
+                example, you could end up with loops filled with
+                "with Qiter: pass" statements, which can be safely
+                elided).
+
+        (To make this slightly simpler, we stripe this by
+        statement, instead of doing the entire statement list
+        at once in steps b.i--b.ii.)
+
+        This consumes more memory than a pure construction,
+        but it's simpler.
+        """
+
+        if find_qbits_func is None:
+            find_qbits_func = find_all_channels
+
+        all_qbits = set()
+
+        for stmnt in stmnts:
+            all_qbits.update(find_qbits_func(stmnt, self.local_vars))
+
+        print('GR2 all qbits = %s' % str(all_qbits))
+
+        qbit2stmnts = dict()
+
+        for qbit in all_qbits:
+            new_stmnts = list()
+
+            for stmnt in stmnts:
+                pruned_stmnt = self.keep_qbit(stmnt, qbit, find_qbits_func)
+                if pruned_stmnt:
+                    new_stmnts.append(pruned_stmnt)
+
+            if new_stmnts:
+                qbit2stmnts[qbit] = new_stmnts
+            else:
+                print('GR2: expected to find at least one stmnt? [%s]', qbit)
+
+        # TODO: paste everything back together into seq statements,
+        # and return something meaningful.
+
+        for qbit in qbit2stmnts:
+            print('GR2 final %s' % qbit)
+            for stmnt in qbit2stmnts[qbit]:
+                print('   %s' % ast2str(stmnt))
+
+    def keep_qbit(self, stmnt, qbit, finder):
+        """
+        Fake scaffolding that only looks at the top-level
+        """
+
+        qbits = finder(stmnt, self.local_vars)
+        if qbit not in qbits:
+            return ast.Pass()
+        else:
+            return stmnt
+
     def group_stmnts(self, stmnts, find_qbits_func=None):
         """
         Return a list of statement groups, where each group is a tuple
@@ -664,6 +757,8 @@ class QbitGrouper(ast.NodeTransformer):
         sequence.
         """
 
+        self.group_stmnts2(stmnts, find_qbits_func)
+
         if find_qbits_func is None:
             find_qbits_func = find_all_channels
 
@@ -700,6 +795,10 @@ class QbitGrouper(ast.NodeTransformer):
                     new_qrepeat.body = substmnts
 
                     expanded_stmnts.append(new_qrepeat)
+            elif QbitGrouper.is_with_label(stmnt, 'Qfor'):
+                # TODO: must deal with Qfor and Qiters here.
+                expanded_stmnts.append(stmnt)
+
             else:
                 expanded_stmnts.append(stmnt)
 
