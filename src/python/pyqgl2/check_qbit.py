@@ -703,15 +703,17 @@ class CheckType(NodeTransformerWithFname):
             # function as it is defined (i.e, as func_def), not as it
             # is imported (i.e., as func_name).
             #
-            # This makes the assumption that ANYTHING named 'Qubit' or 'QubitFactory'
+            # This makes the assumption that ANYTHING named 'Qubit'
+            # or 'QubitFactory'
             # is a Qbit assignment function, which is lame and should
             # be more carefully parameterized.  Things to think about:
             # looking more deeply at its signature and making certain
             # that it looks like the 'right' function and not something
             # someone mistakenly named 'Qubit' in an unrelated context.
             #
-            if isinstance(value, ast.Call) and (func_def.name == QGL2.QBIT_ALLOC or
-                                                func_def.name == QGL2.QBIT_ALLOC2):
+            if (isinstance(value, ast.Call) and
+                    (func_def.name == QGL2.QBIT_ALLOC or
+                        func_def.name == QGL2.QBIT_ALLOC2)):
                 self._extend_local(target.id)
                 DebugMsg.log('XX EXTENDED to include %s %s' %
                         (target.id, str(self._qbit_local())))
