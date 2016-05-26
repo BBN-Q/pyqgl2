@@ -112,6 +112,10 @@ class Flattener(ast.NodeTransformer):
             elif isinstance(stmnt, ast.If):
                 if_body = self.if_flattener(stmnt)
                 new_body += if_body
+            elif isinstance(stmnt, ast.With):
+                with_body = self.with_flattener(stmnt)
+                new_body += with_body
+
 
             # TODO: there are other things to flatten,
             # and also things to gripe about if we see
@@ -193,19 +197,61 @@ class Flattener(ast.NodeTransformer):
             print('GOT with-label [%s]' % label)
             return True
 
-    def visit_FunctionDef(self, node):
+    def xvisit_FunctionDef(self, node):
         return self.flatten_node_body(node)
 
     def visit_With(self, node):
+        """
+        This is where the recursive traversal ends for this
+        transformer, and a different traversal begins.
+        When we reach this node, we expect it to either
+        be a with-concur with a body that consists entirely
+        of with-seq statements, or else a with-seq itself
+        (outside the context of a with-concur).
+        If we are starting at the top level, we will be
+        concerned if the first "with" block we encounter is
+        anything else.
 
-        if self.is_with_qrepeat(node):
-            return self.repeat_flattener(node)
-        elif self.is_with_label(node, 'Qfor'):
-            return self.qfor_flattener(node)
-        elif self.is_with_label(node, 'Qiter'):
-            return self.qiter_flattener(node)
+        If it is a with-seq node, then everything beneath
+        this node should be able to translate into a list of
+        statements by recursively flattening the contents
+        of this with-seq, but this recursion is somewhat
+        different than the NodeTransformer traversal because
+        it returns lists of statements, not nodes.
+
+        We destructively create a new with-seq that has
+        as its body this list of statements.
+        """
+
+        if self.is_with_label(node, 'seq'):
+            print('WF GOT SEQ')
+            new_body = self.flatten_body(node.body)
+            node.body = new_body
+            return node
+        elif self.is_with_label(node, 'concur'):
+            print('WF CONCUR')
+            new_body = list()
+
+            for stmnt in node.body:
+                if not isinstance(stmnt, ast.With):
+                    print('WHAT?  expected "with", got %s' %
+                            ast.dump(node))
+
+                if not self.is_with_label(stmnt, 'seq'):
+                    print('WHAT?  expected "with seq", got %s' %
+                            ast.dump(node))
+
+                new_seq_body = self.flatten_body(stmnt.body)
+
+                # destructive update
+                stmnt.body = new_seq_body
+                new_body.append(stmnt)
+
+            node.body = new_body
+            return node
         else:
-            return self.flatten_node_body(node)
+            print('ERROR: unexpected with statement')
+            return node # bogus
 
     def visit_Break(self, node):
         """
@@ -274,6 +320,31 @@ class Flattener(ast.NodeTransformer):
 
         return dbg_if
 
+    def with_flattener(self, node):
+        """
+        For "embedded" with statements, below the top-level
+        (which is handled by visit_With)
+        """
+
+        print('WF\n%s' % ast2str(node).strip())
+
+        if self.is_with_qrepeat(node):
+            print('FL got qrepeat')
+            return self.repeat_flattener(node)
+        elif self.is_with_label(node, 'Qfor'):
+            print('FL got qfor')
+            return self.qfor_flattener(node)
+        elif self.is_with_label(node, 'Qiter'):
+            print('FL got qiter')
+            print('ERROR: should not see Qiter at this level')
+            # Bogus
+            return self.qiter_flattener(node)
+        else:
+            print('ERROR: confused about with statement: %s' %
+                    ast.dump(node))
+            assert False
+            return list()
+
     def qfor_flattener(self, node):
         """
         flatten a 'with Qfor' block
@@ -295,13 +366,17 @@ class Flattener(ast.NodeTransformer):
 
         new_stmnts = list()
         for subnode in node.body:
-            if not self.is_with_label(subnode, 'Qiter'):
-                print('UNEXPECTED non-Qiter node')
+            if self.is_with_label(subnode, 'Qiter'):
                 new_stmnts += self.qiter_flattener(subnode)
+            else:
+                print('UNEXPECTED non-Qiter node')
 
         self.loop_label_stack.pop()
 
         new_stmnts.append(end_ast)
+
+        for x in new_stmnts:
+            print(' qfor:  %s' % ast2str(x).strip())
 
         return new_stmnts
 
@@ -321,7 +396,10 @@ class Flattener(ast.NodeTransformer):
         end_ast = expr2ast('BlockLabel(\'%s\')' % next_start_label)
         pyqgl2.ast_util.copy_all_loc(end_ast, node, recurse=True)
 
-        return node.body + [end_ast]
+        new_body = self.flatten_body(node.body) + [end_ast]
+        for x in new_body:
+            print(' qiter: %s' % ast2str(x).strip())
+        return new_body
 
     def repeat_flattener(self, node):
         """
