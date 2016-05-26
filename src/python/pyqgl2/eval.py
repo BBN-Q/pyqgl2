@@ -917,9 +917,9 @@ class EvalTransformer(object):
             #
             new_body = self.do_body(new_body)
 
-            pyqgl2.ast_util.copy_all_loc(iter_root, new_body[0], recurse=True)
-
             if len(new_body) > 0:
+                pyqgl2.ast_util.copy_all_loc(
+                        iter_root, new_body[0], recurse=True)
                 iter_root.body = new_body
                 iters_list.append(iter_root)
             else:
@@ -1317,11 +1317,17 @@ class EvalTransformer(object):
             # predicate, then we need to keep going.
             #
             elif isinstance(stmnt, ast.Break):
-                if not self.in_quantum_condition:
+                if self.in_quantum_condition:
+                    self.rewriter.rewrite(stmnt)
+                    new_body.append(stmnt)
+                else:
                     self.seen_break = True
                     break
             elif isinstance(stmnt, ast.Continue):
                 if not self.in_quantum_condition:
+                    self.rewriter.rewrite(stmnt)
+                    new_body.append(stmnt)
+                else:
                     self.seen_continue = True
                     break
 
