@@ -811,6 +811,7 @@ class EvalTransformer(object):
                     context_expr=ast.Name(id='Qfor', ctx=ast.Load()),
                     optional_vars=None)]),
                 body=list())
+        pyqgl2.ast_util.copy_all_loc(root, stmnt, recurse=True)
 
         name_finder = NameFinder()
 
@@ -915,6 +916,8 @@ class EvalTransformer(object):
             # and now recurse, to expand this copy of the body
             #
             new_body = self.do_body(new_body)
+
+            pyqgl2.ast_util.copy_all_loc(iter_root, new_body[0], recurse=True)
 
             if len(new_body) > 0:
                 iter_root.body = new_body
