@@ -147,6 +147,10 @@ def Sync() -> control:
     print('Sync')
 
 @qgl2stub('QGL.ControlFlow')
+def Barrier() -> control:
+    print('Barrier')
+
+@qgl2stub('QGL.ControlFlow')
 def LoadCmp() -> control:
     print('LoadCmp')
 
