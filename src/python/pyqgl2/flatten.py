@@ -194,7 +194,6 @@ class Flattener(ast.NodeTransformer):
         elif item.id != label:
             return False
         else:
-            print('GOT with-label [%s]' % label)
             return True
 
     def xvisit_FunctionDef(self, node):
@@ -224,12 +223,10 @@ class Flattener(ast.NodeTransformer):
         """
 
         if self.is_with_label(node, 'seq'):
-            print('WF GOT SEQ')
             new_body = self.flatten_body(node.body)
             node.body = new_body
             return node
         elif self.is_with_label(node, 'concur'):
-            print('WF CONCUR')
             new_body = list()
 
             for stmnt in node.body:
@@ -326,16 +323,11 @@ class Flattener(ast.NodeTransformer):
         (which is handled by visit_With)
         """
 
-        print('WF\n%s' % ast2str(node).strip())
-
         if self.is_with_qrepeat(node):
-            print('FL got qrepeat')
             return self.repeat_flattener(node)
         elif self.is_with_label(node, 'Qfor'):
-            print('FL got qfor')
             return self.qfor_flattener(node)
         elif self.is_with_label(node, 'Qiter'):
-            print('FL got qiter')
             print('ERROR: should not see Qiter at this level')
             # Bogus
             return self.qiter_flattener(node)
@@ -440,8 +432,6 @@ class Flattener(ast.NodeTransformer):
 
             new_body += [end_ast]
 
-        for x in new_body:
-            print(' qiter: %s' % ast2str(x).strip())
         return new_body
 
     def repeat_flattener(self, node):
