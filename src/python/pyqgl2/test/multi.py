@@ -62,3 +62,19 @@ def anotherMulti2() -> sequence:
     with concur:
         for q in [q1, q3]:
             Y(q)
+
+@qgl2decl
+def anotherMulti3() -> sequence:
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    q3 = QubitFactory('q3')
+    with concur:
+        for q in [q1, q2]:
+            init(q)
+            Id(q, length=0.000002)
+            X(q)
+            MEAS(q)
+    with concur:
+        for q in [q1, q3]:
+            Y(q, length=0.000003)
+
