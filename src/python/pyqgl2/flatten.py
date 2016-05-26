@@ -355,12 +355,15 @@ class Flattener(ast.NodeTransformer):
         # points to the right things, and scooping out the
         # guts and returning them.
 
+        # We always allocate a label and update the stack,
+        # even if we know we won't need it, just for the
+        # sake of simplicity.
+        #
         (end_label,) = LabelManager.allocate_labels('qfor_end')
-        end_ast = expr2ast('BlockLabel(\'%s\')' % end_label)
 
-        # the bogus label should be replaced by the qiter_flattener
-        # with the label for the next iteration, if any.  It should
-        # never be emitted.
+        # the bogus label will be replaced by the qiter_flattener
+        # with the label for the next iteration, if any.  It is
+        # a placeholder and should never be emitted.
         #
         self.loop_label_stack.append(('BOGUS_LABEL', end_label))
 
@@ -369,34 +372,74 @@ class Flattener(ast.NodeTransformer):
             if self.is_with_label(subnode, 'Qiter'):
                 new_stmnts += self.qiter_flattener(subnode)
             else:
-                print('UNEXPECTED non-Qiter node')
+                print('Error: unexpected non-Qiter node')
 
         self.loop_label_stack.pop()
 
-        new_stmnts.append(end_ast)
-
-        for x in new_stmnts:
-            print(' qfor:  %s' % ast2str(x).strip())
+        # If the original code contains a break statement,
+        # then we need to emit code to create the label for
+        # the end of the loop.  Otherwise, we can omit it.
+        #
+        if self.contains_type(node, ast.Break):
+            end_ast = expr2ast('BlockLabel(\'%s\')' % end_label)
+            new_stmnts.append(end_ast)
 
         return new_stmnts
+
+    def contains_type(self, node_or_list, ast_type):
+        """
+        Return True if the given node or any of its descendants is
+        of the given ast_type, False otherwise
+
+        For the sake of convenience, this function can also
+        take a list of AST nodes instead of a single node.
+
+        TODO: this is a general AST utility and should be moved
+        to AST utils.
+        """
+
+        if isinstance(node_or_list, list):
+            return any(self.contains_type(node, ast_type)
+                    for node in node_or_list)
+
+        for subnode in ast.walk(node_or_list):
+            if isinstance(subnode, ast_type):
+                return True
+
+        return False
 
     def qiter_flattener(self, node):
         """
         flatten a 'with Qiter' block
         """
 
+        new_body = self.flatten_body(node.body)
+
         # Modify the continue reference to point to the
         # end of the current iteration.
+        #
+        # For the sake of simplicity, we *always* allocate
+        # a label and update the label stack, even if we
+        # know that we're not going to use it.  (this may
+        # vary from one iter to another, so we cannot
+        # make non-local assumptions about whether or not
+        # we need it)
 
-        (next_start_label,) = LabelManager.allocate_labels('next_iter')
+        (next_start_label,) = LabelManager.allocate_labels('continue_iter')
 
         (old_start_label, end_label) = self.loop_label_stack.pop()
         self.loop_label_stack.append((next_start_label, end_label))
 
-        end_ast = expr2ast('BlockLabel(\'%s\')' % next_start_label)
-        pyqgl2.ast_util.copy_all_loc(end_ast, node, recurse=True)
+        # We only need to insert the label for the end of the
+        # iteration if we know that there is a 'continue' statement
+        # somewhere in this iteration
+        #
+        if self.contains_type(new_body, ast.Continue):
+            end_ast = expr2ast('BlockLabel(\'%s\')' % next_start_label)
+            pyqgl2.ast_util.copy_all_loc(end_ast, node, recurse=True)
 
-        new_body = self.flatten_body(node.body) + [end_ast]
+            new_body += [end_ast]
+
         for x in new_body:
             print(' qiter: %s' % ast2str(x).strip())
         return new_body
