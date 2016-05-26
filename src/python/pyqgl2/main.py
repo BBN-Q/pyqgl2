@@ -270,6 +270,10 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     NodeError.halt_on_error()
 
     print('EVALUATOR RESULT:\n%s' % pyqgl2.ast_util.ast2str(ptree1))
+    # It's very hard to read the intermediate form, before the
+    # QBIT names are added, so we don't save this right now.
+    # print(('EVALUATOR RESULT:\n%s' % pyqgl2.ast_util.ast2str(ptree1)),
+    #         file=intermediate_fout, flush=True)
 
     # Dump out all the variable bindings, for debugging purposes
     #
@@ -279,6 +283,8 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     evaluator.replace_bindings(ptree1.body)
 
     print('EVALUATOR REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1))
+    print(('EVALUATOR + REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1)),
+            file=intermediate_fout, flush=True)
 
     # ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
     #         context=ptree1)
