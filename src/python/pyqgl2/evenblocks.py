@@ -95,9 +95,13 @@ def replaceWaits(seqs, seqIdxToChannelMap):
     logger.debug("\nSequences have %d waits", waitCnt)
 
     # If all sequences start with a wait, skip it
-    while curWait < waitCnt and all([isWait(seq[curWait]) for seq in seqs]):
+    if waitCnt > 0 and all([isWait(seq[0]) for seq in seqs]):
         logger.debug("Skipping a wait at spot %d", curWait)
         curWait += 1
+
+    if curWait < waitCnt and all([isWait(seq[curWait]) for seq in seqs]):
+        # More than 2 waits at start of every sequence!?
+        logger.warning("All sequences start with more than 1 Wait?")
 
     # If we skipped some waits and there is more to do,
     # Then push forward the cursor for each sequence where we'll start in measuring
