@@ -491,8 +491,8 @@ class SimpleEvaluator(object):
 
         # if it's a stub, then leave it alone.
         if pyqgl2.inline.is_qgl2_stub(func_ast):
-            print('EV IS QGL2STUB: passing through')
-            print('EV STUB %s' % ast.dump(call_node))
+            # print('EV IS QGL2STUB: passing through')
+            # print('EV STUB %s' % ast.dump(call_node))
             return self.QGL2STUB
         elif pyqgl2.inline.is_qgl2_def(func_ast):
             # print('EV IS QGL2DECL: passing through')
@@ -819,10 +819,7 @@ class EvalTransformer(object):
 
         iter_copy = deepcopy(stmnt.iter)
 
-        print('DOF iter_copy %s' % ast.dump(iter_copy))
         self.rewriter.rewrite(iter_copy)
-        print('DOFs iter_copy %s' % ast.dump(iter_copy))
-        print('DOFt %s' % str(self.rewriter.name2name))
 
         success, loop_values = self.eval_state.eval_expr(iter_copy)
         if not success:
@@ -830,8 +827,6 @@ class EvalTransformer(object):
                     ('could not evaluate iter expression [%s]' %
                         ast2str(stmnt.iter).strip()))
             return False, None
-
-        print('DOFu %s' % str(loop_values))
 
         tmp_iters = TempVarManager.create_temp_var_manager(
                 name_prefix='___iter')
@@ -944,7 +939,7 @@ class EvalTransformer(object):
 
         root.body = iters_list
 
-        print('EV NL %s' % ast.dump(root))
+        # print('EV NL %s' % ast.dump(root))
 
         return True, list([root])
 
@@ -1300,7 +1295,7 @@ class EvalTransformer(object):
                 # TODO: need to also rewrite the target itself,
                 # because it might be an expression (like "Qrepeat(x)")
 
-                print('WITH %s' % ast.dump(stmnt))
+                # print('WITH %s' % ast.dump(stmnt))
 
                 new_with = deepcopy(stmnt)
                 for item in new_with.items:
