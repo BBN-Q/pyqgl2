@@ -561,7 +561,7 @@ class QbitGrouper(ast.NodeTransformer):
         seq_node = ast.With(items=list([seq_item_node]), body=list())
         pyqgl2.ast_util.copy_all_loc(seq_node, node)
 
-        groups = self.group_stmnts(node.body)
+        groups = self.group_stmnts2(node.body)
         new_body = list()
 
         for qbits, stmnts in groups:
@@ -614,7 +614,6 @@ class QbitGrouper(ast.NodeTransformer):
         elif node.items[0].context_expr.id != label:
             return False
         else:
-            print('GROUPER: got label [%s]' % label)
             return True
 
     def group_stmnts2(self, stmnts, find_qbits_func=None):
@@ -623,6 +622,13 @@ class QbitGrouper(ast.NodeTransformer):
         which (hopefully) will work more cleanly on deep
         structures.  See group_stmnts for a basic overview
         of what this function attempts to do.
+
+        NOTE: this function assumes that each statement
+        is associated with exactly one qbit.  Operations
+        that involve multiple qbits (like CNOT) are treated
+        as having a "source" qbit, and this is the qbit
+        associated with the statement.  (this may be
+        overly simplistic)
 
         The basic approach taken by this method is:
 
@@ -659,8 +665,6 @@ class QbitGrouper(ast.NodeTransformer):
         for stmnt in stmnts:
             all_qbits.update(find_qbits_func(stmnt, self.local_vars))
 
-        print('GR2 all qbits = %s' % str(all_qbits))
-
         qbit2stmnts = dict()
 
         for qbit in all_qbits:
@@ -668,32 +672,95 @@ class QbitGrouper(ast.NodeTransformer):
 
             for stmnt in stmnts:
                 pruned_stmnt = self.keep_qbit(stmnt, qbit, find_qbits_func)
-                if pruned_stmnt:
-                    new_stmnts.append(pruned_stmnt)
+                new_stmnts.append(pruned_stmnt)
 
             if new_stmnts:
                 qbit2stmnts[qbit] = new_stmnts
             else:
                 print('GR2: expected to find at least one stmnt? [%s]', qbit)
 
-        # TODO: paste everything back together into seq statements,
-        # and return something meaningful.
-
+        """
         for qbit in qbit2stmnts:
             print('GR2 final %s' % qbit)
-            for stmnt in qbit2stmnts[qbit]:
-                print('   %s' % ast2str(stmnt))
+            for substmnt in qbit2stmnts[qbit]:
+                print('   %s' % ast2str(substmnt).strip())
+        """
+
+        groups = [ (list([qbit]), qbit2stmnts[qbit])
+                for qbit in qbit2stmnts.keys() ]
+
+        return groups
 
     def keep_qbit(self, stmnt, qbit, finder):
         """
         Fake scaffolding that only looks at the top-level
+
+        NOTE: only looks at the top level and
+        determines whether they match the given qbit
+        and whether the stmnt contains more than
+        one qbit
+
+        TODO: does not examine the internal structure
+        of statements in general; the only compound structure
+        it considers is the body of top-level Qfor statements
+
+        TODO: add special case (probably to the finder)
+        to address the problem of operators that take
+        multiple qbits, such as CNOT.
         """
 
+        if self.is_with_label(stmnt, 'Qfor'):
+            new_body = list()
+
+            # this is wasteful: we make a copy of the whole
+            # thing, and then end up throwing away everything
+            # but the header.  Should allocate only the header.
+            #
+            new_qfor = deepcopy(stmnt)
+
+            # TODO: the only thing that should be in the body of a
+            # Qfor is a Qiter, but we don't do anything if this
+            # assumption is violated.
+            #
+            for substmnt in stmnt.body:
+                if not self.is_with_label(substmnt, 'Qiter'):
+                    print('EXPECTED Qiter')
+
+                if self.keep_qbit(substmnt, qbit, finder):
+                    new_body.append(substmnt)
+
+            # We can't have a completely empty body, so add a pass
+            # if necessary
+            #
+            if not new_body:
+                new_body = list([ast.Pass()])
+
+            new_qfor.body = new_body
+            return new_qfor
+
+        # The general case: it's not a Qfor, at least not at the
+        # top level.  It's all or nothing, then.
+
         qbits = finder(stmnt, self.local_vars)
-        if qbit not in qbits:
-            return ast.Pass()
-        else:
+        n_qbits = len(qbits)
+        if n_qbits == 0:
+            NodeError.error_msg(stmnt,
+                    ('no qbit references in stmnt? [%s]' %
+                        ast2str(stmnt).strip()))
+            return None
+            
+        elif n_qbits > 1:
+            print('multiple qbit references (%s) in stmnt [%s]' %
+                        (str(qbits), ast2str(stmnt).strip()))
+            NodeError.error_msg(stmnt,
+                    ('multiple qbit references (%s) in stmnt [%s]' %
+                        (str(qbits), ast2str(stmnt).strip())))
+            return None
+
+        if qbit in qbits:
             return stmnt
+        else:
+            return None
 
     def group_stmnts(self, stmnts, find_qbits_func=None):
         """
@@ -756,8 +823,6 @@ class QbitGrouper(ast.NodeTransformer):
         actually simpler and closer to the actual instruction
         sequence.
         """
-
-        self.group_stmnts2(stmnts, find_qbits_func)
 
         if find_qbits_func is None:
             find_qbits_func = find_all_channels
