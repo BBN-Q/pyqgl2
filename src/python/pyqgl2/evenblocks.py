@@ -2,22 +2,23 @@
 
 # Note: This code is QGL not QGL2
 
-# This file contains code to replace Wait instructions with appropriate Id()
+# This file contains code to replace Barrier instructions with appropriate Id()
 # pulses to make channels line up without using a Wait where possible.
-# See replaceWaits().
+# Where not possible, it replaces the Barrier with Sync then Wait.
+# See replaceBarriers().
 
 # Some assumptions:
-# * All channels have identical # of Waits
+# * All channels have identical # of Barriers
 # * LoadRepeat comes before label and before the Repeat
-# * Currently, cannot be a Wait between the start label and the Repeat
+# * Currently, cannot be a Barrier between the start label and the Repeat
 #   * That must change
 # * Currently Call must go to something later.
 #   * That must change
-# * Currently, cannot be a Wait between Call and its Return
+# * Currently, cannot be a Barrier between Call and its Return
 #   * That must change
-# * When all channels start with a Wait, leave that Wait alone
+# * When all channels start with a Barrier, make it a Wait
 
-from QGL.ControlFlow import Goto, Call, Return, LoadRepeat, Repeat, Wait, LoadCmp, Sync, ComparisonInstruction, ControlInstruction
+from QGL.ControlFlow import Goto, Call, Return, LoadRepeat, Repeat, Wait, LoadCmp, Sync, ComparisonInstruction, ControlInstruction, Barrier
 from QGL.PulseSequencer import Pulse, CompositePulse, PulseBlock
 from QGL.PulsePrimitives import Id
 
@@ -27,6 +28,7 @@ logger = logging.getLogger('QGL.Compiler.qgl2')
 
 # Convenience functions to identify pulse/control elements
 def isWait(pulse): return isinstance(pulse, Wait)
+def isBarrier(pulse): return isinstance(pulse, Barrier)
 def isSync(pulse): return isinstance(pulse, Sync)
 def isCMP(pulse): return isinstance(pulse, ComparisonInstruction)
 def isLoadCmp(pulse): return isinstance(pulse, LoadCmp)
@@ -59,70 +61,67 @@ def pulseLengths(pulses):
     logger.warning("Unknown sequence element %s assumed to have length 0", pulses)
     return lenRes
 
-def replaceWaits(seqs, seqIdxToChannelMap):
-    '''Where sequences have lined up Waits where the time to reach the Wait
-    is deterministic, replace the Wait with appropriate length Id pulses to 
-    keep things lined up.'''
+def replaceBarriers(seqs, seqIdxToChannelMap):
+    '''Where sequences have lined up Barriers where the time to reach the Barrier
+    is deterministic, replace the Barrier with appropriate length Id pulses to 
+    keep things lined up. Else replace it with a Sync then Wait'''
 
-    # How many waits are there
-    waitCnt = 0
-    # Which wait are we handling - marks end of current subblock
-    curWait = 0
+    # How many barriers are there
+    barrierCnt = 0
+    # Which barrier are we handling - marks end of current subblock
+    curBarrier = 0
     # 0 based index into the sequence of next element/pulse to look at
     startCursorBySeqInd = dict()
-    # List of indexes into sequences of Waits for each sequence
-    waitIdxesBySeqInd = dict()
+    # List of indexes into sequences of Barriers for each sequence
+    barrierIdxesBySeqInd = dict()
 
-    # First loop over each sequence, building up a count of waits in each and a dict by seqInd with the indices of the waits.
+    # First loop over each sequence, building up a count of barriers in each and a dict by seqInd with the indices of the barriers.
     for seqInd, seq in enumerate(seqs):
         startCursorBySeqInd[seqInd] = 0
-        waitIdxes = list()
+        barrierIdxes = list()
         for ind, elem in enumerate(seq):
-            if isWait(elem):
-                waitIdxes.append(ind)
-        waitIdxesBySeqInd[seqInd] = waitIdxes
+            if isBarrier(elem):
+                barrierIdxes.append(ind)
+        barrierIdxesBySeqInd[seqInd] = barrierIdxes
 
-    # If some sequence has a different number of Waits, we can't do these replacements
-    maxWait = max([len(waitIdxesBySeqInd[i]) for i in waitIdxesBySeqInd])
-    minWait = min([len(waitIdxesBySeqInd[i]) for i in waitIdxesBySeqInd])
-    if maxWait != minWait:
-        # Some sequence has diff # of waits
-        logger.info("Cannot replace any Waits with pause (Id) pulses; # Waits ranges from %d to %d", minWait, maxWait)
+    # If some sequence has a different number of Barriers, we can't do these replacements
+    maxBarrier = max([len(barrierIdxesBySeqInd[i]) for i in barrierIdxesBySeqInd])
+    minBarrier = min([len(barrierIdxesBySeqInd[i]) for i in barrierIdxesBySeqInd])
+    if maxBarrier != minBarrier:
+        # Some sequence has diff # of barriers
+        logger.info("Cannot replace any Barriers with pause (Id) pulses; # Barriers ranges from %d to %d", minBarrier, maxBarrier)
         return seqs
 
-    # All sequences have this # of waits for us to process
-    waitCnt = maxWait
-    logger.debug("\nSequences have %d waits", waitCnt)
+    # All sequences have this # of barriers for us to process
+    barrierCnt = maxBarrier
+    logger.debug("\nSequences have %d barriers", barrierCnt)
 
-    # If all sequences start with a wait, skip it
-    if waitCnt > 0 and all([isWait(seq[0]) for seq in seqs]):
-        logger.debug("Skipping a wait at spot %d", curWait)
-        curWait += 1
+    while curBarrier < barrierCnt and all([isBarrier(seq[curBarrier]) for seq in seqs]):
+        logger.debug("All sequences had Barrier at %d", curBarrier)
+        curBarrier += 1
 
-    if curWait < waitCnt and all([isWait(seq[curWait]) for seq in seqs]):
-        # More than 2 waits at start of every sequence!?
-        logger.warning("All sequences start with more than 1 Wait?")
-
-    # If we skipped some waits and there is more to do,
+    # If we skipped some barriers and there is more to do,
     # Then push forward the cursor for each sequence where we'll start in measuring
     # lengths
-    if curWait > 0 and curWait < waitCnt:
-        logger.debug("Skipped some waits. Now at wait %d of %d", curWait, waitCnt)
+    # And make the sequences start with a Wait and skip extra Barriers
+    if curBarrier > 0 and curBarrier < barrierCnt:
+        logger.debug("Skipped some barriers. Now at barrier %d of %d", curBarrier, barrierCnt)
         for seqInd, seq in enumerate(seqs):
-            startCursorBySeqInd[seqInd] = waitIdxesBySeqInd[seqInd][curWait - 1] + 1
+            seqs[seqInd] = [Wait()] + seq[curBarrier:]
+            startCursorBySeqInd[seqInd] = barrierIdxesBySeqInd[seqInd][curBarrier - 1] + 1
 
     # Store the length of the current sub-segment for each sequence
     curSeqLengthBySeqInd = dict()
 
-    logger.debug("Ready to loop over %d wait blocks", waitCnt - curWait)
+    logger.debug("Ready to loop over %d barrier blocks", barrierCnt - curBarrier)
 
     # Now loop over each sub-segment
-    # That is, the pulses after the last Wait and up through the next wait
+    # That is, the pulses after the last Barrier and up through the next barrier
     # For each, we have to count up the length in each sequence, handling repeats/gotos
-    # And if we find something we don't know how to handle, we need to skip to the end of this Wait block,
-    # leaving the Wait in place
-    while curWait < waitCnt:
-        logger.debug("Starting wait block %d", curWait)
+    # And if we find something we don't know how to handle, we need to skip to the end of this Barrier block,
+    # leaving the Barrier in place
+    while curBarrier < barrierCnt:
+        logger.debug("Starting barrier block %d", curBarrier)
         # Is this block of indeterminate length
         nonDet = False
         for seqInd, seq in enumerate(seqs):
@@ -149,37 +148,37 @@ def replaceWaits(seqs, seqIdxToChannelMap):
             # - LIFO so you can nest such call/returns
             retInd = []
 
-            # Index into this sequence of the next Wait command
-            nextWaitInd = waitIdxesBySeqInd[seqInd][curWait]
+            # Index into this sequence of the next Barrier command
+            nextBarrierInd = barrierIdxesBySeqInd[seqInd][curBarrier]
             # Index into sequence where we are currently looking
             # starts at startCursorBySeqInd
             curInd = startCursorBySeqInd[seqInd]
 
-            # Now look at each seq element from the current spot (curInd) up to nextWaitInd (index of next Wait)
-            while curInd <= nextWaitInd:
+            # Now look at each seq element from the current spot (curInd) up to nextBarrierInd (index of next Barrier)
+            while curInd <= nextBarrierInd:
                 elem = seq[curInd]
 
-                # If we reached the end, stop (should be Wait)
-                if isWait(elem):
-                    if curInd == nextWaitInd:
-                        logger.debug("Got up to next Wait at index %d", curInd)
+                # If we reached the end, stop (should be Barrier)
+                if isBarrier(elem):
+                    if curInd == nextBarrierInd:
+                        logger.debug("Got up to next Barrier at index %d", curInd)
                         curlen += pulseLengths(elem)
                         break # out of this while loop
                     else:
-                        raise Exception("Sequence %d found unexpected %s at %d. Didn't expect it until %d" % (seqInd, elem, curInd, nextWaitInd))
-                elif curInd == nextWaitInd:
-                    raise Exception("Sequence %d found unexpected %s at %d. Expected Wait" % (seqInd, elem, curInd))
+                        raise Exception("Sequence %d found unexpected %s at %d. Didn't expect it until %d" % (seqInd, elem, curInd, nextBarrierInd))
+                elif curInd == nextBarrierInd:
+                    raise Exception("Sequence %d found unexpected %s at %d. Expected Barrier" % (seqInd, elem, curInd))
 
                 # If this is a comparison of some kind,
                 # then this block is of indeterminate length,
-                # so we can't replace the Wait
+                # so we can't replace the Barrier with Id - must use Sync then Wait
                 if isCMP(elem) or isLoadCmp(elem):
                     logger.info("Indeterminate length block due to sequence %d has %s at %d", seqInd, elem, curInd)
                     nonDet = True
                     break
 
                 # If this is repeat / loadrepeat
-                # NOTE: Here I assume that a Wait in the middle of a repeat block is illegal
+                # NOTE: Here I assume that a Barrier in the middle of a repeat block is illegal
                 if isLoadRepeat(elem):
                     if elem.value < 1:
                         # FIXME: raise Exception instead?
@@ -273,15 +272,15 @@ def replaceWaits(seqs, seqIdxToChannelMap):
 
                 if isCall(elem):
                     # A call has a matching Return. We will need to return to the line after this.
-                    # Note we assume no intervening Wait.
+                    # Note we assume no intervening Barrier.
                     callTarget = elem.target
                     retInd.append(curInd+1)
                     logger.debug("Got %s at %d pointing at %s", elem, curInd, elem.target)
                     curlen += pulseLengths(elem)
 
-                    # Look for the call target from here forward to next Wait
+                    # Look for the call target from here forward to next Barrier
                     foundTarget = False
-                    for ind2, e2 in enumerate(seq[curInd+1:nextWaitInd-1]):
+                    for ind2, e2 in enumerate(seq[curInd+1:nextBarrierInd-1]):
                         if e2 == callTarget:
                             curInd = ind2
                             foundTarget = True
@@ -291,7 +290,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                         logger.debug("Jumping to target at %d", curInd)
                         continue
                     # FIXME: Exception? Log and continue?
-                    raise Exception("Sequence %d at %d: Failed to find %s target %s from there to next wait at %d" % (seqInd, curInd, elem, elem.target, nextWaitInd-1))
+                    raise Exception("Sequence %d at %d: Failed to find %s target %s from there to next barrier at %d" % (seqInd, curInd, elem, elem.target, nextBarrierInd-1))
 
                 if isReturn(elem):
                     # Should have seen a call that put a return index in our list
@@ -310,7 +309,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
 
                     foundTarget = False
                     logger.debug("Got %s at %d pointing at %s", elem, curInd, gotoElem)
-                    for ind2, e2 in enumerate(Seq[curInd+1:nextWaitInd-1]):
+                    for ind2, e2 in enumerate(Seq[curInd+1:nextBarrierInd-1]):
                         if e2 == gotoElem:
                             curInd = ind2
                             foundTarget = True
@@ -319,7 +318,7 @@ def replaceWaits(seqs, seqIdxToChannelMap):
                         logger.debug("Jumping to target at %d", curInd)
                         continue
                     # FIXME: Exception or log and continue?
-                    raise Exception("Sequence %d at %d: Failed to find %s target %s from there to next wait at %d" % (seqInd, curInd, elem, elem.target, nextWaitInd-1))
+                    raise Exception("Sequence %d at %d: Failed to find %s target %s from there to next barrier at %d" % (seqInd, curInd, elem, elem.target, nextBarrierInd-1))
 
                 # Normal case: Add length of this element and move to next element
                 logger.debug("%s is a normal element - add its length and move on", elem)
@@ -334,9 +333,9 @@ def replaceWaits(seqs, seqIdxToChannelMap):
             # Record the length we found
             curSeqLengthBySeqInd[seqInd] = curlen
 
-            # I want us to be pointing at the final wait now: Make sure
-            if not isWait(seq[curInd]) or not curInd == nextWaitInd:
-                raise Exception("Sequence %d: Expected when done with walking a wait block to be pointing at that last wait but stopped at %d:%s not %d:%s" % (seqInd, curInd, seq[curInd], nextWaitInd, seq[nextWaitInd]))
+            # I want us to be pointing at the final barrier now: Make sure
+            if not isBarrier(seq[curInd]) or not curInd == nextBarrierInd:
+                raise Exception("Sequence %d: Expected when done with walking a barrier block to be pointing at that last barrier but stopped at %d:%s not %d:%s" % (seqInd, curInd, seq[curInd], nextBarrierInd, seq[nextBarrierInd]))
 
             # Push forward where we'll start for next block in this sequence
             startCursorBySeqInd[seqInd] = curInd
@@ -344,32 +343,54 @@ def replaceWaits(seqs, seqIdxToChannelMap):
 
         # If we found this block was indeterminate, push to next block without doing anything
         if nonDet:
-            logger.debug("That Wait block was indeterminate length - moving on")
+            logger.info("Barrier block %d was indeterminate length - will replace with SyncWait", curBarrrier)
+            # Don't actually do the replacements here, because it screws up the indices (change 1 for 2)
         else:
-            # Now replace Waits
-            # In each sequence we should currently be pointing at the last wait (in startCursorBySeqInd)
+            # Now replace Barriers
+            # In each sequence we should currently be pointing at the last barrier (in startCursorBySeqInd)
             # We now have block lengths for each sequence
-            seqs = replaceWait(seqs, startCursorBySeqInd, curSeqLengthBySeqInd, seqIdxToChannelMap)
+            seqs = replaceBarrier(seqs, startCursorBySeqInd, curSeqLengthBySeqInd, seqIdxToChannelMap)
             # When done with sub segments would/should remove empty Id pulses, BUT....
             # * compile_to_hardware already does this, so don't do it again
 
-        # Move all start pointers past the Wait that ended that block
+        # Move all start pointers past the Barrier that ended that block
         for sidx2, s2 in enumerate(seqs):
-            startCursorBySeqInd[sidx2] = waitIdxesBySeqInd[sidx2][curWait]+1
+            startCursorBySeqInd[sidx2] = barrierIdxesBySeqInd[sidx2][curBarrier]+1
 
-        # Move on to next sub segment / wait block
-        curWait += 1
-    # End of while loop over wait blocks
+        # Move on to next sub segment / barrier block
+        curBarrier += 1
+    # End of while loop over barrier blocks
 
-    # Now we have replaced Waits with Id pulses where possible
-    logger.debug("Done replacing Waits with Ids where possible.\n")
+    # Any Barriers left over couldn't be replaced - replace with Wait/Sync
+    curBarrier = 0
+    swapCnt = 0 # Num swaps done so # that indices are off (must be added)
+    while curBarrier < barrierCnt:
+        # If every seq still has a barrier at the expected location:
+        if all(isBarrier(seq[barrierIdxesBySeqInd[sidx][curBarrier]+swapCnt]) for sidx, seq in enumerate(seqs)):
+            logger.debug("Barrier %d was left behind (nondeterministic). Replace with Sync/Wait", curBarrier)
+            # Make startCursor point at that Barrier to replace
+            # Then re-assign the sequence to be
+            # Everything up to that barrier plus a sync then wait plus everything after that barrier
+            for sidx2, s2 in enumerate(seqs):
+                startCursorBySeqInd[sidx2] = barrierIdxesBySeqInd[sidx2][curBarrier]+swapCnt
+                seqs[sidx2] = s2[:startCursorBySeqInd[sidx2]] + [Sync(), Wait()] + s2[startCursorBySeqInd[sidx2]+1:]
+                logger.debug("Sequence %d replacing index %d", sidx2, startCursorBySeqInd[sidx2])
+                swapCnt += 1
+        elif any(isBarrier(seq[barrierIdxesBySeqInd[sidx][curBarrier]+swapCnt]) for sidx, seq in enumerate(seqs)):
+            for sidx, seq in enumerate(seqs):
+                if isBarrier(seq[barrierIdxesBySeqInd[sidx][curBarrier]+swapCnt]):
+                    logger.error("Sequence %d still has Barrier %d at index %d!", curBarrier, sidx, barrierIdxesBySeqInd[sidx][curBarrier]+swapCnt)
+        curBarrier += 1
+
+    # Now we have replaced Barriers with Id pulses where possible
+    logger.debug("Done replacing Barriers with Ids where possible.\n")
     return seqs
 
-def replaceWait(seqs, inds, lengths, chanBySeq):
-    '''Replace the wait at the given inds (indexes) in all sequences with the proper Id pulse'''
+def replaceBarrier(seqs, inds, lengths, chanBySeq):
+    '''Replace the barrier at the given inds (indexes) in all sequences with the proper Id pulse'''
     maxBlockLen = max(lengths.values())
     for seqInd, seq in enumerate(seqs):
-        ind = inds[seqInd] # Index of the Wait
+        ind = inds[seqInd] # Index of the Barrier
         idlen = maxBlockLen - lengths[seqInd] # Length of Id pulse to pause till last channel done
         logger.info("Sequence %d: Replacing %s with Id(%s, length=%d)", seqInd, seq[ind],
                     chanBySeq[seqInd], idlen)

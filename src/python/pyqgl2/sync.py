@@ -3,15 +3,18 @@
 """
 Add synchronization primitives
 
-The long-term goal is to replace waits (which involve global
-synchronization) with sleeps (which just pause the local engine
-by holding the identity signal for a given length of time)
-wherever possible, to avoid the overhead of the global sync.
+Mark off the start and end of each concurrent block for each channel
+with a Barrier() message. These are points at which all channels should be brought
+in sync with each other.
+Later (evenblocks.py) we'll calculate the per channel length of the sequence segment up
+to the barrier, and insert pauses (Id pulses of proper length) where necessary to keep
+all sequences in sync.
+Note that we can only do that where we can determine the length.
+Where the length is indeterminate (say, the control flow depends on the result of a 
+quantum measurement), we must do a Sync (send a message saying this channel is done) and a wait 
+(wait for the global return message saying all channels are done). Note that this takes more time,
+so we prefer the sleeps.
 
-In the short run, however, we're just going to use waits.
-
-The beginning of each program, and the start of each concur
-block after the start of the program, are synchronized.
 """
 
 import ast
@@ -28,14 +31,12 @@ from pyqgl2.concur_unroll import is_concur, is_seq, find_all_channels
 
 class SynchronizeBlocks(ast.NodeTransformer):
     """
-    Add a WAIT to the start of each seq block within each concur block
+    Add a Barrier to the start and end of each seq block within each concur block
 
     Note that before processing is done, we add an empty seq block for
     each channel for which there is not a seq block in a given concur
-    block, so that we can add a WAIT for that channel.  This is necessary
-    because in the current architecture, each WAIT is broadcast, and
-    therefore each channel has to absorb the WAIT message, even if
-    has nothing else to do at a given moment.
+    block, so that we can add Barriers for that channel, to keep that channel lined
+    up with the others.
 
     For example, if we had the following trivial program:
 
@@ -51,11 +52,15 @@ class SynchronizeBlocks(ast.NodeTransformer):
                 Y90(QBIT_3)
 
     In the first concur block, only QBIT_1 and QBIT_2 are "busy", but
-    QBIT_3 will receive and need to process any WAIT message sent to
-    synchornize QBIT_1 and QBIT_2.  Similarly, in the second concur
+    QBIT_3 will need to wait for the others to complete so it can start
+    in sync with QBIT_2 when it is time.
+    And if those blocks were of indeterminate length, we'd be using SYNC 
+    and WAIT. Currently that WAIT needs all channels to report in, so we
+    need QBIT_3 to do the SYNC as well.
+    Similarly, in the second concur
     block, only QBIT_2 and QBIT_3 are "busy", but QBIT_1 will need to
-    process the WAIT as well.  (since the second block is the final
-    block in this program, QBIT_1 does really need to synchronize
+    process any SYNC/WAIT as well.  (since the second block is the final
+    block in this program, QBIT_1 does not really need to synchronize
     with the other channels, since no other operations follow, but
     if the program continued then this synchronization would be
     important)
@@ -64,30 +69,30 @@ class SynchronizeBlocks(ast.NodeTransformer):
 
         with concur:
             with seq:
-                WAIT(QBIT_1)
+                Barrier()
                 X90(QBIT_1)
-                SYNC()
+                Barrier()
             with seq:
-                WAIT(QBIT_2)
+                Barrier()
                 Y90(QBIT_2)
-                SYNC()
-            with seq:
-                WAIT(QBIT_3)
+                Barrier()
+            with seq: # for QBIT_3
+                Barrier()
+                Barrier()
         with concur:
+            with seq: # For QBIT_1
+                Barrier()
+                Barrier()
             with seq:
-                WAIT(QBIT_1)
-            with seq:
-                WAIT(QBIT_2)
+                Barrier()
                 X90(QBIT_2)
-                SYNC()
+                Barrier()
             with seq:
-                WAIT(QBIT_3)
+                Barrier()
                 Y90(QBIT_3)
-                SYNC()
+                Barrier()
 
-    Note that the channel operand of WAIT is only used to assign
-    the operation to a channel, and is not part of the actual
-    instruction.
+    Later, those Barrier() messages will become Id or Sync and Wait pulses.
     """
 
     def __init__(self, node):
@@ -96,38 +101,21 @@ class SynchronizeBlocks(ast.NodeTransformer):
         #
         self.all_channels = find_all_channels(node)
 
-        self.blank_wait_ast = expr2ast('Wait()')
-        self.blank_sync_ast = expr2ast('Sync()')
+        self.blank_barrier_ast = expr2ast('Barrier()')
 
     def visit_With(self, node):
 
         if is_concur(node):
-            if self.concur_needs_wait(node):
-                return self.concur_wait(node)
-            else:
-                NodeError.error_msg(stmnt,
-                        'unimplemented support for non-WAIT concur')
-                return node
+            return self.concur_wait(node)
         else:
             return self.generic_visit(node)
-
-    def concur_needs_wait(self, node):
-        """
-        Return True if the concur requires a WAIT for synchronization
-        (instead of using a delay-based sync)
-
-        Currently we don't do delay-based sync, so this always
-        returns True
-        """
-
-        return True
 
     def concur_wait(self, node):
         """
         Synchronize the start of each seq block within a concur block,
 
         Add seq blocks for any "missing" channels so we can
-        add a WAIT instruction for each of them as well
+        add a Barrier instruction for each of them as well
         """
 
         # This method will be descructive, unless we make a new
@@ -169,25 +157,17 @@ class SynchronizeBlocks(ast.NodeTransformer):
 
             new_seq_body = list()
 
-            wait_ast = deepcopy(self.blank_wait_ast)
-            copy_all_loc(wait_ast, node)
+            barrier_ast = deepcopy(self.blank_barrier_ast)
+            copy_all_loc(barrier_ast, node)
 
-            new_seq_body.append(wait_ast)
+            new_seq_body.append(barrier_ast)
 
             new_seq_body += stmnt.body
 
-            # We don't really need to sync unless we've started
-            # playing a waveform.  Is it an error if we do this
-            # unnecessarily?  (or is it just slow?)  TODO: review
-            #
-            # It might not be worth worrying about this because
-            # ordinarily there will be at least one waveform
-            # per seq block (I think)
-            #
-            sync_ast = deepcopy(self.blank_sync_ast)
-            copy_all_loc(sync_ast, node)
+            end_barrier_ast = deepcopy(self.blank_barrier_ast)
+            copy_all_loc(end_barrier_ast, node)
 
-            new_seq_body.append(sync_ast)
+            new_seq_body.append(end_barrier_ast)
 
             stmnt.body = new_seq_body
 
@@ -197,7 +177,7 @@ class SynchronizeBlocks(ast.NodeTransformer):
                     'channels unreferenced in concur: %s' % str(unseen_chan))
 
             empty_seq_ast = expr2ast(
-                    'with seq:\n    Wait()')
+                    'with seq:\n    Barrier()\n    Barrier()')
             # Mark empty_seq_ast with unseen_chan
             empty_seq_ast.qgl_chan_list = [unseen_chan]
             copy_all_loc(empty_seq_ast, node)

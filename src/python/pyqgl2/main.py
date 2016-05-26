@@ -195,9 +195,10 @@ def compileFunction(filename, main_name=None, saveOutput=False,
 
     modname = ptree.qgl_fname
     if not (add_import_from_as(importer, modname, 'qgl2.qgl1', 'Wait') and
-            add_import_from_as(importer, modname, 'qgl2.qgl1', 'Sync')):
+            add_import_from_as(importer, modname, 'qgl2.qgl1', 'Sync') and
+            add_import_from_as(importer, modname, 'qgl2.qgl1', 'Barrier')):
         NodeError.error_msg(ptree,
-                'Wait() and/or Sync() cannot be found: missing imports?')
+                'Wait() and/or Sync() and/or Barrier() cannot be found: missing imports?')
         NodeError.halt_on_error()
 
     ptree1 = ptree
@@ -445,7 +446,7 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     from QGL.Compiler import find_unique_channels, compile_to_hardware
     from QGL.Channels import Qubit as qgl1Qubit
     from QGL import ChannelLibrary
-    from pyqgl2.evenblocks import replaceWaits
+    from pyqgl2.evenblocks import replaceBarriers
     import logging
     logger = logging.getLogger('QGL.Compiler.qgl2')
 
@@ -489,8 +490,8 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
                 logger.debug("Dropping (empty) sequence %d", ind)
         seqIdxToChannelMap = newmap
 
-    # Try to replace WAIT commands with Id pulses where possible
-    seqs = replaceWaits(seqs, seqIdxToChannelMap)
+    # Try to replace Barrier commands with Id pulses where possible, else with Sync/Wait
+    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
 
     # Find the sequence whose channel's AWG is same as slave Channel, if
     # any. Avoid sequences without a qubit channel if any.
