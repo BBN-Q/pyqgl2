@@ -44,15 +44,19 @@ def pulseLengths(pulses):
     compositepulse, or list or tuple of such things.'''
     lenRes = 0
     if pulses is None:
+        logger.debug("pulses was None")
         return lenRes
     if isinstance(pulses, list) or isinstance(pulses, tuple):
+        # logger.debug("pulses was list")
         if len(pulses) == 0:
+            logger.debug("pulses was list of length 0")
             return lenRes
         for pulse in pulses:
             lenRes += pulseLengths(pulse)
         return lenRes
     if isinstance(pulses, Pulse) or isinstance(pulses, CompositePulse) \
        or isinstance(pulses, PulseBlock) or isinstance(pulses, ControlInstruction):
+        logger.debug("Pulse length: %d", pulses.length)
         return pulses.length
 
     # Not a pulse or list of pulses that we know how to handle
@@ -321,7 +325,8 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                     raise Exception("Sequence %d at %d: Failed to find %s target %s from there to next barrier at %d" % (seqInd, curInd, elem, elem.target, nextBarrierInd-1))
 
                 # Normal case: Add length of this element and move to next element
-                logger.debug("%s is a normal element - add its length and move on", elem)
+                logger.debug("%s is a normal element - add its length (%d) and move on", elem, pulseLengths(elem))
+
                 curlen += pulseLengths(elem)
                 curInd += 1
             # End of while loop over elements in this block in this sequence
@@ -389,6 +394,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
 def replaceBarrier(seqs, inds, lengths, chanBySeq):
     '''Replace the barrier at the given inds (indexes) in all sequences with the proper Id pulse'''
     maxBlockLen = max(lengths.values())
+    logger.debug("For this barrier block: max Len: %d, min len: %d", maxBlockLen, min(lengths.values()))
     for seqInd, seq in enumerate(seqs):
         ind = inds[seqInd] # Index of the Barrier
         idlen = maxBlockLen - lengths[seqInd] # Length of Id pulse to pause till last channel done
