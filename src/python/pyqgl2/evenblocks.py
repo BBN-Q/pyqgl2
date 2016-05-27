@@ -465,7 +465,59 @@ if __name__ == '__main__':
         seqs += [seq]
         return seqs
 
+    def repeatBarriers():
+        '''
+for i in 1,2
+  with concur
+     for q in q1,q2
+       X(q)
+LoadRepeat 2
+loopstart
+BARRIER - remove?
+X(q)
+BARRIER - becomes Id
+Repeat(loopstart)
+        '''
+        from QGL.ChannelLibrary import QubitFactory
+        from QGL.BlockLabel import BlockLabel
+        from QGL.ControlFlow import Barrier
+        from QGL.ControlFlow import Sync
+        from QGL.ControlFlow import Wait
+        from QGL.PulsePrimitives import Id
+        from QGL.PulsePrimitives import MEAS
+        from QGL.PulsePrimitives import X
+        from QGL.PulsePrimitives import Y
 
+        q1 = QubitFactory('q1')
+        QBIT_q1 = q1
+        q2 = QubitFactory('q2')
+        QBIT_q2 = q2
+        q3 = QubitFactory('q3')
+        QBIT_q3 = q3
+
+        seqs = list()
+        seq = [
+            LoadRepeat(2),
+            BlockLabel('loopstart1'),
+            Barrier(),
+            X(q1, length=0.1),
+            Barrier(),
+            Repeat(BlockLabel('loopstart1')),
+            Barrier() # Including this causes error cause we see the Repeat without LoadRepeat
+        ]
+        seqs += [seq]
+        seq = [
+            LoadRepeat(2),
+            BlockLabel('loopstart2'),
+            Barrier(),
+            X(q2, length=0.2),
+            Barrier(),
+            Repeat(BlockLabel('loopstart2')),
+            Barrier()
+        ]
+        seqs += [seq]
+        return seqs
+ 
     def testFunc():
         from QGL.ChannelLibrary import QubitFactory
         from QGL.ControlFlow import Barrier
@@ -542,13 +594,13 @@ if __name__ == '__main__':
                 else:
                     firstElem = False
                 ret += "    %s" % str(elem)
-                if isinstance(elem, Pulse) and elem.label == 'Id':
+                if isinstance(elem, Pulse) and (elem.label == 'Id' or elem.length != 0):
                     ret += "(len: %f)" % elem.length
             ret += "  ]"
         ret += "\n]\n"
         return ret
 
-    seqs = testFunc2()
+    seqs = repeatBarriers()
 
     logger.info("Seqs: \n%s", printSeqs(seqs))
 
