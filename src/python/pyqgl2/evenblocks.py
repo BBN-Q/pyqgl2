@@ -58,7 +58,7 @@ def pulseLengths(pulses):
     if isinstance(pulses, Pulse) or isinstance(pulses, CompositePulse) \
        or isinstance(pulses, PulseBlock) or isinstance(pulses, ControlInstruction) \
        or isinstance(pulses, BlockLabel):
-        logger.debug("Pulse %s length: %d", pulses, pulses.length)
+        logger.debug("Pulse %s length: %f", pulses, pulses.length)
         return pulses.length
 
     # Not a pulse or list of pulses that we know how to handle
@@ -190,7 +190,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                         # FIXME: raise Exception instead?
                         logger.warning("Sequence %d at %d got %s with value %d: Treat as 1", seqInd, curInd, elem, elem.value)
                         elem.value = 1
-                    logger.debug("Found %s at index %d. Length so far: %d", elem, curInd, curlen)
+                    logger.debug("Found %s at index %d. Length so far: %f", elem, curInd, curlen)
                     rptCount.append(elem.value)
 
                     # Guess that the repeat will want to go to line after LoadRepeat - if not, we'll start looking there
@@ -238,7 +238,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                         # We guessed correctly where to start repeat from
                         rs = rptStartLen.pop()
                         rptAdd = (curlen - rs) * rc
-                        logger.debug("Stashed startElem matches target. Finish by adding (curlen %d - startLen %d) * repeatsToGo %d = %d", curlen, rs, rc, rptAdd)
+                        logger.debug("Stashed startElem matches target. Finish by adding (curlen %f - startLen %f) * repeatsToGo %d = %f", curlen, rs, rc, rptAdd)
                         curlen += rptAdd
 
                         # Just finished last time through the loop
@@ -327,7 +327,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                     raise Exception("Sequence %d at %d: Failed to find %s target '%s' from there to next barrier at %d" % (seqInd, curInd, elem, elem.target, nextBarrierInd-1))
 
                 # Normal case: Add length of this element and move to next element
-                logger.debug("'%s' is a normal element - add its length (%d) and move on", elem, pulseLengths(elem))
+                logger.debug("'%s' is a normal element - add its length (%f) and move on", elem, pulseLengths(elem))
 
                 curlen += pulseLengths(elem)
                 curInd += 1
@@ -396,11 +396,11 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
 def replaceBarrier(seqs, inds, lengths, chanBySeq):
     '''Replace the barrier at the given inds (indexes) in all sequences with the proper Id pulse'''
     maxBlockLen = max(lengths.values())
-    logger.debug("For this barrier block: max Len: %d, min len: %d", maxBlockLen, min(lengths.values()))
+    logger.debug("For this barrier block: max Len: %f, min len: %f", maxBlockLen, min(lengths.values()))
     for seqInd, seq in enumerate(seqs):
         ind = inds[seqInd] # Index of the Barrier
         idlen = maxBlockLen - lengths[seqInd] # Length of Id pulse to pause till last channel done
-        logger.info("Sequence %d: Replacing %s with Id(%s, length=%d)", seqInd, seq[ind],
+        logger.info("Sequence %d: Replacing %s with Id(%s, length=%f)", seqInd, seq[ind],
                     chanBySeq[seqInd], idlen)
         seq[ind] = Id(chanBySeq[seqInd], idlen)
     return seqs
@@ -525,6 +525,7 @@ if __name__ == '__main__':
         return seqs
 
     def printSeqs(seqs):
+        from QGL.PulseSequencer import Pulse
         ret = "["
         firstSeq = True
         for sidx, seq in enumerate(seqs):
@@ -541,6 +542,8 @@ if __name__ == '__main__':
                 else:
                     firstElem = False
                 ret += "    %s" % str(elem)
+                if isinstance(elem, Pulse) and elem.label == 'Id':
+                    ret += "(len: %f)" % elem.length
             ret += "  ]"
         ret += "\n]\n"
         return ret
