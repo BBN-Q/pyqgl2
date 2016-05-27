@@ -672,7 +672,8 @@ class QbitGrouper(ast.NodeTransformer):
 
             for stmnt in stmnts:
                 pruned_stmnt = self.keep_qbit(stmnt, qbit, find_qbits_func)
-                new_stmnts.append(pruned_stmnt)
+                if pruned_stmnt:
+                    new_stmnts.append(pruned_stmnt)
 
             if new_stmnts:
                 qbit2stmnts[qbit] = new_stmnts
