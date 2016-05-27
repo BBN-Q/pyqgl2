@@ -525,8 +525,10 @@ class Flattener(ast.NodeTransformer):
         end_ast = self.make_label_call(end_label)
         loop_ast = self.make_ugoto_call(start_label)
 
-        pyqgl2.ast_util.copy_all_loc(start_label, node, recurse=True)
-        pyqgl2.ast_util.copy_all_loc(end_label, node, recurse=True)
+        print('WFF %s' % ast.dump(node))
+
+        pyqgl2.ast_util.copy_all_loc(start_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(end_ast, node, recurse=True)
         pyqgl2.ast_util.copy_all_loc(loop_ast, node, recurse=True)
 
         new_body = list([start_ast])
