@@ -20,6 +20,7 @@
 
 from QGL.ControlFlow import Goto, Call, Return, LoadRepeat, Repeat, Wait, LoadCmp, Sync, ComparisonInstruction, ControlInstruction, Barrier
 from QGL.PulseSequencer import Pulse, CompositePulse, PulseBlock
+from QGL.BlockLabel import BlockLabel
 from QGL.PulsePrimitives import Id
 
 import logging
@@ -55,8 +56,9 @@ def pulseLengths(pulses):
             lenRes += pulseLengths(pulse)
         return lenRes
     if isinstance(pulses, Pulse) or isinstance(pulses, CompositePulse) \
-       or isinstance(pulses, PulseBlock) or isinstance(pulses, ControlInstruction):
-        logger.debug("Pulse length: %d", pulses.length)
+       or isinstance(pulses, PulseBlock) or isinstance(pulses, ControlInstruction) \
+       or isinstance(pulses, BlockLabel):
+        logger.debug("Pulse %s length: %d", pulses, pulses.length)
         return pulses.length
 
     # Not a pulse or list of pulses that we know how to handle
@@ -188,8 +190,8 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                         # FIXME: raise Exception instead?
                         logger.warning("Sequence %d at %d got %s with value %d: Treat as 1", seqInd, curInd, elem, elem.value)
                         elem.value = 1
-                    logger.debug("Found %s for %d at %d. Len so far: %d", elem, elem.value, curInd, curlen)
-                    rptCnt.append(elem.value)
+                    logger.debug("Found %s at index %d. Length so far: %d", elem, curInd, curlen)
+                    rptCount.append(elem.value)
 
                     # Guess that the repeat will want to go to line after LoadRepeat - if not, we'll start looking there
                     # for the proper destination
@@ -203,23 +205,23 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
 
                 if isRepeat(elem):
                     curlen += pulseLengths(elem)
-                    # When we get here, we've already added to curLen the result of doing this once
-                    if not rptCnt:
+                    # When we get here, we've already added to curlen the result of doing this once
+                    if not rptCount:
                         # FIXME: Ignore instead? Use NodeError?
                         raise Exception("Sequence %d got %s at %d without a LoadRepeat" % (seqInd, elem, curInd))
 
                     # Get the # of times left to repeat
-                    rc = rptCnt[len(rptCnt)-1] - 1
-                    logger.debug("Found %s at %d target %s. Remaining repeats %d", elem, curInd, elem.target, rc)
+                    rc = rptCount[len(rptCount)-1] - 1
+                    logger.debug("Found %s at index %d. Remaining repeats %d", elem, curInd, rc)
 
                     # If there are no more repeats, move on
                     if rc <= 0:
                         # Just finished last time through the loop
                         # Clear all the repeat variables
-                        rptCnt.pop()
-                        while len(rptStartInd) > len(rptCnt):
+                        rptCount.pop()
+                        while len(rptStartInd) > len(rptCount):
                             rptStartInd.pop()
-                        while len(rptStartElem) > len(rptCnt):
+                        while len(rptStartElem) > len(rptCount):
                             rptStartElem.pop()
                         rptStartLen.pop()
                         # Move on to the next element
@@ -228,42 +230,42 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
 
                     # If we get here, we need to repeat that block at least once
                     # Update the repeats remaining counter
-                    rptCnt[len(rptCnt)-1] = rc
+                    rptCount[len(rptCount)-1] = rc
 
                     # Back when we got the LoadRepeat (or looked back to find target), we guessed where to start from
                     # If the guess is still in place and matches what we want, just use that and move on
-                    if len(rptCnt) == len(rptStartElem) and rptCnt[len(rptCnt)-1] and elem.target == rptStartElem[len(rptStartElem)-1]:
+                    if len(rptCount) == len(rptStartElem) and rptCount[len(rptCount)-1] and elem.target == rptStartElem[len(rptStartElem)-1]:
                         # We guessed correctly where to start repeat from
                         rs = rptStartLen.pop()
-                        rptAdd = (curLen - rs) * rc
+                        rptAdd = (curlen - rs) * rc
                         logger.debug("Stashed startElem matches target. Finish by adding (curlen %d - startLen %d) * repeatsToGo %d = %d", curlen, rs, rc, rptAdd)
                         curlen += rptAdd
 
                         # Just finished last time through the loop
                         # Clear all the repeat variables
-                        rptCnt.pop()
-                        while len(rptStartInd) > len(rptCnt):
+                        rptCount.pop()
+                        while len(rptStartInd) > len(rptCount):
                             rptStartInd.pop()
-                        while len(rptStartElem) > len(rptCnt):
+                        while len(rptStartElem) > len(rptCount):
                             rptStartElem.pop()
-                        while len(rptStartLen) > len(rptCnt):
+                        while len(rptStartLen) > len(rptCount):
                             rptStartLen.pop()
                         # Move on to the next element
                         curInd += 1
                         continue
                     else:
-                        logger.debug("Go back to look for target (wasn't stashed guess %s)", rptStartElem[len(rptStartElem)-1])
+                        logger.debug("Go back to look for target (wasn't stashed guess '%s')", rptStartElem[len(rptStartElem)-1])
                         # Go back to find the blocklabel to repeat from
                         # We go back to rptStartInd and loop forward until we find elem.target.
                         # Then set curInd to that ind, set startElem to the elem.target
-                        # and set StartLen to curLen
+                        # and set StartLen to curlen
                         rptStartElem[len(rptStartElem)-1] = elem.target
-                        rptStartLen[len(rptStartLen)-1] = curLen
+                        rptStartLen[len(rptStartLen)-1] = curlen
                         idx = rptStartInd[len(rptStartInd)-1]
                         while idx < curInd and seq[idx] != elem.target:
                             idx += 1
                         if idx == curInd:
-                            logger.warning("Failed to find %s target %s in sequence %d from %d to %d - cannot repeat", elem, elem.target, seqInd, rptStartInd[len(rptStartInd)-1], curInd)
+                            logger.warning("Failed to find %s target '%s' in sequence %d from %d to %d - cannot repeat", elem, elem.target, seqInd, rptStartInd[len(rptStartInd)-1], curInd)
                             # FIXME: Keep going?
                             curInd += 1
                             continue
@@ -279,7 +281,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                     # Note we assume no intervening Barrier.
                     callTarget = elem.target
                     retInd.append(curInd+1)
-                    logger.debug("Got %s at %d pointing at %s", elem, curInd, elem.target)
+                    logger.debug("Got %s at %d pointing at '%s'", elem, curInd, elem.target)
                     curlen += pulseLengths(elem)
 
                     # Look for the call target from here forward to next Barrier
@@ -294,7 +296,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                         logger.debug("Jumping to target at %d", curInd)
                         continue
                     # FIXME: Exception? Log and continue?
-                    raise Exception("Sequence %d at %d: Failed to find %s target %s from there to next barrier at %d" % (seqInd, curInd, elem, elem.target, nextBarrierInd-1))
+                    raise Exception("Sequence %d at %d: Failed to find %s target '%s' from there to next barrier at %d" % (seqInd, curInd, elem, elem.target, nextBarrierInd-1))
 
                 if isReturn(elem):
                     # Should have seen a call that put a return index in our list
@@ -322,10 +324,10 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                         logger.debug("Jumping to target at %d", curInd)
                         continue
                     # FIXME: Exception or log and continue?
-                    raise Exception("Sequence %d at %d: Failed to find %s target %s from there to next barrier at %d" % (seqInd, curInd, elem, elem.target, nextBarrierInd-1))
+                    raise Exception("Sequence %d at %d: Failed to find %s target '%s' from there to next barrier at %d" % (seqInd, curInd, elem, elem.target, nextBarrierInd-1))
 
                 # Normal case: Add length of this element and move to next element
-                logger.debug("%s is a normal element - add its length (%d) and move on", elem, pulseLengths(elem))
+                logger.debug("'%s' is a normal element - add its length (%d) and move on", elem, pulseLengths(elem))
 
                 curlen += pulseLengths(elem)
                 curInd += 1
@@ -402,3 +404,189 @@ def replaceBarrier(seqs, inds, lengths, chanBySeq):
                     chanBySeq[seqInd], idlen)
         seq[ind] = Id(chanBySeq[seqInd], idlen)
     return seqs
+
+if __name__ == '__main__':
+    from QGL.Compiler import find_unique_channels
+    from QGL.Channels import Qubit as qgl1Qubit
+    import logging
+
+    logging.basicConfig(level=logging.DEBUG)
+    logger = logging.getLogger()
+
+    def testFunc2():
+#with concur
+#  for i in 1,2
+#    for q in q1, q2
+#       X(q)
+
+# Becomes:
+
+#BARRIER - becomes a wait
+#LoadRepeat 2
+#loopstart
+#X(q)
+#Repeat(loopstart)
+#BARRIER - becomes ID
+        from QGL.ChannelLibrary import QubitFactory
+        from QGL.BlockLabel import BlockLabel
+        from QGL.ControlFlow import Barrier
+        from QGL.ControlFlow import Sync
+        from QGL.ControlFlow import Wait
+        from QGL.PulsePrimitives import Id
+        from QGL.PulsePrimitives import MEAS
+        from QGL.PulsePrimitives import X
+        from QGL.PulsePrimitives import Y
+
+        q1 = QubitFactory('q1')
+        QBIT_q1 = q1
+        q2 = QubitFactory('q2')
+        QBIT_q2 = q2
+        q3 = QubitFactory('q3')
+        QBIT_q3 = q3
+
+        seqs = list()
+        seq = [
+            Barrier(),
+            LoadRepeat(2),
+            BlockLabel('loopstart'),
+            X(q1, length=0.5),
+            Repeat(BlockLabel('loopstart')),
+            Barrier()
+            ]
+        seqs += [seq]
+        seq = [
+            Barrier(),
+            LoadRepeat(2),
+            BlockLabel('loopstart2'),
+            X(q2),
+            Repeat(BlockLabel('loopstart2')),
+            Barrier()
+            ]
+        seqs += [seq]
+        return seqs
+
+
+    def testFunc():
+        from QGL.ChannelLibrary import QubitFactory
+        from QGL.ControlFlow import Barrier
+        from QGL.ControlFlow import Sync
+        from QGL.ControlFlow import Wait
+        from QGL.PulsePrimitives import Id
+        from QGL.PulsePrimitives import MEAS
+        from QGL.PulsePrimitives import X
+        from QGL.PulsePrimitives import Y
+
+        q1 = QubitFactory('q1')
+        QBIT_q1 = q1
+        q2 = QubitFactory('q2')
+        QBIT_q2 = q2
+        q3 = QubitFactory('q3')
+        QBIT_q3 = q3
+
+        seqs = list()
+        seq = [
+            Barrier(),
+            Barrier(),
+            Barrier(),
+            Y(QBIT_q3, length=0.6),
+            Barrier()
+        ]
+        seqs += [seq]
+        seq = [
+            Barrier(),
+            Sync(),
+            Wait(),
+            Sync(),
+            Wait(),
+            Barrier()
+        ]
+        seqs += [seq]
+        seq = [
+            Barrier(),
+            Id(QBIT_q2, length=0.5),
+            X(QBIT_q2),
+            MEAS(QBIT_q2),
+            Barrier(),
+            Barrier(),
+            Barrier()
+        ]
+        seqs += [seq]
+        seq = [
+            Barrier(),
+            Id(QBIT_q1),
+            X(QBIT_q1, length=0.4),
+            MEAS(QBIT_q1),
+            Barrier(),
+            Barrier(),
+            Y(QBIT_q1),
+            Barrier()
+        ]
+        seqs += [seq]
+        return seqs
+
+    def printSeqs(seqs):
+        ret = "["
+        firstSeq = True
+        for sidx, seq in enumerate(seqs):
+            if not firstSeq:
+                ret += ","
+            else:
+                firstSeq = False
+            ret += "\n"
+            ret += "%d:  [" % sidx
+            firstElem = True
+            for elem in seq:
+                if not firstElem:
+                    ret += ","
+                else:
+                    firstElem = False
+                ret += "    %s" % str(elem)
+            ret += "  ]"
+        ret += "\n]\n"
+        return ret
+
+    seqs = testFunc2()
+
+    logger.info("Seqs: \n%s", printSeqs(seqs))
+
+    seqIdxToChannelMap = dict()
+    for idx, seq in enumerate(seqs):
+        chs = find_unique_channels(seq)
+        for ch in chs:
+            # FIXME: Or just exclude Measurement channels?
+            if isinstance(ch, qgl1Qubit):
+                seqIdxToChannelMap[idx] = ch
+                logger.debug("Sequence %d is channel %s", idx, ch)
+                break
+
+    # Hack: skip the empty sequence(s) now before doing anything else
+    useseqs = list()
+    decr = 0 # How much to decrement the index
+    toDecr = dict() # Map of old index to amount to decrement
+    for idx, seq in enumerate(seqs):
+        if idx not in seqIdxToChannelMap:
+            # Indicates an error - that empty sequence
+            logger.debug("Sequence %d has no channel - skip", idx)
+            decr = decr+1
+            continue
+        if decr:
+            toDecr[idx] = decr
+            logger.debug("Will shift index of sequence %d by %d", idx, decr)
+        useseqs.append(seq)
+    seqs = useseqs
+    if decr:
+        newmap = dict()
+        for ind in seqIdxToChannelMap:
+            if ind in toDecr:
+                newmap[ind-decr] = seqIdxToChannelMap[ind]
+                logger.debug("Sequence %d (channel %s) is now sequence %d", ind, seqIdxToChannelMap[ind], ind-decr)
+            elif ind in seqIdxToChannelMap:
+                logger.debug("Sequence %d keeping map to %s", ind, seqIdxToChannelMap[ind])
+                newmap[ind] = seqIdxToChannelMap[ind]
+            else:
+                logger.debug("Dropping (empty) sequence %d", ind)
+        seqIdxToChannelMap = newmap
+
+    logger.info("Seqs just before replace:\n%s", printSeqs(seqs))
+    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
+    logger.info("Seqs after replace: \n%s", printSeqs(seqs))
