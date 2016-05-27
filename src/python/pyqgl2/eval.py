@@ -934,14 +934,22 @@ class EvalTransformer(object):
 
         # for ns in self.preamble_stmnts:
         #     print('EVF pre %s' % ast2str(ns).strip())
-        # for ns in new_stmnts:
+        # for ns in iters_list:
         #     print('EVF run %s' % ast2str(ns).strip())
 
-        root.body = iters_list
-
-        # print('EV NL %s' % ast.dump(root))
-
-        return True, list([root])
+        # If we reduced the loop to nothing, then return an empty list.
+        # Otherwise attach the iters_list to the root and return a
+        # list containing the root.
+        #
+        if len(iters_list) == 0:
+            return True, list()
+        else:
+            # TODO: this is where we can do an analysis on each
+            # Qiter element, looking for repeated elements, and
+            # changing it in into a Qrepeat.
+            #
+            root.body = iters_list
+            return True, list([root])
 
     def do_while(self, stmnt):
         """
