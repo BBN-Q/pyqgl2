@@ -136,7 +136,7 @@ class NodeError(object):
 
         # Detect improper usage, and bomb out
         if node:
-            assert isinstance(node, ast.AST)
+            assert isinstance(node, ast.AST), 'got %s' % str(type(node))
 
         assert level in NodeError.NODE_ERROR_LEGAL_LEVELS
 
@@ -261,8 +261,8 @@ def copy_all_loc(new_node, old_node, recurse=False):
     there will probably be others
     """
 
-    assert isinstance(new_node, ast.AST)
-    assert isinstance(old_node, ast.AST)
+    assert isinstance(new_node, ast.AST), 'got %s' % str(type(new_node))
+    assert isinstance(old_node, ast.AST), 'got %s' % str(type(old_node))
 
     if not recurse:
         ast.copy_location(new_node, old_node)
