@@ -184,15 +184,11 @@ class SequenceExtractor(object):
                         #print("lineNo now %d" % lineNo)
                     else:
                         NodeError.error_msg(s, "Not seq next at line %d: %s" % (lineNo+1,s))
-            elif isinstance(stmnt, ast.Expr):
-                if len(self.qbits) == 1:
-                    # print("Append expr %s to sequence for %s" % (ast2str(stmnt), self.qbits))
-                    if len(self.sequences) == 0:
-                        self.sequences[list(self.qbits)[0]] = list()
-                    self.sequences[list(self.qbits)[0]].append(stmnt)
-                else:
-                    NodeError.error_msg(stmnt,
-                                        'orphan statement %s' % ast.dump(stmnt))
+            elif len(self.qbits) == 1:
+                # print("Append expr %s to sequence for %s" % (ast2str(stmnt), self.qbits))
+                if len(self.sequences) == 0:
+                    self.sequences[list(self.qbits)[0]] = list()
+                self.sequences[list(self.qbits)[0]].append(stmnt)
             else:
                 NodeError.error_msg(stmnt,
                         'orphan statement %s' % ast.dump(stmnt))
