@@ -549,10 +549,84 @@ class QbitGrouper(ast.NodeTransformer):
 
         self.local_vars = local_vars
 
+    def visit_FunctionDef(self, node):
+        """
+        The grouper should only be used on a function def,
+        and there shouldn't be any nested functions, so this
+        should effectively be the top-level call.
+
+        For every statement in the body of the function,
+        if it's a with-concur, then do the grouping as implied
+        by that.  Otherwise, treat each statement as if it was
+        wrapped in an implicit with-concur/with-seq block,
+        because we need to serialize them.  (This isn't the
+        only way to deal with this situation, but it meshes
+        well with the other mechanisms.)
+
+        Note that the initial qbit creation/assignment is
+        treated as a special case: these statements are
+        purely classical bookkeeping, even though they look
+        like quantum operations, and are left alone.
+
+        TODO: need to figure out how to handle nested with-concurs,
+        particularly within conditional statements.
+        """
+
+        print('GROUPER functiondef')
+
+        for i in range(len(node.body)):
+            stmnt = node.body[i]
+
+            # If it's a with-concur statement, then recurse.
+            # If it's a qbit creation/assigment statement, then
+            # leave it alone.
+            # If it's anything else, then treat it as strictly
+            # sequential; wrap it in a with-concur and with-seq
+            # to create a global barriers before/after the statement.
+            #
+            # TODO: we've been talking about non-global barriers.
+            # Adding this will require changes to this logic.
+            #
+            if is_concur(stmnt):
+                node.body[i] = self.visit(stmnt)
+                continue
+            elif (isinstance(stmnt, ast.Assign) and
+                    stmnt.targets[0].qgl_is_qbit):
+                # Leave the stmnt untouched.
+                # TODO: this is an awkward way of determining
+                # whether the statement is a qbit assignment.
+                # FIXME: really need a cleaner method (here and elsewhere)
+                continue
+            else:
+                seq_node = ast.With(
+                        items=list([ast.withitem(
+                            context_expr=ast.Name(id='seq', ctx=ast.Load()),
+                            optional_vars=None)]),
+                        body=list())
+                concur_node = ast.With(
+                        items=list([ast.withitem(
+                            context_expr=ast.Name(id='concur', ctx=ast.Load()),
+                            optional_vars=None)]),
+                        body=list([seq_node]))
+
+                pyqgl2.ast_util.copy_all_loc(concur_node, stmnt, recurse=True)
+
+                # NOTE: I don't like this.  If the stmnt is a compound
+                # statement, then we've put the body into a with-concur
+                # and a with-seq, which might not be what the programmer
+                # expects (or what we want).
+                #
+                seq_node.body = list([self.generic_visit(stmnt)])
+
+                # DESTRUCTIVE
+                #
+                node.body[i] = concur_node
+
+        return node
+
     def visit_With(self, node):
 
         if not is_concur(node):
-            # print('IS NOT a concur node')
             return self.generic_visit(node) # check
 
         # Hackish way to create a seq node to use
