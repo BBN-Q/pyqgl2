@@ -244,8 +244,25 @@ class Flattener(ast.NodeTransformer):
                 stmnt.body = new_seq_body
                 new_body.append(stmnt)
 
+            # destructive update
             node.body = new_body
             return node
+
+        elif (self.is_with_label(node, 'Qfor') or
+                self.is_with_label(node, 'Qrepeat')):
+            # we'll get here if there's no with-concur.
+            # just process the substatements, without the
+            # checks we do for with-concur
+            #
+            new_body = list()
+
+            for stmnt in node.body:
+                new_body += self.flatten_body(stmnt.body)
+
+            # destructive update
+            node.body = new_body
+            return node
+
         else:
             print('ERROR: unexpected with statement')
             return node # bogus
