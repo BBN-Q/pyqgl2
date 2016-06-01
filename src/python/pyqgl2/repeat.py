@@ -69,7 +69,7 @@ def with_qiter_eq(stmnt1, stmnt2):
         return True
 
 
-def find_dup_qiters(stmnts, compare=None):
+def find_left_dup_qiters(stmnts, compare=None):
     """
     Given a list of statements, return a tuple (base, iter_cnt, iter_len)
     where base is the offset where the iterations begin, iter_cnt is
@@ -138,7 +138,7 @@ def find_dup_qiters(stmnts, compare=None):
     best = (0, 1, n_stmnts)
     best_score = (best[1] - 1) * best[2]
 
-    for base in range(0, n_stmnts - 2):
+    for base in range(0, n_stmnts - 1):
         for iter_len in range(1, max_len + 1):
 
             start1 = base
@@ -182,6 +182,15 @@ def find_dup_qiters(stmnts, compare=None):
                     print('not a match')
                     break
 
+        # We're not looking for the best score globally: we're looking
+        # for the leftmost possible non-degenerate score.  For example,
+        # if the input is [x, x, y, y, y, y], we'll take the [x, x]
+        # segment as a good optimization even though the [y, y, y, y]
+        # is better.  We'll get the scores to the right in later passes.
+
+        if best_score > 0:
+            break
+
     return best
 
 
@@ -190,8 +199,8 @@ if __name__ == '__main__':
     def simple_compare(a, b):
         return a == b
 
-    def test_find_dup(arr):
-        base, iter_cnt, iter_len = find_dup_qiters(arr, simple_compare)
+    def test_find_left_dup(arr):
+        base, iter_cnt, iter_len = find_left_dup_qiters(arr, simple_compare)
 
         print('ARR = %s, base %d cnt %d len %d' %
                 (str(arr), base, iter_cnt, iter_len))
@@ -199,9 +208,27 @@ if __name__ == '__main__':
         return base, iter_cnt, iter_len
 
     def main():
-        test_find_dup([1, 1, 1, 1])
-        test_find_dup([2, 1, 1, 1])
-        test_find_dup([2, 1, 1, 2])
-        test_find_dup([1, 2, 1, 2])
+        assert (0, 4, 1) == test_find_left_dup([1, 1, 1, 1])
+        assert (1, 3, 1) == test_find_left_dup([2, 1, 1, 1])
+        assert (1, 2, 1) == test_find_left_dup([2, 1, 1, 2])
+        assert (0, 2, 2) == test_find_left_dup([1, 2, 1, 2])
+        assert (0, 4, 3) == test_find_left_dup(
+                [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 4])
+        assert (0, 4, 1) == test_find_left_dup(
+                [1, 1, 1, 1, 2, 2, 2, 3, 3, 4, 5])
+        assert (2, 2, 2) == test_find_left_dup(
+                [5, 4, 3, 2, 3, 2, 2, 3, 3, 4, 5])
+        assert (2, 3, 2) == test_find_left_dup(
+                [5, 4, 3, 2, 3, 2, 3, 2, 3, 4, 5])
+
+        assert (0, 1, 9) == test_find_left_dup([1, 2, 3, 4, 5, 4, 3, 2, 1])
+        assert (8, 2, 1) == test_find_left_dup([1, 2, 3, 4, 5, 4, 3, 2, 1, 1])
+
+        # test that we take the leftmost match, not the longest.
+
+        assert (0, 2, 1) == test_find_left_dup(
+                [1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4])
+        assert (8, 2, 1) == test_find_left_dup(
+                [1, 2, 3, 4, 5, 4, 3, 2, 1, 1, 2, 2, 2])
 
     main()
