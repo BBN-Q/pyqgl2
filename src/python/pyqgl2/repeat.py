@@ -6,8 +6,9 @@ converted into a "repeat" statement, and make the transformation if
 appropriate.
 """
 
+import ast
 
-from pyqgl2.ast_util import ast2str, expr2ast
+from pyqgl2.ast_util import ast2str, expr2ast, copy_all_loc
 
 def with_qiter_eq(stmnt1, stmnt2):
     """
@@ -35,30 +36,30 @@ def with_qiter_eq(stmnt1, stmnt2):
     try:
         stmnt_txt1 = ast2str(stmnt1).strip()
     except BaseException as exc:
-        print('with_qiter_eq ast2str failed stmnt1')
+        print('with_qiter_eq ast2str failed stmnt1 %s' % str(exc))
         return False
 
     try:
         stmnt_txt2 = ast2str(stmnt2).strip()
     except BaseException as exc:
-        print('with_qiter_eq ast2str failed stmnt2')
+        print('with_qiter_eq ast2str failed stmnt2 %s' % str(exc))
         return False
 
     # Just to be doubly certain, try converting the text back
     # to AST again, and then check those results.
 
     try:
-        stmnt1_ast_again = expr2ast(stmnt1_txt1)
+        stmnt1_ast_again = expr2ast(stmnt_txt1)
         stmnt1_txt_again = ast2str(stmnt1_ast_again).strip()
     except BaseException as exc:
-        print('with_qiter_eq expr2ast failed stmnt1')
+        print('with_qiter_eq expr2ast failed stmnt1 %s' % str(exc))
         return False
 
     try:
-        stmnt2_ast_again = expr2ast(stmnt2_txt1)
+        stmnt2_ast_again = expr2ast(stmnt_txt1)
         stmnt2_txt_again = ast2str(stmnt2_ast_again).strip()
     except BaseException as exc:
-        print('with_qiter_eq expr2ast failed stmnt2')
+        print('with_qiter_eq expr2ast failed stmnt2 %s' % str(exc))
         return False
 
     if stmnt_txt1 != stmnt_txt2:
@@ -172,15 +173,28 @@ def find_left_dup_qiters(stmnts, compare=None):
 
     return best
 
-def make_qfor(body):
-    # fake; for debugging only
-    return 'qfor(%s)' % str(body)
+def make_qrepeat(iter_cnt, body, subname=''):
+    """
+    Create a with-Qrepeat node with the given iter_cnt and body
 
-def make_qrepeat(iter_cnt, body):
-    # fake; for debugging only
-    return 'qrepeat(%d, %s)' % (iter_cnt, str(body))
+    The subname string may be used to create variants on the
+    basic with-Qrepeat node, to deal with embedded repeats
+    (i.e. when part of a for loop can be rewritten as a Qrepeat,
+    but the rest cannot).
+    """
 
-def make_repeats(stmnts, compare=None):
+    repeat_txt = 'with Qrepeat%s(%d):\n    pass' % (subname, iter_cnt)
+    repeat_ast = expr2ast(repeat_txt)
+    copy_all_loc(repeat_ast, body[0], recurse=True)
+
+    repeat_ast.body = body
+
+    return repeat_ast
+
+def make_repeats(stmnts, make_qrepeat_func=None, compare=None):
+
+    if not make_qrepeat_func:
+        make_qrepeat_func = make_qrepeat
 
     new_stmnts = list()
 
@@ -207,12 +221,37 @@ def make_repeats(stmnts, compare=None):
             #
             loop_body = stmnts[:iter_len]
 
-            new_qrepeat = make_qrepeat(iter_cnt, loop_body)
+            new_qrepeat = make_qrepeat_func(iter_cnt, loop_body)
             new_stmnts.append(new_qrepeat)
 
             stmnts = stmnts[iter_cnt * iter_len:]
 
     return new_stmnts
+
+class RepeatTransformer(ast.NodeTransformer):
+
+    def visit_With(self, node):
+        """
+        Transform the with-qiter nodes that form the body of a
+        with-qfor node to be with-qrepeat loops, if possible
+
+        Assumes that all of the transformations prior to flattening
+        have already been made; does NOT work on general AST.
+        """
+
+        # transform any subnodes prior to attempting to
+        # transform this node
+        #
+        new_body = [self.visit(subnode) for subnode in node.body]
+
+        # TODO: check that what we have is qiter nodes?
+
+        new_body = make_repeats(new_body)
+
+        # DESTRUCTIVE
+        node.body = new_body
+
+        return node
 
 
 if __name__ == '__main__':
@@ -258,20 +297,32 @@ if __name__ == '__main__':
 
     def test_make_repeats():
 
+        def simple_make_qrepeat(iter_cnt, body):
+            """
+            Simplified make_qrepeat, for debugging/testing only.
+            """
+
+            return 'qrepeat(%d, %s)' % (iter_cnt, str(body))
+
+
         print(make_repeats(
                 [1, 1, 2, 2, 2, 3, 3],
+                make_qrepeat_func=simple_make_qrepeat,
                 compare=simple_compare))
 
         print(make_repeats(
                 [1, 2, 1, 2, 2, 3, 3],
+                make_qrepeat_func=simple_make_qrepeat,
                 compare=simple_compare))
 
         print(make_repeats(
                 [1, 2, 3, 4, 5, 6, 1, 2, 3],
+                make_qrepeat_func=simple_make_qrepeat,
                 compare=simple_compare))
 
         print(make_repeats(
                 [1, 2, 1, 2, 3, 4, 5, 6, 7, 7, 1, 2, 3],
+                make_qrepeat_func=simple_make_qrepeat,
                 compare=simple_compare))
 
     def main():
