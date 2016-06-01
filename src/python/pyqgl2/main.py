@@ -50,6 +50,7 @@ from pyqgl2.eval import EvalTransformer, SimpleEvaluator
 from pyqgl2.flatten import Flattener
 from pyqgl2.importer import NameSpaces, add_import_from_as
 from pyqgl2.inline import Inliner
+from pyqgl2.repeat import RepeatTransformer
 from pyqgl2.sequence import SequenceCreator
 from pyqgl2.sequences import SequenceExtractor, get_sequence_function
 from pyqgl2.substitute import specialize
@@ -316,6 +317,12 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     new_ptree6 = grouper.visit(new_ptree5)
     NodeError.halt_on_error()
     print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
+            file=intermediate_fout, flush=True)
+
+    repeater = RepeatTransformer()
+    new_ptree6 = repeater.visit(new_ptree6)
+    NodeError.halt_on_error()
+    print(('QREPEAT CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
             file=intermediate_fout, flush=True)
 
     # Try to flatten out repeat, range, ifs
