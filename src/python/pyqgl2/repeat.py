@@ -96,14 +96,11 @@ def find_left_dup_qiters(stmnts, compare=None):
     The heurstics may be updated if our expectations turn out to be
     incorrect.
 
-    The current heuristic is that it's better to try to maximize iter_cnt
-    and minimize iter_len, in order to compress the code as much as
-    possible.  Therefore we look for short subsequences first, starting
-    at the beginning of the stmnts, and then if that fails, look for
-    longer subsequences.  This greedy approach can miss longer sequences.
-    For example, [ A, A, B, A, A, B, A, A, B ] can be expressed as
-    three iterations of [ A, A, B ], but the current heuristic will
-    instead group this as three iterations of two As separated by Bs.
+    Note that we're NOT looking for the best score globally: we're
+    looking for the leftmost possible non-degenerate score.  For
+    example, if the input is [x, x, y, y, y, y], we'll take the [x, x]
+    segment as a good optimization even though the [y, y, y, y]
+    is better.  We'll find the [y, y, y, y] in a later pass.
 
     The goodness of a grouping is defined to be (iter_cnt - 1) * iter_len, 
     which is simplistic (because it pretends that all of the statements
@@ -121,7 +118,6 @@ def find_left_dup_qiters(stmnts, compare=None):
     # the stmnts into pieces longer than this
     #
     max_len = int(n_stmnts / 2)
-
 
     # in order to prevent an O(n^2) term in the simple implementation,
     # we cap max_len to a small, magic number.  We expect this to suffice
@@ -141,57 +137,82 @@ def find_left_dup_qiters(stmnts, compare=None):
     for base in range(0, n_stmnts - 1):
         for iter_len in range(1, max_len + 1):
 
+            # start1 - the start of the first iter
+            # start2 - the start of the thing we're comparing to start1
+            # end2 - the index after the end (start2 + iter_len)
+
             start1 = base
             start2 = base + iter_len
             end2 = start2 + iter_len
 
-            print('- start1 %d start2 %d' % (start1, start2))
-
-            print('base %d iter_len %d end2 %d' % (base, iter_len, end2))
-
             while end2 <= n_stmnts:
-                cand = (start1, int((end2 - start1) / iter_len), iter_len)
-                cand_score = (cand[1] - 1) * cand[2]
-
-                print('    cand base %d cnt %d len %d' %
-                        (cand[0], cand[1], cand[2]))
-
                 success = True
                 for t in range(iter_len):
-                    if not compare(
-                            stmnts[start1 + t], stmnts[start2 + t]):
-                        print('  failed base %d cnt %d len %d' %
-                                (best[0], best[1], best[2]))
+                    if not compare(stmnts[start1 + t], stmnts[start2 + t]):
                         success = False
                         break
 
                 if success:
-                    print('matched! %d %d ' % (best_score, cand_score))
+                    cand = (start1, int((end2 - start1) / iter_len), iter_len)
+                    cand_score = (cand[1] - 1) * cand[2]
+
                     if best_score < cand_score:
-                        print('     old base %d cnt %d len %d' %
-                                (best[0], best[1], best[2]))
-                        print('     new base %d cnt %d len %d' %
-                                (cand[0], cand[1], cand[2]))
                         best = cand
                         best_score = cand_score
-                    else:
-                        print('  not a new high score')
                     start2 += iter_len
                     end2 = start2 + iter_len
                 else:
-                    print('not a match')
                     break
 
-        # We're not looking for the best score globally: we're looking
-        # for the leftmost possible non-degenerate score.  For example,
-        # if the input is [x, x, y, y, y, y], we'll take the [x, x]
-        # segment as a good optimization even though the [y, y, y, y]
-        # is better.  We'll get the scores to the right in later passes.
-
+        # If we've found anything non-degenerate, then don't try
+        # moving to the right
+        #
         if best_score > 0:
             break
 
     return best
+
+def make_qfor(body):
+    # fake; for debugging only
+    return 'qfor(%s)' % str(body)
+
+def make_qrepeat(iter_cnt, body):
+    # fake; for debugging only
+    return 'qrepeat(%d, %s)' % (iter_cnt, str(body))
+
+def make_repeats(stmnts, compare=None):
+
+    new_stmnts = list()
+
+    while stmnts:
+        base, iter_cnt, iter_len = find_left_dup_qiters(
+                stmnts, compare=compare)
+
+        # If we didn't find iterations, then consume the
+        # rest of the statements.  Otherwise, consume
+        # everything up to the new base.
+        #
+        if base > 0:
+            new_stmnts += stmnts[:base]
+            stmnts = stmnts[base:]
+
+        if iter_cnt == 1:
+            new_stmnts += stmnts
+            stmnts = list()
+        else:
+            # get a reference to the statements that will be the
+            # repeat loop body
+            # TODO: do we need to make a deepcopy of them, or can
+            # we use them as-is?
+            #
+            loop_body = stmnts[:iter_len]
+
+            new_qrepeat = make_qrepeat(iter_cnt, loop_body)
+            new_stmnts.append(new_qrepeat)
+
+            stmnts = stmnts[iter_cnt * iter_len:]
+
+    return new_stmnts
 
 
 if __name__ == '__main__':
@@ -200,14 +221,16 @@ if __name__ == '__main__':
         return a == b
 
     def test_find_left_dup(arr):
-        base, iter_cnt, iter_len = find_left_dup_qiters(arr, simple_compare)
+        base, iter_cnt, iter_len = find_left_dup_qiters(
+                arr, compare=simple_compare)
 
         print('ARR = %s, base %d cnt %d len %d' %
                 (str(arr), base, iter_cnt, iter_len))
 
         return base, iter_cnt, iter_len
 
-    def main():
+    def test_find_dup():
+
         assert (0, 4, 1) == test_find_left_dup([1, 1, 1, 1])
         assert (1, 3, 1) == test_find_left_dup([2, 1, 1, 1])
         assert (1, 2, 1) == test_find_left_dup([2, 1, 1, 2])
@@ -220,6 +243,8 @@ if __name__ == '__main__':
                 [5, 4, 3, 2, 3, 2, 2, 3, 3, 4, 5])
         assert (2, 3, 2) == test_find_left_dup(
                 [5, 4, 3, 2, 3, 2, 3, 2, 3, 4, 5])
+        assert (2, 2, 3) == test_find_left_dup(
+                [3, 4, 1, 1, 2, 1, 1, 2, 3, 4])
 
         assert (0, 1, 9) == test_find_left_dup([1, 2, 3, 4, 5, 4, 3, 2, 1])
         assert (8, 2, 1) == test_find_left_dup([1, 2, 3, 4, 5, 4, 3, 2, 1, 1])
@@ -230,5 +255,28 @@ if __name__ == '__main__':
                 [1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4])
         assert (8, 2, 1) == test_find_left_dup(
                 [1, 2, 3, 4, 5, 4, 3, 2, 1, 1, 2, 2, 2])
+
+    def test_make_repeats():
+
+        print(make_repeats(
+                [1, 1, 2, 2, 2, 3, 3],
+                compare=simple_compare))
+
+        print(make_repeats(
+                [1, 2, 1, 2, 2, 3, 3],
+                compare=simple_compare))
+
+        print(make_repeats(
+                [1, 2, 3, 4, 5, 6, 1, 2, 3],
+                compare=simple_compare))
+
+        print(make_repeats(
+                [1, 2, 1, 2, 3, 4, 5, 6, 7, 7, 1, 2, 3],
+                compare=simple_compare))
+
+    def main():
+        test_find_dup()
+
+        test_make_repeats()
 
     main()
