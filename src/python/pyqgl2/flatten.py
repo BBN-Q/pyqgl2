@@ -380,6 +380,8 @@ class Flattener(ast.NodeTransformer):
         for subnode in node.body:
             if self.is_with_label(subnode, 'Qiter'):
                 new_stmnts += self.qiter_flattener(subnode)
+            elif self.is_with_qrepeat(subnode):
+                new_stmnts += self.repeat_flattener(subnode)
             else:
                 print('Error: unexpected non-Qiter node')
 
@@ -509,7 +511,7 @@ class Flattener(ast.NodeTransformer):
         pyqgl2.ast_util.copy_all_loc(load_ast, node, recurse=True)
         pyqgl2.ast_util.copy_all_loc(loop_ast, node, recurse=True)
         pyqgl2.ast_util.copy_all_loc(repeat_label_ast, node, recurse=True)
-        pyqgl2.ast_util.copy_all_loc(repeast_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(repeat_ast, node, recurse=True)
         pyqgl2.ast_util.copy_all_loc(return_ast, node, recurse=True)
         pyqgl2.ast_util.copy_all_loc(end_ast, node, recurse=True)
 
