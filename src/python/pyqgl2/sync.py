@@ -28,6 +28,8 @@ from pyqgl2.ast_util import ast2str, copy_all_loc, expr2ast
 
 from pyqgl2.concur_unroll import is_concur, is_seq, find_all_channels
 
+# Global ctr of next Barrier() message
+BARRIER_CTR = 0
 
 class SynchronizeBlocks(ast.NodeTransformer):
     """
@@ -117,6 +119,7 @@ class SynchronizeBlocks(ast.NodeTransformer):
         Add seq blocks for any "missing" channels so we can
         add a Barrier instruction for each of them as well
         """
+        global BARRIER_CTR
 
         # This method will be descructive, unless we make a new
         # copy of the AST tree first
@@ -124,6 +127,12 @@ class SynchronizeBlocks(ast.NodeTransformer):
         node = deepcopy(node)
 
         seen_channels = set()
+
+        # Channels in this with_concur
+        concur_channels = find_all_channels(node)
+        start_barrier = BARRIER_CTR
+        end_barrier = start_barrier + 1
+        BARRIER_CTR += 2
 
         for stmnt in node.body:
             if not is_seq(stmnt):
@@ -157,27 +166,35 @@ class SynchronizeBlocks(ast.NodeTransformer):
 
             new_seq_body = list()
 
-            barrier_ast = deepcopy(self.blank_barrier_ast)
+            # Add global ctr, chanlist=concur_channels
+            # FIXME: Hold concur_channels as a string? List?
+            barrier_ast = expr2ast('Barrier(%d, %s)\n' % (start_barrier, list(concur_channels)))
             copy_all_loc(barrier_ast, node)
+            barrier_ast.channels = concur_channels
+#            print("*****Start barrier: %s" % pyqgl2.ast_util.ast2str(barrier_ast))
 
             new_seq_body.append(barrier_ast)
 
             new_seq_body += stmnt.body
 
-            end_barrier_ast = deepcopy(self.blank_barrier_ast)
+            end_barrier_ast = expr2ast('Barrier(%d, %s)\n' % (end_barrier, list(concur_channels)))
             copy_all_loc(end_barrier_ast, node)
+            # Add global ctr, chanlist=concur_channels
+            end_barrier_ast.channels = concur_channels
 
             new_seq_body.append(end_barrier_ast)
 
             stmnt.body = new_seq_body
 
-        for unseen_chan in self.all_channels - seen_channels:
+        # FIXME: In new thinking, is the proper unseen set the global one,
+        # Or only those local to this with concur. I think only local
+        for unseen_chan in concur_channels - seen_channels:
             #print('DIAG %s' % ast2str(stmnt))
             NodeError.diag_msg(stmnt,
                     'channels unreferenced in concur: %s' % str(unseen_chan))
 
             empty_seq_ast = expr2ast(
-                    'with seq:\n    Barrier()\n    Barrier()')
+                    'with seq:\n    Barrier(%d, %s)\n    Barrier(%d, %s)' % (start_barrier, concur_channels, end_barrier, concur_channels))
             # Mark empty_seq_ast with unseen_chan
             empty_seq_ast.qgl_chan_list = [unseen_chan]
             copy_all_loc(empty_seq_ast, node)
