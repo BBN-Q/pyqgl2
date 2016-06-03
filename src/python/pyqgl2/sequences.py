@@ -184,14 +184,33 @@ class SequenceExtractor(object):
                         #print("lineNo now %d" % lineNo)
                     else:
                         NodeError.error_msg(s, "Not seq next at line %d: %s" % (lineNo+1,s))
-            elif len(self.qbits) == 1:
-                # print("Append expr %s to sequence for %s" % (ast2str(stmnt), self.qbits))
-                if len(self.sequences) == 0:
-                    self.sequences[list(self.qbits)[0]] = list()
-                self.sequences[list(self.qbits)[0]].append(stmnt)
+            elif isinstance(stmnt, ast.Expr):
+                if len(self.qbits) == 1:
+                    # print("Append expr %s to sequence for %s" % (ast2str(stmnt), self.qbits))
+                    if len(self.sequences) == 0:
+                        self.sequences[list(self.qbits)[0]] = list()
+                    self.sequences[list(self.qbits)[0]].append(stmnt)
+                else:
+                    chan_list = list(find_all_channels(stmnt))
+                    if len(chan_list) != 1:
+                        NodeError.error_msg(stmnt,
+                                            'orphan expression %s' % ast.dump(stmnt))
+                    if len(self.sequences) == 0 or str(chan_list) not in self.sequences:
+                        self.sequences[str(chan_list)] = list()
+                    thisSeq = self.sequences[str(chan_list)]
+                    thisSeq.append(stmnt)
+                    # print("Added %s to seq for %s" % (ast2str(stmnt), chan_list))
+                    # print("Have sequences: %s" % (self.sequences.keys()))
             else:
-                NodeError.error_msg(stmnt,
-                        'orphan statement %s' % ast.dump(stmnt))
+                chan_list = list(find_all_channels(stmnt))
+                if len(chan_list) != 1:
+                    NodeError.error_msg(stmnt,
+                                        'orphan statement %s' % ast.dump(stmnt))
+                if len(self.sequences) == 0 or str(chan_list) not in self.sequences:
+                    self.sequences[str(chan_list)] = list()
+                thisSeq = self.sequences[str(chan_list)]
+                thisSeq.append(stmnt)
+                # print("Added %s to seq for %s" % (ast2str(stmnt), chan_list))
 
         # print("Seqs: %s" % self.sequences)
         if not self.sequences:
