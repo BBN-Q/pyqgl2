@@ -19,7 +19,7 @@ def func_b(q: qbit, amp: classical, phase: classical):
 @qgl2main
 def main():
 
-    x = QubitFactory('1')
+    x = QubitFactory('q1')
 
     for i, j in [(1, 2), (3, 4)]:
         for k in range(j):

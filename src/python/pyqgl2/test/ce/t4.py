@@ -11,9 +11,9 @@ from qgl2.util import init
 @qgl2main
 def main():
 
-    x0 = QubitFactory('0')
-    x1 = QubitFactory('1')
-    x2 = QubitFactory('2')
+    x0 = QubitFactory('q0')
+    x1 = QubitFactory('q1')
+    x2 = QubitFactory('q2')
 
     with concur:
         while not MEAS(x0):
