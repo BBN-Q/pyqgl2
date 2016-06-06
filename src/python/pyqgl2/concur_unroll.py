@@ -13,9 +13,10 @@ from copy import deepcopy
 
 import pyqgl2.ast_util
 
-from pyqgl2.ast_util import expr2ast, NodeError
-from pyqgl2.importer import collapse_name
+from pyqgl2.ast_util import ast2str, expr2ast, NodeError, value2ast
 from pyqgl2.debugmsg import DebugMsg
+from pyqgl2.importer import collapse_name
+from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.lang import QGL2
 
 def is_concur(node):
@@ -56,7 +57,7 @@ def is_seq(node):
 
     return False
 
-def find_all_channels(node):
+def find_all_channels(node, local_vars=None):
     """
     Reinitialze the set of all_channels to be the set of
     all channels referenced in the AST rooted at the given
@@ -66,24 +67,35 @@ def find_all_channels(node):
     channels lexically.  FIXME
     """
 
+    if not local_vars:
+        local_vars = dict()
+
     all_channels = set()
 
     for subnode in ast.walk(node):
         if isinstance(subnode, ast.Name):
 
             # Ugly hard-coded assumption about channel names: FIXME
-
+            #
+            # Also look for bindings to QubitPlaceholders
+            #
             if subnode.id.startswith('QBIT_'):
                 all_channels.add(subnode.id)
             elif subnode.id.startswith('EDGE_'):
                 all_channels.add(subnode.id)
+            elif ((subnode.id in local_vars) and
+                    (isinstance(local_vars[subnode.id], QubitPlaceholder))):
+                all_channels.add(local_vars[subnode.id].use_name)
 
         # Look for references to inlined calls; dig out any
         # channels that might be hiding there despite being
         # optimized away later.
         #
         if hasattr(subnode, 'qgl2_orig_call'):
-            orig_chan = find_all_channels(subnode.qgl2_orig_call)
+            orig_chan = find_all_channels(subnode.qgl2_orig_call, local_vars)
+            # print('FAC %s -> %s' %
+            #         (ast2str(subnode.qgl2_orig_call).strip(),
+            #             str(orig_chan)))
             all_channels.update(orig_chan)
 
     return all_channels
@@ -97,10 +109,12 @@ class Unroller(ast.NodeTransformer):
     code actually recognizes/handles
     """
 
-    def __init__(self):
+    def __init__(self, importer):
 
         self.bindings_stack = list()
         self.change_cnt = 0
+
+        self.importer = importer
 
     def unroll_body(self, body):
         """
@@ -205,100 +219,6 @@ class Unroller(ast.NodeTransformer):
 
             return list([if_node])
 
-    def expand_range(self, for_node):
-        """
-        If the iter for the ast.For node is a call to range(),
-        then attempt to expand it into a list of integers,
-        and return the resulting new ast.For node.
-
-        If the expansion fails, return the original node (and
-        in some cases print diagnostics).
-        """
-
-        assert isinstance(for_node, ast.For)
-
-        if not isinstance(for_node.iter, ast.Call):
-            return for_node
-        elif not isinstance(for_node.iter.func, ast.Name):
-            return for_node
-        elif collapse_name(for_node.iter.func) != 'range':
-            return for_node
-
-        args = for_node.iter.args
-
-        start = 0
-        stop = 0
-        step = 1
-
-        ast_start = None
-        ast_step = None
-
-        arg_cnt = len(args)
-
-        if arg_cnt == 0:
-            NodeError.error_msg(for_node.iter,
-                    'not enough parameters to range()')
-            return for_node
-        if arg_cnt == 1:
-            ast_stop = args[0]
-        elif arg_cnt == 2:
-            ast_start = args[0]
-            ast_stop = args[1]
-        elif arg_cnt == 3:
-            ast_start = args[0]
-            ast_stop = args[1]
-            ast_step = args[2]
-        else:
-            NodeError.error_msg(for_node.iter,
-                    'too many parameters to range()')
-            return for_node
-
-        # Once we do constant propogation correctly,
-        # this should be less of an issue, but right now
-        # we can only handle calls to range with numeric
-        # parameters
-        #
-        if ast_start:
-            if isinstance(ast_start, ast.Num):
-                start = ast_start.n
-            else:
-                NodeError.warning_msg(ast_start,
-                        'cannot use as range start; not a constant')
-                return for_node
-
-        if ast_stop:
-            if isinstance(ast_stop, ast.Num):
-                stop = ast_stop.n
-            else:
-                NodeError.warning_msg(ast_stop,
-                        'cannot use as range stop; not a constant')
-                return for_node
-
-        if ast_step:
-            if isinstance(ast_step, ast.Num):
-                step = ast_step.n
-            else:
-                NodeError.warning_msg(ast_step,
-                        'cannot use as range step; not a constant')
-                return for_node
-
-        # Finally, we can do the expansion.
-
-        new_for_node = deepcopy(for_node)
-
-        new_for_node.iter = ast.List()
-        pyqgl2.ast_util.copy_all_loc(new_for_node.iter, for_node.iter)
-
-        new_elts = list()
-        for val in range(start, stop, step):
-            new_elt = ast.Num(n=val)
-            pyqgl2.ast_util.copy_all_loc(new_elt, for_node.iter)
-            new_elts.append(new_elt)
-
-        new_for_node.iter.elts = new_elts
-
-        return new_for_node
-
     def check_value_types(self, target, values):
         """
         check that the list contains simple expressions:
@@ -375,18 +295,46 @@ class Unroller(ast.NodeTransformer):
 
     def is_simple_iteration(self, for_node):
         """
+        returns (success, count), where success is True if the loop is
+        a "simple iteration" (a single loop variable, which is never
+        referenced inside the loop), and count is the number of times
+        that the loop iterates.
+
+        We could handle loops with multiple targets (as long as
+        none of them are ever referenced), but we don't deal with
+        this case yet.  The iters either needs to be a literal list
+        (ast.List) or a call to the simple form of range().
         """
 
         assert isinstance(for_node, ast.For)
 
-        if not isinstance(for_node.iter, ast.Call):
-            return False
-        elif not isinstance(for_node.iter.func, ast.Name):
-            return False
-        elif collapse_name(for_node.iter.func) != 'range':
-            return False
-        elif not isinstance(for_node.target, ast.Name):
-            return False
+        if not isinstance(for_node.target, ast.Name):
+            return False, 0
+
+        if (isinstance(for_node.iter, ast.Call) and
+                isinstance(for_node.iter.func, ast.Name) and
+                (collapse_name(for_node.iter.func) == 'range')):
+
+            # We can only handle simple things right now:
+            # a simple range, with a simple parameter.
+            #
+            args = for_node.iter.args
+            if len(args) != 1:
+                return False, 0
+
+            arg = args[0]
+            if not isinstance(arg, ast.Num):
+                return False, 0
+            elif not isinstance(arg.n, int):
+                NodeError.warning_msg(arg, 'range value is not an integer?')
+                return False, 0
+
+            iter_cnt = arg.n
+        elif isinstance(for_node.iter, ast.List):
+            print('EV GOT LIST')
+            iter_cnt = len(for_node.iter.elts)
+        else:
+            return False, 0
 
         # Search through the body, looking for any of the following:
         #
@@ -404,34 +352,9 @@ class Unroller(ast.NodeTransformer):
                     NodeError.diag_msg(subnode,
                             ('ref to loop var [%s] disables Qrepeat' %
                                 subnode.id))
-                    return False
-                #
-                # PERMIT break and continue statements inside Qrepeat blocks
-                #
-                # elif isinstance(subnode, ast.Break):
-                #     NodeError.diag_msg(subnode,
-                #             '"break" statement disables Qrepeat')
-                #     return False
-                # elif isinstance(subnode, ast.Continue):
-                #     NodeError.diag_msg(subnode,
-                #             '"continue" statement disables Qrepeat')
-                #     return False
+                    return False, 0
 
-        # We can only handle simple things right now:
-        # a simple range, with a simple parameter.
-        #
-        args = for_node.iter.args
-        if len(args) != 1:
-            return False
-
-        arg = args[0]
-        if not isinstance(arg, ast.Num):
-            return False
-        elif not isinstance(arg.n, int):
-            NodeError.warning_msg(arg, 'range value is not an integer?')
-            return False
-        else:
-            return True
+        return True, iter_cnt
 
     def for_unroller(self, for_node, unroll_inner=True):
         """
@@ -476,12 +399,11 @@ class Unroller(ast.NodeTransformer):
         # of iterations.  The flattener will turn this
         # into the proper ASP2 code.
         #
-        if self.is_simple_iteration(for_node):
+        (is_simple, iter_cnt) = self.is_simple_iteration(for_node)
+        if is_simple:
             # If is_simple_iteration returns True, then this
             # chain of derefs should just work...
             #
-            iter_cnt = for_node.iter.args[0].n
-
             repeat_txt = 'with Qrepeat(%d):\n    pass' % iter_cnt
             repeat_ast = expr2ast(repeat_txt)
 
@@ -498,13 +420,9 @@ class Unroller(ast.NodeTransformer):
 
             return list([repeat_ast])
 
-        # if the iter element of the "for" loop is a range expression,
-        # and we can evaluate it to a constant list, do so now.
-        # When we do so, we may alter the loop itself, so
-        # expand_range will make a copy of the for loop node and
-        # return that, rather than just the iterator.
-        #
-        for_node = self.expand_range(for_node)
+        # If we've expanded and evaluated for_node.iter, then
+        # we expect it to be a list.  This might not have happened
+        # yet, however.
 
         if not isinstance(for_node.iter, ast.List):
             if unroll_inner:
@@ -624,13 +542,91 @@ class QbitGrouper(ast.NodeTransformer):
     TODO: this is just a prototype and needs some refactoring
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, local_vars=None):
+
+        if not local_vars:
+            local_vars = dict()
+
+        self.local_vars = local_vars
+
+    def visit_FunctionDef(self, node):
+        """
+        The grouper should only be used on a function def,
+        and there shouldn't be any nested functions, so this
+        should effectively be the top-level call.
+
+        For every statement in the body of the function,
+        if it's a with-concur, then do the grouping as implied
+        by that.  Otherwise, treat each statement as if it was
+        wrapped in an implicit with-concur/with-seq block,
+        because we need to serialize them.  (This isn't the
+        only way to deal with this situation, but it meshes
+        well with the other mechanisms.)
+
+        Note that the initial qbit creation/assignment is
+        treated as a special case: these statements are
+        purely classical bookkeeping, even though they look
+        like quantum operations, and are left alone.
+
+        TODO: need to figure out how to handle nested with-concurs,
+        particularly within conditional statements.
+        """
+
+        print('GROUPER functiondef')
+
+        for i in range(len(node.body)):
+            stmnt = node.body[i]
+
+            # If it's a with-concur statement, then recurse.
+            # If it's a qbit creation/assigment statement, then
+            # leave it alone.
+            # If it's anything else, then treat it as strictly
+            # sequential; wrap it in a with-concur and with-seq
+            # to create a global barriers before/after the statement.
+            #
+            # TODO: we've been talking about non-global barriers.
+            # Adding this will require changes to this logic.
+            #
+            if is_concur(stmnt):
+                node.body[i] = self.visit(stmnt)
+                continue
+            elif (isinstance(stmnt, ast.Assign) and
+                    stmnt.targets[0].qgl_is_qbit):
+                # Leave the stmnt untouched.
+                # TODO: this is an awkward way of determining
+                # whether the statement is a qbit assignment.
+                # FIXME: really need a cleaner method (here and elsewhere)
+                continue
+            else:
+                seq_node = ast.With(
+                        items=list([ast.withitem(
+                            context_expr=ast.Name(id='seq', ctx=ast.Load()),
+                            optional_vars=None)]),
+                        body=list())
+                concur_node = ast.With(
+                        items=list([ast.withitem(
+                            context_expr=ast.Name(id='concur', ctx=ast.Load()),
+                            optional_vars=None)]),
+                        body=list([seq_node]))
+
+                pyqgl2.ast_util.copy_all_loc(concur_node, stmnt, recurse=True)
+
+                # NOTE: I don't like this.  If the stmnt is a compound
+                # statement, then we've put the body into a with-concur
+                # and a with-seq, which might not be what the programmer
+                # expects (or what we want).
+                #
+                seq_node.body = list([self.generic_visit(stmnt)])
+
+                # DESTRUCTIVE
+                #
+                node.body[i] = concur_node
+
+        return node
 
     def visit_With(self, node):
 
         if not is_concur(node):
-            # print('IS NOT a concur node')
             return self.generic_visit(node) # check
 
         # Hackish way to create a seq node to use
@@ -639,7 +635,7 @@ class QbitGrouper(ast.NodeTransformer):
         seq_node = ast.With(items=list([seq_item_node]), body=list())
         pyqgl2.ast_util.copy_all_loc(seq_node, node)
 
-        groups = self.group_stmnts(node.body)
+        groups = self.group_stmnts2(node.body)
         new_body = list()
 
         for qbits, stmnts in groups:
@@ -647,7 +643,8 @@ class QbitGrouper(ast.NodeTransformer):
             new_seq.body = stmnts
             # Mark an attribute on new_seq naming the qbits
             new_seq.qgl_chan_list = qbits
-            NodeError.diag_msg(node, "Adding new with seq marked with qbits %s" % (str(qbits)))
+            NodeError.diag_msg(node,
+                    "Adding new with seq marked with qbits %s" % (str(qbits)))
             new_body.append(new_seq)
 
         node.body = new_body
@@ -678,7 +675,169 @@ class QbitGrouper(ast.NodeTransformer):
             return True
 
     @staticmethod
-    def group_stmnts(stmnts, find_qbits_func=None):
+    def is_with_label(node, label):
+        """
+        TODO: there's code in other places that duplicates this;
+        combine into a single function
+        """
+
+        if not isinstance(node, ast.With):
+            return False
+        elif not isinstance(node.items[0].context_expr, ast.Name):
+            return False
+        elif node.items[0].context_expr.id != label:
+            return False
+        else:
+            return True
+
+    def group_stmnts2(self, stmnts, find_qbits_func=None):
+        """
+        A different approach to grouping statements,
+        which (hopefully) will work more cleanly on deep
+        structures.  See group_stmnts for a basic overview
+        of what this function attempts to do.
+
+        NOTE: this function assumes that each statement
+        is associated with exactly one qbit.  Operations
+        that involve multiple qbits (like CNOT) are treated
+        as having a "source" qbit, and this is the qbit
+        associated with the statement.  (this may be
+        overly simplistic)
+
+        The basic approach taken by this method is:
+
+        a) find all the qbits referenced by the stmnts
+
+        b) for each qbit referenced:
+
+            i) make a copy of the stmnts
+
+            ii) for each qbit, traverse the copy, removing
+                any statement that does not reference that qbit.
+                (this is a recursive process, if the statements
+                are themselves compound)
+
+            iii) for each copy, remove any statements made
+                degenerate by removing substatements (for
+                example, you could end up with loops filled with
+                "with Qiter: pass" statements, which can be safely
+                elided).
+
+        (To make this slightly simpler, we stripe this by
+        statement, instead of doing the entire statement list
+        at once in steps b.i--b.ii.)
+
+        This consumes more memory than a pure construction,
+        but it's simpler.
+        """
+
+        if find_qbits_func is None:
+            find_qbits_func = find_all_channels
+
+        all_qbits = set()
+
+        for stmnt in stmnts:
+            all_qbits.update(find_qbits_func(stmnt, self.local_vars))
+
+        qbit2stmnts = dict()
+
+        for qbit in all_qbits:
+            new_stmnts = list()
+
+            for stmnt in stmnts:
+                pruned_stmnt = self.keep_qbit(stmnt, qbit, find_qbits_func)
+                if pruned_stmnt:
+                    new_stmnts.append(pruned_stmnt)
+
+            if new_stmnts:
+                qbit2stmnts[qbit] = new_stmnts
+            else:
+                print('GR2: expected to find at least one stmnt? [%s]', qbit)
+
+        """
+        for qbit in qbit2stmnts:
+            print('GR2 final %s' % qbit)
+            for substmnt in qbit2stmnts[qbit]:
+                print('   %s' % ast2str(substmnt).strip())
+        """
+
+        groups = [ (list([qbit]), qbit2stmnts[qbit])
+                for qbit in qbit2stmnts.keys() ]
+
+        return groups
+
+    def keep_qbit(self, stmnt, qbit, finder):
+        """
+        Fake scaffolding that only looks at the top-level
+
+        NOTE: only looks at the top level and
+        determines whether they match the given qbit
+        and whether the stmnt contains more than
+        one qbit
+
+        TODO: does not examine the internal structure
+        of statements in general; the only compound structure
+        it considers is the body of top-level Qfor statements
+
+        TODO: add special case (probably to the finder)
+        to address the problem of operators that take
+        multiple qbits, such as CNOT.
+        """
+
+        if self.is_with_label(stmnt, 'Qfor'):
+            new_body = list()
+
+            # this is wasteful: we make a copy of the whole
+            # thing, and then end up throwing away everything
+            # but the header.  Should allocate only the header.
+            #
+            new_qfor = deepcopy(stmnt)
+
+            # TODO: the only thing that should be in the body of a
+            # Qfor is a Qiter, but we don't do anything if this
+            # assumption is violated.
+            #
+            for substmnt in stmnt.body:
+                if not self.is_with_label(substmnt, 'Qiter'):
+                    print('EXPECTED Qiter')
+
+                if self.keep_qbit(substmnt, qbit, finder):
+                    new_body.append(substmnt)
+
+            # We can't have a completely empty body, so add a pass
+            # if necessary
+            #
+            if not new_body:
+                new_body = list([ast.Pass()])
+
+            new_qfor.body = new_body
+            return new_qfor
+
+        # The general case: it's not a Qfor, at least not at the
+        # top level.  It's all or nothing, then.
+
+        qbits = finder(stmnt, self.local_vars)
+        n_qbits = len(qbits)
+        if n_qbits == 0:
+            NodeError.error_msg(stmnt,
+                    ('no qbit references in stmnt? [%s]' %
+                        ast2str(stmnt).strip()))
+            return None
+            
+        elif n_qbits > 1:
+            print('multiple qbit references (%s) in stmnt [%s]' %
+                        (str(qbits), ast2str(stmnt).strip()))
+            NodeError.error_msg(stmnt,
+                    ('multiple qbit references (%s) in stmnt [%s]' %
+                        (str(qbits), ast2str(stmnt).strip())))
+            return None
+
+        if qbit in qbits:
+            return stmnt
+        else:
+            return None
+
+    def group_stmnts(self, stmnts, find_qbits_func=None):
         """
         Return a list of statement groups, where each group is a tuple
         (qbit_list, stmnt_list) where qbit_list is a list of all of
@@ -766,7 +925,7 @@ class QbitGrouper(ast.NodeTransformer):
             #
             if QbitGrouper.is_qrepeat(stmnt):
 
-                rep_groups = QbitGrouper.group_stmnts(stmnt.body)
+                rep_groups = self.group_stmnts(stmnt.body)
                 for partition, substmnts in rep_groups:
                     # lazy way to create the specialized qrepeat:
                     # copy the whole thing, and then throw away
@@ -776,12 +935,18 @@ class QbitGrouper(ast.NodeTransformer):
                     new_qrepeat.body = substmnts
 
                     expanded_stmnts.append(new_qrepeat)
+            elif QbitGrouper.is_with_label(stmnt, 'Qfor'):
+                # TODO: must deal with Qfor and Qiters here.
+                expanded_stmnts.append(stmnt)
+
             else:
                 expanded_stmnts.append(stmnt)
 
         for stmnt in expanded_stmnts:
 
-            qbits_referenced = list(find_qbits_func(stmnt))
+            qbits_referenced = list(find_qbits_func(stmnt, self.local_vars))
+            # print('GR %s -> %s' %
+            #         (ast2str(stmnt).strip(), str(qbits_referenced)))
 
             if len(qbits_referenced) == 0:
                 # print('unexpected: no qbit referenced')

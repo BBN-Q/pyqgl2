@@ -8,7 +8,32 @@ from copy import deepcopy
 from pyqgl2.ast_util import NodeError
 from pyqgl2.importer import NameSpaces
 from pyqgl2.importer import collapse_name
+
 import pyqgl2.ast_util
+
+class QubitPlaceholder(object):
+    """
+    Placeholder for a Qubit/Channel
+
+    It would be preferable to use the actual Qubit object
+    here, but that requires closer integration with QGL1
+    """
+
+    # mapping from label to reference
+    KNOWN_QUBITS = dict()
+
+    def __init__(self, use_name):
+        self.use_name = use_name
+
+    @staticmethod
+    def factory(use_name, **kwargs):
+
+        mapping = QubitPlaceholder.KNOWN_QUBITS
+
+        if use_name not in mapping:
+            mapping[use_name] = QubitPlaceholder(use_name, **kwargs)
+        return mapping[use_name]
+
 
 class TempVarManager(object):
     """
@@ -39,7 +64,7 @@ class TempVarManager(object):
         self.index = None
 
     @staticmethod
-    def create_temp_var_manager(name_prefix='__qgl2_tmp'):
+    def create_temp_var_manager(name_prefix='___qgl2_tmp'):
         if name_prefix in TempVarManager.NAME2REF:
             return TempVarManager.NAME2REF[name_prefix]
 
@@ -55,7 +80,16 @@ class TempVarManager(object):
 
         base = '%s_%.3d' % (self.name_prefix, self.index)
         if orig_name:
-            return '%s_%s' % (orig_name, base)
+
+            # if the name that we're converting to a temp
+            # is already a temp name, then try to find the
+            # original root name and use that name instead.
+            #
+            components = orig_name.split(self.name_prefix, 1)
+            if len(components) == 2:
+                orig_name = components[0]
+
+            return '%s%s' % (orig_name, base)
         else:
             return base
 
@@ -82,6 +116,18 @@ class NameRewriter(ast.NodeTransformer):
         elif node.id in self.name2name:
             node.id = self.name2name[node.id]
 
+        return node
+
+    def visit_Expr(self, node):
+        """
+        If the expression is a Call, then rewrite the original call
+        as well, so that we can find the bindings later
+        """
+
+        if hasattr(node, 'qgl2_orig_call'):
+            node.qgl2_orig_call = self.rewrite(node.qgl2_orig_call)
+
+        self.generic_visit(node)
         return node
 
     def add_constant(self, old_name, value_ptree):
@@ -587,10 +633,7 @@ def create_inline_procedure(func_ptree, call_ptree):
     # it's all fictitious) so that any error messages generated
     # later make some sense
     #
-    # We give the source file a name that signifies that it's
-    # rewritten code.  (I'm ambivalent about this)
-    #
-    source_file = '_mod_' + call_ptree.qgl_fname
+    source_file = call_ptree.qgl_fname
     for assignment in setup_locals:
         for subnode in ast.walk(assignment):
             subnode.qgl_fname = source_file
@@ -625,6 +668,113 @@ def create_inline_procedure(func_ptree, call_ptree):
     inlined = setup_locals + new_func_body
 
     return inlined
+
+class NameFinder(ast.NodeVisitor):
+    """
+    A visitor for finding the names referenced by a node
+
+    See find_names() for more info
+    """
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.simple_names = set()
+        self.dotted_names = set()
+
+    def visit_Attribute(self, node):
+        name = collapse_name(node)
+        self.dotted_names.add(name)
+
+    def visit_Name(self, node):
+        self.simple_names.add(node.id)
+
+    def find_names(self, node):
+        """
+        Find the simple names (purely local names) and the
+        "dotted" names (attributes of an instance, class,
+        or module) referenced by a given AST node.
+
+        Returns (simple, dotted) where "simple" is the set
+        of simple names and "dotted" is the set of dotted names.
+
+        Note that this skips NameConstants, because these
+        names are fixed symbols in Python 3.4+ and cannot be
+        renamed or modified (and therefore they're not really
+        "local" names at all).
+        """
+
+        self.reset()
+        self.visit(node)
+
+        return self.simple_names, self.dotted_names
+
+    def find_local_names(self, node):
+        """
+        A specialized form of find_names that only
+        returns the local names
+        """
+
+        simple, _dotted = self.find_names(node)
+        return simple
+
+class NameRedirector(ast.NodeTransformer):
+    """
+    A visitor for finding the names referenced by a node
+
+    See find_names() for more info
+    """
+
+    def __init__(self, values=None, table_name='_T'):
+
+        self.table_name = table_name
+        self.values = values
+
+    def visit_Attribute(self, node):
+        return node
+
+    def visit_Name(self, node):
+
+        name = node.id
+        # if the name doesn't have an entry in the values
+        # table, then we can't transform it
+        #
+        if name not in self.values:
+            return node
+
+        # If the value is something we can represent
+        # by value (i.e. an integer, or a list of strings) then
+        # replace its reference with its value rather than
+        # replacing the reference with a reference to the new
+        # table.
+        #
+        # As special case, we replace references to qubits
+        # with their special QBIT_ name.  This is a bit of
+        # a hack; the downstream code expects to see just
+        # the name.
+        #
+        # TODO: expand what we can represent as literals
+        # (i.e. add simple lists, tuples).
+        #
+        # TODO: add a comment, if possible, with the name of the variable
+
+        value = self.values[name]
+
+        if isinstance(value, int) or isinstance(value, float):
+            redirection = ast.Num(n=value)
+        elif isinstance(value, str):
+            redirection = ast.Str(s=value)
+        elif isinstance(value, QubitPlaceholder):
+            redirection = ast.Name(id=value.use_name, ctx=ast.Load())
+            redirection.qgl_is_qbit = True
+        else:
+            redirection = ast.Subscript(
+                    value=ast.Name(id=self.table_name, ctx=ast.Load()),
+                    slice=ast.Index(value=ast.Str(s=name)))
+
+        return redirection
+
 
 def names_in_ptree(ptree):
     """

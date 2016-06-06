@@ -46,9 +46,11 @@ from pyqgl2.check_waveforms import CheckWaveforms
 from pyqgl2.concur_unroll import Unroller
 from pyqgl2.concur_unroll import QbitGrouper
 from pyqgl2.debugmsg import DebugMsg
+from pyqgl2.eval import EvalTransformer, SimpleEvaluator
 from pyqgl2.flatten import Flattener
 from pyqgl2.importer import NameSpaces, add_import_from_as
 from pyqgl2.inline import Inliner
+from pyqgl2.repeat import RepeatTransformer
 from pyqgl2.sequence import SequenceCreator
 from pyqgl2.sequences import SequenceExtractor, get_sequence_function
 from pyqgl2.substitute import specialize
@@ -200,9 +202,9 @@ def compileFunction(filename, main_name=None, saveOutput=False,
 
     ptree1 = ptree
 
-    # We may need to iterate over the inline/unroll processes
-    # a few times, because inlining may expose new things to unroll,
-    # and vice versa.
+    # We may need to iterate over the inlining and specialization
+    # processes a few times, because inlining may expose new things
+    # to specialize, and vice versa.
     #
     # TODO: as a stopgap, we're going to limit iterations to 20, which
     # is enough to handle fairly deeply-nested, complex non-recursive
@@ -212,8 +214,11 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     # do this, but instead assume the worst if the program is complex
     # enough to look like it's "probably" divergent.
     #
+
     MAX_ITERS = 20
     for iteration in range(MAX_ITERS):
+
+        print('ITERATION %d' % iteration)
 
         inliner = Inliner(importer)
         ptree1 = inliner.inline_function(ptree1)
@@ -223,13 +228,13 @@ def compileFunction(filename, main_name=None, saveOutput=False,
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
 
-        unroller = Unroller()
-        ptree1 = unroller.visit(ptree1)
-        NodeError.halt_on_error()
+        # unroller = Unroller(importer)
+        # ptree1 = unroller.visit(ptree1)
+        # NodeError.halt_on_error()
 
-        print(('UNROLLED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-                file=intermediate_fout, flush=True)
+        # print(('UNROLLED CODE (iteration %d):\n%s' %
+        #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+        #         file=intermediate_fout, flush=True)
 
         type_check = CheckType(filename, importer=importer)
         ptree1 = type_check.visit(ptree1)
@@ -238,14 +243,19 @@ def compileFunction(filename, main_name=None, saveOutput=False,
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
 
-        ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
-                context=ptree1)
-        NodeError.halt_on_error()
-        print(('SPECIALIZED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-                file=intermediate_fout, flush=True)
+        # ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
+        #         context=ptree1)
+        # NodeError.halt_on_error()
+        # print(('SPECIALIZED CODE (iteration %d):\n%s' %
+        #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+        #         file=intermediate_fout, flush=True)
 
-        if (inliner.change_cnt == 0) and (unroller.change_cnt == 0):
+        # If we include the unroller, or check for changes by the
+        # specializer, then we would also check for their changes here.
+        # Right now the unroller is not used (unrolling is done
+        # within the evaluator)
+
+        if inliner.change_cnt == 0:
             NodeError.diag_msg(None,
                     ('expansion converged after iteration %d' % iteration))
             break
@@ -254,12 +264,43 @@ def compileFunction(filename, main_name=None, saveOutput=False,
         NodeError.error_msg(None,
                 ('expansion did not converge after %d iterations' % MAX_ITERS))
 
+    evaluator = EvalTransformer(SimpleEvaluator(importer, None))
+
+    print('CALLING EVALUATOR')
+    ptree1 = evaluator.visit(ptree1)
+    NodeError.halt_on_error()
+
+    print('EVALUATOR RESULT:\n%s' % pyqgl2.ast_util.ast2str(ptree1))
+    # It's very hard to read the intermediate form, before the
+    # QBIT names are added, so we don't save this right now.
+    # print(('EVALUATOR RESULT:\n%s' % pyqgl2.ast_util.ast2str(ptree1)),
+    #         file=intermediate_fout, flush=True)
+
+    # Dump out all the variable bindings, for debugging purposes
+    #
+    # print('EV total state:')
+    # evaluator.print_state()
+
+    evaluator.replace_bindings(ptree1.body)
+
+    print('EVALUATOR REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1))
+    print(('EVALUATOR + REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1)),
+            file=intermediate_fout, flush=True)
+
+    # ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
+    #         context=ptree1)
+    # NodeError.halt_on_error()
+    # print(('SPECIALIZED CODE (iteration %d):\n%s' %
+    #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+    #         file=intermediate_fout, flush=True)
+
     # If we got raw code, then we may have no source file to use
     if not filename or filename == '<stdin>':
         text = '<stdin>'
     else:
         base_namespace = importer.path2namespace[filename]
         text = base_namespace.pretty_print()
+
     print(('EXPANDED NAMESPACE:\n%s' % text),
             file=intermediate_fout, flush=True)
 
@@ -273,10 +314,16 @@ def compileFunction(filename, main_name=None, saveOutput=False,
             file=intermediate_fout, flush=True)
 
     # Take with concur blocks and produce with seq blocks for each QBIT_* or EDGE_* referenced therein
-    grouper = QbitGrouper()
+    grouper = QbitGrouper(evaluator.eval_state.locals_stack[-1])
     new_ptree6 = grouper.visit(new_ptree5)
     NodeError.halt_on_error()
     print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
+            file=intermediate_fout, flush=True)
+
+    repeater = RepeatTransformer()
+    new_ptree6 = repeater.visit(new_ptree6)
+    NodeError.halt_on_error()
+    print(('QREPEAT CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
             file=intermediate_fout, flush=True)
 
     # Try to flatten out repeat, range, ifs
@@ -285,6 +332,8 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     NodeError.halt_on_error()
     print(('FLATTENED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree7)),
             file=intermediate_fout, flush=True)
+
+    evaluator.replace_bindings(new_ptree7.body)
 
     # We're not going to print this, at least not for now,
     # although it's sometimes a useful pretty-printing
@@ -334,7 +383,9 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     filen = filename
     if not filename or filename == '<stdin>':
         filen = "myprogram.py"
-    qgl1_main = get_sequence_function(new_ptree8, fname, importer, intermediate_fout, saveOutput, filen)
+    qgl1_main = get_sequence_function(new_ptree8, fname,
+            importer, intermediate_fout, saveOutput, filen,
+            setup=evaluator.setup())
     NodeError.halt_on_error()
     return qgl1_main
 

@@ -32,6 +32,30 @@ def doRabiWidth() -> sequence:
         Utheta(q, length=l, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh)
         MEAS(q)
 
+
+# An example of expanding an expression (a call to np.linspace)
+@qgl2decl
+def doRabiAmp2() -> sequence:
+    q = QubitFactory("q1")
+    for l in np.linspace(0, 5e-6, 11):
+        init(q)
+        # FIXME: QGL2 loses the import needed for this QGL function
+        Utheta(q, amp=l, phase=0)
+        MEAS(q)
+
+# An example of multiple expansions (a call to np.linspace, and
+# the parameters to np.linspace)
+@qgl2decl
+def doRabiAmp3() -> sequence:
+    steps = 3
+    zero = 0
+    q = QubitFactory('q1')
+    for l in np.linspace(zero, 5e-6, steps):
+        init(q)
+        # FIXME: QGL2 loses the import needed for this QGL function
+        Utheta(q, amp=l, phase=0)
+        MEAS(q)
+
 @qgl2decl
 def doSingleShot() -> sequence:
     q = QubitFactory('q1')

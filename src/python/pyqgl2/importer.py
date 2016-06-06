@@ -222,7 +222,7 @@ class NameSpace(object):
     Manage the namespace for a single file
     """
 
-    def __init__(self):
+    def __init__(self, path):
 
         # functions and variables defined locally
         #
@@ -259,6 +259,20 @@ class NameSpace(object):
         # came last.
         #
         self.order_added = list()
+
+        # We do a "real" import of the file, using exec, using
+        # the native_globals as the globals().  This means that
+        # we can capture the effect of doing an import on a real
+        # Python processing, without muddying up our own namespace
+        # with the results.  Then we keep the native_globals so
+        # that if we later need to evaluate expressions or
+        # statements in that context, we have it ready to go.
+        #
+        self.native_globals = dict()
+        # don't treat this like a __main__
+        self.native_globals['__name__'] = 'not_main'
+        # make sure the __file__ is set properly
+        # self.native_globals['__file__'] = path
 
     def __repr__(self):
         return self.__str__()
@@ -387,6 +401,126 @@ class NameSpace(object):
 
         return text
 
+    def native_import(self, text, node):
+        """
+        Do a "native import", updating self.native_globals
+        with the results.
+
+        This can be ugly if the import executes arbitrary code (i.e.
+        prints things on the screen, or futzes with something else).
+
+        The text must be an import statement, or sequence of
+        import statements (ast2str turns a single statement with
+        a list of symbol clauses into a list of statements)
+        i.e. "from foo import bar as baz" or "from whatever import *"
+        or "import something"
+
+        The node is used to create meaningful diagnostic or
+        error messages, and must be provided.
+
+        Returns True if successful, False otherwise.
+        """
+
+        # A hack to avoid doing imports on "synthesized" imports
+        # that don't have line numbers in the original source code
+        #
+        if (not node) or (not hasattr(node, 'lineno')):
+            return
+
+        try:
+            exec(text, self.native_globals)
+            return True
+        except BaseException as exc:
+            if node:
+                caller_fname = node.qgl_fname
+            else:
+                caller_fname = '<unknown>'
+            NodeError.error_msg(node,
+                    'in %s [%s] failed: %s' % (caller_fname, text, str(exc)))
+            return False
+
+    def native_exec(self, stmnt, local_variables=None):
+
+        success, _val = self.native_eval(stmnt,
+                local_variables=local_variables, mode='exec')
+        return success
+
+    def native_eval(self, expr, local_variables=None, mode='eval'):
+        """
+        Evaluate the given expr, which may be an expression or a
+        statement represented by an AST node or a text string.
+        If mode is 'eval', then the expr must be an expression,
+        but if it is 'exec' then it may be a statement.
+
+        If local_variables is not None, it is assumed to reference
+        a dictionary containing local bindings.  It should NOT
+        be a reference to the global bindings (either for this
+        namespace, or any other global bindings).
+
+        Returns (success, value), where success indicates whether
+        the evaluation succeeded or failed, and value is the value
+        of the expression.  The process of evaluation the expression
+        may also modify bindings in local_variables,
+
+        Note that if the evaluation of the expr raises an
+        exception, this exception will be caught and the result
+        will be treated as failure (even if the intent of the
+        expression was to raise an exception).  QGL2 doesn't
+        understand exceptions.
+
+        NOTE: this evaluation is not safe, and may damage the
+        environment of the caller.  There is no safeguard against
+        this right now.
+        """
+
+        if (not isinstance(expr, str)) and (not isinstance(expr, ast.AST)):
+            print('INVALID EXPR type %s' % str(type(expr)))
+            return False, None
+
+        # If we get AST, then there are many variations on what
+        # we could get (it could look like an Expr, or an Expression,
+        # or a Module, etc.  By converting the AST to a text string,
+        # this removes all of the ambiguity and lets us parse the
+        # program again, in the local context.
+        #
+        # This is inefficient for the computer (to keep going back and
+        # forth between text and parse trees) but efficient for the
+        # implementer.
+        #
+        if isinstance(expr, ast.AST):
+            expr_str = pyqgl2.ast_util.ast2str(expr)
+        else:
+            expr_str = expr
+
+        try:
+            final_expr = compile(expr_str, '<nofile>', mode=mode)
+        except SyntaxError as exc:
+            print('Syntax error in native_eval: %s' % str(exc))
+            return False, None
+        except BaseException as exc:
+            print('Error in native_eval: %s' % str(exc))
+            return False, None
+
+        try:
+            if local_variables is None:
+                local_variables = dict()
+
+            val = eval(final_expr, self.native_globals, local_variables)
+            return True, val
+        except BaseException as exc:
+            # If the expr was AST and came from the preprocessor,
+            # try to format the error message accordingly
+            #
+            # Otherwise just attempt to print something meaningful
+            #
+            if isinstance(expr, ast.AST) and hasattr(expr, 'qgl_fname'):
+                NodeError.error_msg(expr,
+                        ('eval failure [%s]: %s' %
+                            (expr_str.strip(), str(exc))))
+            else:
+                print('eval failure [%s]: %s' % (expr_str.strip(), str(exc)))
+            return False, None
+
 
 class NameSpaces(object):
 
@@ -449,6 +583,18 @@ class NameSpaces(object):
         else:
             NodeError.warning_msg(None,
                     'warning: no qglmain declared or chosen')
+
+        # This is a hack to make sure that the base file
+        # is read in as a "native import".  Since there isn't
+        # an explicit "import" of this file anywhere, we don't
+        # have an AST node that contains the code for this import.
+        # We can't use None, because this importer uses this as
+        # a sentinel value, so we use self.qgl2main.  This is
+        # bogus -- we should make a fake node for this purpose
+        # FIXME
+        text = open(self.base_fname, 'r').read()
+        namespace = self.path2namespace[self.base_fname]
+        namespace.native_import(text, self.qglmain)
 
     def resolve_sym(self, path, name, depth=0):
         """
@@ -572,9 +718,10 @@ class NameSpaces(object):
                     'cannot open [%s]: %s' % (path, str(exc)))
             return None
 
-    def read_import_str(self, text, path='<stdin>'):
+    def read_import_str(self, text, path='<stdin>', module_name='__main__'):
 
         ptree = ast.parse(text, mode='exec')
+
         self.path2ast[path] = ptree
 
         # label each node with the name of the input file;
@@ -583,6 +730,7 @@ class NameSpaces(object):
         #
         for node in ast.walk(ptree):
             node.qgl_fname = path
+            node.qgl_modname = module_name
 
         # The preprocessor will ignore any imports that are not
         # at the "top level" (imports that happen conditionally,
@@ -607,7 +755,7 @@ class NameSpaces(object):
 
         # Populate the namespace
         #
-        namespace = NameSpace()
+        namespace = NameSpace(path)
         self.path2namespace[path] = namespace
 
         for stmnt in ptree.body:
@@ -840,6 +988,8 @@ class NameSpaces(object):
 
     def add_import_as(self, namespace, stmnt):
 
+        namespace.native_import(pyqgl2.ast_util.ast2str(stmnt), stmnt)
+
         namespace.add_import_as_stmnt(stmnt)
 
         for imp in stmnt.names:
@@ -848,8 +998,6 @@ class NameSpaces(object):
                 NodeError.warning_msg(
                         stmnt, 'path to [%s] not found' % imp.name)
             elif is_system_file(subpath):
-                # TODO not sure if we should flag this,
-                # or make any attempt to handle it.
                 continue
             else:
                 namespace.add_import_as(imp.name, imp.asname)
@@ -957,10 +1105,20 @@ class NameSpaces(object):
             elif os.path.isdir(dir_path):
                 subpath = from_path
 
+            # Since we don't know what our own module name is,
+            # we can't figure out the "full" name of the relatively
+            # imported module.  FIXME
+            #
+            full_module_name = None
+            NodeError.warning_msg(stmnt,
+                    ('cannot evaluate exprs in a relative import [%s]' %
+                        module_name))
+
         else:
             # use normal resolution to find the location of module
             #
             subpath = resolve_path(module_name)
+            full_module_name = module_name
 
         # There are a lot of reasons why we might not be able
         # to resolve a module name; it could be in a binary file
@@ -986,8 +1144,21 @@ class NameSpaces(object):
                             ('deprecated wildcard import from [%s]' %
                                 module_name))
                     self.add_from_wildcard(namespace, subpath, module_name)
+
+                    if full_module_name:
+                        namespace.native_import(
+                                ('from %s import *' % full_module_name), stmnt)
                 else:
                     namespace.add_from_as_path(subpath, imp.name, imp.asname)
+
+                    if full_module_name:
+                        symname = imp.name
+                        if imp.asname:
+                            symname += ' %s' % imp.asname
+                        namespace.native_import(
+                                ('from %s import %s' %
+                                    (full_module_name, symname)),
+                                stmnt)
 
     def add_from_wildcard(self, namespace, path, from_name):
 

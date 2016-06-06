@@ -184,15 +184,11 @@ class SequenceExtractor(object):
                         #print("lineNo now %d" % lineNo)
                     else:
                         NodeError.error_msg(s, "Not seq next at line %d: %s" % (lineNo+1,s))
-            elif isinstance(stmnt, ast.Expr):
-                if len(self.qbits) == 1:
-                    # print("Append expr %s to sequence for %s" % (ast2str(stmnt), self.qbits))
-                    if len(self.sequences) == 0:
-                        self.sequences[list(self.qbits)[0]] = list()
-                    self.sequences[list(self.qbits)[0]].append(stmnt)
-                else:
-                    NodeError.error_msg(stmnt,
-                                        'orphan statement %s' % ast.dump(stmnt))
+            elif len(self.qbits) == 1:
+                # print("Append expr %s to sequence for %s" % (ast2str(stmnt), self.qbits))
+                if len(self.sequences) == 0:
+                    self.sequences[list(self.qbits)[0]] = list()
+                self.sequences[list(self.qbits)[0]].append(stmnt)
             else:
                 NodeError.error_msg(stmnt,
                         'orphan statement %s' % ast.dump(stmnt))
@@ -207,7 +203,7 @@ class SequenceExtractor(object):
         #     return False
         return True
 
-    def emit_function(self, func_name='qgl1_main'):
+    def emit_function(self, func_name='qgl1_main', setup=None):
         """
         Create a function that, when run, creates the context
         in which the sequence is evaluated, and evaluate it.
@@ -256,6 +252,10 @@ class SequenceExtractor(object):
         for (sym_name, use_name, _node) in self.qbit_creates:
             preamble += indent + '%s = %s\n' % (use_name, sym_name)
 
+        if setup:
+            for setup_stmnt in setup:
+                preamble += indent + ('%s\n' % ast2str(setup_stmnt).strip())
+
         seqs_def = indent + 'seqs = list()\n'
         seqs_str = ''
         seq_strs = list()
@@ -289,7 +289,9 @@ class SequenceExtractor(object):
         res =  preamble + seqs_def + seqs_str + postamble
         return res
 
-def get_sequence_function(node, func_name, importer, intermediate_fout=None, saveOutput=False, filename=None):
+def get_sequence_function(node, func_name, importer,
+        intermediate_fout=None, saveOutput=False, filename=None,
+        setup=None):
     """
     Create a function that encapsulates the QGL code
     from the given AST node, which is presumed to already
@@ -303,7 +305,7 @@ def get_sequence_function(node, func_name, importer, intermediate_fout=None, sav
     builder = SequenceExtractor(importer)
 
     if builder.find_sequences(node) and builder.find_imports(node):
-        code = builder.emit_function(func_name)
+        code = builder.emit_function(func_name, setup)
         if intermediate_fout:
             print(('#start function\n%s\n#end function' % code),
                   file=intermediate_fout, flush=True)

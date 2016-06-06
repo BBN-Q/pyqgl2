@@ -405,21 +405,19 @@ def specialize(func_node, qbit_defs, func_defs, importer, context=None):
 #    DebugMsg.log(" ... after SubstituteChannel.visit() have: %s" % pyqgl2.ast_util.ast2str(new_func))
     new_func.name = mangled_name
 
-    for subnode in ast.walk(new_func_node):
-        # If the new_func_node has any subnodes that came from
-        # inlined calls that are referenced (via qgl2_orig_call),
-        # then specialize the referenced calls as well.
-        # The reason for this is that we want to keep track of
-        # variables (such as qbits) that might be "optimized away"
-        # if the specialized version of the code doesn't reference
-        # them any more, so we can map things back to channels
-        # at some point.
-        #
+    # If the new_func_node has any subnodes that came from
+    # inlined calls that are referenced (via qgl2_orig_call),
+    # then specialize the referenced calls as well.
+    # The reason for this is that we want to keep track of
+    # variables (such as qbits) that might be "optimized away"
+    # if the specialized version of the code doesn't reference
+    # them any more, so we can map things back to channels
+    # at some point.
+    #
+    for subnode in ast.walk(new_func):
         if hasattr(subnode, 'qgl2_orig_call'):
-            # Do not re-visit this sub-node. We don't need to
-            # re-specialize it, as it has already been inlined.
-            # Just copy it
-            subnode.qgl2_orig_call = deepcopy(subnode.qgl2_orig_call)
+            new_subcall = sub_chan.visit(subnode.qgl2_orig_call)
+            subnode.qgl2_orig_call = new_subcall
 
     # add the specialized version of the function to the namespace
     #

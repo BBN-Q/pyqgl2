@@ -112,6 +112,10 @@ class Flattener(ast.NodeTransformer):
             elif isinstance(stmnt, ast.If):
                 if_body = self.if_flattener(stmnt)
                 new_body += if_body
+            elif isinstance(stmnt, ast.With):
+                with_body = self.with_flattener(stmnt)
+                new_body += with_body
+
 
             # TODO: there are other things to flatten,
             # and also things to gripe about if we see
@@ -140,17 +144,18 @@ class Flattener(ast.NodeTransformer):
         goto_ast = expr2ast(goto_str)
         return goto_ast
 
-    def make_cgoto_call(self, label, condition):
+    def make_cgoto_call(self, label, node, mask):
         """
         Create a conditional goto call
         """
 
-        goto_ast = ast.Expr(value=ast.Call(
-                func=ast.Name(id='Qcond', ctx=ast.Load()),
-                args=list([ast.Str(s=label), condition]),
-                keywords=list()))
+        cmp_ast = expr2ast('CmpEq(%s)' % str(mask))
+        label_ast = expr2ast('Goto(BlockLabel(\'%s\'))' % label)
 
-        return goto_ast
+        pyqgl2.ast_util.copy_all_loc(cmp_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(label_ast, node, recurse=True)
+
+        return list([cmp_ast, label_ast])
 
     def make_label_call(self, label):
 
@@ -181,15 +186,86 @@ class Flattener(ast.NodeTransformer):
         else:
             return True
 
-    def visit_FunctionDef(self, node):
+    def is_with_label(self, node, label):
+        item = node.items[0].context_expr
+
+        if not isinstance(item, ast.Name):
+            return False
+        elif item.id != label:
+            return False
+        else:
+            return True
+
+    def xvisit_FunctionDef(self, node):
         return self.flatten_node_body(node)
 
     def visit_With(self, node):
+        """
+        This is where the recursive traversal ends for this
+        transformer, and a different traversal begins.
+        When we reach this node, we expect it to either
+        be a with-concur with a body that consists entirely
+        of with-seq statements, or else a with-seq itself
+        (outside the context of a with-concur).
+        If we are starting at the top level, we will be
+        concerned if the first "with" block we encounter is
+        anything else.
 
-        if self.is_with_qrepeat(node):
-            return self.repeat_flattener(node)
+        If it is a with-seq node, then everything beneath
+        this node should be able to translate into a list of
+        statements by recursively flattening the contents
+        of this with-seq, but this recursion is somewhat
+        different than the NodeTransformer traversal because
+        it returns lists of statements, not nodes.
+
+        We destructively create a new with-seq that has
+        as its body this list of statements.
+        """
+
+        if self.is_with_label(node, 'seq'):
+            new_body = self.flatten_body(node.body)
+            node.body = new_body
+            return node
+        elif self.is_with_label(node, 'concur'):
+            new_body = list()
+
+            for stmnt in node.body:
+                if not isinstance(stmnt, ast.With):
+                    print('WHAT?  expected "with", got %s' %
+                            ast.dump(node))
+
+                if not self.is_with_label(stmnt, 'seq'):
+                    print('WHAT?  expected "with seq", got %s' %
+                            ast.dump(node))
+
+                new_seq_body = self.flatten_body(stmnt.body)
+
+                # destructive update
+                stmnt.body = new_seq_body
+                new_body.append(stmnt)
+
+            # destructive update
+            node.body = new_body
+            return node
+
+        elif (self.is_with_label(node, 'Qfor') or
+                self.is_with_label(node, 'Qrepeat')):
+            # we'll get here if there's no with-concur.
+            # just process the substatements, without the
+            # checks we do for with-concur
+            #
+            new_body = list()
+
+            for stmnt in node.body:
+                new_body += self.flatten_body(stmnt.body)
+
+            # destructive update
+            node.body = new_body
+            return node
+
         else:
-            return self.flatten_node_body(node)
+            print('ERROR: unexpected with statement')
+            return node # bogus
 
     def visit_Break(self, node):
         """
@@ -258,6 +334,125 @@ class Flattener(ast.NodeTransformer):
 
         return dbg_if
 
+    def with_flattener(self, node):
+        """
+        For "embedded" with statements, below the top-level
+        (which is handled by visit_With)
+        """
+
+        if self.is_with_qrepeat(node):
+            return self.repeat_flattener(node)
+        elif self.is_with_label(node, 'Qfor'):
+            return self.qfor_flattener(node)
+        elif self.is_with_label(node, 'Qiter'):
+            print('ERROR: should not see Qiter at this level')
+            # Bogus
+            return self.qiter_flattener(node)
+        else:
+            print('ERROR: confused about with statement: %s' %
+                    ast.dump(node))
+            assert False
+            return list()
+
+    def qfor_flattener(self, node):
+        """
+        flatten a 'with Qfor' block
+        """
+
+        # figure out what to do here.  Mostly modifying the
+        # the context to make sure that the "break" reference
+        # points to the right things, and scooping out the
+        # guts and returning them.
+
+        # We always allocate a label and update the stack,
+        # even if we know we won't need it, just for the
+        # sake of simplicity.
+        #
+        (end_label,) = LabelManager.allocate_labels('qfor_end')
+
+        # the bogus label will be replaced by the qiter_flattener
+        # with the label for the next iteration, if any.  It is
+        # a placeholder and should never be emitted.
+        #
+        self.loop_label_stack.append(('BOGUS_LABEL', end_label))
+
+        new_stmnts = list()
+        for subnode in node.body:
+            if self.is_with_label(subnode, 'Qiter'):
+                new_stmnts += self.qiter_flattener(subnode)
+            elif self.is_with_qrepeat(subnode):
+                new_stmnts += self.repeat_flattener(subnode)
+            else:
+                print('Error: unexpected non-Qiter node')
+
+        self.loop_label_stack.pop()
+
+        # If the original code contains a break statement,
+        # then we need to emit code to create the label for
+        # the end of the loop.  Otherwise, we can omit it.
+        #
+        if self.contains_type(node, ast.Break):
+            end_ast = expr2ast('BlockLabel(\'%s\')' % end_label)
+            new_stmnts.append(end_ast)
+
+        return new_stmnts
+
+    def contains_type(self, node_or_list, ast_type):
+        """
+        Return True if the given node or any of its descendants is
+        of the given ast_type, False otherwise
+
+        For the sake of convenience, this function can also
+        take a list of AST nodes instead of a single node.
+
+        TODO: this is a general AST utility and should be moved
+        to AST utils.
+        """
+
+        if isinstance(node_or_list, list):
+            return any(self.contains_type(node, ast_type)
+                    for node in node_or_list)
+
+        for subnode in ast.walk(node_or_list):
+            if isinstance(subnode, ast_type):
+                return True
+
+        return False
+
+    def qiter_flattener(self, node):
+        """
+        flatten a 'with Qiter' block
+        """
+
+        new_body = self.flatten_body(node.body)
+
+        # Modify the continue reference to point to the
+        # end of the current iteration.
+        #
+        # For the sake of simplicity, we *always* allocate
+        # a label and update the label stack, even if we
+        # know that we're not going to use it.  (this may
+        # vary from one iter to another, so we cannot
+        # make non-local assumptions about whether or not
+        # we need it)
+
+        (next_start_label,) = LabelManager.allocate_labels('continue_iter')
+
+        (old_start_label, end_label) = self.loop_label_stack.pop()
+        self.loop_label_stack.append((next_start_label, end_label))
+
+        # We only need to insert the label for the end of the
+        # iteration if we know that there is a 'continue' statement
+        # somewhere in this iteration
+        #
+        if self.contains_type(new_body, ast.Continue):
+            end_ast = expr2ast('BlockLabel(\'%s\')' % next_start_label)
+            pyqgl2.ast_util.copy_all_loc(end_ast, node, recurse=True)
+
+            new_body += [end_ast]
+
+        return new_body
+
     def repeat_flattener(self, node):
         """
         flatten a 'with qrepeat' block
@@ -310,6 +505,16 @@ class Flattener(ast.NodeTransformer):
         return_ast = expr2ast('Return()')
         end_ast = expr2ast('BlockLabel(\'%s\')' % end_label)
 
+        pyqgl2.ast_util.copy_all_loc(call_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(goto_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(start_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(load_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(loop_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(repeat_label_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(repeat_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(return_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(end_ast, node, recurse=True)
+
         preamble = list([call_ast, goto_ast, start_ast, load_ast, loop_ast])
 
         self.loop_label_stack.append((repeat_label, return_label))
@@ -337,8 +542,13 @@ class Flattener(ast.NodeTransformer):
 
         start_ast = self.make_label_call(start_label)
         end_ast = self.make_label_call(end_label)
-
         loop_ast = self.make_ugoto_call(start_label)
+
+        print('WFF %s' % ast.dump(node))
+
+        pyqgl2.ast_util.copy_all_loc(start_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(end_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(loop_ast, node, recurse=True)
 
         new_body = list([start_ast])
 
@@ -348,8 +558,12 @@ class Flattener(ast.NodeTransformer):
             #
             pass
         else:
-            cond_ast = self.make_cgoto_call(end_label, node.test)
-            new_body.append(cond_ast)
+            # TODO: this call to cgoto_call is BOGUS FIXME.
+            # The parameters for cgoto_call, and the way it
+            # depends on the mask, are mockups
+            #
+            cond_stmnts = self.make_cgoto_call(end_label, node.test, 1)
+            new_body += cond_stmnts
 
         self.loop_label_stack.append((start_label, end_label))
 
@@ -367,19 +581,43 @@ class Flattener(ast.NodeTransformer):
         expressions that represent the flattened sequence
         """
 
+        # make sure that the test is a qbit measurement.
+        # This is the only kind of test that should survive
+        # to this point; classical test would have already
+        # been executed.
+        #
+        # We can only handle "MEAS(x)" and "not MEAS(x)"
+        # as quantum conditionals right now.
+
+        if isinstance(node.test, ast.Call) and node.test.func.id == 'MEAS':
+            mask = 1
+        elif (isinstance(node.test, ast.UnaryOp) and
+                isinstance(node.test.op, ast.Not) and
+                isinstance(node.test.operand, ast.Call) and
+                (node.test.operand.func.id == 'MEAS')):
+            mask = 0
+        else:
+            NodeError.error_msg(node.test,
+                    'unhandled test express [%s]' % ast2str(node.test))
+
         else_label, end_label = LabelManager.allocate_labels(
                 'if_else', 'if_end')
 
         if node.orelse:
-            cond_ast = self.make_cgoto_call(else_label, node.test)
+            cond_ast = self.make_cgoto_call(else_label, node.test, mask)
         else:
-            cond_ast = self.make_cgoto_call(end_label, node.test)
+            cond_ast = self.make_cgoto_call(end_label, node.test, mask)
+
+        # cond_ast is actually a list of AST nodes
+        new_body = cond_ast
 
         end_goto_ast = self.make_ugoto_call(end_label)
         else_ast = self.make_label_call(else_label)
         end_label_ast = self.make_label_call(end_label)
 
-        new_body = list([cond_ast])
+        pyqgl2.ast_util.copy_all_loc(end_goto_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(else_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(end_label_ast, node, recurse=True)
 
         new_body += self.flatten_body(node.body)
 

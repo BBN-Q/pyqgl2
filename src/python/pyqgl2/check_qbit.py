@@ -3,6 +3,7 @@
 # Copyright 2015 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 import ast
+import builtins
 
 from ast import NodeVisitor
 from copy import deepcopy
@@ -658,12 +659,18 @@ class CheckType(NodeTransformerWithFname):
             func_name = pyqgl2.importer.collapse_name(value.func)
             func_def = self.importer.resolve_sym(value.qgl_fname, func_name)
 
-            # If we can't find the function definition, or it's not declared
-            # to be QGL, then we can't handle it.  Return immediately.
+            # If we can't find the function definition, check to see
+            # whether it's a builtin.  If we can't find it, or it's
+            # not declared to be QGL, then we can't handle it.
+            # Return immediately.
+            #
+            # TODO the way we check whether a function is a builtin
+            # is a non-portable hack.
             #
             if not func_def:
-                NodeError.error_msg(
-                        value, 'function [%s] not defined' % func_name)
+                if func_name not in __builtins__:
+                    NodeError.error_msg(
+                            value, 'function [%s] not defined' % func_name)
                 return node
 
             if func_def.returns:
@@ -696,15 +703,17 @@ class CheckType(NodeTransformerWithFname):
             # function as it is defined (i.e, as func_def), not as it
             # is imported (i.e., as func_name).
             #
-            # This makes the assumption that ANYTHING named 'Qubit' or 'QubitFactory'
+            # This makes the assumption that ANYTHING named 'Qubit'
+            # or 'QubitFactory'
             # is a Qbit assignment function, which is lame and should
             # be more carefully parameterized.  Things to think about:
             # looking more deeply at its signature and making certain
             # that it looks like the 'right' function and not something
             # someone mistakenly named 'Qubit' in an unrelated context.
             #
-            if isinstance(value, ast.Call) and (func_def.name == QGL2.QBIT_ALLOC or
-                                                func_def.name == QGL2.QBIT_ALLOC2):
+            if (isinstance(value, ast.Call) and
+                    (func_def.name == QGL2.QBIT_ALLOC or
+                        func_def.name == QGL2.QBIT_ALLOC2)):
                 self._extend_local(target.id)
                 DebugMsg.log('XX EXTENDED to include %s %s' %
                         (target.id, str(self._qbit_local())))

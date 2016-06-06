@@ -12,6 +12,48 @@ from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
 from pyqgl2.substitute import getChanLabel
 
+def is_qbit_create(node):
+    """
+    If the node does not represent a qbit creation and assignment,
+    return False.  Otherwise, return a triple (sym_name, use_name,
+    node) where sym_name is the symbolic name, use_name is the
+    name used by the preprocessor to substitute for this qbit
+    reference, and node is the node parameter (i.e. the root
+    of the ast for the assignment.
+
+    There are several sloppy assumptions here.
+    """
+
+    if not isinstance(node, ast.Assign):
+        return False
+
+    # Only handles simple assignments; not tuples
+    # TODO: handle tuples
+    if len(node.targets) != 1:
+        return False
+
+    if not isinstance(node.value, ast.Call):
+        return False
+
+    if not isinstance(node.value.func, ast.Name):
+        return False
+
+    # This is the old name, and needs to be updated
+    # TODO: update to new name/signature
+    if node.value.func.id != QGL2.QBIT_ALLOC and \
+       node.value.func.id != QGL2.QBIT_ALLOC2:
+        return False
+
+    chanLabel = getChanLabel(node)
+    if not chanLabel:
+        NodeError.warning_msg(node, 'failed to find chanLabel')
+
+    # HACK FIXME: assumes old-style Qbit allocation
+    sym_name = node.targets[0].id
+    use_name = 'QBIT_%s' % chanLabel
+    return (sym_name, use_name, node)
+
+
 class SingleSequence(object):
     """
     Create a sequence list for a single QBIT
@@ -37,47 +79,6 @@ class SingleSequence(object):
         #
         self.stub_imports = dict()
 
-    def is_qbit_create(self, node):
-        """
-        If the node does not represent a qbit creation and assignment,
-        return False.  Otherwise, return a triple (sym_name, use_name,
-        node) where sym_name is the symbolic name, use_name is the
-        name used by the preprocessor to substitute for this qbit
-        reference, and node is the node parameter (i.e. the root
-        of the ast for the assignment.
-
-        There are several sloppy assumptions here.
-        """
-
-        if not isinstance(node, ast.Assign):
-            return False
-
-        # Only handles simple assignments; not tuples
-        # TODO: handle tuples
-        if len(node.targets) != 1:
-            return False
-
-        if not isinstance(node.value, ast.Call):
-            return False
-
-        if not isinstance(node.value.func, ast.Name):
-            return False
-
-        # This is the old name, and needs to be updated
-        # TODO: update to new name/signature
-        if node.value.func.id != QGL2.QBIT_ALLOC and \
-           node.value.func.id != QGL2.QBIT_ALLOC2:
-            return False
-
-        chanLabel = getChanLabel(node)
-        if not chanLabel:
-            NodeError.warning_msg(node, 'failed to find chanLabel')
-
-        # HACK FIXME: assumes old-style Qbit allocation
-        sym_name = node.targets[0].id
-        use_name = 'QBIT_%s' % chanLabel
-        return (sym_name, use_name, node)
-
     def find_imports(self, node):
 
         default_namespace = node.qgl_fname
@@ -98,6 +99,7 @@ class SingleSequence(object):
 
                 fdef = self.importer.resolve_sym(namespace, funcname)
                 if not fdef:
+                    print('ERROR %s funcname' % funcname)
                     NodeError.error_msg(subnode,
                             'cannot find import info for [%s]' % funcname)
                 elif not fdef.qgl_stub_import:
@@ -185,7 +187,7 @@ class SingleSequence(object):
         # print("Seqs: %s" % self.sequences)
         return True
 
-    def emit_function(self, func_name='qgl1_main'):
+    def emit_function(self, func_name='qgl1_main', setup=None):
         """
         Create a function that, when run, creates the context
         in which the sequence is evaluated, and evaluate it.
@@ -230,6 +232,10 @@ class SingleSequence(object):
         for (sym_name, use_name, _node) in self.qbit_creates:
             preamble += indent + '%s = %s\n' % (use_name, sym_name)
 
+        if setup:
+            for stmnt in setup:
+                preamble += indent + ('%s\n' % ast2str(stmnt).strip())
+
         seqs_def = indent + 'seqs = list()\n'
         seqs_str = ''
         seq_strs = list()
@@ -266,7 +272,7 @@ class SingleSequence(object):
         res =  preamble + seqs_def + seqs_str + postamble
         return res
 
-def single_sequence(node, func_name, importer):
+def single_sequence(node, func_name, importer, setup=None):
     """
     Create a function that encapsulates the QGL code (for a single
     sequence) from the given AST node, which is presumed to already
@@ -280,7 +286,7 @@ def single_sequence(node, func_name, importer):
     builder = SingleSequence(importer)
 
     if builder.find_sequence(node) and builder.find_imports(node):
-        code = builder.emit_function(func_name)
+        code = builder.emit_function(func_name, setup=setup)
 
         NodeError.diag_msg(
                 node, 'generated code:\n#start\n%s\n#end code' % code)
