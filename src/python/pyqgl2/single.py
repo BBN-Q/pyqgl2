@@ -232,6 +232,10 @@ class SingleSequence(object):
         for (sym_name, use_name, _node) in self.qbit_creates:
             preamble += indent + '%s = %s\n' % (use_name, sym_name)
 
+        if setup:
+            for stmnt in setup:
+                preamble += indent + ('%s\n' % ast2str(stmnt).strip())
+
         seqs_def = indent + 'seqs = list()\n'
         seqs_str = ''
         seq_strs = list()
