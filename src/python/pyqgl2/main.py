@@ -300,6 +300,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     else:
         base_namespace = importer.path2namespace[filename]
         text = base_namespace.pretty_print()
+
     print(('EXPANDED NAMESPACE:\n%s' % text),
             file=intermediate_fout, flush=True)
 
