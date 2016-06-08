@@ -248,7 +248,3 @@ def BlockLabel(label):
     # label is a string, output is a BlockLabel
     pass
 
-@qgl2stub('QGL.ControlFlow')
-def CmpEq(label) -> control:
-    # label is a string, output is a Comparison
-    pass
