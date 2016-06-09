@@ -647,20 +647,46 @@ def create_inline_procedure(func_ptree, call_ptree):
     # Make a list of all of the formal parameters declared to be qbits,
     # and use this to define the barrier statements for this call
     #
-    qbit_params = list()
+    qbit_fparams = list()
     for formal_param in formal_params:
         if (formal_param.annotation and
                 formal_param.annotation.id == QGL2.QBIT):
-            qbit_params.append(formal_param.arg)
+            qbit_fparams.append(formal_param.arg)
 
-    qbit_params_txt = ', '.join(sorted(qbit_params))
+    qbit_fparams_txt = ', '.join(sorted(qbit_fparams))
     in_barrier = rewriter.rewrite(
-            expr2ast('OPEN_BARRIER(%s)' % qbit_params_txt))
+            expr2ast('OPEN_BARRIER(%s)' % qbit_fparams_txt))
     out_barrier = rewriter.rewrite(
-            expr2ast('CLOSE_BARRIER(%s)' % qbit_params_txt))
+            expr2ast('CLOSE_BARRIER(%s)' % qbit_fparams_txt))
 
     pyqgl2.ast_util.copy_all_loc(in_barrier, call_ptree, recurse=True)
     pyqgl2.ast_util.copy_all_loc(out_barrier, call_ptree, recurse=True)
+
+    # Now check whether any formal qbit parameters map onto
+    # the same actual, by examining the name rewriter.
+    qbit_aparams_reverse = dict()
+    for qbit_fparam in qbit_fparams:
+
+        # a qbit will, by this point, have an entry in the
+        # name2const map that points back to the original variable
+        # name bound to the qbit.  This is what we're comparing
+        # against -- which is imperfect, because we don't prevent
+        # the same qbit from being bound to multiple variables.
+        #
+        # A more important problem is that since we are tracing
+        # this back to the original name, we don't have a simple
+        # way to tell the user what the *local* name is, which
+        # is usually more useful
+        #
+        qbit_aparam = rewriter.name2const[qbit_fparam].id
+        if qbit_aparam in qbit_aparams_reverse:
+            NodeError.error_msg(call_ptree,
+                    'dup qbit [%s] used for [%s] and [%s]' % (
+                        qbit_aparam,
+                        qbit_aparams_reverse[qbit_aparam], qbit_fparam))
+            return None
+        else:
+            qbit_aparams_reverse[qbit_aparam] = qbit_fparam
 
     isFirst = True
     for stmnt in func_body:
