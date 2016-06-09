@@ -8,8 +8,11 @@ from copy import deepcopy
 from pyqgl2.ast_util import NodeError
 from pyqgl2.importer import NameSpaces
 from pyqgl2.importer import collapse_name
+from pyqgl2.lang import QGL2
 
 import pyqgl2.ast_util
+
+from pyqgl2.ast_util import expr2ast
 
 class QubitPlaceholder(object):
     """
@@ -641,6 +644,24 @@ def create_inline_procedure(func_ptree, call_ptree):
             pyqgl2.ast_util.copy_all_loc(assignment, call_ptree)
             ast.fix_missing_locations(assignment)
 
+    # Make a list of all of the formal parameters declared to be qbits,
+    # and use this to define the barrier statements for this call
+    #
+    qbit_params = list()
+    for formal_param in formal_params:
+        if (formal_param.annotation and
+                formal_param.annotation.id == QGL2.QBIT):
+            qbit_params.append(formal_param.arg)
+
+    qbit_params_txt = ', '.join(sorted(qbit_params))
+    in_barrier = rewriter.rewrite(
+            expr2ast('OPEN_BARRIER(%s)' % qbit_params_txt))
+    out_barrier = rewriter.rewrite(
+            expr2ast('CLOSE_BARRIER(%s)' % qbit_params_txt))
+
+    pyqgl2.ast_util.copy_all_loc(in_barrier, call_ptree, recurse=True)
+    pyqgl2.ast_util.copy_all_loc(out_barrier, call_ptree, recurse=True)
+
     isFirst = True
     for stmnt in func_body:
         # Skip over method docs
@@ -665,7 +686,7 @@ def create_inline_procedure(func_ptree, call_ptree):
         #
         new_stmnt.qgl2_orig_call = deepcopy(call_ptree)
 
-    inlined = setup_locals + new_func_body
+    inlined = setup_locals + [in_barrier] + new_func_body + [out_barrier]
 
     return inlined
 
