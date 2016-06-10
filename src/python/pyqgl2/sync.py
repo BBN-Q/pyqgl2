@@ -130,6 +130,17 @@ class SynchronizeBlocks(ast.NodeTransformer):
 
         # Channels in this with_concur
         concur_channels = find_all_channels(node)
+
+        # Turn our fake names into the names that will be known in the QubitFactory
+        real_chans = set()
+        for chan in concur_channels:
+            if chan.startswith('QBIT_'):
+                real_chans.add(chan[5:])
+            elif chan.startswith('EDGE_'):
+                real_chans.add(chan[5:])
+            else:
+                real_chans.add(chan)
+
         start_barrier = BARRIER_CTR
         end_barrier = start_barrier + 1
         BARRIER_CTR += 2
@@ -168,7 +179,7 @@ class SynchronizeBlocks(ast.NodeTransformer):
 
             # Add global ctr, chanlist=concur_channels
             # FIXME: Hold concur_channels as a string? List?
-            barrier_ast = expr2ast('Barrier(%d, %s)\n' % (start_barrier, list(concur_channels)))
+            barrier_ast = expr2ast('Barrier(%d, %s)\n' % (start_barrier, list(real_chans)))
             copy_all_loc(barrier_ast, node)
             barrier_ast.channels = concur_channels
 #            print("*****Start barrier: %s" % pyqgl2.ast_util.ast2str(barrier_ast))
@@ -177,7 +188,7 @@ class SynchronizeBlocks(ast.NodeTransformer):
 
             new_seq_body += stmnt.body
 
-            end_barrier_ast = expr2ast('Barrier(%d, %s)\n' % (end_barrier, list(concur_channels)))
+            end_barrier_ast = expr2ast('Barrier(%d, %s)\n' % (end_barrier, list(real_chans)))
             copy_all_loc(end_barrier_ast, node)
             # Add global ctr, chanlist=concur_channels
             end_barrier_ast.channels = concur_channels
@@ -194,7 +205,7 @@ class SynchronizeBlocks(ast.NodeTransformer):
                     'channels unreferenced in concur: %s' % str(unseen_chan))
 
             empty_seq_ast = expr2ast(
-                    'with seq:\n    Barrier(%d, %s)\n    Barrier(%d, %s)' % (start_barrier, concur_channels, end_barrier, concur_channels))
+                    'with seq:\n    Barrier(%d, %s)\n    Barrier(%d, %s)' % (start_barrier, list(real_chans), end_barrier, list(real_chans)))
             # Mark empty_seq_ast with unseen_chan
             empty_seq_ast.qgl_chan_list = [unseen_chan]
             copy_all_loc(empty_seq_ast, node)
