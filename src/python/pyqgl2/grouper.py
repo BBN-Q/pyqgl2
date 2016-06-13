@@ -178,6 +178,21 @@ class MarkReferencedQbits(ast.NodeVisitor):
         print('xREF %s %s' % (str(type(node)), str(referenced_qbits)))
         node.qgl2_referenced_qbits = referenced_qbits
 
+    @staticmethod
+    def marker(node, local_vars=None):
+        """
+        Helper function: creates a MarkReferencedQbits instance
+        with the given local variables, the uses this instance to
+        visit each AST element of the node and mark it with the
+        set of qbits it references, and then returns the set of
+        all qbits referenced by the root node
+        """
+
+        marker_obj = MarkReferencedQbits(local_vars=local_vars) 
+        marker_obj.visit(node)
+
+        return node.qgl2_referenced_qbits
+
 
 class QbitPruner(ast.NodeTransformer):
     """
@@ -211,7 +226,7 @@ class QbitPruner(ast.NodeTransformer):
         if hasattr(node, 'body'):
             new_body = self.prune_body(node.body)
             if not new_body:
-                new_body = 12 # bogus! debugging
+                new_body = list([ast.Pass()]) # bogus! debugging
             node.body = new_body
 
         if hasattr(node, 'orelse'):
@@ -233,4 +248,80 @@ class QbitPruner(ast.NodeTransformer):
                     new_body.append(new_stmnt)
 
         return new_body
+
+
+class QbitGrouper2(ast.NodeTransformer):
+    """
+    """
+
+    def __init__(self, local_vars=None):
+
+        if not local_vars:
+            local_vars = dict()
+
+        self.local_vars = local_vars
+
+    def visit_FunctionDef(self, node):
+        """
+        The grouper should only be used on a function def,
+        and there shouldn't be any nested functions, so this
+        should effectively be the top-level call.
+
+        Note that the initial qbit creation/assignment is
+        treated as a special case: these statements are
+        purely classical bookkeeping, even though they look
+        like quantum operations, and are left alone.
+        """
+
+        all_qbits = MarkReferencedQbits.marker(
+                node, local_vars=self.local_vars)
+
+        print('REFERENCED: %s' % str(all_qbits))
+
+        qbit_seqs = list()
+
+        for qbit in all_qbits:
+            scratch = deepcopy(node)
+
+            pruned = QbitPruner(set([qbit])).visit(scratch)
+            if pruned:
+                qbit_seqs.append(pruned)
+
+        for seq in qbit_seqs:
+            print('XX:\n%s' % ast2str(seq))
+
+    @staticmethod
+    def group(node, local_vars=None):
+
+        all_qbits = MarkReferencedQbits.marker(node, local_vars=local_vars)
+
+        alloc_stmnts = list()
+        new_body_stmnts = list()
+        new_seqs = list()
+
+        with_concur = expr2ast('with concur: pass')
+
+        for qbit in all_qbits:
+            scratch = deepcopy(node)
+
+            pruned_body = QbitPruner(set([qbit])).prune_body(scratch.body)
+            if not pruned_body:
+                continue
+
+            with_seq = expr2ast('with seq: pass')
+            with_seq.body = pruned_body
+
+            new_seqs.append(with_seq)
+
+        with_concur = expr2ast('with concur: pass')
+        with_concur.body = new_seqs
+
+        # TODO: this is not correct; doesn't have the alloc
+        # statements yet!
+        # TODO: does not reconstruct the original function!
+
+        print('ALT GROUP\n%s' % ast2str(with_concur))
+
+        return with_concur # THIS IS NOT THE funcdef!
+
 
