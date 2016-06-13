@@ -19,6 +19,8 @@ from pyqgl2.importer import collapse_name
 from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.lang import QGL2
 
+from pyqgl2.grouper import QbitGrouper2
+
 def is_concur(node):
     """
     Return True if the node is a with-concur block,
@@ -57,6 +59,28 @@ def is_seq(node):
 
     return False
 
+def is_infunc(node):
+    """
+    Return True if the node is a with-infunc block,
+    otherwise False
+    """
+
+    if not node:
+        return False
+
+    if not isinstance(node, ast.With):
+        return False
+
+    item = node.items[0].context_expr
+
+    if not isinstance(item, ast.Call):
+        return False
+    elif not item.func.id == 'infunc':
+        return False
+    else:
+        print('GOT AN INFUNC')
+        return True
+
 def find_all_channels(node, local_vars=None):
     """
     Reinitialze the set of all_channels to be the set of
@@ -80,11 +104,13 @@ def find_all_channels(node, local_vars=None):
             # Also look for bindings to QubitPlaceholders
             #
             if subnode.id.startswith('QBIT_'):
+                print('GOT TOB QBIT %s' % subnode.id)
                 all_channels.add(subnode.id)
             elif subnode.id.startswith('EDGE_'):
                 all_channels.add(subnode.id)
             elif ((subnode.id in local_vars) and
                     (isinstance(local_vars[subnode.id], QubitPlaceholder))):
+                print('GOT TOA QBIT %s' % local_vars[subnode.id].use_name)
                 all_channels.add(local_vars[subnode.id].use_name)
 
         # Look for references to inlined calls; dig out any
@@ -572,7 +598,9 @@ class QbitGrouper(ast.NodeTransformer):
         particularly within conditional statements.
         """
 
-        print('GROUPER functiondef')
+        # These are just debugging for new functions in grouper.py
+        # and needs to be removed TODO
+        qp = QbitGrouper2.group(node, local_vars=self.local_vars)
 
         for i in range(len(node.body)):
             stmnt = node.body[i]
@@ -590,6 +618,10 @@ class QbitGrouper(ast.NodeTransformer):
             if is_concur(stmnt):
                 node.body[i] = self.visit(stmnt)
                 continue
+            elif is_infunc(stmnt):
+                node.body[i] = self.visit(stmnt)
+                continue
+
             elif (isinstance(stmnt, ast.Assign) and
                     stmnt.targets[0].qgl_is_qbit):
                 # Leave the stmnt untouched.
@@ -626,32 +658,33 @@ class QbitGrouper(ast.NodeTransformer):
 
     def visit_With(self, node):
 
-        if not is_concur(node):
+        if is_concur(node) or is_infunc(node):
+
+            # Hackish way to create a seq node to use
+            seq_node = expr2ast('with seq: pass')
+
+            pyqgl2.ast_util.copy_all_loc(seq_node, node)
+
+            groups = self.group_stmnts2(node.body)
+            new_body = list()
+
+            for qbits, stmnts in groups:
+                new_seq = deepcopy(seq_node)
+                new_seq.body = stmnts
+                # Mark an attribute on new_seq naming the qbits
+                new_seq.qgl_chan_list = qbits
+                NodeError.diag_msg(node,
+                        ("Adding new with seq marked with qbits %s" %
+                            (str(qbits))))
+                new_body.append(new_seq)
+
+            node.body = new_body
+
+            # print('Final:\n%s' % pyqgl2.ast_util.ast2str(node))
+
+            return node
+        else:
             return self.generic_visit(node) # check
-
-        # Hackish way to create a seq node to use
-        seq_item_node = deepcopy(node.items[0])
-        seq_item_node.context_expr.id = QGL2.QSEQ
-        seq_node = ast.With(items=list([seq_item_node]), body=list())
-        pyqgl2.ast_util.copy_all_loc(seq_node, node)
-
-        groups = self.group_stmnts2(node.body)
-        new_body = list()
-
-        for qbits, stmnts in groups:
-            new_seq = deepcopy(seq_node)
-            new_seq.body = stmnts
-            # Mark an attribute on new_seq naming the qbits
-            new_seq.qgl_chan_list = qbits
-            NodeError.diag_msg(node,
-                    "Adding new with seq marked with qbits %s" % (str(qbits)))
-            new_body.append(new_seq)
-
-        node.body = new_body
-
-        # print('Final:\n%s' % pyqgl2.ast_util.ast2str(node))
-
-        return node
 
     @staticmethod
     def is_qrepeat(node):
