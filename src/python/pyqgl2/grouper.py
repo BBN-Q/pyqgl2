@@ -241,6 +241,58 @@ class QbitPruner(ast.NodeTransformer):
 
         return new_body
 
+class SeqAddBarriers(ast.NodeTransformer):
+    """
+    Insert barriers within the code to implement sequential
+    instructions, and with-concur
+
+    Assumes that the qbit annotations have already been done
+    """
+
+    def __init__(self):
+
+        self.qbits_stack = list()
+
+    def visit(self, node):
+        # if node is an ast.With, then call visit_With.
+        # otherwise, recurse on the descendants
+
+        return node
+
+    def visit_With(self, node):
+
+        if is_concur(node):
+            # 1. find the set of referenced qbits within the concur
+            # block (by looking at the annotation already calculated)
+            # 2. push this set onto qbits_stack
+            # 3. Recurse on each subnode in the body
+            # 4. pop the set from qbits_stack
+            # 5. add start and end barriers before/after the body
+            # 6. return the new node.
+            return node
+
+        elif is_infunc(node):
+            # 1. push the set of parameter qbits onto qbits_stack
+            # 2. recurse on each subnode in the body
+            # 3. make the body sequential, by inserting barriers
+            # between each statement, and before/after barriers
+            # 4. pop the set of parameter qbits from qbits_stack
+            # 5. replace the body with the new barrier-filled body
+            # 6. return the new node
+            return node
+
+        else:
+            # no new barriers at this level; just recurse on children
+            return node
+
+    @staticmethod
+    def add_barriers(node):
+        """
+        Convenience function
+        """
+
+        barriers = SeqAddBarriers()
+        return barriers.visit(node)
 
 class QbitGrouper2(ast.NodeTransformer):
     """
