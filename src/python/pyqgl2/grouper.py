@@ -76,7 +76,6 @@ def is_infunc(node):
     elif not item.func.id == 'infunc':
         return False
     else:
-        print('GOT AN INFUNC')
         return True
 
 def find_all_channels(node, local_vars=None):
@@ -150,13 +149,10 @@ class MarkReferencedQbits(ast.NodeVisitor):
 
         if node.id.startswith('QBIT_'):
             referenced_qbits.add(node.id)
-            print('xGOT TOB QBIT %s' % node.id)
         elif node.id.startswith('EDGE_'):
             referenced_qbits.add(node.id)
-            print('xGOT TOB QBIT %s' % node.id)
         elif ((node.id in self.local_vars) and
                 (isinstance(self.local_vars[node.id], QubitPlaceholder))):
-            print('xGOT TOA QBIT %s' % self.local_vars[node.id].use_name)
             referenced_qbits.add(self.local_vars[node.id].use_name)
 
         node.qgl2_referenced_qbits = referenced_qbits
@@ -172,10 +168,8 @@ class MarkReferencedQbits(ast.NodeVisitor):
                 self.visit(child)
 
             if hasattr(child, 'qgl2_referenced_qbits'):
-                print('REF child %s' % str(child.qgl2_referenced_qbits))
                 referenced_qbits.update(child.qgl2_referenced_qbits)
 
-        print('xREF %s %s' % (str(type(node)), str(referenced_qbits)))
         node.qgl2_referenced_qbits = referenced_qbits
 
     @staticmethod
@@ -217,8 +211,6 @@ class QbitPruner(ast.NodeTransformer):
         self.active_qbits = active_qbits
 
     def visit(self, node):
-
-        print('QBP %s' % str(type(node)))
 
         if not node.qgl2_referenced_qbits.intersection(self.active_qbits):
             return None
@@ -295,33 +287,52 @@ class QbitGrouper2(ast.NodeTransformer):
 
         all_qbits = MarkReferencedQbits.marker(node, local_vars=local_vars)
 
-        alloc_stmnts = list()
-        new_body_stmnts = list()
-        new_seqs = list()
+        # TODO: need to check that it's a FunctionDef
 
-        with_concur = expr2ast('with concur: pass')
+        alloc_stmnts = list()
+        body_stmnts = list()
+
+        # Divide between qbit allocation and ordinary
+        # statements.  This is ugly: it would be better
+        # to move qbit allocation outside qgl2main. TODO
+        # 
+        for stmnt in node.body:
+            if (isinstance(stmnt, ast.Assign) and
+                    stmnt.targets[0].qgl_is_qbit):
+                alloc_stmnts.append(stmnt)
+            else:
+                body_stmnts.append(stmnt)
+
+        new_groups = list()
 
         for qbit in all_qbits:
-            scratch = deepcopy(node)
+            scratch_body = deepcopy(body_stmnts)
 
-            pruned_body = QbitPruner(set([qbit])).prune_body(scratch.body)
+            pruned_body = QbitPruner(set([qbit])).prune_body(scratch_body)
             if not pruned_body:
                 continue
 
-            with_seq = expr2ast('with seq: pass')
-            with_seq.body = pruned_body
+            with_group = expr2ast('with group: pass')
+            with_group.body = pruned_body
+            with_group.qbit = qbit
 
-            new_seqs.append(with_seq)
+            # TODO: copy location info into with_group
+            # TODO: update qbit references in with_group
 
-        with_concur = expr2ast('with concur: pass')
-        with_concur.body = new_seqs
+            new_groups.append(with_group)
+
+        with_grouped = expr2ast('with grouped: pass')
+        with_grouped.body = new_groups
+
+        # TODO: copy location info into with_grouped
+        # TODO: update qbit references in with_grouped
 
         # TODO: this is not correct; doesn't have the alloc
         # statements yet!
         # TODO: does not reconstruct the original function!
 
-        print('ALT GROUP\n%s' % ast2str(with_concur))
+        print('ALT GROUP\n%s' % ast2str(with_grouped))
 
-        return with_concur # THIS IS NOT THE funcdef!
+        return with_grouped # THIS IS NOT THE funcdef!
 
 
