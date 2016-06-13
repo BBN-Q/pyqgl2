@@ -648,12 +648,15 @@ def create_inline_procedure(func_ptree, call_ptree):
     # and use this to define the barrier statements for this call
     #
     qbit_fparams = list()
+    qbit_aparams = list()
     for formal_param in formal_params:
         if (formal_param.annotation and
                 formal_param.annotation.id == QGL2.QBIT):
             qbit_fparams.append(formal_param.arg)
+            qbit_aparams.append(rewriter.name2const[formal_param.arg].id)
 
     qbit_fparams_txt = ', '.join(sorted(qbit_fparams))
+    qbit_aparams_txt = ', '.join(sorted(qbit_aparams))
     in_barrier = rewriter.rewrite(
             expr2ast('OPEN_BARRIER(%s)' % qbit_fparams_txt))
     out_barrier = rewriter.rewrite(
@@ -712,7 +715,14 @@ def create_inline_procedure(func_ptree, call_ptree):
         #
         new_stmnt.qgl2_orig_call = deepcopy(call_ptree)
 
-    inlined = setup_locals + [in_barrier] + new_func_body + [out_barrier]
+    # &&& TODO HACK ALERT
+    with_infunc = expr2ast('with infunc(%s): pass' % qbit_aparams_txt)
+    print('WITH INFUNC %s' % ast.dump(with_infunc))
+    pyqgl2.ast_util.copy_all_loc(with_infunc, func_body[0], recurse=True)
+    with_infunc.body = new_func_body
+
+    # inlined = setup_locals + [in_barrier] + new_func_body + [out_barrier]
+    inlined = setup_locals + [with_infunc]
 
     return inlined
 
