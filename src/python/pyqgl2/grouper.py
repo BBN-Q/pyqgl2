@@ -131,12 +131,14 @@ class MarkReferencedQbits(ast.NodeVisitor):
     is handled elsewhere right now.
     """
 
-    def __init__(self, local_vars=None):
+    def __init__(self, local_vars=None, force_recursion=False):
 
         if local_vars:
             self.local_vars = local_vars
         else:
             self.local_vars = dict()
+
+        self.force_recursion = force_recursion
 
     def visit_Name(self, node):
 
@@ -166,10 +168,10 @@ class MarkReferencedQbits(ast.NodeVisitor):
         # and reinvocations of this traversal happen at the root of
         # of the AST)
         #
-        # TODO: provide some way to check this assumption and/or
-        # force full traversal at the request of the caller)
+        # TODO: provide some way to check this assumption
         #
-        if hasattr(node, 'qgl2_referenced_qbits'):
+        if ((not self.force_recursion) and
+                hasattr(node, 'qgl2_referenced_qbits')):
             return
 
         for child in ast.iter_child_nodes(node):
