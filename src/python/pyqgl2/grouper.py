@@ -161,6 +161,17 @@ class MarkReferencedQbits(ast.NodeVisitor):
 
         referenced_qbits = set()
 
+        # If we've already run over this subtree, then we don't need
+        # to examine it again.  (this assumes that any modifications
+        # and reinvocations of this traversal happen at the root of
+        # of the AST)
+        #
+        # TODO: provide some way to check this assumption and/or
+        # force full traversal at the request of the caller)
+        #
+        if hasattr(node, 'qgl2_referenced_qbits'):
+            return
+
         for child in ast.iter_child_nodes(node):
             if isinstance(child, ast.Name):
                 self.visit_Name(child)
