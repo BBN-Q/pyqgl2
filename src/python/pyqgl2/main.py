@@ -48,6 +48,7 @@ from pyqgl2.concur_unroll import QbitGrouper
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.eval import EvalTransformer, SimpleEvaluator
 from pyqgl2.flatten import Flattener
+from pyqgl2.grouper import QbitGrouper2
 from pyqgl2.importer import NameSpaces, add_import_from_as
 from pyqgl2.inline import Inliner
 from pyqgl2.repeat import RepeatTransformer
@@ -314,10 +315,18 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print(('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
             file=intermediate_fout, flush=True)
 
-    # Take with concur blocks and produce with seq blocks for each QBIT_* or EDGE_* referenced therein
-    grouper = QbitGrouper(evaluator.eval_state.locals_stack[-1])
-    new_ptree6 = grouper.visit(new_ptree5)
-    NodeError.halt_on_error()
+    # grouper = QbitGrouper(evaluator.eval_state.locals_stack[-1])
+    # new_ptree6 = grouper.visit(new_ptree5)
+    # NodeError.halt_on_error()
+    # print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
+    #         file=intermediate_fout, flush=True)
+
+    # Take with-infunc and with-concur blocks and produce with-grouped
+    # and with-group blocks
+    #
+    grouper = QbitGrouper2()
+    new_ptree6 = grouper.group(new_ptree5,
+            local_vars=evaluator.eval_state.locals_stack[-1])
     print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
             file=intermediate_fout, flush=True)
 
