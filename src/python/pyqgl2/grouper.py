@@ -12,11 +12,15 @@ from copy import deepcopy
 
 import pyqgl2.ast_util
 
-from pyqgl2.ast_util import ast2str, expr2ast, NodeError, value2ast
+from pyqgl2.ast_util import ast2str, expr2ast, value2ast
+from pyqgl2.ast_util import copy_all_loc
+from pyqgl2.ast_util import NodeError
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.importer import collapse_name
 from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.lang import QGL2
+
+
 
 
 def is_concur(node):
@@ -350,6 +354,8 @@ class QbitGrouper2(ast.NodeTransformer):
     @staticmethod
     def group(node, local_vars=None):
 
+        new_node = deepcopy(node)
+
         all_qbits = MarkReferencedQbits.marker(node, local_vars=local_vars)
 
         # TODO: need to check that it's a FunctionDef
@@ -378,26 +384,21 @@ class QbitGrouper2(ast.NodeTransformer):
                 continue
 
             with_group = expr2ast('with group: pass')
+            copy_all_loc(with_group, node, recurse=True)
+
             with_group.body = pruned_body
             with_group.qbit = qbit
-
-            # TODO: copy location info into with_group
-            # TODO: update qbit references in with_group
+            MarkReferencedQbits.marker(with_group, local_vars=local_vars)
 
             new_groups.append(with_group)
 
         with_grouped = expr2ast('with grouped: pass')
+        copy_all_loc(with_grouped, node, recurse=True)
+        MarkReferencedQbits.marker(with_grouped, local_vars=local_vars)
+
         with_grouped.body = new_groups
 
-        # TODO: copy location info into with_grouped
-        # TODO: update qbit references in with_grouped
+        new_node.body = alloc_stmnts + list([with_grouped])
 
-        # TODO: this is not correct; doesn't have the alloc
-        # statements yet!
-        # TODO: does not reconstruct the original function!
-
-        print('ALT GROUP\n%s' % ast2str(with_grouped))
-
-        return with_grouped # THIS IS NOT THE funcdef!
-
+        return new_node
 
