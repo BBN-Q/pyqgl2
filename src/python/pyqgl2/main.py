@@ -327,6 +327,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     grouper = QbitGrouper2()
     new_ptree6 = grouper.group(new_ptree5,
             local_vars=evaluator.eval_state.locals_stack[-1])
+    NodeError.halt_on_error()
     print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
             file=intermediate_fout, flush=True)
 
