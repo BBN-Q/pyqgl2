@@ -17,10 +17,9 @@ from pyqgl2.ast_util import copy_all_loc
 from pyqgl2.ast_util import NodeError
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.importer import collapse_name
+from pyqgl2.inline import BarrierIdentifier
 from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.lang import QGL2
-
-
 
 
 def is_concur(node):
@@ -203,6 +202,104 @@ class MarkReferencedQbits(ast.NodeVisitor):
         marker_obj.visit(node)
 
         return node.qgl2_referenced_qbits
+
+
+class AddBarriers(ast.NodeTransformer):
+    """
+    NodeTransformer that replaces with-infunc and with-concur nodes
+    with the corresponding barriers.
+
+    This was done in the flattener, but that's an awkward place,
+    and we might want to move it around again so it make sense
+    to break it out into its own transformer.
+
+    In order to "inline" a with statement into a pair of
+    barriers surrounding the body of the with statement,
+    we need to actually modify the body of the parent of the
+    with node.  This makes this class look different from
+    an ordinary type-based transformer, because we search
+    all bodies and orelse statement lists for withs, and
+    process them that way (as well, of course, as recursing
+    to expand embedded with statements as well).
+    """
+
+    def __init__(self, local_vars=None):
+
+        if not local_vars:
+            local_vars = dict()
+
+        self.local_vars = local_vars
+
+    def visit(self, node):
+        """
+        The ordinary visit: recurse on all children,
+        and then scan through any 'body' or 'orelse'
+        lists, looking for with statements we can
+        expand inline.
+        """
+
+        new_node = self.generic_visit(node)
+
+        if hasattr(new_node, 'body'):
+            new_node.body = self.expand_body(new_node.body)
+
+        if hasattr(new_node, 'orelse'):
+            new_node.orelse = self.expand_body(new_node.orelse)
+
+        return new_node
+
+    def expand_body(self, body):
+
+        new_body = list()
+
+        for stmnt in body:
+            if is_concur(stmnt):
+                new_body += self.transform_concur(stmnt)
+            elif is_infunc(stmnt):
+                new_body += self.transform_infunc(stmnt)
+            else:
+                new_body.append(stmnt)
+
+        return new_body
+
+    def transform_concur(self, node):
+
+        qbits = node.qgl2_referenced_qbits
+        arg_names = sorted(list(qbits))
+
+        barrier_id = BarrierIdentifier.next_bid()
+        b1_ast = expr2ast(
+                'CBarrierBegin(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+        b2_ast = expr2ast(
+                'CBarrierEnd(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+
+        MarkReferencedQbits.marker(b1_ast, local_vars=self.local_vars)
+        MarkReferencedQbits.marker(b2_ast, local_vars=self.local_vars)
+
+        return [b1_ast] + node.body + [b2_ast]
+
+    def transform_infunc(self, node):
+        """
+        Essentially identical to transform_concur, except uses
+        a different name for the barrier (TBD).
+        """
+
+        # I think this will work because the infunc reference should
+        # reference all the qbits we care about
+
+        qbits = node.qgl2_referenced_qbits
+        arg_names = sorted(list(qbits))
+
+        barrier_id = BarrierIdentifier.next_bid()
+        b1_ast = expr2ast(
+                'IBarrierBegin(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+        b2_ast = expr2ast(
+                'IBarrierEnd(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+
+        MarkReferencedQbits.marker(b1_ast, local_vars=self.local_vars)
+        MarkReferencedQbits.marker(b2_ast, local_vars=self.local_vars)
+
+        return [b1_ast] + node.body + [b2_ast]
 
 
 class QbitPruner(ast.NodeTransformer):
