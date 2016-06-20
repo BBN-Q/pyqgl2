@@ -331,11 +331,16 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
             file=intermediate_fout, flush=True)
 
-    repeater = RepeatTransformer()
-    new_ptree6 = repeater.visit(new_ptree6)
-    NodeError.halt_on_error()
-    print(('QREPEAT CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
-            file=intermediate_fout, flush=True)
+    # TODO: move the RepeatTransformer to before the grouper,
+    # and make sure that it doesn't find things that include
+    # any barriers.  We aren't certain how to handle barriers
+    # as part of repeat blocks yet.
+    #
+    # repeater = RepeatTransformer()
+    # new_ptree6 = repeater.visit(new_ptree6)
+    # NodeError.halt_on_error()
+    # print(('QREPEAT CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
+    #         file=intermediate_fout, flush=True)
 
     # Try to flatten out repeat, range, ifs
     flattener = Flattener()
