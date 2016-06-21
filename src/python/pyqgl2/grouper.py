@@ -203,6 +203,70 @@ class MarkReferencedQbits(ast.NodeVisitor):
 
         return node.qgl2_referenced_qbits
 
+class AddSequential(ast.NodeTransformer):
+    """
+    Insert with-concur statements that implement sequential
+    statements.
+    
+    By default, statements that are not directly within a 
+    with-concur block are treated as sequential.  For example,
+    if a function is invoked inside a with-concur block,
+    the statements of that function are not "directly" within
+    that with-concur and therefore are executed sequentially
+    unless the body of the function is itself a with-concur
+    block.
+    """
+
+    def __init__(self):
+
+        self.all_referenced_qbits = None
+        self.level = 0
+
+    def visit(self, node):
+        """
+        Recurse on all children, and then scan through
+        any 'body' or 'orelse' lists, changing each statement
+        into its own with-concur block unless it already *is*
+        a with concur-block.
+        """
+
+        if not self.all_referenced_qbits:
+            self.all_referenced_qbits = node.qgl2_referenced_qbits
+
+            print('TOPLEVEL %s' % str(self.all_referenced_qbits))
+
+        new_node = self.generic_visit(node)
+
+        if hasattr(new_node, 'body'):
+            new_node.body = self.expand_body(new_node.body)
+
+        if hasattr(new_node, 'orelse'):
+            new_node.orelse = self.expand_body(new_node.orelse)
+
+        return new_node
+
+    def expand_body(self, body):
+        """
+        We need to set the qgl2_referenced_qbits properly
+        in the new with-concur nodes correctly in order to ensure
+        that statements that operate on distinct sets of qbits
+        are still made sequential, even though they don't "conflict".
+        In essence, we must make them conflict.
+        """
+
+        new_body = list()
+
+        for stmnt in body:
+            if is_concur(stmnt):
+                new_body.append(stmnt)
+            else:
+                concur_ast = expr2ast('with concur: pass')
+                concur_ast.qgl2_referenced_qbits = self.all_referenced_qbits
+                concur_ast.body[0] = stmnt
+                new_body.append(concur_ast)
+
+        return new_body
+
 
 class AddBarriers(ast.NodeTransformer):
     """
