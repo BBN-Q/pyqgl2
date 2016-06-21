@@ -269,9 +269,9 @@ class AddBarriers(ast.NodeTransformer):
 
         barrier_id = BarrierIdentifier.next_bid()
         b1_ast = expr2ast(
-                'CBarrierBegin(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+                'BarrierBegin(%d, %s)' % (barrier_id, ', '.join(arg_names)))
         b2_ast = expr2ast(
-                'CBarrierEnd(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+                'BarrierEnd(%d, %s)' % (barrier_id, ', '.join(arg_names)))
 
         MarkReferencedQbits.marker(b1_ast, local_vars=self.local_vars)
         MarkReferencedQbits.marker(b2_ast, local_vars=self.local_vars)
@@ -284,17 +284,17 @@ class AddBarriers(ast.NodeTransformer):
         a different name for the barrier (TBD).
         """
 
-        # I think this will work because the infunc reference should
-        # reference all the qbits we care about
+        # I think this will work because the original with-infunc
+        # pseudo-call should reference all the qbits we care about
 
         qbits = node.qgl2_referenced_qbits
         arg_names = sorted(list(qbits))
 
         barrier_id = BarrierIdentifier.next_bid()
         b1_ast = expr2ast(
-                'IBarrierBegin(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+                'BarrierBegin(%d, %s)' % (barrier_id, ', '.join(arg_names)))
         b2_ast = expr2ast(
-                'IBarrierEnd(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+                'BarrierEnd(%d, %s)' % (barrier_id, ', '.join(arg_names)))
 
         MarkReferencedQbits.marker(b1_ast, local_vars=self.local_vars)
         MarkReferencedQbits.marker(b2_ast, local_vars=self.local_vars)
