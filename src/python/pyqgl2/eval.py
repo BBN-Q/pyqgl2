@@ -1171,6 +1171,21 @@ class EvalTransformer(object):
 
             stmnt = body[stmnt_index]
 
+            if isinstance(stmnt, ast.AugAssign):
+                new_right = ast.BinOp(
+                        left=deepcopy(stmnt.target),
+                        right=stmnt.value,
+                        op=stmnt.op)
+                new_stmnt = ast.Assign(targets=[stmnt.target],
+                        value=new_right)
+
+                print('WAS (%s) NOW (%s)' %
+                        (ast2str(stmnt), ast2str(new_stmnt)))
+
+                pyqgl2.ast_util.copy_all_loc(new_stmnt, stmnt, recurse=True)
+
+                stmnt = new_stmnt
+
             # Skip over any pass statements or comment strings.
             #
             # TODO we might want to keep some record that we saw them,
