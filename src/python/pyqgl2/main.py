@@ -48,6 +48,8 @@ from pyqgl2.concur_unroll import QbitGrouper
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.eval import EvalTransformer, SimpleEvaluator
 from pyqgl2.flatten import Flattener
+from pyqgl2.grouper import AddBarriers
+from pyqgl2.grouper import MarkReferencedQbits
 from pyqgl2.grouper import QbitGrouper2
 from pyqgl2.importer import NameSpaces, add_import_from_as
 from pyqgl2.inline import Inliner
@@ -56,6 +58,7 @@ from pyqgl2.sequence import SequenceCreator
 from pyqgl2.sequences import SequenceExtractor, get_sequence_function
 from pyqgl2.substitute import specialize
 from pyqgl2.sync import SynchronizeBlocks
+
 
 def parse_args(argv):
     """
@@ -320,6 +323,15 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     # NodeError.halt_on_error()
     # print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
     #         file=intermediate_fout, flush=True)
+
+    MarkReferencedQbits.marker(new_ptree5,
+            local_vars=evaluator.eval_state.locals_stack[-1])
+
+    barr = AddBarriers()
+    new_ptree5 = barr.visit(new_ptree5)
+    NodeError.halt_on_error()
+    print(('BARRIER CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
+            file=intermediate_fout, flush=True)
 
     # Take with-infunc and with-concur blocks and produce with-grouped
     # and with-group blocks
