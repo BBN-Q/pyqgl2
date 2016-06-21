@@ -219,8 +219,7 @@ class AddSequential(ast.NodeTransformer):
 
     def __init__(self):
 
-        self.all_referenced_qbits = None
-        self.level = 0
+        self.qbit_scope_stack = list()
 
     def visit(self, node):
         """
@@ -230,20 +229,26 @@ class AddSequential(ast.NodeTransformer):
         a with concur-block.
         """
 
-        if not self.all_referenced_qbits:
-            self.all_referenced_qbits = node.qgl2_referenced_qbits
+        if not hasattr(node, 'qgl2_referenced_qbits'):
+            return node
 
-            print('TOPLEVEL %s' % str(self.all_referenced_qbits))
+        if (not self.qbit_scope_stack) or is_concur(node):
+            self.qbit_scope_stack.append(node.qgl2_referenced_qbits)
 
-        new_node = self.generic_visit(node)
+            print('REFERENCES: %s' % str(node.qgl2_referenced_qbits))
 
-        if hasattr(new_node, 'body'):
-            new_node.body = self.expand_body(new_node.body)
+        # new_node = self.generic_visit(node)
 
-        if hasattr(new_node, 'orelse'):
-            new_node.orelse = self.expand_body(new_node.orelse)
+        if hasattr(node, 'body'):
+            node.body = self.expand_body(node.body)
 
-        return new_node
+        if hasattr(node, 'orelse'):
+            node.orelse = self.expand_body(node.orelse)
+
+        if is_concur(node):
+            self.qbit_scope_stack.pop()
+
+        return node
 
     def expand_body(self, body):
         """
@@ -256,13 +261,27 @@ class AddSequential(ast.NodeTransformer):
 
         new_body = list()
 
+        # If the statement is any sort of "with", then pass it
+        # straight through, because this means that it's a
+        # container of some sort.  We only insert barriers around
+        # "simple" statements.
+        #
+        # If it's a qbit creation, then let it go through without
+        # serializing; these statements will all be moved to the
+        # preamble anyway.
+        #
         for stmnt in body:
-            if is_concur(stmnt):
+            if isinstance(stmnt, ast.With):
+                new_body.append(self.visit(stmnt))
+            elif (isinstance(stmnt, ast.Assign) and
+                    stmnt.targets[0].qgl_is_qbit):
                 new_body.append(stmnt)
             else:
+                qbits = self.qbit_scope_stack[-1]
+                print('REF QB %s' % str(qbits))
                 concur_ast = expr2ast('with concur: pass')
-                concur_ast.qgl2_referenced_qbits = self.all_referenced_qbits
-                concur_ast.body[0] = stmnt
+                concur_ast.qgl2_referenced_qbits = qbits
+                concur_ast.body[0] = self.visit(stmnt)
                 new_body.append(concur_ast)
 
         return new_body
@@ -329,13 +348,13 @@ class AddBarriers(ast.NodeTransformer):
     def transform_concur(self, node):
 
         qbits = node.qgl2_referenced_qbits
-        arg_names = sorted(list(qbits))
+        bid = BarrierIdentifier.next_bid()
 
-        barrier_id = BarrierIdentifier.next_bid()
-        b1_ast = expr2ast(
-                'BarrierBegin(%d, %s)' % (barrier_id, ', '.join(arg_names)))
-        b2_ast = expr2ast(
-                'BarrierEnd(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+        arg_names = sorted(list(qbits))
+        arg_list = '[%s]' % ', '.join(arg_names)
+
+        b1_ast = expr2ast('Barrier(\'beg_c_%d\', %s)' % (bid, arg_list))
+        b2_ast = expr2ast('Barrier(\'end_c_%d\', %s)' % (bid, arg_list))
 
         MarkReferencedQbits.marker(b1_ast, local_vars=self.local_vars)
         MarkReferencedQbits.marker(b2_ast, local_vars=self.local_vars)
@@ -352,13 +371,13 @@ class AddBarriers(ast.NodeTransformer):
         # pseudo-call should reference all the qbits we care about
 
         qbits = node.qgl2_referenced_qbits
-        arg_names = sorted(list(qbits))
+        bid = BarrierIdentifier.next_bid()
 
-        barrier_id = BarrierIdentifier.next_bid()
-        b1_ast = expr2ast(
-                'BarrierBegin(%d, %s)' % (barrier_id, ', '.join(arg_names)))
-        b2_ast = expr2ast(
-                'BarrierEnd(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+        arg_names = sorted(list(qbits))
+        arg_list = '[%s]' % ', '.join(arg_names)
+
+        b1_ast = expr2ast('Barrier(\'beg_i_%d\', %s)' % (bid, arg_list))
+        b2_ast = expr2ast('Barrier(\'end_i_%d\', %s)' % (bid, arg_list))
 
         MarkReferencedQbits.marker(b1_ast, local_vars=self.local_vars)
         MarkReferencedQbits.marker(b2_ast, local_vars=self.local_vars)
