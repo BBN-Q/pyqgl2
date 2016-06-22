@@ -18,6 +18,18 @@ import pyqgl2.ast_util
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import ast2str, expr2ast
 
+from pyqgl2.inline import BarrierIdentifier
+
+def is_with_label(node, label):
+    item = node.items[0].context_expr
+
+    if not isinstance(item, ast.Name):
+        return False
+    elif item.id != label:
+        return False
+    else:
+        return True
+
 class LabelManager(object):
     """
     Simplify the creation of labels.
@@ -186,12 +198,13 @@ class Flattener(ast.NodeTransformer):
         else:
             return True
 
-    def is_with_label(self, node, label):
+    def is_with_infunc(self, node):
+
         item = node.items[0].context_expr
 
-        if not isinstance(item, ast.Name):
+        if not isinstance(item, ast.Call):
             return False
-        elif item.id != label:
+        elif not item.func.id == 'infunc':
             return False
         else:
             return True
@@ -222,11 +235,11 @@ class Flattener(ast.NodeTransformer):
         as its body this list of statements.
         """
 
-        if self.is_with_label(node, 'seq'):
+        if is_with_label(node, 'seq'):
             new_body = self.flatten_body(node.body)
             node.body = new_body
             return node
-        elif self.is_with_label(node, 'concur'):
+        elif is_with_label(node, 'concur'):
             new_body = list()
 
             for stmnt in node.body:
@@ -234,7 +247,7 @@ class Flattener(ast.NodeTransformer):
                     print('WHAT?  expected "with", got %s' %
                             ast.dump(node))
 
-                if not self.is_with_label(stmnt, 'seq'):
+                if not is_with_label(stmnt, 'seq'):
                     print('WHAT?  expected "with seq", got %s' %
                             ast.dump(node))
 
@@ -248,8 +261,8 @@ class Flattener(ast.NodeTransformer):
             node.body = new_body
             return node
 
-        elif (self.is_with_label(node, 'Qfor') or
-                self.is_with_label(node, 'Qrepeat')):
+        elif (is_with_label(node, 'Qfor') or
+                is_with_label(node, 'Qrepeat')):
             # we'll get here if there's no with-concur.
             # just process the substatements, without the
             # checks we do for with-concur
@@ -263,8 +276,25 @@ class Flattener(ast.NodeTransformer):
             node.body = new_body
             return node
 
+        elif is_with_label(node, 'grouped'):
+            new_body = list()
+
+            for stmnt in node.body:
+                new_body.append(self.visit(stmnt))
+
+            node.body = new_body
+            return node
+
+        elif is_with_label(node, 'group'):
+            new_body = self.flatten_body(node.body)
+
+            node.body = new_body
+            return node
+
         else:
-            print('ERROR: unexpected with statement')
+            NodeError.error_msg(node,
+                    ('unexpected with statement:\n%s' %
+                        ast2str(node.items[0].context_expr)))
             return node # bogus
 
     def visit_Break(self, node):
@@ -342,17 +372,55 @@ class Flattener(ast.NodeTransformer):
 
         if self.is_with_qrepeat(node):
             return self.repeat_flattener(node)
-        elif self.is_with_label(node, 'Qfor'):
+        elif is_with_label(node, 'Qfor'):
             return self.qfor_flattener(node)
-        elif self.is_with_label(node, 'Qiter'):
+        elif is_with_label(node, 'Qiter'):
             print('ERROR: should not see Qiter at this level')
             # Bogus
             return self.qiter_flattener(node)
+        elif is_with_label(node, 'concur'):
+            return self.concur_flattener(node)
+        elif self.is_with_infunc(node):
+            return self.infunc_flattener(node)
         else:
-            print('ERROR: confused about with statement: %s' %
-                    ast.dump(node))
-            assert False
+            NodeError.error_msg(node,
+                    ('confused about with statement: %s' % ast.dump(node)))
             return list()
+
+    def concur_flattener(self, node):
+
+        qbits = node.qgl2_referenced_qbits
+        arg_names = sorted(list(qbits))
+
+        barrier_id = BarrierIdentifier.next_bid()
+        b1_ast = expr2ast(
+                'CBarrierBegin(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+        b2_ast = expr2ast(
+                'CBarrierEnd(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+
+        # TODO: should copy location and qbit info for b1_ast and b2_ast.
+
+        new_body = self.flatten_body(node.body)
+        return list([b1_ast]) + new_body + list([b2_ast])
+
+    def infunc_flattener(self, node):
+
+        args = node.items[0].context_expr.args
+
+        barrier_id = args[0].n
+        arg_names = [ arg.id for arg in args[2:] ]
+
+        print('BARRIERID %d ARGS [%s]' % (barrier_id, arg_names))
+
+        b1_ast = expr2ast(
+                'BarrierBegin(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+        b2_ast = expr2ast(
+                'BarrierEnd(%d, %s)' % (barrier_id, ', '.join(arg_names)))
+
+        # TODO: should copy location and qbit info for b1_ast and b2_ast.
+
+        new_body = self.flatten_body(node.body)
+        return list([b1_ast]) + new_body + list([b2_ast])
 
     def qfor_flattener(self, node):
         """
@@ -378,7 +446,7 @@ class Flattener(ast.NodeTransformer):
 
         new_stmnts = list()
         for subnode in node.body:
-            if self.is_with_label(subnode, 'Qiter'):
+            if is_with_label(subnode, 'Qiter'):
                 new_stmnts += self.qiter_flattener(subnode)
             elif self.is_with_qrepeat(subnode):
                 new_stmnts += self.repeat_flattener(subnode)
