@@ -16,6 +16,7 @@ from pyqgl2.ast_util import ast2str, expr2ast, value2ast
 from pyqgl2.ast_util import copy_all_loc
 from pyqgl2.ast_util import NodeError
 from pyqgl2.debugmsg import DebugMsg
+from pyqgl2.flatten import is_with_label
 from pyqgl2.importer import collapse_name
 from pyqgl2.inline import BarrierIdentifier
 from pyqgl2.inline import QubitPlaceholder
@@ -221,23 +222,73 @@ class AddSequential(ast.NodeTransformer):
 
         self.qbit_scope_stack = list()
 
+        # in_concur is True if we're in a point in the traversal
+        # where we're within a with-concur block but not inside a
+        # a with-infunc that is a descendant of that with-concur.
+        #
+        self.in_concur = False
+        self.referenced_qbits = set()
+
+    @staticmethod
+    def add_barriers(node):
+        """
+        Destructively add barriers to the given node (which must be
+        a function definition) to enforce sequential execution,
+        where necessary.
+        """
+
+        assert isinstance(node, ast.FunctionDef), 'node must be a FunctionDef'
+
+        new_preamble = list()
+        new_body = list()
+
+        for stmnt in node.body:
+            # if it's a qbit_creation, or it doesn't appear to
+            # have any qbit references in it, then put it in
+            # the preamble
+            #
+            # otherwise, put it in the candidate new body,
+            # and then use expand_body
+            #
+            if (isinstance(stmnt, ast.Assign) and
+                    stmnt.targets[0].qgl_is_qbit):
+                new_preamble.append(stmnt)
+            elif not stmnt.qgl2_referenced_qbits:
+                new_preamble.append(stmnt)
+            else:
+                new_body.append(stmnt)
+
+        add_seq = AddSequential()
+
+        add_seq.qbit_scope_stack.append(node.qgl2_referenced_qbits)
+
+        add_seq.in_concur = False
+        add_seq.referenced_qbits = node.qgl2_referenced_qbits
+
+        new_body = add_seq.expand_body(new_body)
+
+        node.body = new_preamble + new_body
+
+        return node
+
     def visit(self, node):
-        """
-        Recurse on all children, and then scan through
-        any 'body' or 'orelse' lists, changing each statement
-        into its own with-concur block unless it already *is*
-        a with concur-block.
-        """
 
         if not hasattr(node, 'qgl2_referenced_qbits'):
             return node
 
-        if (not self.qbit_scope_stack) or is_concur(node):
-            self.qbit_scope_stack.append(node.qgl2_referenced_qbits)
+        if isinstance(node, ast.FunctionDef):
+            return self.add_barriers(node)
 
-            print('REFERENCES: %s' % str(node.qgl2_referenced_qbits))
+        prev_state = self.in_concur
+        prev_qbits = self.referenced_qbits
+        new_body = list()
 
-        # new_node = self.generic_visit(node)
+        if is_concur(node):
+            self.in_concur = True
+            self.referenced_qbits = node.qgl2_referenced_qbits
+        elif is_infunc(node):
+            self.in_concur = False
+            self.referenced_qbits = node.qgl2_referenced_qbits
 
         if hasattr(node, 'body'):
             node.body = self.expand_body(node.body)
@@ -245,8 +296,11 @@ class AddSequential(ast.NodeTransformer):
         if hasattr(node, 'orelse'):
             node.orelse = self.expand_body(node.orelse)
 
-        if is_concur(node):
-            self.qbit_scope_stack.pop()
+        # put things back the way they were (even if we didn't
+        # change anything)
+        #
+        self.in_concur = prev_state
+        self.referenced_qbits = prev_qbits
 
         return node
 
@@ -260,6 +314,7 @@ class AddSequential(ast.NodeTransformer):
         """
 
         new_body = list()
+        cnt = 0
 
         # If the statement is any sort of "with", then pass it
         # straight through, because this means that it's a
@@ -271,20 +326,77 @@ class AddSequential(ast.NodeTransformer):
         # preamble anyway.
         #
         for stmnt in body:
-            if isinstance(stmnt, ast.With):
-                new_body.append(self.visit(stmnt))
-            elif (isinstance(stmnt, ast.Assign) and
-                    stmnt.targets[0].qgl_is_qbit):
-                new_body.append(stmnt)
+            # We don't put barriers around with statements;
+            # we only put them around "primitive" statements
+            # or as the side effect of with statements
+            #
+            new_stmnt = self.visit(stmnt)
+
+            if self.is_with_container(new_stmnt):
+                new_body.append(new_stmnt)
+            elif self.in_concur:
+                new_body.append(new_stmnt)
             else:
-                qbits = self.qbit_scope_stack[-1]
-                print('REF QB %s' % str(qbits))
-                concur_ast = expr2ast('with concur: pass')
-                concur_ast.qgl2_referenced_qbits = qbits
-                concur_ast.body[0] = self.visit(stmnt)
-                new_body.append(concur_ast)
+                barrier_ast = self.make_barrier_ast(
+                        self.referenced_qbits, stmnt, name='seq')
+
+                new_body.append(barrier_ast)
+                new_body.append(new_stmnt)
+
+        if not (self.in_concur or self.is_with_container(new_stmnt)):
+            barrier_ast = self.make_barrier_ast(
+                    self.referenced_qbits, stmnt, name='eseq')
+            new_body.append(barrier_ast)
 
         return new_body
+
+    def is_with_container(self, node):
+        """
+        Return True if the node is a "with" statement that
+        we use in the preprocessor as a container for loops
+        or iterations of loops, False otherwise.
+
+        These containers are for bookkeeping and therefore
+        are not subject to barriers.
+
+        In some cases, we add extra barriers for the sake
+        of readability -- otherwise readers are confused
+        about why they're missing, even though the "obvious"
+        barriers often turn out to be redundant.  Most of
+        the time, we try to get rid of redundant barriers
+        because they just obscure what's going on.
+        """
+
+        if not isinstance(node, ast.With):
+            return False
+        # elif is_with_label(node, 'Qfor'):
+        #     return True
+        elif is_with_label(node, 'Qiter'):
+            return True
+        else:
+            return False
+
+    def make_barrier_ast(self, qbits, node, name='seq'):
+
+        bid = BarrierIdentifier.next_bid()
+        arg_names = sorted(list(qbits))
+        arg_list = '[%s]' % ', '.join(arg_names)
+
+        barrier_ast = expr2ast(
+                'Barrier(\'%s_c_%d\', %s)' % (name, bid, arg_list))
+
+        # TODO: make sure that this gets all of the qbits.
+        # It might need local scope info as well, which we don't
+        # have here.
+        #
+        MarkReferencedQbits.marker(barrier_ast)
+
+        print('MARKED [%s] %s' %
+                (str(barrier_ast.qgl2_referenced_qbits), str(qbits)))
+
+        copy_all_loc(barrier_ast, node, recurse=True)
+
+        return barrier_ast
 
 
 class AddBarriers(ast.NodeTransformer):
