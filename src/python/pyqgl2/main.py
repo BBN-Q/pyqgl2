@@ -49,6 +49,7 @@ from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.eval import EvalTransformer, SimpleEvaluator
 from pyqgl2.flatten import Flattener
 from pyqgl2.grouper import AddBarriers
+from pyqgl2.grouper import AddSequential
 from pyqgl2.grouper import MarkReferencedQbits
 from pyqgl2.grouper import QbitGrouper2
 from pyqgl2.importer import NameSpaces, add_import_from_as
@@ -326,6 +327,12 @@ def compileFunction(filename, main_name=None, saveOutput=False,
 
     MarkReferencedQbits.marker(new_ptree5,
             local_vars=evaluator.eval_state.locals_stack[-1])
+
+    seq = AddSequential()
+    new_ptree5 = seq.visit(new_ptree5)
+    NodeError.halt_on_error()
+    print(('SEQUENTIAL CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
+            file=intermediate_fout, flush=True)
 
     barr = AddBarriers()
     new_ptree5 = barr.visit(new_ptree5)
