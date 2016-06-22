@@ -1171,6 +1171,10 @@ class EvalTransformer(object):
 
             stmnt = body[stmnt_index]
 
+            # deal with "op=" two-address bin-op assignments by rewriting
+            # them as three-address statements.  We need this in order
+            # to correctly convert to static single assignment format.
+            #
             if isinstance(stmnt, ast.AugAssign):
                 new_right = ast.BinOp(
                         left=deepcopy(stmnt.target),
@@ -1203,8 +1207,7 @@ class EvalTransformer(object):
                 self.change_cnt += 1
                 continue
 
-            elif (isinstance(stmnt, ast.Assign) or
-                    isinstance(stmnt, ast.AugAssign)):
+            elif isinstance(stmnt, ast.Assign):
                 # If the assignment is due to qbit creation
                 # then we have some housekeeping to do.
                 # We create a fake value (a QubitPlaceholder instance)
@@ -1348,6 +1351,13 @@ class EvalTransformer(object):
                 else:
                     self.seen_continue = True
                     break
+
+            elif isinstance(stmnt, ast.AugAssign):
+                DebugMsg.log(
+                        'unexpected AugAssign [%s]' % ast.dump(stmnt),
+                        DebugMsg.HIGH)
+                NodeError.fatal_msg(stmnt, 'unhandled statement (op=)')
+                return new_body
 
             else:
                 # TODO: we could add more sanity checks here,
