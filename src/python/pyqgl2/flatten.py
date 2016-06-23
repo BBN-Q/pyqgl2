@@ -18,8 +18,6 @@ import pyqgl2.ast_util
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import ast2str, expr2ast
 
-from pyqgl2.inline import BarrierIdentifier
-
 def is_with_label(node, label):
     item = node.items[0].context_expr
 
@@ -235,6 +233,16 @@ class Flattener(ast.NodeTransformer):
         as its body this list of statements.
         """
 
+        if is_with_label(node, 'grouped'):
+            for group in node.body:
+                # TODO: check that this is a with-group() stmnt.
+                # anything else is a fatal problem
+
+                group.body = self.flatten_body(group.body)
+
+        return node
+
+
         if is_with_label(node, 'seq'):
             new_body = self.flatten_body(node.body)
             node.body = new_body
@@ -293,8 +301,8 @@ class Flattener(ast.NodeTransformer):
 
         else:
             NodeError.error_msg(node,
-                    ('unexpected with statement:\n%s' %
-                        ast2str(node.items[0].context_expr)))
+                    ('x unexpected with statement:\n%s' %
+                        ast2str(node)))
             return node # bogus
 
     def visit_Break(self, node):
@@ -389,38 +397,11 @@ class Flattener(ast.NodeTransformer):
 
     def concur_flattener(self, node):
 
-        qbits = node.qgl2_referenced_qbits
-        arg_names = sorted(list(qbits))
-
-        barrier_id = BarrierIdentifier.next_bid()
-        b1_ast = expr2ast(
-                'CBarrierBegin(%d, %s)' % (barrier_id, ', '.join(arg_names)))
-        b2_ast = expr2ast(
-                'CBarrierEnd(%d, %s)' % (barrier_id, ', '.join(arg_names)))
-
-        # TODO: should copy location and qbit info for b1_ast and b2_ast.
-
-        new_body = self.flatten_body(node.body)
-        return list([b1_ast]) + new_body + list([b2_ast])
+        return self.flatten_body(node.body)
 
     def infunc_flattener(self, node):
 
-        args = node.items[0].context_expr.args
-
-        barrier_id = args[0].n
-        arg_names = [ arg.id for arg in args[2:] ]
-
-        print('BARRIERID %d ARGS [%s]' % (barrier_id, arg_names))
-
-        b1_ast = expr2ast(
-                'BarrierBegin(%d, %s)' % (barrier_id, ', '.join(arg_names)))
-        b2_ast = expr2ast(
-                'BarrierEnd(%d, %s)' % (barrier_id, ', '.join(arg_names)))
-
-        # TODO: should copy location and qbit info for b1_ast and b2_ast.
-
-        new_body = self.flatten_body(node.body)
-        return list([b1_ast]) + new_body + list([b2_ast])
+        return self.flatten_body(node.body)
 
     def qfor_flattener(self, node):
         """
