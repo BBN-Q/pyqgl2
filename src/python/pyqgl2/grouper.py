@@ -220,8 +220,6 @@ class AddSequential(ast.NodeTransformer):
 
     def __init__(self):
 
-        self.qbit_scope_stack = list()
-
         # in_concur is True if we're in a point in the traversal
         # where we're within a with-concur block but not inside a
         # a with-infunc that is a descendant of that with-concur.
@@ -242,14 +240,16 @@ class AddSequential(ast.NodeTransformer):
         new_preamble = list()
         new_body = list()
 
+        # Split the statements into the preamble and the
+        # "real" body
+        #
+        # if it's a qbit_creation, or it doesn't appear to
+        # have any qbit references in it, then put it in
+        # the preamble
+        #
+        # otherwise, put it in the candidate new body,
+        #
         for stmnt in node.body:
-            # if it's a qbit_creation, or it doesn't appear to
-            # have any qbit references in it, then put it in
-            # the preamble
-            #
-            # otherwise, put it in the candidate new body,
-            # and then use expand_body
-            #
             if (isinstance(stmnt, ast.Assign) and
                     stmnt.targets[0].qgl_is_qbit):
                 new_preamble.append(stmnt)
@@ -258,10 +258,9 @@ class AddSequential(ast.NodeTransformer):
             else:
                 new_body.append(stmnt)
 
+        # Use expand_body to add barriers to the body recursively
+        #
         add_seq = AddSequential()
-
-        add_seq.qbit_scope_stack.append(node.qgl2_referenced_qbits)
-
         add_seq.in_concur = False
         add_seq.referenced_qbits = node.qgl2_referenced_qbits
 
@@ -276,19 +275,34 @@ class AddSequential(ast.NodeTransformer):
         if not hasattr(node, 'qgl2_referenced_qbits'):
             return node
 
+        # Special case: if we're called on a function def,
+        # then use add_barriers instead, because function
+        # definitions are different than ordinary statements
+        #
         if isinstance(node, ast.FunctionDef):
             return self.add_barriers(node)
 
+        # Save a copy of the current state, so we can
+        # restore it later (even if we don't actually
+        # modify the state)
+        #
         prev_state = self.in_concur
         prev_qbits = self.referenced_qbits
-        new_body = list()
 
-        if is_concur(node):
+        # Figure out if we might be entering a new execution mode
+        # (with-concur or with-infunc).  If we are, then we need
+        # to change the state variables before recursing.
+        #
+        entering_concur = is_concur(node)
+        entering_infunc = is_infunc(node)
+
+        if entering_concur or entering_infunc:
+            self.referenced_qbits = node.qgl2_referenced_qbits
+
+        if entering_concur:
             self.in_concur = True
-            self.referenced_qbits = node.qgl2_referenced_qbits
-        elif is_infunc(node):
+        elif entering_infunc:
             self.in_concur = False
-            self.referenced_qbits = node.qgl2_referenced_qbits
 
         if hasattr(node, 'body'):
             node.body = self.expand_body(node.body)
