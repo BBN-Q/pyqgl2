@@ -65,7 +65,7 @@ Some things you cannot assume:
 
 # * When all channels start with a Barrier, make it a Wait
 
-from QGL.ControlFlow import Goto, Call, Return, LoadRepeat, Repeat, Wait, LoadCmp, Sync, ComparisonInstruction, ControlInstruction, Barrier
+from QGL.ControlFlow import Goto, Call, Return, LoadRepeat, Repeat, Wait, LoadCmp, Sync, ComparisonInstruction, ControlInstruction, Barrier, WaitSome
 from QGL.PulseSequencer import Pulse, CompositePulse, PulseBlock
 from QGL.BlockLabel import BlockLabel
 from QGL.PulsePrimitives import Id
@@ -87,6 +87,7 @@ def isLoadRepeat(pulse): return isinstance(pulse, LoadRepeat)
 def isRepeat(pulse): return isinstance(pulse, Repeat)
 def isGoto(pulse): return isinstance(pulse, Goto)
 def isCall(pulse): return isinstance(pulse, Call)
+def isBlockLabel(pulse): return isinstance(pulse, BlockLabel)
 
 def pulseLengths(pulses):
     '''QGL1 function to get the length of a pulse, pulseblock,
@@ -194,6 +195,7 @@ def replaceBarriersOld(seqs, seqIdxToChannelMap):
             # Index into sequence where the repeat block if any might start (right after LoadRepeat say)
             rptStartInd = []
             # Element in sequence where repeat block starts if known, or best guess
+            # This is an actual Pulse/BlockLabel
             rptStartElem = []
             # Length of current sub-block before we started the current repeat, if any
             rptStartLen = []
@@ -454,30 +456,20 @@ def replaceBarrierOld(seqs, inds, lengths, chanBySeq):
     return seqs
 
 # =================================================
-
-def getPreviousUndoneBarrier(currCtr, prevCtr, seqIdx):
-    # For the given channel, loop up previous barriers,
-    # if lengthCalculated==False, return it
-    # FIXME: We're ignoring prevCtr here
-    # Nominally prevCtr should have lengthCalculated=True,
-    # But if it didn't, we'd want to do it
-    global barriersBySeqByCtr
-    barrier = barriersBySeqByCtr[seqIdx][currCtr]
-    while barrier is not None and barrier != -1 and barrier['lengthCalculated']:
-        barrier = barrier['prevBarrier']
-    if barrier is None or barrier == -1:
-        return None
-    return barrier
+# Reworked logic to support different channels having different numbers of barriers
 
 def markBarrierLengthCalculated(barrierCtr, seqIdx, newLen=float('nan')):
     '''Update the barrier object in our 3 data structures 
     for the given counter, sequence with the given length.'''
     # To be called for each sequence that this barrier is on
     global barriersByCtr, barriersBySeqByPos, barriersBySeqByCtr
-    barrier = barriersByCtr[barrierCtr]
-    barrier['lengthSince'] = newLen
-    barrier['lengthCalculated'] = True
-    barriersByCtr[barrierCtr] = barrier
+    barrier = barriersByCtr.get(barrierCtr, None)
+    if barrier is not None:
+        barrier['lengthSince'] = newLen
+        barrier['lengthCalculated'] = True
+        barriersByCtr[barrierCtr] = barrier
+    else:
+        logger.warning("Barrier %s not in barriersByCtr", barrierCtr)
     if seqIdx in barriersBySeqByPos:
         for pos in barriersBySeqByPos[seqIdx]:
             if barrierCtr == barriersBySeqByPos[seqIdx][pos]['counter']:
@@ -494,31 +486,38 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, newLen=float('nan')):
             barriersBySeqByCtr[seqInd][barrierCtr] = barrier
 
 def getBarrierForSeqCtr(seqInd, currCtr):
-    # Return the barrier object for this sequence with the given ID
-    # Return a barrier object or -1
-    global barriersBySeqByPos, barriersBySeqByCtr
+    '''Get the barrier object for the currCtr Barrier
+    ID for the sequence seqInd, or -1 if not found.'''
+    global barriersBySeqByCtr
     if currCtr is None:
         logger.debug("getBarrierForSeq got None currCtr")
         return -1
-    if not barriersBySeqByCtr.has_key(seqInd):
+    if not seqInd in barriersBySeqByCtr:
         # FIXME: Error?
-        logger.warning("getBarrierForSeqCtr got seqInd %s not in barriersBySeqByPos", seqInd)
+        logger.warning("getBarrierForSeqCtr got seqInd %s not in barriersBySeqByCtr", seqInd)
         return -1
-    if str(currCtr).startswith('with-'):
-        # It was a with, so this has the index in it
-        return barriersBySeqByPos[seqInd].get(int(currCtr[5:]), -1)
+
+    # For a wait, could look it up by the index
+    # But the wait should be on the ByCtr list too
+#    if str(currCtr).startswith('with-'):
+#        # It was a with, so this has the index in it
+#        return barriersBySeqByPos[seqInd].get(int(currCtr[5:]), -1)
+
 #    elif currCtr == -1:
 #        # start - should really be -1, but if the sequence has something, why not?
-    else:
-        return barriersBySeqByCtr[seqInd].get(currCtr, -1)
+    return barriersBySeqByCtr[seqInd].get(currCtr, -1)
 
-def getLengthBetweenBarriers(seqInd, currCtr, prevCtr=-1):
-    '''For given channel, find the length between 2 barriers
-    Return NaN if indeterminate.
-    ctr of -1 means start
-    ctr of wait-%d means a Wait at that index in the sequence
-    seqInd is the index of the sequence
+def getLengthBetweenBarriers(seqInd, currCtr, prevCtr='-1'):
+    '''For the given sequence, find the length between the given 2 barriers.
+    Return float('NaN') if indeterminate.
+    Recurses up the list of barriers adding up the lengths we previously
+    calculated for each pair of Barriers.
+    So if the length between any 2 barriers within that chain are indeterminate, 
+    the whole thing is indeterminate.
     '''
+    # ctr of '-1' means start
+    # ctr of 'wait-%d' means a Wait at that index in the sequence
+    # seqInd is the index of the sequence
     import math
     if currCtr == prevCtr:
         logger.debug("getLengthBetween asked for length to self %s", currCtr)
@@ -551,6 +550,10 @@ def getLengthBetweenBarriers(seqInd, currCtr, prevCtr=-1):
     return prevLen + getLengthBetweenBarriers(seqInd, prevBarrierCtr, prevCtr)
 
 def isReplaceableBarrier(barrier, seqs):
+    '''Is the given barrier object replacable on its sequence?
+    Start, Wait, WaitSome, and barriers that are no longer in
+    their sequence are not replacable. So only a Barrier() of the correct id (counter).
+    '''
     # Is the given barrier something we can replace?
     # Not a Wait or WaitSome, and still in its sequence
     # return boolean
@@ -571,6 +574,8 @@ def isReplaceableBarrier(barrier, seqs):
         if len(seqs[seqInd]) <= ind:
             logger.debug("Barrier %s claims to be at position %d on sequence %d; the sequence has only %d items", nextCtr, ind, seqInd, len(seqs[seqInd]))
             return False
+        if seqs[seqInd][ind].has_attribute('value') and seqs[seqInd][ind].value == nextCtr:
+            return True
         if isID(seqs[seqInd][ind]):
             # Expected when we've already done a replacement
             logger.debug("Barrier %s actual element is (now) %s on sequence %d", nextCtr, seqs[seqInd][ind], seqInd)
@@ -579,15 +584,18 @@ def isReplaceableBarrier(barrier, seqs):
             # We don't think we've replaced any barriers with waits, so this is unexpected
             logger.debug("Barrier %s claims type %s but actual element is (now) %s on sequence %d", nextCtr, nextType, seqs[seqInd][ind], seqInd)
             return False
-        if seqs[seqInd][ind].has_attribute('value') and seqs[seqInd][ind].value == nextCtr:
-            return True
         else:
             # It's a barrier but the wrong barrier ID?
-            logger.warning("Barrier %s should be at %d on sequence %d, but instead found %s ID %s", nextCtr, ind, seqInd, seqs[seqInd][ind], seqs[seqInd][ind].value)
+            logger.warning("Barrier %s should be at %d on sequence %d, but instead found %s", nextCtr, ind, seqInd, seqs[seqInd][ind])
             return False
     return False
 
 def getNextBarrierCtr(seqs, seqInd, currCtr):
+    ''' Find the id (counter) of the next Barrier after currCtr on the given sequence
+    that we could (still) replace. So skip barriers no longer in the sequence, or that
+    are a Wait or WaitSome.
+    Return '-1' if there is none.
+    '''
     # Walk to the next barrier past currCtr on sequence seqInd and return the counter of that barrier
     # Return '-1' if no more
     # This is just iterating over barriers on this channel
@@ -596,7 +604,7 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
     # seqInd is the sequence index
     global barriersBySeqByPos, barriersBySeqByCtr
     # If this sequence has no barriers, done
-    if not barriersBySeqByPos.has_key(seqInd) or len(barriersBySeqByPos[seqInd]) == 0:
+    if not seqInd in barriersBySeqByPos or len(barriersBySeqByPos[seqInd]) == 0:
         logger.debug("getNextBarrierCtr found none for sequence %d", seqInd)
         return '-1'
     if str(currCtr) != '-1' and currCtr not in barriersBySeqByCtr[seqInd].keys():
@@ -612,10 +620,10 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
                 barrier = barriersBySeqByPos[seqInd][i]
                 # Make sure that barrier is actually still in the sequence it claims to be in;
                 # we might have already removed it
-                if isReplacableBarrier(barrier, seqs):
+                if isReplaceableBarrier(barrier, seqs):
                     # return this ctr
                     if str(barrier) == '-1':
-                        return barrier
+                        return '-1'
                     else:
                         return barrier['counter']
                 else:
@@ -640,10 +648,10 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
 
             # Make sure that barrier is actually still in the sequence it claims to be in;
             # we might have already removed it
-            if isReplacableBarrier(barrier, seqs):
+            if isReplaceableBarrier(barrier, seqs):
                 # return this ctr
                 if str(barrier) == '-1':
-                    return barrier
+                    return '-1'
                 else:
                     return barrier['counter']
             else:
@@ -653,106 +661,144 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
     # We didn't find the desired barrier, or else didn't find a next
     logger.debug("getNextBarrierCtr failed to find a next for sequence %d, barrier %s", seqInd, currCtr)
     return '-1'
+# End getNextBarrierCtr
 
 def getBarrierChannels(barrierCtr):
+    '''Return a list of Channel objects whose sequences have this barrier,
+    and which this Barrier claims it blocks.
+    For a Wait this will be allChannels.
+    On error this will be an empty list.
+    '''
     # What channels is this a barrier on?
-    # Return 'all' or empty list or a list of the channel objects on this barrier
+    # Return allChannels or empty list or a list of the channel objects on this barrier
     global barriersByCtr, allChannels
-    if str(barrierCtr) == '-1' or str(barrierCtr).startswith('wait-'):
-        # Start or Wait will wait on all channels
+    if str(barrierCtr) == '-1':# or str(barrierCtr).startswith('wait-'):
+        # Start will wait on all channels
         logger.debug("%s waits on all channels", barrierCtr)
         return allChannels
-    if not barriersByCtr.has_key(barrierCtr):
+    if not barrierCtr in barriersByCtr:
         logger.warning("Barrier %s unknown; assume it waits on no channels", barrierCtr)
+        # FIXME: Could extract the channel that is the seq for the seqInd of this barrier and assume that
         return []
     return barriersByCtr[barrierCtr]['channels']
 
 def getBarrierIdx(seqInd, barrierCtr):
+    '''Get the int position index of the given barrier on the given sequence,
+    or -1 if it is not found.'''
     # Get the position index in the sequence with index seqInd for the barrier
     # with ID barrierCtr, or -1 if not found
     global barriersBySeqByCtr
-    if not barriersBySeqByCtr.has_key(seqInd):
+    if not seqInd in barriersBySeqByCtr:
         logger.warning("getBarrierIDx: Unknown sequence %d", seqInd)
         # Error - unknown channel
         return -1
     barriers = barriersBySeqByCtr[seqInd]
-    if barriers.has_key(barrierCtr):
+    if barrierCtr in barriers:
         return barriers[barrierCtr]['seqPos']
     else:
         # Error - this channel's sequence doesn't have this barrier
         logger.info("Sequence %d doesn't have barrier %s", seqInd, barrierCtr)
         return -1
+    # Note one could also loop thru entries in barriersBySeqByPos and return
+    # the relevant key when/if we find this barrierCtr
 
 def getLastSharedBarrierCtr(channels, barrierCtr):
+    '''Find the last Barrier id (counter) before barrierCtr with at least the same set
+    of channels as barrierCtr. Return '-1' if there is none.'''
     # Find the last (before given barrier) barrier shared by the channels on this barrier
     # Return its ID (ctr)
-    # Return -1 if none (start)
+    # Return '-1' if none (start)
     # each barrier has a prevBarrier
     # I'm looking for a barrier whose 'channels' is a superset of the given 'channels'
     global barriersBySeqByCtr, barriersByCtr
     if str(barrierCtr) == '-1' or barrierCtr is None:
         # This is the start - all channels have this and there's nothing prior
-        return -1
+        return '-1'
+
+    if not barrierCtr in barriersByCtr:
+        logger.warning("Barrier %s unknown", barrierCtr)
+        return '-1'
+    barrier = barriersByCtr[barrierCtr]
+
+    # Try to set channels if not given
     if not channels:
-        if not barriersByCtr.has_key(barrierCtr):
-            logger.warning("Barrier %s unknown", barrierCtr)
-            return -1
-        barrier = barriersByCtr[barrierCtr]
-        if not barrier or not barrier.has_key("channels"):
+        if not barrier or barrier == -1 or not "channels" in barrier:
             logger.warning("Couldn't find channels on barrier %s", barrierCtr)
-            return -1
+            return '-1'
         channels = barrier["channels"]
         
     if not channels:
-        logger.debug("getLastShared couldn't find channels for %s", barrierCtr)
-        return -1
+        logger.debug("getLastShared couldn't find channels for Barrier %s", barrierCtr)
+        return '-1'
 
-    # We can pick any channel, as by definition we want barriers that are on any of these channels
-    startBarrier = barriersByCtr.get(barrierCtr, None)
+    startBarrier = barrier
     if not startBarrier:
         raise Exception("Couldn't find Barrier %s in getLastSharedBarrierCtr" % barrierCtr)
 
+    # Pick one of the sequences that has this Barrier, basically arbitrarily
     seqInd = startBarrier.get('seqIndex', -1)
     if seqInd == -1:
         for seqI in barriersBySeqByCtr.keys():
-            if barriersBySeqByCtr[seqId].has_key(barrierCtr):
+            if barrierCtr in barriersBySeqByCtr[seqI]:
                 seqInd = seqI
                 break
         if seqInd == -1:
             raise Exception("Couldn't find Barrier %s in list by sequence" % barrierCtr)
+
     seqBs = barriersBySeqByCtr[seqInd]
     channelsSet = set(channels)
     prevChannelSet = set()
     currBarrier = startBarrier
     prevBarrierCtr = barrierCtr
     prevBarrier = startBarrier
-    # Loop up the barrier's previous pointers, looking to see if its channel set contains all these channels
+
+    # Loop up the barrier's previous pointers, looking to see if its channel set contains all the channels
+    # for this Barrier. We're looking for the first previous barrier that is a supert of the channels
+    # for this Barrier.
     while not channelsSet <= prevChannelSet:
         currBarrier = prevBarrier
         prevBarrierCtr = currBarrier['prevBarrierCtr']
         prevBarrier = seqBs.get(prevBarrierCtr, None)
         if not prevBarrier or prevBarrier == -1:
             logger.warning("Failed to find prev Barrier %s on sequence %d in getLastSharedBarrierCtr", prevBarrierCtr, seq)
-            return -1
+            # This would happen if the last shared barrier is the start
+            return '-1'
         prevChannelSet = set(prevBarrier.get('channels', []))
     if channelsSet <= prevChannelSet:
         logger.debug("Found previous barrier %s whose channels %s include at least the channels on Barrier %s: %s", prevBarrierCtr, prevChannelSet, barrierCtr, channelsSet)
         return prevBarrierCtr
     logger.info("Failed to find a common previous barrier to barrier %s on channels %s. Use start.", barrierCtr, channels)
-    return -1
+    return '-1'
     
 def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
+    '''Replace Barrier currCtr on sequences with indices channelIdxs into seqs
+    with the proper Id pulse, or mark this barrier as indeterminate and leave it.
+    The Id pulse length is the time needed so all channels in channelIdxs take the same
+    time to get from Barrier prevForLengthCtr to currCtr.
+    Note the Id() pulse may have 0 length. Later compile_to_hardware drops such empty pulses.
+    Return the edited sequences.
+    chanBySeq is a dictionary by sequence ID to the channel object
+    '''
     # Replace the barrier with ID currCtr across all channels
     # Note that this function modifies seqs in place
     # Note it takes a dict by sequence index to the channel object
     # It also takes a list of the sequence indices that are involved in this barrier
 
     import math
+    # Calculate the length of this segment on each sequence
+    # Use helper to do the actual calculation
     lengths = dict()
     for seqInd in channelIdxs:
         seq = seqs[seqInd]
         length[seqInd] = getLengthBetweenBarriers(seqInd, currCtr, prevForLengthCtr)
+
+    # Find the max (at least 0)
     maxBlockLen = max(lengths.values() + [0])
+
+    # If the block is of indeterminate length then later code
+    # will replace these Barriers,
+    # but mark the Barrier objects as having this indeterminate length
+    # so we don't try to recalculate this length.
     indet = False
     if math.isnan(maxBlockLen):
        # This block is indeterminate
@@ -761,6 +807,14 @@ def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
        for seqInd in channelIdxs:
            markBarrierLengthCalculated(currCtr, seqInd, maxBlockLen)
        return seqs
+
+    # For each channel that has this Barrier
+    # replace the Barrier in the sequence with an Id pulse
+    # on the proper channel of the length (max-localLength).
+    # Then record on the Barrier object that we used an Id pulse
+    # of that length. That way later code to figure out the length
+    # for an enclosing pair of barriers gets the right answer.
+    # The Id pulse may be of 0 length.
     for seqInd in channelIdxs:
         seq = seqs[seqInd]
         ind = getBarrierIdx(seqInd, currCtr)
@@ -774,7 +828,31 @@ def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
         markBarrierLengthCalculated(currCtr, ind, idlen)
     return seqs
 
+def getPreviousUndoneBarrier(currCtr, prevCtr, seqIdx):
+    '''Find the previous barrier from currCtr on sequence seqIdx
+    which is not marked as lengthCalculated.
+    Return None if none found.
+    '''
+    # For the given channel, loop up previous barriers,
+    # if lengthCalculated==False, return it
+    # FIXME: We're ignoring prevCtr here
+    # Nominally prevCtr should have lengthCalculated=True,
+    # But if it didn't, we'd want to do it
+    global barriersBySeqByCtr
+    barrier = barriersBySeqByCtr[seqIdx][currCtr]
+    while barrier is not None and barrier != -1 and barrier['lengthCalculated']:
+        barrierCtr = barrier['prevBarrierCtr']
+        barrier = barriersBySeqByCtr[seqIdx].get(barrierCtr, None)
+    if barrier is None or barrier == -1:
+        return None
+    return barrier
+
 def getLastUnMeasuredBarrier(currCtr, prevCtr, seqIdxes):
+    '''Return the last Barrier on the list of sequences
+    not already marked as measured (will be WaitSome or know
+    the Id pulse length)
+    Return None if all are measured.
+    '''
     # Across all sequences in seqIdxes
     # Start at currCtr, work back to prevCtr
     # return first barrier not marked as measured
@@ -787,6 +865,16 @@ def getLastUnMeasuredBarrier(currCtr, prevCtr, seqIdxes):
     return None
 
 def replaceOneBarrier(currCtr, seqIdxToChannelMap, seqInd = None):
+    '''Replace the barrier with id currCtr on all sequences.
+    Use the version of the barrier on the given sequence seqInd if given.
+    Skip barriers that are Wait or WaitSome instances.
+    Recursively find intervening Barriers on any related channel that is not
+    marked as 'measured' (turned into an Id or will be a WaitSome),
+    and replace those first, so that we can correctly calculate
+    the length for this Barrier.
+    Then use the helper replaceBarrier to do the actual replacement.
+    '''
+    # Set seqInd and get the Barrier object for the right sequence
     if seqInd is None:
         barrier = barriersByCtr[currCtr]
         if barrier != -1:
@@ -795,127 +883,140 @@ def replaceOneBarrier(currCtr, seqIdxToChannelMap, seqInd = None):
             seqInd = -1
     else:
         barrier = getBarrierForSeqCtr(seqInd, currCtr)
-    waitChans = getBarrierChannels(currCtr):
+
+    # Get the set of channels this barrier is on
+    waitChans = getBarrierChannels(currCtr)
     if waitChans == []:
         logger.warn("Barrier on no channels? Pretend %s is on current sequence %d (channel %s) where we found it", currCtr, seqInd, seqIdxToChannelMap[seqInd].label)
         waitChans = [channel]
+    # Turn those Channel objects into sequence indices
     waitSeqIdxes = [ind for ind in seqIdxToChannelMap for chan in waitChans if seqIdxToChannelMap[ind] == chan]
+    logger.debug("Replacing Barrier %s on channels %s, sequences %s", currCtr, waitChans, waitSeqIdxes)
 
+    # Skip barriers that are Wait or WaitSome instances.
     if barrier != -1 and barrier.get('type', 'barrier') in ('wait', 'waitsome'):
         # do this later
         logger.info("Found wait barrier %s; handle it later", currCtr)
         # It should be true that lengthCalculated==True on this barrier
-        # - across all relevant channels. Make sure
+        # - across all relevant channels. Make sure.
         for idx in waitSeqIdxes:
             markBarrierLengthCalculated(currCtr, idx)
         return seqs
     
     prevForLengthCtr = getLastSharedBarrierCtr(waitChans, currCtr)
     logger.debug("Using length since barrier %s", prevForLengthCtr)
+
+    # If there are any intervening Barriers not marked as measured on any channel
+    # (not turned into an Id or identifies as indeterminate)
+    # then replace them, by recursively calling this function.
+    # This will recurse to get to the first such barrier when considered
+    # sequentially, and then pop out until they're all handled.
+    # Looping here handles the case where there are multiple channels involved.
+    # We have to replace those earlier barriers, so that we can add things up
+    # to get the length for this Barrier.
     undoneBarrierCtr = getLastUnMeasuredBarrier(currCtr, prevForLengthCtr, waitSeqIdxes)
     while undoneBarrierCtr:
+        logger.debug("Found undone barrier %s to replace first", undoneBarrierCtr)
         seqs = replaceOneBarrier(undoneBarrierCtr, seqIdxToChannelMap)
         undoneBarrierCtr = getLastUnMeasuredBarrier(currCtr, prevForLengthCtr, waitSeqIdxes)
+
     # Now want all the lengths between curr and prev, and figure out min, replace as appropriate
     seqs = replaceBarrier(seqs, currCtr, prevForLengthCtr,
                           waitSeqIdxes)
     return seqs
+# End of replaceOneBarrier
 
+# TODO
+# * Check for logic gaps
+# * Improve documentation
+# * Raise exceptions don't just log for bad things
+# * How do we check that all channels start with sync/wait? Should we?
+#  * Or related, do we do anything special if all channels start with a shared barrier?
+# * What if we discover multiple sequential Waits or WaitSomes on same chnnels?
+#  * Can we or should we remove duplicates?
+# * Consider passing around data structures instead of making them globals
+# * Testing, including
+#  * 3+ qubits
+#  * explicit WaitSomes and Waits
+#  * Barrier that becomes WaitSome inside a call or a repeat or both
+#  * call or goto that goes backwards or forwards (4 cases)
+#  * Nested Calls
+#  * Nested Repeats
+#  * Nested Barriers
+#  * Sequences that dont start with a barrier
 def replaceBarriers(seqs, seqIdxToChannelMap):
-# Consider passing around data structures instead of making them globals
-    
     '''
-For each seq/channel
- Barrier Ctrs & index in seq
-   For each:
-      length since last barrier/wait/start
-      previous barrier/wait/start (IDed by ctr? index? something
-        else?)
-      channels that this barrier waits on
+    Replace all Barrier() instructions with Sync() and WaitSome() or Id() pulses.
+    Use WaitSome() if there's some intervening indeterminate length operation,
+    like a CMP() or LoadCmp().
+    Otherwise pause using Id on the less busy channels.
+    This modifies the sequences and returns the updated sequences.
+    Assumes Barriers list the channels they are on,
+    and have an ID.
+    Each Barrier is used exactly once per channel during operation
+    (or else has guaranteed same length since prior Barrier,
+    effectively meaning it is a WaitSome).
+    '''
+    # Approach:
+    # Walk through each sequence building up barrier objects
+    # that record each barrier including length in execution time
+    # since the last barrier.
+    # Then walk through barriers replacing them with Id pulses
+    # where possible.
+    # Then replace the remaining barriers with WaitSomes
+    # Barrier objects are kept in 3 dictionaries: by sequence
+    # by position in the sequence (where each sequence has different
+    # instance of the object), by sequence by counter (id), and
+    # independent of sequence by counter (in which case this is
+    # just one instance of this barrier)
+    # Each barrier has its sequence, position, channels,
+    # ID, previous barrier, length since previous barrier
+    # (float, may be 'nan' meaning it becomes a WaitSome)
+    # A barrier object that is -1 means the start
+    # A barrier ID of '-1' means the start
+    # A wait has a barrier ID of 'wait-<IndexInSequence>'
+    # barrier position of -1 is the start
 
-      1st length [not all barriers have entry] (or is this restLengths?)
-      1stPrevious [not all barriers have entry]
-  dict of BlockLabel to index
-  stack of current repeatCounts
-  stack of Call from locations
-  stacks for auto repeating repeat blocks? (repeat start and repeat len)
-
-barriersBySeqByPos[seqInd] = ordered list in order in the elem
-Each of those is a Dict
-type='start', 'wait', 'barrier', 'waitsome'
-seqPos = int index in sequence
-prevBarrier = int index in this ordered list / position of that
-	    barrier on the sequence (or -1 for start)
-prevBarrierCtr = counter ID of previous barrier on this channel
- - else if it is start, -1
- - else if it is a wait 'wait-%d' where %d is the int position
-channels [defined only for waitsome or barrier] = list of string
-  channel names
-       for start/wait it is all channels
-lengthSince = float length since previous barrier
-counter = Barrier ID or -1 for start or wait-<index> for waits
-firstPrevBarrier = int index in this ordered list
- - not applicable to start
- - the previous barrier 1st time through a repeat loop
- - if no value, then same as prevBarrier
- - -1 if prev is start
-firstPrevBarrierCtr = same but the counter ID of that previous barrier
- - else if it is start, -1
- - else if it is a wait 'wait-%d' where %d is the int position
-firstLengthSince = float length since previous barrier 1st time
-    through a repeat loop
- - not applicable to start
- - same as lengthSince if not defined
- - should have value eactly when firstPrevBarrier has a value
-seqIndex = int number of this sequence
-seqChannel = name of channel for this sequence
-
-barriersBySeqByCtr[seqInd] = dict by barrier counter/ID of the same objects
-
-prevPrevBarrierCtr and lengthSincePrevPrev filled in where
-firstPrevBarrierCtr is filled in, and it skips back 2. Allows
-accounting for the repeats
-'''
-
-    # If a channel doesn't start with sync/wait or some barrier,
-    # do I insert a 'start'?
-    # Or put another way, if it does, do I need the 'start'?
-    # Maybe I do, in case other channels do something different
-    # And what do I do with the global waits? I could error check
-    # the ordering of the global wait & limited waits. That is, if 1 channel
-    # has a local wait before the global wait, then all channels with the same local
-    # wait must have it before the global wait
     global barriersBySeqByPos, barriersBySeqByCtr, barriersByCtr, allChannels
-    barriersBySeqByPos = dict()
-    barriersBySeqByCtr = dict()
-    barriersByCtr = dict()
-    allChannels = [ch for ch in seqIdxToChannelMap.values()]
-    
+    logger.debug("In new replaceBarriers")
+    barriersBySeqByPos = dict() # by sequence Index in seqs, by Pos index of element in sequence
+    barriersBySeqByCtr = dict() # by sequence Index in seqs, by Counter ID of barrier
+    barriersByCtr = dict() # by Counter ID of barrier
+    allChannels = [ch for ch in seqIdxToChannelMap.values()] # actual Channel objects
+
     startBarrier = dict()
     startBarrier['type'] = 'start'
-    startBarrier['counter'] = -1
-    startBarrier['seqPos'] = -1
+    startBarrier['counter'] = '-1' # notional 'start' barrier has counter '-1', pos -1
+    startBarrier['seqPos'] = -1 # index in sequence
+    # Have we determined the length of the Id pulse or if this is a WaitSome?
     startBarrier['lengthCalculated'] = False
+    # Walking thru running of this sequence, the length since the last Barrier on this sequence,
+    # including this element.
+    # Note that due to other elements on other sequences, this is not the same as the length
+    # of the resulting Id pulse
     startBarrier['lengthSince'] = 0
     barriersByCtr['-1'] = startBarrier
-    
+
+    # Loop over all sequences
+    # Walk through each sequence in execution order
+    # (following Call/Goto/Repeat/Return)
+    # As we encounter barriers, add them to our data structures
+    # We'll uses those data structures later to replace the Barriers in the sequences.
+    # We track BlockLabels as we go, and of course Call and LoadRepeat
     for seqInd, seq in enumerate(seqs):
-        logger.debug("Looking for barriers on sequence %d", channel)
-        seqChannel = seqIdxToChannelMap[seqInd]
+        logger.debug("Looking for barriers on sequence %d", seqInd)
         barriersBySeqByPos[seqInd] = dict()
         barriersBySeqByCtr[seqInd] = dict()
 
         # Put a startBarrier in the front for this channel
         startBarrier['seqIndex'] = seqInd
-        startBarrier['seqChannel'] = seqChannel
-        barriersBySeqByPos[seqInd]['-1'] = startBarrier
+        barriersBySeqByPos[seqInd][-1] = startBarrier
         barriersBySeqByCtr[seqInd]['-1'] = startBarrier
 
-        # Dict of BlockLabel to index in sequence
+        # Dict of BlockLabel's label (string) to index in sequence
+        # Used to find the target of Call/Goto/Repeat calls
+        # This is filled in lazily, as we find the labels.
         blockLabels = dict()
-        # stack of current repeatCounts
-        # stack of Call from locations
-        # stacks for repeeat
 
         # Times the repeat block if any is to be repeated (LIFO stack)
         rptCount = []
@@ -927,35 +1028,45 @@ accounting for the repeats
         # LIFO stack of index where Return (from Call) returns to (point to next thing to run)
         retInd = []
 
+        # The previous barrier that this barrier will point to
         prevBarrierPos = -1
         prevBarrier = startBarrier
-        prevBarrierCtr = -1
+        prevBarrierCtr = '-1'
+
+        # The total length through this element, which we'll
+        # reset at each barrier
         curLen = 0
+        # Is this block between 2 barriers of indeterminate length
         nonDet = False
 
+        # default barrier type
         barrierType = 'barrier'
 
+        # The current barrier
         curBarrier = dict()
         curBarrier['type'] = 'barrier'
-        curBarrier['prevBarrier'] = prevBarrierPos
+        curBarrier['prevBarrierPos'] = prevBarrierPos
         curBarrier['prevBarrierCtr'] = prevBarrierCtr
         curBarrier['seqIndex'] = seqInd
-        curBarrier['seqChannel'] = seqChannel
+        # index into the sequence of the current element
         seqPos = 0
+
+        # Now loop over elements in the sequence
+        # Note that some code blocks will reset seqPos to other points
+        # to follow Call/Return/Repeat/Goto commands
         while seqPos < len(seq):
             elem = seq[seqPos]
             logger.debug("Examining %s", elem)
 
-            '''
-if the element is a barrier, we save the lenth since the last barrier and a pointer to that previous barrier
-If it is a CMP, then this block is indeterminate length. Next barrier must say so
-'''
+            # if the element is a barrier, we save the length since the last barrier and a pointer to that previous barrier
+            # If it is a CMP, then this block is indeterminate length. Next barrier must say so
+
             # Handle all kinds of barriers by putting them in our data structures
             if isBarrier(elem) or isWaitSome(elem) or isWait(elem):
                 if isBarrier(elem):
                     logger.debug("Next barrier at %d: %s", seqPos, elem)
                     curBarrier['type'] = 'barrier'
-                    curBarrier['channels'] = elem.chanList
+                    curBarrier['channels'] = elem.chanlist
                     curBarrier['counter'] = elem.value
                 elif isWaitSome(elem):
                     # This shouldn't really happen
@@ -964,6 +1075,8 @@ If it is a CMP, then this block is indeterminate length. Next barrier must say s
                     curBarrier['type'] = 'waitsome'
                     curBarrier['channels'] = elem.chanlist
                     curBarrier['counter'] = 'wait-%d' % seqPos
+                    if not isSync(seq[seqPos-1]):
+                        logger.warning("Previous element was not a sync but %s", seq[seqPos-1])
                 elif isWait(elem):
                     logger.info("Got Wait %s at %d?!", elem, seqPos)
                     curBarrier['type'] = 'wait'
@@ -972,7 +1085,7 @@ If it is a CMP, then this block is indeterminate length. Next barrier must say s
                     if not isSync(seq[seqPos-1]):
                         logger.warning("Previous element was not a sync but %s", seq[seqPos-1])
                 curBarrier['seqPos'] = seqPos
-                curBarrier['prevBarrier'] = prevBarrierPos
+                curBarrier['prevBarrierPos'] = prevBarrierPos
                 curBarrier['prevBarrierCtr'] = prevBarrierCtr
                 curBarrier['seqIndex'] = seqInd
                 if nonDet:
@@ -981,6 +1094,10 @@ If it is a CMP, then this block is indeterminate length. Next barrier must say s
                     # So later it's safe to skip over this barrier on other channels;
                     # getLengthBetweenBarriers will get the nan lengthSince and that's accurate
                     curBarrier['lengthCalculated'] = True
+
+                    # Note that for nested blocks the outer barrier will become
+                    # nonDet for the whole block because this one is,
+                    # but the range to the next barrier may not be
                     nonDet = False # Reset for next block
                 elif rptCount:
                     # We're in a Repeat block. The only way that's legal is to treat this as a Wait of some kind
@@ -992,7 +1109,7 @@ If it is a CMP, then this block is indeterminate length. Next barrier must say s
                     curBarrier['lengthCalculated'] = True
                 else:
                     curBarrier['lengthSince'] = curLen + pulseLengths(elem)
-                logger.debug("Channels: %s, length: %s, counter: %s, prevBarrier: %s at %d", curBarrier['channels'], curBarrier['lengthSince'], curBarrier['counter'], curBarrier['prevBarrierCtr'], curBarrier['prevBarrier'])
+                logger.debug("Channels: %s, length: %s, counter: %s, prevBarrier: %s at %d", curBarrier['channels'], curBarrier['lengthSince'], curBarrier['counter'], curBarrier['prevBarrierCtr'], curBarrier['prevBarrierPos'])
                 logger.debug(curBarrier)
 
                 # Store this barrier
@@ -1004,20 +1121,35 @@ If it is a CMP, then this block is indeterminate length. Next barrier must say s
                 prevBarrier = curBarrier
                 prevBarrierCtr = curBarrier['counter']
                 prevBarrierPos = seqPos
+                # the length counter starts at 0 for the next block
                 curLen = 0
+                # Move to the next element in the sequence
                 seqPos += 1
                 continue
 
             # CMP
             # Note this is a nonDeterminate block
             if isCMP(elem) or isLoadCmp(elem):
-                logger.info("Indeterminate length block on sequence %d has %s at %d", seqInd, elem, seqPos)
+                logger.info("Indeterminate length block on sequence %d; has %s at %d", seqInd, elem, seqPos)
                 nonDet = True
                 seqPos += 1
                 curLen += pulseLengths(elem)
                 continue
 
             # LoadRepeat
+            # Goes with a later Repeat(<label>) call
+            # That <label> could nominally be anywhere, but QGL2 puts it on the line after the LoadRepeat
+            # Note that you can nominally nest Repeat blocks, so we keep a LIFO stack of rptCounts.
+            # Inside the block of code to be repeated, you can't in general have a Barrier; the elements
+            # to that barrier are different between the first and later times through the loop, so the Barrier
+            # is 2 different Id blocks so it isn't a repeat.
+            # Exceptions: If the element right before the block is a barrier, and the last element in the block
+            # is a Barrier, or you otherwise construct things carefully, then the block is the same length.
+            # Or else if the Barrier is a WaitSome (on both 1st and later times through the loop), then it is an identical
+            # Pulse.
+            # Put another way: you can only use a given Barrier in a single way in any channel.
+            # However there's another issue with a Barrier in a Repeat block: each channel for that Barrier must use the barrier
+            # the same # of times, and in the same way, such that it makes sense to line up the barrier.
             if isLoadRepeat(elem):
                 if elem.value < 1:
                     logger.warning("Sequence %d at %d got %s with value %d: Treat as 1", seqInd, seqPos, elem, elem.value)
@@ -1030,23 +1162,30 @@ If it is a CMP, then this block is indeterminate length. Next barrier must say s
                 rptStartInd.append(seqPos+1)
 
                 curLen += pulseLengths(elem)
+
+                # Store the length of this block up through this element.
+                # That way when we hit the Repeat block, we can potentially calculate the length of the block being repeated,
+                # and just add it, without having to re-walk
+                # Here we assume that the repeat block in fact starts at the next element after this LoadRepeat
                 rptStartLen.append(curLen)
+
                 seqPos += 1
                 continue
 
-            # This code allows target of repeat to be anywhere
-            # It guesses that the Repeat goes to the line after LoadRepeat
+            # See note above on Repeat blocks.
+            # This code allows target of repeat to be anywhere.
+            # It guesses that the Repeat goes to the line after LoadRepeat (as guessed above).
             # It does nothing special about intervening Barriers; elsewhere we ensure they are Waits not Ids
+            # When we get here, we've already added to curlen the result of doing this repeat block once
             if isRepeat(elem):
                 curLen += pulseLengths(elem)
-                # When we get here, we've already added to curlen the result of doing this once
                 if not rptCount:
                     # FIXME: Ignore instead? Use NodeError?
                     raise Exception("Sequence %d got %s at %d without a LoadRepeat" % (seqInd, elem, seqPos))
 
                 # Get the # of times left to repeat
                 rc = rptCount[-1] - 1
-                logger.debug("Found %s at index %d. Remaining repeats %d", elem, seqPos, rc)
+                logger.debug("Found %s at index %d. Remaining repeats: %d", elem, seqPos, rc)
 
                 # If there are no more repeats, move on
                 if rc <= 0:
@@ -1065,25 +1204,30 @@ If it is a CMP, then this block is indeterminate length. Next barrier must say s
                 # Update the repeats remaining counter
                 rptCount[-1] = rc
 
+                # Do blockLabels comparison by label
+                target = elem.target
+                if isBlockLabel(target):
+                    target = target.label
+
                 # Find proper start index
                 realRptStartInd = -1
-                if elem.target in blockLabels:
+                if target in blockLabels:
                     realRptStartInd = blockLabels[target]
                     logger.debug("Found Repeat target in cache at %d", realRptStartInd)
                 else:
-                    # Loop thru rest of seq. Then loop thru start of seq to here
+                    # Loop thru rest of seq to find the target. Then loop thru start of seq to here
                     found = False
                     for posNext in range(seqPos, len(seq)):
-                        if isBlockLabel(seq[posNext]) and seq[posNext].label == elem.target:
-                            blockLabels[elem.target] = posNext
+                        if isBlockLabel(seq[posNext]) and seq[posNext].label == target:
+                            blockLabels[target] = posNext
                             realRptStartInd = posNext
                             found = True
                             logger.debug("Found Repeat target in rest of sequence at %d", realRptStartInd)
                             break
                     if not found:
                         for posNext in range(0, seqPos):
-                            if isBlockLabel(seq[posNext]) and seq[posNext].label == elem.target:
-                                blockLabels[elem.target] = posNext
+                            if isBlockLabel(seq[posNext]) and seq[posNext].label == target:
+                                blockLabels[target] = posNext
                                 realRptStartInd = posNext
                                 found = True
                                 logger.debug("Found target in first part of sequence at %d", realRptStartInd)
@@ -1091,7 +1235,9 @@ If it is a CMP, then this block is indeterminate length. Next barrier must say s
                     if not found:
                         raise Exception("Sequence %d at %d: Failed to find %s target '%s'" % (seqInd, seqPos, elem, elem.target))
 
-                # If it is same as that in rptStartInd, then use curlen-rptStartLen as length of block to repeat. Mutiply that by rc and add to curlen
+                # If the start of the repeat block is same as that in rptStartInd,
+                # then use curlen-rptStartLen as length of block to repeat.
+                # Mutiply that by rc and add to curlen
                 # Then clear the rpt LIFOs and move on
                 if rptStartInd[-1] == realRptStartInd:
                     # We guessed correctly where to start repeat from
@@ -1124,6 +1270,13 @@ If it is a CMP, then this block is indeterminate length. Next barrier must say s
             # End of handling Repeat
 
             # Handle Return
+            # This jumps back to the last Call
+            # Note that Call/Return blocks could be nested,
+            # and due to a Goto, the 'Return' may go to something later in the sequence.
+            # Note that if there is a Barrier inside a Call block, what does it mean to hit that Barrier
+            # twice? As in the comment above for Repeat, unless things are identical across channels,
+            # how do you line up the Barriers?
+            # So in general, a Barrier, including one inside a Call block, should only be called once
             if isReturn(elem):
                 # Should have seen a previous call
                 # NOTE: If there was a barrier inside that block, we better only have called this block once
@@ -1134,21 +1287,32 @@ If it is a CMP, then this block is indeterminate length. Next barrier must say s
                 logger.debug("Got %s: Returning to saved index %d", elem, ri)
                 seqPos = ri
                 continue
-            
+
+            # Handle Call() or Goto()
+            # Both take a BlockLabel to jump to.
+            # Call() requires stashing the index after it to return to.
             if isCall(elem) or isGoto(elem):
                 logger.debug("Got %s at %d - will jump to %s", elem, seqPos, elem.target)
                 # Call is slightly special
                 if isCall(elem):
-                    logger.debug("Next return will go to %d", seqPos+1)
+                    if seqPos+1 == len(seq):
+                        # The return would try to go to something off the end. That won't work.
+                        raise Exception("Call() is last element in sequence %d: %s" % (seqInd, elem))
+                    logger.debug("Next Return will go to %d", seqPos+1)
                     # stash away seqPos+1 as the next place to return
                     retInd.append(seqPos+1)
-            
+
+                # Do BlockLabels comparison by label
                 target = elem.target
+                if isBlockLabel(target):
+                    target = target.label
                 curLen += pulseLengths(elem)
                 if target in blockLabels:
                     seqPos = blockLabels[target]
                     logger.debug("Found target in cache at %d", seqPos)
                     continue
+
+                # Didn't find the target yet. Look.
                 # Loop thru rest of seq. Then loop thru start of seq to here
                 found = False
                 for posNext in range(seqPos, len(seq)):
@@ -1171,8 +1335,10 @@ If it is a CMP, then this block is indeterminate length. Next barrier must say s
                     continue
                 else:
                     raise Exception("Sequence %d at %d: Failed to find %s target '%s'" % (seqInd, seqPos, elem, elem.target))
-            
+
             # BlockLabel
+            # Save where this was in case it's a target for a Call/Goto/Repeat,
+            # otherwise it's a normal element.
             if isBlockLabel(elem):
                 curLen += pulseLengths(elem)
                 # Stash away that label in case some Call/Goto/Repeat needs it
@@ -1185,57 +1351,82 @@ If it is a CMP, then this block is indeterminate length. Next barrier must say s
             curLen += pulseLengths(elem)
             seqPos += 1
             continue
-        # Done looking at elements in sequence
+        # Done looking at elements in this sequence
         
         logger.debug("Done looking for Barriers on sequence %d", seqInd)
         # Now we'll move to the next channel
     # End of loop over channels
     logger.debug("Done looking for Barriers on all sequences")
+    # At this point we've looked at every element in every sequence, adding up the lengths.
+    # This data is saved away in barrier objects for use to use next.
     
-    # And here is the main code to use the above functions and replace all barriers:
-    # Just look through channels for Barriers
+    # And here is the main code to use the above functions and replace all barriers.
+
+    # First we replace Barriers that turn into Id pulses
+    # - because thats a 1 for 1 replacement (doesn't screw up saved indices)
+    # For each sequence, start at the 'start' barrier and go to 'next'
+    # where the next is a Barrier that is still in the sequence
+    # and not marked as already calculated (if still there but marked
+    # calculated it is turning into a WaitSome)
+    # When we have such a barrier, replace it.
+    # Note however that replacing a Barrier potentially requires
+    # first replacing some other barriers on other channels.
+    # EG if for q1 B3 links up with q3 and the last common is B0, but B1 and B2 are only on
+    # the q3 program, then for q3 to get the length up to B3,
+    # it needs to do B1 and B2 first.
+    # so replaceOneBarrier hides that recursion.
     for seqInd in seqIdxToChannelMap.keys():
-        lastCtr = '-1'
         currCtr = '-1'
         logger.debug("Handling Barriers on sequence %d", seqInd)
-        currCtr = getNextBarrierCtr(seqInd, currCtr)
+        currCtr = getNextBarrierCtr(seqs, seqInd, currCtr)
         while (currCtr != '-1'): # While there's another barrier
             logger.info("Replacing Barrier %s found on sequence %d", currCtr, seqInd)
+            # replace that barrier, plus any other barriers (on other channels)
+            # necessary to calculate the length of the Id pulse here
             seqs = replaceOneBarrier(currCtr, seqIdxToChannelMap, seqInd)
-            lastCtr = currCtr
-            currCtr = getNextBarrierCtr(seqInd, currCtr)
-    # When we get here, we ran out of barriers
-    logger.debug("Done swapping non global barriers")
+            # Move on to the next barrier
+            currCtr = getNextBarrierCtr(seqs, seqInd, currCtr)
+    # When we get here, we ran out of barriers that turn into Id pulses to replace
+    logger.debug("Done swapping non Wait Barriers")
   
-    # Now change any remaining barriers into sync/wait pairs
+    # Now change any remaining barriers into Sync/WaitSome pairs
     for seqInd in barriersBySeqByPos:
         if seqInd not in seqs:
             logger.warn("No such channel %d?", seqInd)
             continue
-        logger.debug("Swapping remaining Barriers on sequence %d with Sync/Wait", seqInd)
+        logger.debug("Swapping remaining Barriers on sequence %d with Sync/WaitSome", seqInd)
         seq = seqs[seqInd]
+        # Count how many of these swaps we've done
+        # Because that's the # of extra elements we're inserting, so it is the
+        # amount that our saved indices are off
         swapCnt = 0
+        # loop over our previous stash of barriers on this sequence
         for barrierInd in barriersBySeqByPos[seqInd].keys():
+            # The new actual index of this element in the sequence
             bInd = barrierInd + swapCnt
             barrier = barriersBySeqByPos[seqInd][barrierInd]
             bType = barrier.get('type', 'barrier')
-            bChannels = barrier.get('channels', allChannels)
-            if len(seq) > bInd:
-                # Make sure it's a barrier still
-                if isinstance(seq[bInd], QGL.ControlFlow.Barrier):
-                    if bType == 'wait' or bChannels == allChannels:                    
-                        logger.info("Replacing sequence %d index %d (%s) with Sync();Wait()", seqInd, bInd, seq[bInd])
-                        # Replace
-                        seqs[seqInd] = seq[:bInd] + [Sync(), Wait()] + seq[bInd+1:]
-                    else:
-                        logger.info("Replacing sequence %d index %d (%s) with Sync(); WaitSome(%s)", seqInd, bInd, seq[bInd], bChannels)
-                        seqs[seqInd] = seq[:bInd] + [Sync(), WaitSome(bChannels)] + seq[bInd+1:]
+            bChannels = getBarrierChannels(barrier['counter'])
+            if bInd >= len(seq):
+                raise Exception("Calculated index of barrier %s (%d, was originally %d) is past end of sequence %d" % (barrier['counter'], bInd, barrierInd, seqInd))
+
+            # Make sure it's a barrier still
+            if isinstance(seq[bInd], QGL.ControlFlow.Barrier):
+                if bType == 'wait' or bChannels == allChannels:                    
+                    logger.info("Replacing sequence %d index %d (%s) with Sync();Wait()", seqInd, bInd, seq[bInd])
+                    # Replace
+                    seqs[seqInd] = seq[:bInd] + [Sync(), Wait()] + seq[bInd+1:]
                 else:
-                    logger.debug("Spot %d in sequence %d (channel %s) not (no longer) a barrier, but: %s", barrierInd, seqInd, seqIdxToChannelMap[seqInd], seq[barrierInd])
-                    continue
+                    logger.info("Replacing sequence %d index %d (%s) with Sync(); WaitSome(%s)", seqInd, bInd, seq[bInd], bChannels)
+                    seqs[seqInd] = seq[:bInd] + [Sync(), WaitSome(bChannels)] + seq[bInd+1:]
+            else:
+                logger.debug("Spot %d in sequence %d (channel %s) not (no longer) a barrier, but: %s", barrierInd, seqInd, seqIdxToChannelMap[seqInd], seq[barrierInd])
+                continue
         logger.debug("Swapped %d barriers on sequence %d", swapCnt, seqInd)
         # Now to next sequence
+    # Done swapping remaining barriers for Sync/Waits
 
+    # Now all Barriers should be gone.
     for sidx, seq in enumerate(seqs):
         for idx in range(len(seq)):
             if isBarrier(seq[idx]):
