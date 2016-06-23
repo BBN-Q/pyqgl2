@@ -206,9 +206,11 @@ class MarkReferencedQbits(ast.NodeVisitor):
 
 class AddSequential(ast.NodeTransformer):
     """
-    Insert with-concur statements that implement sequential
+    Insert barriers to implement sequentiality when in the
+    outermost block (the @qgl2main) or inside an expanded function
+    and not inside a with-concur.
     statements.
-    
+
     By default, statements that are not directly within a 
     with-concur block are treated as sequential.  For example,
     if a function is invoked inside a with-concur block,
