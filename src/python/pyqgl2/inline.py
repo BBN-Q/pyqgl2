@@ -14,6 +14,17 @@ import pyqgl2.ast_util
 
 from pyqgl2.ast_util import expr2ast
 
+class BarrierIdentifier(object):
+
+    NEXTNUM = 1
+
+    @staticmethod
+    def next_bid():
+        nextnum = BarrierIdentifier.NEXTNUM
+        BarrierIdentifier.NEXTNUM += 1
+        return nextnum
+
+
 class QubitPlaceholder(object):
     """
     Placeholder for a Qubit/Channel
