@@ -334,11 +334,11 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print(('SEQUENTIAL CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
             file=intermediate_fout, flush=True)
 
-    barr = AddBarriers()
-    new_ptree5 = barr.visit(new_ptree5)
-    NodeError.halt_on_error()
-    print(('BARRIER CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
-            file=intermediate_fout, flush=True)
+    # barr = AddBarriers()
+    # new_ptree5 = barr.visit(new_ptree5)
+    # NodeError.halt_on_error()
+    # print(('BARRIER CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
+    #         file=intermediate_fout, flush=True)
 
     # Take with-infunc and with-concur blocks and produce with-grouped
     # and with-group blocks
