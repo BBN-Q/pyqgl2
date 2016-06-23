@@ -10,7 +10,8 @@ import sys
 from copy import deepcopy
 
 from pyqgl2.ast_util import ast2str, NodeError
-from pyqgl2.concur_unroll import is_concur, is_seq, find_all_channels
+from pyqgl2.concur_unroll import is_seq, find_all_channels
+from pyqgl2.flatten import is_with_label
 from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
 from pyqgl2.substitute import getChanLabel
@@ -168,7 +169,7 @@ class SequenceExtractor(object):
             if assignment:
                 self.qbit_creates.append(assignment)
                 continue
-            elif is_concur(stmnt):
+            elif is_with_label(stmnt, 'grouped'):
                 # print("Found concur at line %d: %s" % (lineNo+1,stmnt))
                 for s in stmnt.body:
                     if is_seq(s):
