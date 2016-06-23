@@ -309,6 +309,13 @@ class AddSequential(ast.NodeTransformer):
         if hasattr(node, 'body'):
             node.body = self.expand_body(node.body)
 
+            if entering_concur:
+                beg_barrier = self.make_barrier_ast(
+                        self.referenced_qbits, node, name='concur_b')
+                end_barrier = self.make_barrier_ast(
+                        self.referenced_qbits, node, name='concur_e')
+                node.body = [beg_barrier] + node.body + [end_barrier]
+
         if hasattr(node, 'orelse'):
             node.orelse = self.expand_body(node.orelse)
 
@@ -684,14 +691,14 @@ class QbitGrouper2(ast.NodeTransformer):
 
         new_groups = list()
 
-        for qbit in all_qbits:
+        for qbit in sorted(all_qbits):
             scratch_body = deepcopy(body_stmnts)
 
             pruned_body = QbitPruner(set([qbit])).prune_body(scratch_body)
             if not pruned_body:
                 continue
 
-            with_group = expr2ast('with group: pass')
+            with_group = expr2ast('with group(%s): pass' % qbit)
             copy_all_loc(with_group, node, recurse=True)
 
             with_group.body = pruned_body
