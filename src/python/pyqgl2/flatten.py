@@ -28,6 +28,18 @@ def is_with_label(node, label):
     else:
         return True
 
+def is_with_call(node, funcname):
+    item = node.items[0].context_expr
+
+    if not isinstance(item, ast.Call):
+        return False
+    elif not isinstance(item.func, ast.Name):
+        return False
+    elif item.func.id != funcname:
+        return False
+    else:
+        return True
+
 class LabelManager(object):
     """
     Simplify the creation of labels.
@@ -185,31 +197,6 @@ class Flattener(ast.NodeTransformer):
         node.body = new_body
         return node
 
-    def is_with_qrepeat(self, node):
-
-        item = node.items[0].context_expr
-
-        if not isinstance(item, ast.Call):
-            return False
-        elif not item.func.id == 'Qrepeat':
-            return False
-        else:
-            return True
-
-    def is_with_infunc(self, node):
-
-        item = node.items[0].context_expr
-
-        if not isinstance(item, ast.Call):
-            return False
-        elif not item.func.id == 'infunc':
-            return False
-        else:
-            return True
-
-    def xvisit_FunctionDef(self, node):
-        return self.flatten_node_body(node)
-
     def visit_With(self, node):
         """
         This is where the recursive traversal ends for this
@@ -234,76 +221,34 @@ class Flattener(ast.NodeTransformer):
         """
 
         if is_with_label(node, 'grouped'):
-            for group in node.body:
-                # TODO: check that this is a with-group() stmnt.
-                # anything else is a fatal problem
+            # replace all the with-group statements with with-seq
+            # statements.  This seems cosmetic, but means that
+            # we don't have to make invasive changes in the sequencer
+            #
 
-                group.body = self.flatten_body(group.body)
+            new_body = list()
+
+            for group in node.body:
+                # check that this is a with-group() stmnt.
+                # anything else is a FATAL problem
+
+                if not is_with_call(group, 'group'):
+                    NodeError.fatal_msg(group, 'expected a with-group node')
+
+                new_seq = expr2ast('with seq: pass')
+                pyqgl2.ast_util.copy_all_loc(new_seq, group, recurse=True)
+
+                new_seq.body = self.flatten_body(group.body)
+
+                new_seq.qgl2_referenced_qbits = group.qgl2_referenced_qbits
+                new_seq.qgl_chan_list = list(
+                        [group.items[0].context_expr.args[0].id])
+
+                new_body.append(new_seq)
+
+            node.body = new_body
 
         return node
-
-
-        if is_with_label(node, 'seq'):
-            new_body = self.flatten_body(node.body)
-            node.body = new_body
-            return node
-        elif is_with_label(node, 'concur'):
-            new_body = list()
-
-            for stmnt in node.body:
-                if not isinstance(stmnt, ast.With):
-                    print('WHAT?  expected "with", got %s' %
-                            ast.dump(node))
-
-                if not is_with_label(stmnt, 'seq'):
-                    print('WHAT?  expected "with seq", got %s' %
-                            ast.dump(node))
-
-                new_seq_body = self.flatten_body(stmnt.body)
-
-                # destructive update
-                stmnt.body = new_seq_body
-                new_body.append(stmnt)
-
-            # destructive update
-            node.body = new_body
-            return node
-
-        elif (is_with_label(node, 'Qfor') or
-                is_with_label(node, 'Qrepeat')):
-            # we'll get here if there's no with-concur.
-            # just process the substatements, without the
-            # checks we do for with-concur
-            #
-            new_body = list()
-
-            for stmnt in node.body:
-                new_body += self.flatten_body(stmnt.body)
-
-            # destructive update
-            node.body = new_body
-            return node
-
-        elif is_with_label(node, 'grouped'):
-            new_body = list()
-
-            for stmnt in node.body:
-                new_body.append(self.visit(stmnt))
-
-            node.body = new_body
-            return node
-
-        elif is_with_label(node, 'group'):
-            new_body = self.flatten_body(node.body)
-
-            node.body = new_body
-            return node
-
-        else:
-            NodeError.error_msg(node,
-                    ('x unexpected with statement:\n%s' %
-                        ast2str(node)))
-            return node # bogus
 
     def visit_Break(self, node):
         """
@@ -378,30 +323,22 @@ class Flattener(ast.NodeTransformer):
         (which is handled by visit_With)
         """
 
-        if self.is_with_qrepeat(node):
+        if is_with_call(node, 'Qrepeat'):
             return self.repeat_flattener(node)
         elif is_with_label(node, 'Qfor'):
             return self.qfor_flattener(node)
+        elif is_with_label(node, 'concur'):
+            return self.flatten_body(node.body)
+        elif is_with_call(node, 'infunc'):
+            return self.flatten_body(node.body)
         elif is_with_label(node, 'Qiter'):
             print('ERROR: should not see Qiter at this level')
             # Bogus
             return self.qiter_flattener(node)
-        elif is_with_label(node, 'concur'):
-            return self.concur_flattener(node)
-        elif self.is_with_infunc(node):
-            return self.infunc_flattener(node)
         else:
             NodeError.error_msg(node,
                     ('confused about with statement: %s' % ast.dump(node)))
             return list()
-
-    def concur_flattener(self, node):
-
-        return self.flatten_body(node.body)
-
-    def infunc_flattener(self, node):
-
-        return self.flatten_body(node.body)
 
     def qfor_flattener(self, node):
         """
@@ -429,7 +366,7 @@ class Flattener(ast.NodeTransformer):
         for subnode in node.body:
             if is_with_label(subnode, 'Qiter'):
                 new_stmnts += self.qiter_flattener(subnode)
-            elif self.is_with_qrepeat(subnode):
+            elif is_with_call(subnode, 'Qrepeat'):
                 new_stmnts += self.repeat_flattener(subnode)
             else:
                 print('Error: unexpected non-Qiter node')
