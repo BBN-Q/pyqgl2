@@ -561,6 +561,7 @@ def isReplaceableBarrier(barrier, seqs):
     nextCtr = barrier['counter']
     nextType = barrier['type']
     seqInd = barrier['seqIndex']
+    logger.debug("Looking if %s is replaceable", barrier)
     if ind < 0:
         logger.debug("Barrier %s is start, not replacable", nextCtr)
         return False
@@ -568,13 +569,13 @@ def isReplaceableBarrier(barrier, seqs):
         logger.debug("Barrier %s is a wait, not replacable", nextCtr)
         return False
     if seqs:
-        if seqInd not in seqs:
+        if not (seqInd >= 0 and seqInd < len(seqs)):
             logger.debug("Barrier %s claims to be on sequence %d which doesn't exist", nextCtr, seqInd)
             return False
         if len(seqs[seqInd]) <= ind:
             logger.debug("Barrier %s claims to be at position %d on sequence %d; the sequence has only %d items", nextCtr, ind, seqInd, len(seqs[seqInd]))
             return False
-        if seqs[seqInd][ind].has_attribute('value') and seqs[seqInd][ind].value == nextCtr:
+        if hasattr(seqs[seqInd][ind], 'value') and seqs[seqInd][ind].value == nextCtr:
             return True
         if isID(seqs[seqInd][ind]):
             # Expected when we've already done a replacement
@@ -615,6 +616,7 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
 
     # Handle case where there's no current - we're looking for the first
     if str(currCtr) == '-1':
+        logger.debug("Looking for 1st barrier on sequence %d", seqInd)
         if seqInd in barriersBySeqByPos and len(barriersBySeqByPos) > 0:
             for i in range(len(barriersBySeqByPos[seqInd])):
                 barrier = barriersBySeqByPos[seqInd][i]
@@ -625,8 +627,10 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
                     if str(barrier) == '-1':
                         return '-1'
                     else:
+                        logger.debug("Next replaceable barrier: %s", barrier)
                         return barrier['counter']
                 else:
+                    logger.debug("%s not replaceable", barrier)
                     # keep looping
                     continue
         else:
@@ -634,7 +638,7 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
             return '-1'
 
     # Find this barrier object
-    currBarrier == getBarrierForSeqCtr(seqInd, currCtr)
+    currBarrier = getBarrierForSeqCtr(seqInd, currCtr)
     found = False
     for barrier in barriersBySeqByPos[seqInd]:
         if not found and barrier == currBarrier:
@@ -642,6 +646,7 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
             found = True
             continue
         if found:
+            logger.debug("%s is next after current %s on sequence %d", barrier, currBarrier, seqInd)
             # But if we had found it, then the next one we found is next
             # NOW....
             # Before blindly returning this barrier, see if it is actually still in the sequence
@@ -649,12 +654,14 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
             # Make sure that barrier is actually still in the sequence it claims to be in;
             # we might have already removed it
             if isReplaceableBarrier(barrier, seqs):
+                logger.debug("... returning it as next")
                 # return this ctr
                 if str(barrier) == '-1':
                     return '-1'
                 else:
                     return barrier['counter']
             else:
+                logger.debug("... but not replaceable")
                 # keep looping
                 continue
 
@@ -793,7 +800,7 @@ def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
         length[seqInd] = getLengthBetweenBarriers(seqInd, currCtr, prevForLengthCtr)
 
     # Find the max (at least 0)
-    maxBlockLen = max(lengths.values() + [0])
+    maxBlockLen = max(list(lengths.values()) + [0])
 
     # If the block is of indeterminate length then later code
     # will replace these Barriers,
@@ -864,7 +871,7 @@ def getLastUnMeasuredBarrier(currCtr, prevCtr, seqIdxes):
             return undoneBarrier
     return None
 
-def replaceOneBarrier(currCtr, seqIdxToChannelMap, seqInd = None):
+def replaceOneBarrier(currCtr, seqIdxToChannelMap, seqs, seqInd = None):
     '''Replace the barrier with id currCtr on all sequences.
     Use the version of the barrier on the given sequence seqInd if given.
     Skip barriers that are Wait or WaitSome instances.
@@ -917,12 +924,12 @@ def replaceOneBarrier(currCtr, seqIdxToChannelMap, seqInd = None):
     undoneBarrierCtr = getLastUnMeasuredBarrier(currCtr, prevForLengthCtr, waitSeqIdxes)
     while undoneBarrierCtr:
         logger.debug("Found undone barrier %s to replace first", undoneBarrierCtr)
-        seqs = replaceOneBarrier(undoneBarrierCtr, seqIdxToChannelMap)
+        seqs = replaceOneBarrier(undoneBarrierCtr, seqIdxToChannelMap, seqs)
         undoneBarrierCtr = getLastUnMeasuredBarrier(currCtr, prevForLengthCtr, waitSeqIdxes)
 
     # Now want all the lengths between curr and prev, and figure out min, replace as appropriate
     seqs = replaceBarrier(seqs, currCtr, prevForLengthCtr,
-                          waitSeqIdxes)
+                          waitSeqIdxes, seqIdxToChannelMap)
     return seqs
 # End of replaceOneBarrier
 
@@ -1064,21 +1071,21 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
             # Handle all kinds of barriers by putting them in our data structures
             if isBarrier(elem) or isWaitSome(elem) or isWait(elem):
                 if isBarrier(elem):
-                    logger.debug("Next barrier at %d: %s", seqPos, elem)
+                    logger.debug("Next barrier is at %d: %s", seqPos, elem)
                     curBarrier['type'] = 'barrier'
                     curBarrier['channels'] = elem.chanlist
                     curBarrier['counter'] = elem.value
                 elif isWaitSome(elem):
                     # This shouldn't really happen
                     # But if previous is a Sync then treat this as a Barrier on its listed channels?
-                    logger.warning("Got WaitSome %s at %d?!", elem, seqPos)
+                    logger.warning("Got %s at %d?!", elem, seqPos)
                     curBarrier['type'] = 'waitsome'
                     curBarrier['channels'] = elem.chanlist
                     curBarrier['counter'] = 'wait-%d' % seqPos
                     if not isSync(seq[seqPos-1]):
                         logger.warning("Previous element was not a sync but %s", seq[seqPos-1])
                 elif isWait(elem):
-                    logger.info("Got Wait %s at %d?!", elem, seqPos)
+                    logger.info("Got %s at %d", elem, seqPos)
                     curBarrier['type'] = 'wait'
                     curBarrier['channels'] = allChannels
                     curBarrier['counter'] = 'wait-%d' % seqPos
@@ -1089,6 +1096,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                 curBarrier['prevBarrierCtr'] = prevBarrierCtr
                 curBarrier['seqIndex'] = seqInd
                 if nonDet:
+                    logger.debug("Marking this barrier as indeterminate length")
                     curBarrier['lengthSince'] = float('nan')
                     # For these barriers, we consider we know the length
                     # So later it's safe to skip over this barrier on other channels;
@@ -1109,7 +1117,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                     curBarrier['lengthCalculated'] = True
                 else:
                     curBarrier['lengthSince'] = curLen + pulseLengths(elem)
-                logger.debug("Channels: %s, length: %s, counter: %s, prevBarrier: %s at %d", curBarrier['channels'], curBarrier['lengthSince'], curBarrier['counter'], curBarrier['prevBarrierCtr'], curBarrier['prevBarrierPos'])
+                logger.debug("This barrier has Channels: %s, length: %s, counter: '%s', prevBarrier: '%s' at index %d", curBarrier['channels'], curBarrier['lengthSince'], curBarrier['counter'], curBarrier['prevBarrierCtr'], curBarrier['prevBarrierPos'])
                 logger.debug(curBarrier)
 
                 # Store this barrier
@@ -1383,7 +1391,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
             logger.info("Replacing Barrier %s found on sequence %d", currCtr, seqInd)
             # replace that barrier, plus any other barriers (on other channels)
             # necessary to calculate the length of the Id pulse here
-            seqs = replaceOneBarrier(currCtr, seqIdxToChannelMap, seqInd)
+            seqs = replaceOneBarrier(currCtr, seqIdxToChannelMap, seqs, seqInd)
             # Move on to the next barrier
             currCtr = getNextBarrierCtr(seqs, seqInd, currCtr)
     # When we get here, we ran out of barriers that turn into Id pulses to replace
