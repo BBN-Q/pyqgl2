@@ -19,8 +19,6 @@ from pyqgl2.importer import collapse_name
 from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.lang import QGL2
 
-from pyqgl2.grouper import QbitGrouper2
-
 def is_concur(node):
     """
     Return True if the node is a with-concur block,
@@ -104,13 +102,11 @@ def find_all_channels(node, local_vars=None):
             # Also look for bindings to QubitPlaceholders
             #
             if subnode.id.startswith('QBIT_'):
-                print('GOT TOB QBIT %s' % subnode.id)
                 all_channels.add(subnode.id)
             elif subnode.id.startswith('EDGE_'):
                 all_channels.add(subnode.id)
             elif ((subnode.id in local_vars) and
                     (isinstance(local_vars[subnode.id], QubitPlaceholder))):
-                print('GOT TOA QBIT %s' % local_vars[subnode.id].use_name)
                 all_channels.add(local_vars[subnode.id].use_name)
 
         # Look for references to inlined calls; dig out any
@@ -597,10 +593,6 @@ class QbitGrouper(ast.NodeTransformer):
         TODO: need to figure out how to handle nested with-concurs,
         particularly within conditional statements.
         """
-
-        # These are just debugging for new functions in grouper.py
-        # and needs to be removed TODO
-        qp = QbitGrouper2.group(node, local_vars=self.local_vars)
 
         for i in range(len(node.body)):
             stmnt = node.body[i]
