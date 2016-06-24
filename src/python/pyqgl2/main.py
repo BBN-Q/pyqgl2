@@ -468,7 +468,7 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     toDecr = dict() # Map of old index to amount to decrement
     for idx, seq in enumerate(seqs):
         if idx not in seqIdxToChannelMap:
-            # Indicates an error - that empty sequence
+            # Indicates an error usually, but could be a channel in the program that doesn nothing
             logger.debug("Sequence %d has no channel - skip", idx)
             decr = decr+1
             continue
