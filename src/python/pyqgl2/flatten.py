@@ -18,27 +18,8 @@ import pyqgl2.ast_util
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import ast2str, expr2ast
 
-def is_with_label(node, label):
-    item = node.items[0].context_expr
-
-    if not isinstance(item, ast.Name):
-        return False
-    elif item.id != label:
-        return False
-    else:
-        return True
-
-def is_with_call(node, funcname):
-    item = node.items[0].context_expr
-
-    if not isinstance(item, ast.Call):
-        return False
-    elif not isinstance(item.func, ast.Name):
-        return False
-    elif item.func.id != funcname:
-        return False
-    else:
-        return True
+from pyqgl2.ast_qgl2 import is_with_label, is_with_call
+from pyqgl2.ast_qgl2 import is_concur, is_infunc
 
 class LabelManager(object):
     """

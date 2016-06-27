@@ -12,75 +12,16 @@ from copy import deepcopy
 
 import pyqgl2.ast_util
 
+from pyqgl2.ast_qgl2 import is_with_label, is_with_call
+from pyqgl2.ast_qgl2 import is_concur, is_infunc
 from pyqgl2.ast_util import ast2str, expr2ast, value2ast
 from pyqgl2.ast_util import copy_all_loc
 from pyqgl2.ast_util import NodeError
 from pyqgl2.debugmsg import DebugMsg
-from pyqgl2.flatten import is_with_label
 from pyqgl2.importer import collapse_name
 from pyqgl2.inline import BarrierIdentifier
 from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.lang import QGL2
-
-
-def is_concur(node):
-    """
-    Return True if the node is a with-concur block,
-    otherwise False
-    """
-
-    if not node:
-        return False
-
-    if not isinstance(node, ast.With):
-        return False
-
-    for item in node.items:
-        if (isinstance(item.context_expr, ast.Name) and
-                (item.context_expr.id == QGL2.QCONCUR)):
-            return True
-
-    return False
-
-def is_seq(node):
-    """
-    Return True if the node is a with-seq block,
-    otherwise False
-    """
-
-    if not node:
-        return False
-
-    if not isinstance(node, ast.With):
-        return False
-
-    for item in node.items:
-        if (isinstance(item.context_expr, ast.Name) and
-                (item.context_expr.id == QGL2.QSEQ)):
-            return True
-
-    return False
-
-def is_infunc(node):
-    """
-    Return True if the node is a with-infunc block,
-    otherwise False
-    """
-
-    if not node:
-        return False
-
-    if not isinstance(node, ast.With):
-        return False
-
-    item = node.items[0].context_expr
-
-    if not isinstance(item, ast.Call):
-        return False
-    elif not item.func.id == 'infunc':
-        return False
-    else:
-        return True
 
 def find_all_channels(node, local_vars=None):
     """
@@ -390,11 +331,7 @@ class AddSequential(ast.NodeTransformer):
         because they just obscure what's going on.
         """
 
-        if not isinstance(node, ast.With):
-            return False
-        # elif is_with_label(node, 'Qfor'):
-        #     return True
-        elif is_with_label(node, 'Qiter'):
+        if is_with_label(node, 'Qiter'):
             return True
         else:
             return False
