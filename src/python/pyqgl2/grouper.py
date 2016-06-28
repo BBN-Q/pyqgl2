@@ -5,23 +5,18 @@ Group nodes by the qbits they operate on
 """
 
 import ast
-import os
-import sys
 
 from copy import deepcopy
 
 import pyqgl2.ast_util
 
-from pyqgl2.ast_qgl2 import is_with_label, is_with_call
+from pyqgl2.ast_qgl2 import is_with_label
 from pyqgl2.ast_qgl2 import is_concur, is_infunc
-from pyqgl2.ast_util import ast2str, expr2ast, value2ast
+from pyqgl2.ast_util import ast2str, expr2ast
 from pyqgl2.ast_util import copy_all_loc
 from pyqgl2.ast_util import NodeError
-from pyqgl2.debugmsg import DebugMsg
-from pyqgl2.importer import collapse_name
 from pyqgl2.inline import BarrierIdentifier
 from pyqgl2.inline import QubitPlaceholder
-from pyqgl2.lang import QGL2
 
 def find_all_channels(node, local_vars=None):
     """
@@ -359,104 +354,6 @@ class AddSequential(ast.NodeTransformer):
         return barrier_ast
 
 
-class AddBarriers(ast.NodeTransformer):
-    """
-    NodeTransformer that replaces with-infunc and with-concur nodes
-    with the corresponding barriers.
-
-    This was done in the flattener, but that's an awkward place,
-    and we might want to move it around again so it make sense
-    to break it out into its own transformer.
-
-    In order to "inline" a with statement into a pair of
-    barriers surrounding the body of the with statement,
-    we need to actually modify the body of the parent of the
-    with node.  This makes this class look different from
-    an ordinary type-based transformer, because we search
-    all bodies and orelse statement lists for withs, and
-    process them that way (as well, of course, as recursing
-    to expand embedded with statements as well).
-    """
-
-    def __init__(self, local_vars=None):
-
-        if not local_vars:
-            local_vars = dict()
-
-        self.local_vars = local_vars
-
-    def visit(self, node):
-        """
-        The ordinary visit: recurse on all children,
-        and then scan through any 'body' or 'orelse'
-        lists, looking for with statements we can
-        expand inline.
-        """
-
-        new_node = self.generic_visit(node)
-
-        if hasattr(new_node, 'body'):
-            new_node.body = self.expand_body(new_node.body)
-
-        if hasattr(new_node, 'orelse'):
-            new_node.orelse = self.expand_body(new_node.orelse)
-
-        return new_node
-
-    def expand_body(self, body):
-
-        new_body = list()
-
-        for stmnt in body:
-            if is_concur(stmnt):
-                new_body += self.transform_concur(stmnt)
-            elif is_infunc(stmnt):
-                new_body += self.transform_infunc(stmnt)
-            else:
-                new_body.append(stmnt)
-
-        return new_body
-
-    def transform_concur(self, node):
-
-        qbits = node.qgl2_referenced_qbits
-        bid = BarrierIdentifier.next_bid()
-
-        arg_names = sorted(list(qbits))
-        arg_list = '[%s]' % ', '.join(arg_names)
-
-        b1_ast = expr2ast('Barrier(\'beg_c_%d\', %s)' % (bid, arg_list))
-        b2_ast = expr2ast('Barrier(\'end_c_%d\', %s)' % (bid, arg_list))
-
-        MarkReferencedQbits.marker(b1_ast, local_vars=self.local_vars)
-        MarkReferencedQbits.marker(b2_ast, local_vars=self.local_vars)
-
-        return [b1_ast] + node.body + [b2_ast]
-
-    def transform_infunc(self, node):
-        """
-        Essentially identical to transform_concur, except uses
-        a different name for the barrier (TBD).
-        """
-
-        # I think this will work because the original with-infunc
-        # pseudo-call should reference all the qbits we care about
-
-        qbits = node.qgl2_referenced_qbits
-        bid = BarrierIdentifier.next_bid()
-
-        arg_names = sorted(list(qbits))
-        arg_list = '[%s]' % ', '.join(arg_names)
-
-        b1_ast = expr2ast('Barrier(\'beg_i_%d\', %s)' % (bid, arg_list))
-        b2_ast = expr2ast('Barrier(\'end_i_%d\', %s)' % (bid, arg_list))
-
-        MarkReferencedQbits.marker(b1_ast, local_vars=self.local_vars)
-        MarkReferencedQbits.marker(b2_ast, local_vars=self.local_vars)
-
-        return [b1_ast] + node.body + [b2_ast]
-
-
 class QbitPruner(ast.NodeTransformer):
     """
     NodeTransformer that prunes out statements that do not reference
@@ -510,58 +407,6 @@ class QbitPruner(ast.NodeTransformer):
 
         return new_body
 
-class SeqAddBarriers(ast.NodeTransformer):
-    """
-    Insert barriers within the code to implement sequential
-    instructions, and with-concur
-
-    Assumes that the qbit annotations have already been done
-    """
-
-    def __init__(self):
-
-        self.qbits_stack = list()
-
-    def visit(self, node):
-        # if node is an ast.With, then call visit_With.
-        # otherwise, recurse on the descendants
-
-        return node
-
-    def visit_With(self, node):
-
-        if is_concur(node):
-            # 1. find the set of referenced qbits within the concur
-            # block (by looking at the annotation already calculated)
-            # 2. push this set onto qbits_stack
-            # 3. Recurse on each subnode in the body
-            # 4. pop the set from qbits_stack
-            # 5. add start and end barriers before/after the body
-            # 6. return the new node.
-            return node
-
-        elif is_infunc(node):
-            # 1. push the set of parameter qbits onto qbits_stack
-            # 2. recurse on each subnode in the body
-            # 3. make the body sequential, by inserting barriers
-            # between each statement, and before/after barriers
-            # 4. pop the set of parameter qbits from qbits_stack
-            # 5. replace the body with the new barrier-filled body
-            # 6. return the new node
-            return node
-
-        else:
-            # no new barriers at this level; just recurse on children
-            return node
-
-    @staticmethod
-    def add_barriers(node):
-        """
-        Convenience function
-        """
-
-        barriers = SeqAddBarriers()
-        return barriers.visit(node)
 
 class QbitGrouper2(ast.NodeTransformer):
     """
