@@ -36,10 +36,10 @@ def find_all_channels(node, local_vars=None):
     if hasattr(node, 'qgl2_referenced_qbits'):
         if channels != node.qgl2_referenced_qbits:
             DebugMsg.log("channels != node.qgl2_referenced_qbits",
-                    level=HIGH)
+                    level=DebugMsg.HIGH)
     else:
         DebugMsg.log("node lacks a qgl2_referenced_qbits",
-                level=HIGH)
+                level=DebugMsg.HIGH)
 
     return channels
 
