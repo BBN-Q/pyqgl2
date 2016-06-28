@@ -8,6 +8,7 @@ import ast
 import os
 import sys
 
+from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.lang import QGL2
 
 def is_with_label(node, label):
@@ -24,8 +25,10 @@ def is_with_label(node, label):
     """
 
     if not node:
+        DebugMsg.log('unexpected None node', level=DebugMsg.ALL)
         return False
     elif not isinstance(node, ast.With):
+        DebugMsg.log('unexpected non-With node', level=DebugMsg.ALL)
         return False
 
     item = node.items[0].context_expr
@@ -52,8 +55,10 @@ def is_with_call(node, funcname):
     """
 
     if not node:
+        DebugMsg.log('unexpected None node', level=DebugMsg.ALL)
         return False
     elif not isinstance(node, ast.With):
+        DebugMsg.log('unexpected non-With node', level=DebugMsg.ALL)
         return False
 
     item = node.items[0].context_expr
