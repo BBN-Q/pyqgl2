@@ -29,3 +29,7 @@ class QGL2(object):
     CONTROL = 'control'
     # A sequence of pulses
     SEQUENCE = 'sequence'
+
+    REPEAT = 'Qrepeat'
+    FOR = 'Qfor'
+    ITER = 'Qiter'
