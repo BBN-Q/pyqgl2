@@ -14,6 +14,7 @@ from copy import deepcopy
 import pyqgl2.ast_util
 
 from pyqgl2.ast_qgl2 import is_concur, is_infunc, is_seq
+from pyqgl2.ast_qgl2 import is_with_call, is_with_label
 from pyqgl2.ast_util import ast2str, expr2ast, NodeError, value2ast
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.importer import collapse_name
@@ -391,7 +392,7 @@ class Unroller(ast.NodeTransformer):
             # If is_simple_iteration returns True, then this
             # chain of derefs should just work...
             #
-            repeat_txt = 'with Qrepeat(%d):\n    pass' % iter_cnt
+            repeat_txt = 'with %s(%d):\n    pass' % (QGL2.ITER, iter_cnt)
             repeat_ast = expr2ast(repeat_txt)
 
             pyqgl2.ast_util.copy_all_loc(repeat_ast, for_node, recurse=True)
@@ -643,43 +644,6 @@ class QbitGrouper(ast.NodeTransformer):
         else:
             return self.generic_visit(node) # check
 
-    @staticmethod
-    def is_qrepeat(node):
-        """
-        Return True if this is a "with qrepeat()" statement,
-        False otherwise
-
-        This is semi-fragile in how it looks into the "With"
-        parameters.
-        """
-
-        if not isinstance(node, ast.With):
-            return False
-        elif not isinstance(node.items[0].context_expr, ast.Call):
-            return False
-        elif not isinstance(node.items[0].context_expr.func, ast.Name):
-            return False
-        elif node.items[0].context_expr.func.id != 'Qrepeat':
-            return False
-        else:
-            return True
-
-    @staticmethod
-    def is_with_label(node, label):
-        """
-        TODO: there's code in other places that duplicates this;
-        combine into a single function
-        """
-
-        if not isinstance(node, ast.With):
-            return False
-        elif not isinstance(node.items[0].context_expr, ast.Name):
-            return False
-        elif node.items[0].context_expr.id != label:
-            return False
-        else:
-            return True
-
     def group_stmnts2(self, stmnts, find_qbits_func=None):
         """
         A different approach to grouping statements,
@@ -774,7 +738,7 @@ class QbitGrouper(ast.NodeTransformer):
         multiple qbits, such as CNOT.
         """
 
-        if self.is_with_label(stmnt, 'Qfor'):
+        if is_with_label(stmnt, QGL2.FOR):
             new_body = list()
 
             # this is wasteful: we make a copy of the whole
@@ -788,8 +752,8 @@ class QbitGrouper(ast.NodeTransformer):
             # assumption is violated.
             #
             for substmnt in stmnt.body:
-                if not self.is_with_label(substmnt, 'Qiter'):
-                    print('EXPECTED Qiter')
+                if not is_with_label(substmnt, QGL2.ITER):
+                    print('EXPECTED %s' % QGL2.ITER)
 
                 if self.keep_qbit(substmnt, qbit, finder):
                     new_body.append(substmnt)
@@ -913,7 +877,7 @@ class QbitGrouper(ast.NodeTransformer):
             # that we expand, but qrepeat is the only one we
             # expand now
             #
-            if QbitGrouper.is_qrepeat(stmnt):
+            if is_with_call(stmnt, QGL2.REPEAT):
 
                 rep_groups = self.group_stmnts(stmnt.body)
                 for partition, substmnts in rep_groups:
@@ -925,7 +889,7 @@ class QbitGrouper(ast.NodeTransformer):
                     new_qrepeat.body = substmnts
 
                     expanded_stmnts.append(new_qrepeat)
-            elif QbitGrouper.is_with_label(stmnt, 'Qfor'):
+            elif is_with_label(stmnt, QGL2.FOR):
                 # TODO: must deal with Qfor and Qiters here.
                 expanded_stmnts.append(stmnt)
 
