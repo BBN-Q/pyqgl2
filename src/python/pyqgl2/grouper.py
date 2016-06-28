@@ -246,10 +246,14 @@ class AddSequential(ast.NodeTransformer):
             node.body = self.expand_body(node.body)
 
             if entering_concur:
+                bid = BarrierIdentifier.next_bid()
+
                 beg_barrier = self.make_barrier_ast(
-                        self.referenced_qbits, node, name='concur_b')
+                        self.referenced_qbits, node,
+                        name='concur_beg', bid=bid)
                 end_barrier = self.make_barrier_ast(
-                        self.referenced_qbits, node, name='concur_e')
+                        self.referenced_qbits, node,
+                        name='concur_end', bid=bid)
                 node.body = [beg_barrier] + node.body + [end_barrier]
 
         if hasattr(node, 'orelse'):
@@ -284,7 +288,12 @@ class AddSequential(ast.NodeTransformer):
         # serializing; these statements will all be moved to the
         # preamble anyway.
         #
-        for stmnt in body:
+
+        bid = BarrierIdentifier.next_bid()
+
+        for ind in range(len(body)):
+            stmnt = body[ind]
+
             # We don't put barriers around with statements;
             # we only put them around "primitive" statements
             # or as the side effect of with statements
@@ -297,14 +306,16 @@ class AddSequential(ast.NodeTransformer):
                 new_body.append(new_stmnt)
             else:
                 barrier_ast = self.make_barrier_ast(
-                        self.referenced_qbits, stmnt, name='seq')
+                        self.referenced_qbits, stmnt,
+                        name='seq_%d' % ind, bid=bid)
 
                 new_body.append(barrier_ast)
                 new_body.append(new_stmnt)
 
         if not (self.in_concur or self.is_with_container(new_stmnt)):
             barrier_ast = self.make_barrier_ast(
-                    self.referenced_qbits, stmnt, name='eseq')
+                    self.referenced_qbits, stmnt,
+                    name='eseq_%d' % len(body), bid=bid)
             new_body.append(barrier_ast)
 
         return new_body
@@ -331,14 +342,16 @@ class AddSequential(ast.NodeTransformer):
         else:
             return False
 
-    def make_barrier_ast(self, qbits, node, name='seq'):
+    def make_barrier_ast(self, qbits, node, name='seq', bid=None):
 
-        bid = BarrierIdentifier.next_bid()
+        if not bid:
+            bid = BarrierIdentifier.next_bid()
+
         arg_names = sorted(list(qbits))
         arg_list = '[%s]' % ', '.join(arg_names)
 
         barrier_ast = expr2ast(
-                'Barrier(\'%s_c_%d\', %s)' % (name, bid, arg_list))
+                'Barrier(\'%s_%d\', %s)' % (name, bid, arg_list))
 
         # TODO: make sure that this gets all of the qbits.
         # It might need local scope info as well, which we don't
