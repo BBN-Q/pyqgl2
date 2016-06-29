@@ -42,6 +42,11 @@ We're going to start with simple heuristics:
 2) If a name appears as an lval (or part of an lval tuple)
     prior to its reference, it is assumed to be in-scope
 
+    "prior to its reference" means "prior in the preorder walk
+    through the AST" and there's no guarantee that the
+    code that defines the symbol is executed prior to the
+    code referencing the symbol.
+
 3) If a name appears anywhere else (not the lval) in a
     statement, and is not in the global scope nor a formal
     parameter nor has appeared in an earlier assignment
@@ -52,24 +57,17 @@ We're going to start with simple heuristics:
     is referenced at any nesting level smaller than X,
     consider it a potential error.
 
+5) Redefinitions of builtins (either by use as a formal
+    parameter, or explicitly assigned) is considered a
+    potential error.
 """
 
-
 import ast
+import builtins
 
-from copy import deepcopy
-
-import pyqgl2.ast_util
-
+from pyqgl2.ast_util import NodeError
 from pyqgl2.inline import NameFinder
 
-from pyqgl2.ast_qgl2 import is_with_label
-from pyqgl2.ast_qgl2 import is_concur, is_infunc
-from pyqgl2.ast_util import ast2str, expr2ast
-from pyqgl2.ast_util import copy_all_loc
-from pyqgl2.ast_util import NodeError
-from pyqgl2.inline import BarrierIdentifier
-from pyqgl2.inline import QubitPlaceholder
 
 class CheckScoping(ast.NodeVisitor):
     """
@@ -83,8 +81,16 @@ class CheckScoping(ast.NodeVisitor):
 
         # mapping from name to nesting level (the nesting level
         # is 1-based: formal parameters are at nesting level 0).
+        # Python builtins are -1, which means that we shouldn't
+        # redefine them (although this is permitted).
         #
         self.local_names = dict()
+
+        # This method of enumerating the builtins is probably
+        # not portable
+        #
+        for name in builtins.__dict__:
+            self.local_names[name] = -1
 
         # How deeply we're nested.  Formal parameters are defined
         # at nesting level 0, and assignments in the body of the
@@ -93,6 +99,23 @@ class CheckScoping(ast.NodeVisitor):
         self.nesting_depth = 1
 
         self.name_finder = NameFinder()
+
+    def visit_FunctionDef(self, node):
+        """
+        The usual entry point: insert the names used by the
+        formal parameters, and then process the body
+        """
+
+        for arg in node.args.args:
+            name = arg.arg
+            if name not in self.local_names:
+                self.local_names[arg.arg] = 0
+            else:
+                NodeError.warning_msg(
+                        node,
+                        'formal parameter masks a builtin symbol [%s]' % name)
+
+        self.do_body(node.body)
 
     def visit_If(self, node):
         self.visit(node.test)
@@ -104,6 +127,17 @@ class CheckScoping(ast.NodeVisitor):
         self.do_lval(node.target)
         self.do_body(node.body)
         self.do_body(node.orelse)
+
+    def visit_Attribute(self, node):
+        """
+        We don't examine attributes (yet).  We assume that
+        they're OK without actually checking the namespace.
+
+        TODO: check the collapsed name of the attribute
+        against the current namespace.
+        """
+
+        pass
 
     def visit_Assign(self, node):
 
@@ -118,49 +152,62 @@ class CheckScoping(ast.NodeVisitor):
         # so examine both the left and right prior to adding the
         # lval bindings
         #
-        assert False, 'Dan, implement me'
+        self.generic_visit(node)
+        self.do_lval(node.target)
 
     def visit_Name(self, node):
-        if node.id not in self.local_names:
-            NodeError.warning_msg(node,
-                    'potentially undefined symbol [%s]' % node.id)
+        """
+        Process an ast.Name node for a symbol reference
+        (not a symbol assignment, which should be done
+        in do_lval).
+
+        If we find a name that doesn't have a binding in
+        the current scope, or that was defined at a higher
+        nesting level than we're currently in, then warn
+        the user that this might be an error.  (these aren't
+        always errors, but they're strange enough that they're
+        worth calling out)
+        """
+
+        name = node.id
+
+        if name not in self.local_names:
+            NodeError.warning_msg(
+                    node, 'potentially undefined symbol [%s]' % name)
+        elif self.local_names[name] > self.nesting_depth:
+            NodeError.warning_msg(
+                    node,
+                    'symbol [%s] referenced outside defining block' % name)
 
     def do_lval(self, lval):
-        local_names, _dotted_names = self.name_finder.find_names(lval)
+        assigned_names, _dotted_names = self.name_finder.find_names(lval)
 
-        # we permit the nest depth to decrease, but not increase
-        for name in local_names:
-            if not name in self.local_names:
+        for name in assigned_names:
+            if name not in self.local_names:
                 self.local_names[name] = self.nesting_depth
             elif self.local_names[name] > self.nesting_depth:
+                # we permit the nest depth to decrease, but
+                # not increase
+                #
                 self.local_names[name] = self.nesting_depth
+            elif self.local_names[name] < 0:
+                # If the symbol is a builtin, then warn that
+                # it's being reassigned
+                #
+                NodeError.warning_msg(
+                        lval, 'reassignment of a builtin symbol [%s]' % name)
 
     def do_body(self, body):
+        """
+        Process a statement body: increment the nesting depth,
+        process each statement in the body, and then decrement
+        the nesting depth again
+        """
 
         self.nesting_depth += 1
-
         for stmnt in body:
             self.visit(stmnt)
-
         self.nesting_depth -= 1
-
-def find_all_names(node):
-    names = set()
-
-    print('FAN %s' % ast.dump(node))
-
-    if isinstance(node, list):
-        for elem in node:
-            print('E: %s' % ast.dump(elem))
-            names = names.union(find_all_names(elem))
-    else:
-        for subnode in ast.walk(node):
-            if isinstance(subnode, ast.Name):
-                names.add(subnode.id)
-
-    print('NAMES: %s' % str(names))
-
-    return names
 
 
 if __name__ == '__main__':
@@ -210,7 +257,21 @@ def t5(a):
         d = b
 """
 
-    tests = [t0, t1, t2, t3, t4, t5]
+    t6 = """
+def t5(a, z=1, y=2):
+    d = 0
+    for b in range(a):
+        d += b
+"""
+
+    t7 = """
+def t6(a, z=1, y=2):
+    d = 0
+    for bool in range(a):
+        sum += b
+"""
+
+    tests = [t0, t1, t2, t3, t4, t5, t6, t7]
 
     for test in tests:
         # Forget the current error state, if any, prior to
