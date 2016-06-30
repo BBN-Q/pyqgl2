@@ -5,14 +5,13 @@ import meta
 
 from copy import deepcopy
 
-from pyqgl2.ast_util import NodeError
+from pyqgl2.ast_util import NodeError, expr2ast
 from pyqgl2.importer import NameSpaces
 from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
 
 import pyqgl2.ast_util
-
-from pyqgl2.ast_util import expr2ast
+import pyqgl2.scope
 
 class BarrierIdentifier(object):
 
@@ -1110,6 +1109,17 @@ class Inliner(ast.NodeTransformer):
             # unexpected: all FunctionDef nodes should be marked
             return funcdef
 
+        namespace = self.importer.path2namespace[funcdef.qgl_fname]
+
+        # If we haven't already done a scope check for this function,
+        # do it now (and marked it as checked)
+        #
+        if not hasattr(funcdef, 'qgl2_scope_checked'):
+            funcdef.qgl2_scope_checked = True
+
+            pyqgl2.scope.scope_check(
+                    funcdef, module_names=namespace.all_names)
+
         new_ptree = deepcopy(funcdef)
 
         while True:
@@ -1134,7 +1144,6 @@ class Inliner(ast.NodeTransformer):
         new_name = temp_manager.create_tmp_name(new_ptree.name)
         new_ptree.name = new_name
 
-        namespace = self.importer.path2namespace[funcdef.qgl_fname]
         self.importer.add_function(namespace, new_name, new_ptree)
 
         funcdef.qgl_inlined = new_ptree
@@ -1319,6 +1328,24 @@ def inline_call(base_call, importer):
             return new_call
 
     else:
+        # Analyze the function for potential scope errors, if we
+        # haven't already.
+        #
+        # The analysis doesn't depend on the calling context (so
+        # we get the same result each time), so once the function
+        # definition has been marked as qgl2_scope_checked, we don't
+        # check it again.
+        #
+        if not hasattr(func_ptree, 'qgl2_scope_checked'):
+            func_ptree.qgl2_scope_checked = True
+
+            namespace = importer.path2namespace[func_ptree.qgl_fname]
+
+            loc_syms = namespace.all_names
+            if not pyqgl2.scope.scope_check(
+                    func_ptree, module_names=loc_syms):
+                return None
+
         inlined = create_inline_procedure(func_ptree, base_call)
         if not inlined:
             NodeError.diag_msg(base_call,
