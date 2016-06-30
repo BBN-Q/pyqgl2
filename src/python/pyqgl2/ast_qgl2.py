@@ -28,7 +28,7 @@ def is_with_label(node, label):
         DebugMsg.log('unexpected None node', level=DebugMsg.ALL)
         return False
     elif not isinstance(node, ast.With):
-        DebugMsg.log('unexpected non-With node', level=DebugMsg.ALL)
+        # DebugMsg.log('unexpected non-With node', level=DebugMsg.ALL)
         return False
 
     item = node.items[0].context_expr
@@ -58,7 +58,7 @@ def is_with_call(node, funcname):
         DebugMsg.log('unexpected None node', level=DebugMsg.ALL)
         return False
     elif not isinstance(node, ast.With):
-        DebugMsg.log('unexpected non-With node', level=DebugMsg.ALL)
+        # DebugMsg.log('unexpected non-With node', level=DebugMsg.ALL)
         return False
 
     item = node.items[0].context_expr
