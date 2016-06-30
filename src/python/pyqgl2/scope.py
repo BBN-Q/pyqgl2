@@ -69,7 +69,7 @@ from pyqgl2.ast_util import NodeError
 from pyqgl2.inline import NameFinder
 
 
-def scope_check(function_def):
+def scope_check(function_def, module_names=None):
     """
     Convenience function to create a CheckScoping instance and
     use it to check the scoping of variables within an ast.FunctionDef.
@@ -85,7 +85,7 @@ def scope_check(function_def):
     #
     assert isinstance(function_def, ast.FunctionDef)
 
-    CheckScoping().visit(function_def)
+    CheckScoping(module_names=module_names).visit(function_def)
 
 
 class CheckScoping(ast.NodeVisitor):
@@ -97,9 +97,7 @@ class CheckScoping(ast.NodeVisitor):
     PARAM_SCOPE = 0
     LOCAL_SCOPE = 1
 
-    def __init__(self, namespace=None):
-
-        self.namespace = namespace
+    def __init__(self, module_names=None):
 
         self.formal_names = set()
 
@@ -115,6 +113,10 @@ class CheckScoping(ast.NodeVisitor):
         #
         for name in builtins.__dict__:
             self.local_names[name] = CheckScoping.BUILTIN_SCOPE
+
+        if module_names:
+            for name in module_names:
+                self.local_names[name] = CheckScoping.MODULE_SCOPE
 
         # How deeply we're nested.  Formal parameters are defined
         # at nesting level PARAM_SCOPE, and assignments in the body
@@ -235,12 +237,19 @@ class CheckScoping(ast.NodeVisitor):
 
 
 if __name__ == '__main__':
+    import sys
+
     t0 = """
 def t0(a, b, c):
     if a:
         x, y = bar(b, c)
     else:
         y, z = qux()
+"""
+
+    m0 = """
+<unknown>:4:15: warning: potentially undefined symbol [bar]
+<unknown>:6:15: warning: potentially undefined symbol [qux]
 """
 
     t1 = """
@@ -251,12 +260,25 @@ def t1(a, b, c):
         y, z = qux()
 """
 
+    m1 = """
+<unknown>:3:7: warning: potentially undefined symbol [x]
+<unknown>:4:15: warning: potentially undefined symbol [bar]
+<unknown>:6:15: warning: potentially undefined symbol [qux]
+"""
+
     t2 = """
 def t2(a, b, c):
     if a:
         x, y = bar(x, y)
     else:
         y, z = qux()
+"""
+
+    m2 = """
+<unknown>:4:15: warning: potentially undefined symbol [bar]
+<unknown>:4:19: warning: potentially undefined symbol [x]
+<unknown>:4:22: warning: potentially undefined symbol [y]
+<unknown>:6:15: warning: potentially undefined symbol [qux]
 """
 
     t3 = """
@@ -269,16 +291,30 @@ def t3(a, b, c):
     print(z)
 """
 
+    m3 = """
+<unknown>:4:15: warning: potentially undefined symbol [bar]
+<unknown>:4:19: warning: potentially undefined symbol [x]
+<unknown>:4:22: warning: potentially undefined symbol [y]
+<unknown>:6:15: warning: potentially undefined symbol [qux]
+<unknown>:8:10: warning: symbol [z] referenced outside defining block
+"""
+
     t4 = """
 def t4(a):
     for b in range(a):
         c = b
 """
 
+    m4 = """
+"""
+
     t5 = """
 def t5(a):
     for b in range(a):
         d = b
+"""
+
+    m5 = """
 """
 
     t6 = """
@@ -288,6 +324,9 @@ def t6(a, z=1, y=2):
         d += b
 """
 
+    m6 = """
+"""
+
     t7 = """
 def t7(a, z=1, y=2):
     d = 0
@@ -295,16 +334,47 @@ def t7(a, z=1, y=2):
         sum += b
 """
 
-    tests = [t0, t1, t2, t3, t4, t5, t6, t7]
+    m7 = """
+<unknown>:4:8: warning: reassignment of a builtin symbol [bool]
+<unknown>:5:15: warning: potentially undefined symbol [b]
+<unknown>:5:8: warning: reassignment of a builtin symbol [sum]
+"""
 
-    for test in tests:
+    t8 = """
+def t8(a, b):
+    for a in range(b):
+        y = foo(x)
+"""
+
+    m8 = """ """
+
+    module_names = [ 'foo', 'bar', 'qux' ]
+
+    tests = [t0, t1, t2, t3, t4, t5, t6, t7, t8]
+    msgs = [m0, m1, m2, m3, m4, m5, m6, m7, m8]
+
+    err_cnt = 0
+    for ind in range(len(tests)):
+        test = tests[ind]
+        expected_msg = msgs[ind].strip()
+
         # Forget the current NodeError state, if any, prior to
         # each test.
         #
         NodeError.reset()
+        NodeError.LAST_N = 20
 
         print('---- ---- ---- ----')
         t = ast.parse(test, mode='exec').body[0]
-        scope_check(t)
-        # print('--')
-        # print('\n'.join(NodeError.LAST_MSGS))
+        scope_check(t, module_names=module_names)
+
+        actual_msg = ('\n'.join(NodeError.LAST_MSGS)).strip()
+        if expected_msg != actual_msg:
+            print('ERROR in test %d' % ind)
+
+    if err_cnt:
+        print('%s FAILED' % sys.argv[0])
+        sys.exit(1)
+    else:
+        print('%s SUCCESS' % sys.argv[0])
+        sys.exit(0)
