@@ -69,9 +69,33 @@ from pyqgl2.ast_util import NodeError
 from pyqgl2.inline import NameFinder
 
 
+def scope_check(function_def):
+    """
+    Convenience function to create a CheckScoping instance and
+    use it to check the scoping of variables within an ast.FunctionDef.
+
+    The caller should use NodeError.error_detected() and/or
+    NodeError.halt_on_error() to check if any errors were detected.
+    Ordinarily this function has no effect except to generate
+    warning or error messages if it detects problems.
+    """
+
+    # Something is seriously wrong if we get anything other than
+    # an ast.FunctionDef
+    #
+    assert isinstance(function_def, ast.FunctionDef)
+
+    CheckScoping().visit(function_def)
+
+
 class CheckScoping(ast.NodeVisitor):
     """
     """
+
+    BUILTIN_SCOPE = -2
+    MODULE_SCOPE = -1
+    PARAM_SCOPE = 0
+    LOCAL_SCOPE = 1
 
     def __init__(self, namespace=None):
 
@@ -81,7 +105,7 @@ class CheckScoping(ast.NodeVisitor):
 
         # mapping from name to nesting level (the nesting level
         # is 1-based: formal parameters are at nesting level 0).
-        # Python builtins are -1, which means that we shouldn't
+        # Python builtins are -2, which means that we shouldn't
         # redefine them (although this is permitted).
         #
         self.local_names = dict()
@@ -90,13 +114,13 @@ class CheckScoping(ast.NodeVisitor):
         # not portable
         #
         for name in builtins.__dict__:
-            self.local_names[name] = -1
+            self.local_names[name] = CheckScoping.BUILTIN_SCOPE
 
         # How deeply we're nested.  Formal parameters are defined
-        # at nesting level 0, and assignments in the body of the
-        # function are at level 1.
+        # at nesting level PARAM_SCOPE, and assignments in the body
+        # of the function are at level LOCAL_SCOPE or greater.
         #
-        self.nesting_depth = 1
+        self.nesting_depth = CheckScoping.LOCAL_SCOPE
 
         self.name_finder = NameFinder()
 
@@ -109,7 +133,7 @@ class CheckScoping(ast.NodeVisitor):
         for arg in node.args.args:
             name = arg.arg
             if name not in self.local_names:
-                self.local_names[arg.arg] = 0
+                self.local_names[arg.arg] = CheckScoping.PARAM_SCOPE
             else:
                 NodeError.warning_msg(
                         node,
@@ -190,7 +214,7 @@ class CheckScoping(ast.NodeVisitor):
                 # not increase
                 #
                 self.local_names[name] = self.nesting_depth
-            elif self.local_names[name] < 0:
+            elif self.local_names[name] == CheckScoping.BUILTIN_SCOPE:
                 # If the symbol is a builtin, then warn that
                 # it's being reassigned
                 #
@@ -258,14 +282,14 @@ def t5(a):
 """
 
     t6 = """
-def t5(a, z=1, y=2):
+def t6(a, z=1, y=2):
     d = 0
     for b in range(a):
         d += b
 """
 
     t7 = """
-def t6(a, z=1, y=2):
+def t7(a, z=1, y=2):
     d = 0
     for bool in range(a):
         sum += b
@@ -274,11 +298,13 @@ def t6(a, z=1, y=2):
     tests = [t0, t1, t2, t3, t4, t5, t6, t7]
 
     for test in tests:
-        # Forget the current error state, if any, prior to
+        # Forget the current NodeError state, if any, prior to
         # each test.
         #
         NodeError.reset()
 
         print('---- ---- ---- ----')
-        t = ast.parse(test, mode='exec')
-        CheckScoping().visit(t)
+        t = ast.parse(test, mode='exec').body[0]
+        scope_check(t)
+        # print('--')
+        # print('\n'.join(NodeError.LAST_MSGS))
