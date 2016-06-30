@@ -54,7 +54,24 @@ class NodeError(object):
     LAST_ERROR_MSG = ''
     LAST_FATAL_MSG = ''
 
+    # Keep track of all messages emitted, so that we don't
+    # emit messages more than once (we might encounter the
+    # same error during multiple passes through the source,
+    # but we only want to inform the user once.
+    #
     ALL_PRINTED = set()
+
+    # Record most recent LAST_N messages created, even if they
+    # are NOT printed (either because they've already been
+    # printed, or because they are filtered by level, etc).
+    #
+    # Used by unit tests, where we want to check that the right
+    # messages are created.  (if the test expects to create a
+    # large number of messages, it can make LAST_N larger, but
+    # the default is small in order to reduce overhead)
+    #
+    LAST_N = 8
+    LAST_MSGS = list()
 
     def __init__(self):
         NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_NONE
@@ -62,11 +79,19 @@ class NodeError(object):
 
     @staticmethod
     def reset():
+        """
+        Reset the state of created/emitted messages completely,
+        returning to the initial state.
+
+        Does not reset MAX_ERR_LEVEL, MUTE_ERR_LEVEL, or LAST_N.
+        """
+
         NodeError.LAST_DIAG_MSG = ''
         NodeError.LAST_WARNING_MSG = ''
         NodeError.LAST_ERROR_MSG = ''
         NodeError.LAST_FATAL_MSG = ''
         NodeError.ALL_PRINTED = set()
+        NodeError.LAST_MSGS = list()
 
     @staticmethod
     def error_detected():
@@ -163,6 +188,16 @@ class NodeError(object):
             text = ''
 
         text += ('%s: %s' % (level_str, msg))
+
+        # FIXME: slightly awkward: changes to LAST_N don't "take effect"
+        # until a message is created
+        #
+        if NodeError.LAST_N <= 0:
+            NodeError.LAST_MSGS = list()
+        else:
+            NodeError.LAST_MSGS.append(text)
+            if len(NodeError.LAST_MSGS) > NodeError.LAST_N:
+                NodeError.LAST_MSGS = NodeError.LAST_MSGS[-NodeError.LAST_N:]
 
         # Only print messages that are at level MUTE_ERR_LEVEL
         # or higher
