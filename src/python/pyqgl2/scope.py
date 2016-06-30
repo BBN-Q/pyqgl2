@@ -65,8 +65,9 @@ We're going to start with simple heuristics:
 import ast
 import builtins
 
+import pyqgl2.inline
+
 from pyqgl2.ast_util import NodeError
-from pyqgl2.inline import NameFinder
 
 
 def scope_check(function_def, module_names=None):
@@ -78,6 +79,10 @@ def scope_check(function_def, module_names=None):
     NodeError.halt_on_error() to check if any errors were detected.
     Ordinarily this function has no effect except to generate
     warning or error messages if it detects problems.
+
+    Returns True to indicate success.  Right now, there's no way
+    for this function to fail (short of crashing), but eventually
+    we might decide that some of the warnings are really errors.
     """
 
     # Something is seriously wrong if we get anything other than
@@ -85,7 +90,10 @@ def scope_check(function_def, module_names=None):
     #
     assert isinstance(function_def, ast.FunctionDef)
 
-    CheckScoping(module_names=module_names).visit(function_def)
+    checker = CheckScoping(module_names=module_names)
+    checker.visit(function_def)
+
+    return True
 
 
 class CheckScoping(ast.NodeVisitor):
@@ -98,8 +106,6 @@ class CheckScoping(ast.NodeVisitor):
     LOCAL_SCOPE = 1
 
     def __init__(self, module_names=None):
-
-        self.formal_names = set()
 
         # mapping from name to nesting level (the nesting level
         # is 1-based: formal parameters are at nesting level 0).
@@ -124,7 +130,7 @@ class CheckScoping(ast.NodeVisitor):
         #
         self.nesting_depth = CheckScoping.LOCAL_SCOPE
 
-        self.name_finder = NameFinder()
+        self.name_finder = pyqgl2.inline.NameFinder()
 
     def visit_FunctionDef(self, node):
         """
@@ -135,7 +141,11 @@ class CheckScoping(ast.NodeVisitor):
         for arg in node.args.args:
             name = arg.arg
             if name not in self.local_names:
-                self.local_names[arg.arg] = CheckScoping.PARAM_SCOPE
+                self.local_names[name] = CheckScoping.PARAM_SCOPE
+            elif self.local_names[name] == CheckScoping.MODULE_SCOPE:
+                NodeError.warning_msg(
+                        node,
+                        'formal parameter masks a module symbol [%s]' % name)
             else:
                 NodeError.warning_msg(
                         node,
