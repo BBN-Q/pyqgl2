@@ -43,8 +43,6 @@ from pyqgl2.check_qbit import CompileQGLFunctions
 from pyqgl2.check_qbit import FindTypes
 from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_waveforms import CheckWaveforms
-from pyqgl2.concur_unroll import Unroller
-from pyqgl2.concur_unroll import QbitGrouper
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.eval import EvalTransformer, SimpleEvaluator
 from pyqgl2.flatten import Flattener
@@ -233,14 +231,6 @@ def compileFunction(filename, main_name=None, saveOutput=False,
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
 
-        # unroller = Unroller(importer)
-        # ptree1 = unroller.visit(ptree1)
-        # NodeError.halt_on_error()
-
-        # print(('UNROLLED CODE (iteration %d):\n%s' %
-        #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-        #         file=intermediate_fout, flush=True)
-
         type_check = CheckType(filename, importer=importer)
         ptree1 = type_check.visit(ptree1)
         NodeError.halt_on_error()
@@ -317,12 +307,6 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     NodeError.halt_on_error()
     print(('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
             file=intermediate_fout, flush=True)
-
-    # grouper = QbitGrouper(evaluator.eval_state.locals_stack[-1])
-    # new_ptree6 = grouper.visit(new_ptree5)
-    # NodeError.halt_on_error()
-    # print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
-    #         file=intermediate_fout, flush=True)
 
     MarkReferencedQbits.marker(new_ptree5,
             local_vars=evaluator.eval_state.locals_stack[-1])
