@@ -359,8 +359,8 @@ class AddSequential(ast.NodeTransformer):
         #
         MarkReferencedQbits.marker(barrier_ast)
 
-        print('MARKED [%s] %s' %
-                (str(barrier_ast.qgl2_referenced_qbits), str(qbits)))
+        # print('MARKED [%s] %s' %
+        #         (str(barrier_ast.qgl2_referenced_qbits), str(qbits)))
 
         copy_all_loc(barrier_ast, node, recurse=True)
 
@@ -447,7 +447,7 @@ class QbitGrouper2(ast.NodeTransformer):
         all_qbits = MarkReferencedQbits.marker(
                 node, local_vars=self.local_vars)
 
-        print('REFERENCED: %s' % str(all_qbits))
+        # print('REFERENCED: %s' % str(all_qbits))
 
         qbit_seqs = list()
 
@@ -458,8 +458,8 @@ class QbitGrouper2(ast.NodeTransformer):
             if pruned:
                 qbit_seqs.append(pruned)
 
-        for seq in qbit_seqs:
-            print('XX:\n%s' % ast2str(seq))
+        # for seq in qbit_seqs:
+        #     print('XX:\n%s' % ast2str(seq))
 
     @staticmethod
     def group(node, local_vars=None):
