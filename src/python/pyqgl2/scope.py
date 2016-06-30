@@ -242,60 +242,60 @@ if __name__ == '__main__':
     t0 = """
 def t0(a, b, c):
     if a:
-        x, y = bar(b, c)
+        x, y = alpha(b, c)
     else:
-        y, z = qux()
+        y, z = beta()
 """
 
     m0 = """
-<unknown>:4:15: warning: potentially undefined symbol [bar]
-<unknown>:6:15: warning: potentially undefined symbol [qux]
+<unknown>:4:15: warning: potentially undefined symbol [alpha]
+<unknown>:6:15: warning: potentially undefined symbol [beta]
 """
 
     t1 = """
 def t1(a, b, c):
     if x:
-        x, y = bar(b, c)
+        x, y = alpha(b, c)
     else:
-        y, z = qux()
+        y, z = beta()
 """
 
     m1 = """
 <unknown>:3:7: warning: potentially undefined symbol [x]
-<unknown>:4:15: warning: potentially undefined symbol [bar]
-<unknown>:6:15: warning: potentially undefined symbol [qux]
+<unknown>:4:15: warning: potentially undefined symbol [alpha]
+<unknown>:6:15: warning: potentially undefined symbol [beta]
 """
 
     t2 = """
 def t2(a, b, c):
     if a:
-        x, y = bar(x, y)
+        x, y = alpha(x, y)
     else:
-        y, z = qux()
+        y, z = beta()
 """
 
     m2 = """
-<unknown>:4:15: warning: potentially undefined symbol [bar]
-<unknown>:4:19: warning: potentially undefined symbol [x]
-<unknown>:4:22: warning: potentially undefined symbol [y]
-<unknown>:6:15: warning: potentially undefined symbol [qux]
+<unknown>:4:15: warning: potentially undefined symbol [alpha]
+<unknown>:4:21: warning: potentially undefined symbol [x]
+<unknown>:4:24: warning: potentially undefined symbol [y]
+<unknown>:6:15: warning: potentially undefined symbol [beta]
 """
 
     t3 = """
 def t3(a, b, c):
     if a:
-        x, y = bar(x, y)
+        x, y = alpha(x, y)
     else:
-        y, z = qux()
+        y, z = beta()
 
     print(z)
 """
 
     m3 = """
-<unknown>:4:15: warning: potentially undefined symbol [bar]
-<unknown>:4:19: warning: potentially undefined symbol [x]
-<unknown>:4:22: warning: potentially undefined symbol [y]
-<unknown>:6:15: warning: potentially undefined symbol [qux]
+<unknown>:4:15: warning: potentially undefined symbol [alpha]
+<unknown>:4:21: warning: potentially undefined symbol [x]
+<unknown>:4:24: warning: potentially undefined symbol [y]
+<unknown>:6:15: warning: potentially undefined symbol [beta]
 <unknown>:8:10: warning: symbol [z] referenced outside defining block
 """
 
@@ -346,12 +346,26 @@ def t8(a, b):
         y = foo(x)
 """
 
-    m8 = """ """
+    m8 = """
+<unknown>:4:12: warning: potentially undefined symbol [foo]
+<unknown>:4:16: warning: potentially undefined symbol [x]
+"""
 
-    module_names = [ 'foo', 'bar', 'qux' ]
+    t9 = """
+def t8(a, b):
+    for a in range(b):
+        y = baz(x)
+"""
 
-    tests = [t0, t1, t2, t3, t4, t5, t6, t7, t8]
-    msgs = [m0, m1, m2, m3, m4, m5, m6, m7, m8]
+    m9 = """
+<unknown>:4:12: warning: potentially undefined symbol [baz]
+<unknown>:4:16: warning: potentially undefined symbol [x]
+"""
+
+    module_names = [ 'bar', 'qux' ]
+
+    tests = [t0, t1, t2, t3, t4, t5, t6, t7, t8, t9]
+    msgs = [m0, m1, m2, m3, m4, m5, m6, m7, m8, m9]
 
     err_cnt = 0
     for ind in range(len(tests)):
@@ -364,13 +378,16 @@ def t8(a, b):
         NodeError.reset()
         NodeError.LAST_N = 20
 
-        print('---- ---- ---- ----')
         t = ast.parse(test, mode='exec').body[0]
+        print('---- ---- ---- ----')
         scope_check(t, module_names=module_names)
 
         actual_msg = ('\n'.join(NodeError.LAST_MSGS)).strip()
         if expected_msg != actual_msg:
             print('ERROR in test %d' % ind)
+            print('Expected:\n%s' % expected_msg)
+            print('Got:\n%s' % actual_msg)
+            err_cnt += 1
 
     if err_cnt:
         print('%s FAILED' % sys.argv[0])
