@@ -905,6 +905,13 @@ def is_static_ref(ptree, name):
                         ('parameter [%s] overwritten by assignment ' % name))
                 return False
 
+        elif isinstance(node, ast.AugAssign):
+            if is_name_in_ptree(name, node.target):
+                # Like Assignment
+                NodeError.warning_msg(node,
+                        ('parameter [%s] overwritten by assignment ' % name))
+                return False
+
         elif isinstance(node, ast.For):
             if is_name_in_ptree(name, node.target):
                 NodeError.warning_msg(node,
