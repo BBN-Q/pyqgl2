@@ -665,15 +665,7 @@ def create_inline_procedure(func_ptree, call_ptree):
             qbit_fparams.append(formal_param.arg)
             qbit_aparams.append(rewriter.name2const[formal_param.arg].id)
 
-    qbit_fparams_txt = ', '.join(sorted(qbit_fparams))
     qbit_aparams_txt = ', '.join(sorted(qbit_aparams))
-    in_barrier = rewriter.rewrite(
-            expr2ast('OPEN_BARRIER(%s)' % qbit_fparams_txt))
-    out_barrier = rewriter.rewrite(
-            expr2ast('CLOSE_BARRIER(%s)' % qbit_fparams_txt))
-
-    pyqgl2.ast_util.copy_all_loc(in_barrier, call_ptree, recurse=True)
-    pyqgl2.ast_util.copy_all_loc(out_barrier, call_ptree, recurse=True)
 
     # Now check whether any formal qbit parameters map onto
     # the same actual, by examining the name rewriter.
@@ -733,7 +725,6 @@ def create_inline_procedure(func_ptree, call_ptree):
     pyqgl2.ast_util.copy_all_loc(with_infunc, func_body[0], recurse=True)
     with_infunc.body = new_func_body
 
-    # inlined = setup_locals + [in_barrier] + new_func_body + [out_barrier]
     inlined = setup_locals + [with_infunc]
 
     return inlined
