@@ -173,11 +173,13 @@ class SequenceExtractor(object):
                 # print("Found concur at line %d: %s" % (lineNo+1,stmnt))
                 for s in stmnt.body:
                     if is_seq(s):
+                        chan_name = '_'.join(sorted(s.qgl_chan_list))
+
                         # print("Found with seq for qbits %s: %s" % (s.qgl_chan_list, ast2str(s)))
                         #print("With seq next at line %d: %s" % (lineNo+1,s))
-                        if str(s.qgl_chan_list) not in self.sequences:
-                            self.sequences[str(s.qgl_chan_list)] = list()
-                        thisSeq = self.sequences[str(s.qgl_chan_list)]
+                        if chan_name not in self.sequences:
+                            self.sequences[chan_name] = list()
+                        thisSeq = self.sequences[chan_name]
                         # print("Append body %s" % s.body)
                         # for s2 in s.body:
                         #     print(ast2str(s2))
@@ -280,7 +282,9 @@ class SequenceExtractor(object):
         seqs_str = ''
         seq_strs = list()
 
-        for seq in self.sequences.values():
+        for chan_name in self.sequences.keys():
+            seq = self.sequences[chan_name]
+
             #print("Looking at seq %s" % seq)
             sequence = [ast2str(item).strip() for item in seq]
             #print ("It is %s" % sequence)
@@ -295,9 +299,10 @@ class SequenceExtractor(object):
                 sequence = sequence[1:]
 
             # TODO there must be a more elegant way to indent this properly
-            seq_str = indent + 'seq = [\n' + 2 * indent
+            seq_str = indent + ('seq_%s = [\n' % chan_name) + 2 * indent
             seq_str += (',\n' + 2 * indent).join(sequence)
             seq_str += '\n' + indent + ']\n'
+            seq_str += indent + 'seqs += [seq_%s]\n' % chan_name
             seq_strs.append(seq_str)
 
         for seq_str in seq_strs:
