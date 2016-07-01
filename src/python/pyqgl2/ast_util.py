@@ -149,14 +149,13 @@ class NodeError(object):
         NodeError._make_msg(node, NodeError.NODE_ERROR_FATAL, msg)
 
     @staticmethod
-    def _make_msg(node, level, msg=None):
+    def _create_msg(node, level, msg=None):
         """
         Helper function that does all the real work of formatting
-        the messages, updating the max error level observed, and
-        exiting when a fatal error is encountered
+        the messages
 
-        Does basic sanity checking on its inputs to make sure that
-        the function is called correctly
+        Does not add the message to the list of messages; may
+        be used to create messages speculatively.
         """
 
         # Detect improper usage, and bomb out
@@ -167,9 +166,6 @@ class NodeError(object):
 
         if not msg:
             msg = '?'
-
-        if level > NodeError.MAX_ERR_LEVEL:
-            NodeError.MAX_ERR_LEVEL = level
 
         if level in NodeError.NODE_ERROR_LEGAL_LEVELS:
             level_str = NodeError.NODE_ERROR_LEGAL_LEVELS[level]
@@ -188,6 +184,22 @@ class NodeError(object):
             text = ''
 
         text += ('%s: %s' % (level_str, msg))
+
+        return text
+
+    @staticmethod
+    def _emit_msg(level, text):
+        """
+        Emit a message: update the max error level seen,
+        record the new text in the list of last N messages,
+        then check to see whether it should be printed (according
+        to its level), and if so then print it and add it to the
+        set of all printed messages (which is used to ensure that
+        duplicates of the message won't be printed)
+        """
+
+        if level > NodeError.MAX_ERR_LEVEL:
+            NodeError.MAX_ERR_LEVEL = level
 
         # FIXME: slightly awkward: changes to LAST_N don't "take effect"
         # until a message is created
@@ -210,6 +222,28 @@ class NodeError(object):
             if text not in NodeError.ALL_PRINTED:
                 print('%s' % text)
                 NodeError.ALL_PRINTED.add(text)
+
+    @staticmethod
+    def _make_msg(node, level, msg=None):
+        """
+        Helper function that uses _create_msg and _emit_msg,
+        and then  all the real work of creating
+        the messages, updating the max error level observed, and
+        exiting when a fatal error is encountered
+
+        Does basic sanity checking on its inputs to make sure that
+        the function is called correctly
+        """
+
+        # Detect improper usage, and bomb out
+        if node:
+            assert isinstance(node, ast.AST), 'got %s' % str(type(node))
+
+        assert level in NodeError.NODE_ERROR_LEGAL_LEVELS
+
+        text = NodeError._create_msg(node, level, msg=msg)
+
+        NodeError._emit_msg(level, text)
 
         # If we've encountered a fatal error, then there's no
         # point in continuing (even if we haven't printed the
