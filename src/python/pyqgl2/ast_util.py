@@ -13,6 +13,7 @@ from copy import deepcopy
 
 from pyqgl2.pysourcegen import dump_python_source
 
+
 class NodeError(object):
     """
     A mix-in to make it simplify the generation of
@@ -35,10 +36,10 @@ class NodeError(object):
     NODE_ERROR_FATAL = 3
 
     NODE_ERROR_LEGAL_LEVELS = {
-        NODE_ERROR_NONE : 'diag',
-        NODE_ERROR_WARNING : 'warning',
-        NODE_ERROR_ERROR : 'error',
-        NODE_ERROR_FATAL : 'fatal'
+        NODE_ERROR_NONE: 'diag',
+        NODE_ERROR_WARNING: 'warning',
+        NODE_ERROR_ERROR: 'error',
+        NODE_ERROR_FATAL: 'fatal'
     }
 
     # The maximum error level observed so far
@@ -102,7 +103,7 @@ class NodeError(object):
         """
         The ordinary use of NodeError is to continue on after encountering
         an error (in the hope of getting useful additional diagnostics).
-        
+
         At certain points in the program, however, it makes little sense
         to continue if there has been an error in an earlier part of
         the program.  Use halt_on_error() to detect this condition and
@@ -263,17 +264,20 @@ def diag_msg(node, msg=None):
     """
     NodeError.diag_msg(node, msg)
 
+
 def warning_msg(node, msg=None):
     """
     Print a warning message associated with the given node
     """
     NodeError.warning_msg(node, msg)
 
+
 def error_msg(node, msg=None):
     """
     Print an error message associated with the given node
     """
     NodeError.error_msg(node, msg)
+
 
 def fatal_msg(node, msg=None):
     """
@@ -299,6 +303,7 @@ class NodeVisitorWithFname(ast.NodeVisitor, NodeError):
     def __init__(self):
         super(NodeVisitorWithFname, self).__init__()
 
+
 def copy_node(node):
     """
     Make a copy of the given ast node and its descendants
@@ -310,6 +315,7 @@ def copy_node(node):
 
     return deepcopy(node)
 
+
 def ast2str(ptree):
     """
     Given an AST parse tree, return the equivalent code
@@ -317,6 +323,7 @@ def ast2str(ptree):
     """
 
     return dump_python_source(ptree)
+
 
 def copy_all_loc(new_node, old_node, recurse=False):
     """
@@ -346,6 +353,7 @@ def copy_all_loc(new_node, old_node, recurse=False):
                 subnode.qgl_fname = old_node.qgl_fname
 
     return new_node
+
 
 def expr2ast(expr_text):
     """
