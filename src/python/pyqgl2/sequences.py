@@ -282,7 +282,7 @@ class SequenceExtractor(object):
         seqs_str = ''
         seq_strs = list()
 
-        for chan_name in self.sequences.keys():
+        for chan_name in sorted(self.sequences.keys()):
             seq = self.sequences[chan_name]
 
             #print("Looking at seq %s" % seq)
