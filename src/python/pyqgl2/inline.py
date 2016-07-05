@@ -329,6 +329,57 @@ def check_call_parameters(call_ptree):
 
     return True
 
+def make_symtype_check(symname, symtype, actual_param):
+    """
+    Create and return AST that performs a check that the given symbol
+    has the given type, and prints and error message and halts if
+    a type violation is detected.  This AST is intended to be inserted
+    into the original program to check that the actual parameters to
+    a function or procedure match the declared types.
+
+    The actual_param is used to create the error message.
+
+    The way that types are specified is a little clunky.
+    In addition to literal types (like str, int, etc) there is also
+    at least "anti-type", 'classical', which matches any type
+    that isn't quantum.
+
+    TODO: this doesn't handle aggregate types, like lists of
+    qbits, yet.
+    """
+
+    # If we're passed a type instead of a name of a type,
+    # then convert it.
+    #
+    # (This shouldn't happen right now, but it might be possible
+    # in the future.)
+    #
+    if isinstance(symtype, type):
+        # TODO: this method of finding the name of the type
+        # might not be portable.  I haven't checked whether this
+        # is from the spec, or just the way CPython works
+        #
+        symtype = symtype.__name__
+
+    check_ast = None
+
+    if symtype == QGL2.CLASSICAL:
+        check_ast = expr2ast('assert not instanceof(%s, QubitPlaceholder)' %
+                symname)
+    elif symtype == QGL2.QBIT:
+        check_ast = expr2ast('assert instanceof(%s, QubitPlaceholder)' %
+                symname)
+    else:
+        check_ast = expr2ast('assert instanceof(%s, %s)' %
+                (symname, symtype))
+
+    if check_ast:
+        check_ast = ast.Expr(value=check_ast)
+
+        pyqgl2.ast_util.copy_all_loc(check_ast, actual_param, recurse=True)
+        print('CHECK_AST %s' % ast.dump(check_ast))
+
+    return check_ast
 
 def create_inline_procedure(func_ptree, call_ptree):
     """
@@ -440,6 +491,8 @@ def create_inline_procedure(func_ptree, call_ptree):
     setup_locals = list()
     new_func_body = list()
 
+    print('CALLF %s' % ast.dump(func_ptree))
+
     # parameters that we've already processed (to make sure
     # that we don't do something as both an ordinary and keyword
     # parameter, and make sure that all the keyword parameters
@@ -474,6 +527,9 @@ def create_inline_procedure(func_ptree, call_ptree):
         orig_name = formal_params[param_ind].arg
         actual_param = actual_params[param_ind]
         seen_param_names[orig_name] = actual_param
+
+        print('CALLF orig %s actual %s' %
+                (ast.dump(formal_params[param_ind]), ast.dump(actual_param)))
 
     # Potential optimizations: many other possible cases TODO
     #
@@ -546,6 +602,33 @@ def create_inline_procedure(func_ptree, call_ptree):
         setup_locals.append(ast.Assign(
                     targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
                     value=keyword_param.value))
+
+    setup_checks = list()
+
+    for param_ind in range(len(actual_params)):
+
+        arg = formal_params[param_ind]
+        anno = arg.annotation
+        if not anno:
+            continue
+
+        if not isinstance(anno, ast.Name):
+            NodeError.fatal_msg(
+                    anno, 'type annotation is not a symbol')
+            break
+
+        fpname = arg.arg
+        new_name = rewriter.name2name[fpname]
+
+        actual_param = actual_params[param_ind]
+
+        print('CHECK orig %s newname %s type %s' %
+                (fpname, new_name, anno.id))
+        check = make_symtype_check(new_name, anno.id, actual_param)
+        if check:
+            setup_checks.append(check)
+
+        print('CHECKO %s' % ast.dump(check))
 
     # deal with any unspecified keyword parameters
     #
@@ -725,7 +808,7 @@ def create_inline_procedure(func_ptree, call_ptree):
     pyqgl2.ast_util.copy_all_loc(with_infunc, func_body[0], recurse=True)
     with_infunc.body = new_func_body
 
-    inlined = setup_locals + [with_infunc]
+    inlined = setup_locals + setup_checks + [with_infunc]
 
     return inlined
 
