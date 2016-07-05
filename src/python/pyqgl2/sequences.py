@@ -307,7 +307,6 @@ class SequenceExtractor(object):
 
         for seq_str in seq_strs:
             seqs_str += seq_str
-            seqs_str += indent + 'seqs += [seq]\n'
 
         postamble = indent + 'return seqs\n'
 
