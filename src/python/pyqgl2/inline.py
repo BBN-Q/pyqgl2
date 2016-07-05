@@ -329,7 +329,7 @@ def check_call_parameters(call_ptree):
 
     return True
 
-def make_symtype_check(symname, symtype, actual_param):
+def make_symtype_check(symname, symtype, actual_param, fpname):
     """
     Create and return AST that performs a check that the given symbol
     has the given type, and prints and error message and halts if
@@ -363,19 +363,34 @@ def make_symtype_check(symname, symtype, actual_param):
 
     check_ast = None
 
+    errcode = 'NodeError._emit_msg(NodeError.NODE_ERROR_ERROR, \'%s\')'
+
     if symtype == QGL2.CLASSICAL:
-        check_ast = expr2ast('assert not instanceof(%s, QubitPlaceholder)' %
-                symname)
+        txt = NodeError._create_msg(
+                actual_param, NodeError.NODE_ERROR_ERROR,
+                '[%s] declared classical, got quantum' % fpname)
+        expr = (('if isinstance(%s, QubitPlaceholder): ' % symname) +
+                (errcode % txt))
+        check_ast = expr2ast(expr)
     elif symtype == QGL2.QBIT:
-        check_ast = expr2ast('assert instanceof(%s, QubitPlaceholder)' %
-                symname)
+        txt = NodeError._create_msg(
+                actual_param, NodeError.NODE_ERROR_ERROR,
+                '[%s] declared quantum, got classical' % fpname)
+        print('T1 TXT %s' % txt)
+        expr = (('if not isinstance(%s, QubitPlaceholder): ' % fpname) +
+                (errcode % txt))
+        print('T1 EXPR %s' % expr)
+        check_ast = expr2ast(expr)
     else:
-        check_ast = expr2ast('assert instanceof(%s, %s)' %
-                (symname, symtype))
+        txt = NodeError._create_msg(
+                actual_param, NodeError.NODE_ERROR_ERROR,
+                '[%s] does not match declared type [%s]' % (symname, symtype))
+        expr = ('if not isinstance(%s, %s): %s' %
+                    (symname, symtype, errcode % txt))
+        check_ast = expr2ast(expr)
+
 
     if check_ast:
-        check_ast = ast.Expr(value=check_ast)
-
         pyqgl2.ast_util.copy_all_loc(check_ast, actual_param, recurse=True)
         print('CHECK_AST %s' % ast.dump(check_ast))
 
@@ -624,7 +639,7 @@ def create_inline_procedure(func_ptree, call_ptree):
 
         print('CHECK orig %s newname %s type %s' %
                 (fpname, new_name, anno.id))
-        check = make_symtype_check(new_name, anno.id, actual_param)
+        check = make_symtype_check(new_name, anno.id, actual_param, fpname)
         if check:
             setup_checks.append(check)
 
