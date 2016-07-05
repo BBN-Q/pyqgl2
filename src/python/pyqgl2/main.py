@@ -54,7 +54,6 @@ from pyqgl2.inline import Inliner
 from pyqgl2.repeat import RepeatTransformer
 from pyqgl2.sequence import SequenceCreator
 from pyqgl2.sequences import SequenceExtractor, get_sequence_function
-from pyqgl2.substitute import specialize
 from pyqgl2.sync import SynchronizeBlocks
 
 
@@ -205,9 +204,8 @@ def compileFunction(filename, main_name=None, saveOutput=False,
 
     ptree1 = ptree
 
-    # We may need to iterate over the inlining and specialization
-    # processes a few times, because inlining may expose new things
-    # to specialize, and vice versa.
+    # We may need to iterate over the inlining processes a few times,
+    # because inlining may expose new things to inline.
     #
     # TODO: as a stopgap, we're going to limit iterations to 20, which
     # is enough to handle fairly deeply-nested, complex non-recursive
@@ -237,18 +235,6 @@ def compileFunction(filename, main_name=None, saveOutput=False,
         print(('CHECKED CODE (iteration %d):\n%s' %
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
-
-        # ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
-        #         context=ptree1)
-        # NodeError.halt_on_error()
-        # print(('SPECIALIZED CODE (iteration %d):\n%s' %
-        #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-        #         file=intermediate_fout, flush=True)
-
-        # If we include the unroller, or check for changes by the
-        # specializer, then we would also check for their changes here.
-        # Right now the unroller is not used (unrolling is done
-        # within the evaluator)
 
         if inliner.change_cnt == 0:
             NodeError.diag_msg(None,
@@ -281,13 +267,6 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print('EVALUATOR REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1))
     print(('EVALUATOR + REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1)),
             file=intermediate_fout, flush=True)
-
-    # ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
-    #         context=ptree1)
-    # NodeError.halt_on_error()
-    # print(('SPECIALIZED CODE (iteration %d):\n%s' %
-    #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-    #         file=intermediate_fout, flush=True)
 
     # If we got raw code, then we may have no source file to use
     if not filename or filename == '<stdin>':
