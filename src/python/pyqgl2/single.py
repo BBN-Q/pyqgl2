@@ -8,9 +8,9 @@ from copy import deepcopy
 
 from pyqgl2.ast_util import ast2str, NodeError
 from pyqgl2.find_channels import find_all_channels
+from pyqgl2.find_labels import getChanLabel
 from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
-from pyqgl2.substitute import getChanLabel
 
 def is_qbit_create(node):
     """
