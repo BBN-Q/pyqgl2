@@ -341,7 +341,7 @@ def make_symtype_check(symname, symtype, actual_param, fpname):
 
     The way that types are specified is a little clunky.
     In addition to literal types (like str, int, etc) there is also
-    at least "anti-type", 'classical', which matches any type
+    at least one "anti-type", 'classical', which matches any type
     that isn't quantum.
 
     TODO: this doesn't handle aggregate types, like lists of
@@ -376,19 +376,16 @@ def make_symtype_check(symname, symtype, actual_param, fpname):
         txt = NodeError._create_msg(
                 actual_param, NodeError.NODE_ERROR_ERROR,
                 '[%s] declared quantum, got classical' % fpname)
-        print('T1 TXT %s' % txt)
-        expr = (('if not isinstance(%s, QubitPlaceholder): ' % fpname) +
+        expr = (('if not isinstance(%s, QubitPlaceholder): ' % symname) +
                 (errcode % txt))
-        print('T1 EXPR %s' % expr)
         check_ast = expr2ast(expr)
     else:
         txt = NodeError._create_msg(
                 actual_param, NodeError.NODE_ERROR_ERROR,
-                '[%s] does not match declared type [%s]' % (symname, symtype))
+                '[%s] does not match declared type [%s]' % (fpname, symtype))
         expr = ('if not isinstance(%s, %s): %s' %
                     (symname, symtype, errcode % txt))
         check_ast = expr2ast(expr)
-
 
     if check_ast:
         pyqgl2.ast_util.copy_all_loc(check_ast, actual_param, recurse=True)
@@ -637,13 +634,11 @@ def create_inline_procedure(func_ptree, call_ptree):
 
         actual_param = actual_params[param_ind]
 
-        print('CHECK orig %s newname %s type %s' %
-                (fpname, new_name, anno.id))
-        check = make_symtype_check(new_name, anno.id, actual_param, fpname)
-        if check:
-            setup_checks.append(check)
-
-        print('CHECKO %s' % ast.dump(check))
+        # TODO: add back the make_symtype_check when it's reliable
+        #
+        # check = make_symtype_check(new_name, anno.id, actual_param, fpname)
+        # if check:
+        #     setup_checks.append(check)
 
     # deal with any unspecified keyword parameters
     #
@@ -723,6 +718,11 @@ def create_inline_procedure(func_ptree, call_ptree):
         #         (name, pyqgl2.ast_util.ast2str(actual)))
         # print('ARG %s = %s' % (name, ast.dump(actual)))
 
+    # NOTE: this interacts badly with doing eval-time error checking,
+    # because letting the "constants" through untouched removes
+    # an opportunity to check them (which can currently only be done
+    # for things assigned to symbols
+    #
     setup_locals = new_setup_locals
 
     # Now rewrite any local variable names to avoid conflicting
@@ -1246,6 +1246,156 @@ class Inliner(ast.NodeTransformer):
 
         return new_ptree
 
+    def make_checked_call(self, call_ptree):
+        """
+        Given a call, see if we can turn it into a "checked call",
+        which includes checks that the call is made with parameters
+        of the desired type.
+
+        Returns the original call_ptree if no expansion occurs.
+        Returns a list of statements if the expansion occurs
+        (not that this list might only contain one statement, if
+        the expansion is trivial).  The caller can determine whether
+        any transformation was made (or attempted) by looking at
+        the return type; an ast.Call means nothing was modified,
+        and a list means something was (potentially) changed.
+
+        For example, if we have a call like
+
+            foo(a, b, c) # a, b, and c are arbitrary expressions
+
+        and we have the definition of foo and know that it declares
+        that the parameters of foo must be of type int, str, and list,
+        then this would turn into something like:
+
+            tmp_a = a
+            tmp_b = b
+            tmp_c = c
+            assert isinstance(tmp_a, int)
+            assert isinstance(tmp_b, str)
+            assert isinstance(tmp_c, list)
+            foo(tmp_a, tmp_b, tmp_c)
+
+        FIXME: This is about half working -- the positional args are
+        more or less correct, but the keyword args are not started.
+        """
+
+        if not isinstance(call_ptree, ast.Call):
+            NodeError.error_msg(base_call, 'not a call')
+            return call_ptree
+
+        func_filename = call_ptree.qgl_fname
+        func_name = collapse_name(call_ptree.func)
+
+        func_ptree = self.importer.resolve_sym(func_filename, func_name)
+        if not func_ptree:
+            # This isn't necessarily an error.  It could be an
+            # innocent library function that we don't have a
+            # definition for, and therefore can't inline it.
+            #
+            NodeError.diag_msg(
+                    call_ptree, 'definition for %s() not found' % func_name)
+            return call_ptree
+
+        if is_qgl_procedure(func_ptree):
+            NodeError.diag_msg(
+                    call_ptree, '%s() is qgl2decl; skipping' % func_name)
+            # We don't do anything with qgl2decl procedures right now
+            # (they get handled inside the inliner).  Someday we might
+            # want to unify this, but we don't do this right now.
+            return call_ptree
+
+        elif is_qgl2_stub(func_ptree):
+            NodeError.diag_msg(
+                    call_ptree, '%s() is a qgl2stub' % func_name)
+            # TODO: add checking...
+            print('STUB STUB!')
+            tmp_var = TempVarManager.create_temp_var_manager()
+
+            call_expr = ast.Expr(value=call_ptree)
+            pyqgl2.ast_util.copy_all_loc(call_expr, call_ptree)
+
+            new_assignments = list()
+            new_args = list()
+            new_kwargs = list()
+
+            print('AST STC %s' % ast.dump(call_ptree))
+            print('AST FPC %s' % ast.dump(func_ptree))
+
+            # 1. make a new assignment for each actual parameter, unless
+            #    the value is a symbol or number.
+            # 2. add type checks for each tmp variable
+            # 3. construct new call with the tmps as the actuals
+
+            for ind in range(len(call_ptree.args)):
+                ap_arg = call_ptree.args[ind]
+                fp_arg = func_ptree.args.args[ind]
+
+                # if there's no annotation for this formal parameter,
+                # then we can't do a type check.  Just add the actual
+                # to new_args.
+                #
+                # If it's a symbol, then we can check the
+                # type in-place and don't need to make a copy.
+                if not fp_arg.annotation:
+                    new_args.append(ap_arg)
+                    continue
+
+                if isinstance(ap_arg, ast.Name):
+                    new_name = ap_arg.id
+                    to_check = ap_arg
+                    new_args.append(ap_arg)
+                else:
+                    new_name = tmp_var.create_tmp_name(orig_name=fp_arg.arg)
+                    to_check = ast.Name(id=new_name)
+                    new_args.append(to_check)
+
+                    # NOTE: need to copy location info into to_check.
+                    # FIXME (every new AST created needs to have a
+                    # location assigned properly)
+
+                    val_str = pyqgl2.ast_util.ast2str(ap_arg).strip()
+                    expr = '%s = %s' % (new_name, val_str)
+                    new_assignments.append(expr2ast(expr))
+
+                # def make_symtype_check(symname, symtype, actual_param, fpname):
+                print('CHECK name %s type %s fpname %s' %
+                        (new_name, fp_arg.annotation.id, fp_arg.arg))
+                check = make_symtype_check(
+                        new_name, fp_arg.annotation.id, ap_arg, fp_arg.arg)
+                print('CHECKA %s' % pyqgl2.ast_util.ast2str(check).strip())
+                new_assignments.append(check)
+
+            for kwarg in call_ptree.keywords:
+                if (isinstance(kwarg.value, ast.Name) or
+                        isinstance(kwarg.value, ast.Num)):
+                    new_kwargs.append(kwarg)
+                else:
+                    new_name = tmp_var.create_tmp_name()
+                    new_kwargs.append(
+                            ast.keyword(
+                                arg=kwarg.arg, value=ast.Name(id=new_name)))
+                    val_str = pyqgl2.ast_util.ast2str(kwarg.value).strip()
+                    expr = '%s = %s' %  (new_name, val_str)
+                    new_assignments.append(expr2ast(expr))
+
+            for x in new_assignments:
+                print('NA %s' % pyqgl2.ast_util.ast2str(x).strip())
+
+            new_call = deepcopy(call_ptree)
+            new_call.args = new_args
+            new_call.keywords = new_kwargs
+            new_call = ast.Expr(value=new_call)
+
+            # FAKE, FIXME
+            return new_assignments + [new_call] # fake
+
+        else:
+            NodeError.diag_msg(
+                    call_ptree, '%s() is not QGL2; not touching ' % func_name)
+            return call_ptree
+
+
     def inline_body(self, body):
         """
         inline a list of expressions or other statements
@@ -1282,9 +1432,19 @@ class Inliner(ast.NodeTransformer):
 
             inlined = inline_call(call_ptree, self.importer)
             if isinstance(inlined, ast.Call):
-                # new_stmnt = self.visit(stmnt)
                 stmnt.value = inlined
                 new_body.append(stmnt)
+
+                # Replace the previous two lines with these,
+                # when the checked_call function does the right
+                # thing.
+                #
+                # checked_call = self.make_checked_call(call_ptree)
+                # if isinstance(checked_call, ast.Call):
+                #     stmnt.value = inlined
+                #     new_body.append(stmnt)
+                # else:
+                #     new_body += checked_call
                 continue
 
             self.change_cnt += 1
