@@ -986,7 +986,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                     continue
                 else:
                     # If the 2 are different, then reset rptStartInd to what we found, reset repeatStartLen to curlen, set seqPos to rptStartInd
-                    logger.debug("Repeat started at %d for target %s, not guessed %d; going back", realRptStartInd, elem.target, rptStartElem[-1])
+                    logger.debug("Repeat started at %d for target %s, not guessed %d; going back", realRptStartInd, elem.target, rptStartInd[-1])
                     # We already reset the repeat counter properly
                     # Reset the startInd to be the proper one
                     # And reset the length for before the repeat to the length to this point
@@ -1341,7 +1341,116 @@ if __name__ == '__main__':
         seqs += [seq]
         return seqs
 
+    def testWait():
+        from QGL.ChannelLibrary import QubitFactory
+        from QGL.BlockLabel import BlockLabel
+        from QGL.ControlFlow import Barrier, Repeat, LoadRepeat
+        from QGL.ControlFlow import Sync
+        from QGL.ControlFlow import Wait
+        from QGL.PulsePrimitives import Id
+        from QGL.PulsePrimitives import MEAS
+        from QGL.PulsePrimitives import X, X90, X90m
+        from QGL.PulsePrimitives import Y, Y90
+
+        q1 = QubitFactory('q1')
+        QBIT_q1 = q1
+        q2 = QubitFactory('q2')
+        QBIT_q2 = q2
+        q3 = QubitFactory('q3')
+        QBIT_q3 = q3
+
+        seqs = list()
+        # q1
+        seq = [
+            Barrier('1', [q1, q2]),
+            Sync(),
+            Wait(),
+            X(q1, length=0.1),
+            Barrier('2', [q1, q2]),
+            Y(q1, length=0.2),
+#            Barrier('3', [q1, q2]),
+            Wait(),
+            X(q1, length=0.3),
+            Barrier('4', [q1, q2])
+        ]
+        seqs += [seq]
+        # q2
+        seq = [
+            Barrier('1', [q1, q2]),
+            Sync(),
+            Wait(),
+            X(q2),
+            Barrier('2', [q1, q2]),
+            Y(q2),
+#            Barrier('3', [q1, q2]),
+            Wait(),
+            X(q2),
+            Barrier('4', [q1, q2])
+        ]
+        seqs += [seq]
+        return seqs
+
+    def testRepeat():
+        from QGL.ChannelLibrary import QubitFactory
+        from QGL.BlockLabel import BlockLabel
+        from QGL.ControlFlow import Barrier, Repeat, LoadRepeat
+        from QGL.ControlFlow import Sync
+        from QGL.ControlFlow import Wait
+        from QGL.PulsePrimitives import Id
+        from QGL.PulsePrimitives import MEAS
+        from QGL.PulsePrimitives import X, X90, X90m
+        from QGL.PulsePrimitives import Y, Y90
+
+        q1 = QubitFactory('q1')
+        QBIT_q1 = q1
+        q2 = QubitFactory('q2')
+        QBIT_q2 = q2
+        q3 = QubitFactory('q3')
+        QBIT_q3 = q3
+
+        seqs = list()
+        # q1
+        seq = [
+            Barrier('1', [q1, q2]),
+            X(q1, length=0.1),
+            Barrier('2', [q1, q2]),
+            LoadRepeat(2),
+            BlockLabel('startRep1'),
+            Y(q1, length=0.2),
+            LoadRepeat(2),
+            BlockLabel('startRep2'),
+            X90m(q1, length=0.3),
+            Repeat(BlockLabel('startRep2')),
+            X90(q1, length=0.5),
+            Repeat(BlockLabel('startRep1')),
+            Barrier('3', [q1, q2]),
+            Y90(q1, length=0.7),
+            Barrier('4', [q1, q2])
+        ]
+        seqs += [seq]
+        # q2
+        seq = [
+            Barrier('1', [q1, q2]),
+            X(q2),
+            Barrier('2', [q1, q2]),
+            LoadRepeat(2),
+            BlockLabel('startRep1'),
+            Y(q2),
+            LoadRepeat(2),
+            BlockLabel('startRep2'),
+            X90m(q2),
+            Repeat(BlockLabel('startRep2')),
+            X90(q2),
+            Repeat(BlockLabel('startRep1')),
+            Barrier('3', [q1, q2]),
+            Y90(q2),
+            Barrier('4', [q1, q2])
+        ]
+        seqs += [seq]
+        return seqs
+
     def repeatBarriers():
+        # This no longer works as we currently don't allow barriers inside repeat blocks
         '''
 for i in 1,2
   with concur
@@ -1477,13 +1586,17 @@ Repeat(loopstart)
         return ret
 
     # Basic 3 qubits not all doing same stuff / diff # barriers
-    seqs = testFunc()
+#    seqs = testFunc()
     # 2 qubits with a repeat inside, doing same stuff
 #    seqs = testFunc2()
     # 2 qubits doing same thing
     # Call inside a barrier
     # which has barriers inside, and does a call itself
 #    seqs = testCall()
+    # test Repeats including nested repeats
+#    seqs = testRepeat()
+    # test explicit waits
+    seqs = testWait()
 
     logger.info("Seqs: \n%s", printSeqs(seqs))
 
