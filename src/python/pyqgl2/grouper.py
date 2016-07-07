@@ -202,7 +202,9 @@ class AddSequential(ast.NodeTransformer):
         add_seq.in_concur = False
         add_seq.referenced_qbits = node.qgl2_referenced_qbits
 
-        new_body = add_seq.expand_body(new_body)
+        new_body, new_refs = add_seq.expand_body(new_body)
+        if new_refs:
+            node.qgl2_referenced_qbits = new_refs
 
         node.body = new_preamble + new_body
 
@@ -243,7 +245,9 @@ class AddSequential(ast.NodeTransformer):
             self.in_concur = False
 
         if hasattr(node, 'body'):
-            node.body = self.expand_body(node.body)
+            node.body, new_refs = self.expand_body(node.body)
+            if new_refs:
+                node.qgl2_referenced_qbits = new_refs
 
             if entering_concur:
                 bid = BarrierIdentifier.next_bid()
@@ -257,7 +261,14 @@ class AddSequential(ast.NodeTransformer):
                 node.body = [beg_barrier] + node.body + [end_barrier]
 
         if hasattr(node, 'orelse') and node.orelse:
-            node.orelse = self.expand_body(node.orelse)
+            node.orelse, new_refs = self.expand_body(node.orelse)
+            if new_refs:
+                node.qgl2_referenced_qbits = new_refs
+
+        print('NODE %s => %s %s' %
+                (ast2str(node).strip(),
+                    str(node.qgl2_referenced_qbits),
+                    str(self.referenced_qbits)))
 
         # put things back the way they were (even if we didn't
         # change anything)
@@ -279,10 +290,12 @@ class AddSequential(ast.NodeTransformer):
         new_body = list()
         cnt = 0
 
+        updated_qbit_refs = None
+
         # This shouldn't happen, but deal with it if it does
         #
         if len(body) == 0:
-            return new_body
+            return new_body, updated_qbit_refs
 
         # If the statement is any sort of "with", then pass it
         # straight through, because this means that it's a
@@ -317,13 +330,17 @@ class AddSequential(ast.NodeTransformer):
                 new_body.append(barrier_ast)
                 new_body.append(new_stmnt)
 
+                updated_qbit_refs = self.referenced_qbits
+
         if not (self.in_concur or self.is_with_container(new_stmnt)):
             barrier_ast = self.make_barrier_ast(
                     self.referenced_qbits, stmnt,
                     name='eseq_%d' % len(body), bid=bid)
             new_body.append(barrier_ast)
 
-        return new_body
+            updated_qbit_refs = self.referenced_qbits
+
+        return new_body, updated_qbit_refs
 
     def is_with_container(self, node):
         """
@@ -354,9 +371,10 @@ class AddSequential(ast.NodeTransformer):
 
         arg_names = sorted(list(qbits))
         arg_list = '[%s]' % ', '.join(arg_names)
+        barrier_name = '%s_%d' % (name, bid)
 
         barrier_ast = expr2ast(
-                'Barrier(\'%s_%d\', %s)' % (name, bid, arg_list))
+                'Barrier(\'%s\', %s)' % (barrier_name, arg_list))
 
         # TODO: make sure that this gets all of the qbits.
         # It might need local scope info as well, which we don't
@@ -364,10 +382,11 @@ class AddSequential(ast.NodeTransformer):
         #
         MarkReferencedQbits.marker(barrier_ast)
 
-        # print('MARKED [%s] %s' %
-        #         (str(barrier_ast.qgl2_referenced_qbits), str(qbits)))
-
         copy_all_loc(barrier_ast, node, recurse=True)
+
+        # print('MARKED %s [%s] %s' %
+        #         (barrier_name,
+        #             str(barrier_ast.qgl2_referenced_qbits), str(qbits)))
 
         return barrier_ast
 
