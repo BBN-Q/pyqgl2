@@ -256,7 +256,7 @@ class AddSequential(ast.NodeTransformer):
                         name='concur_end', bid=bid)
                 node.body = [beg_barrier] + node.body + [end_barrier]
 
-        if hasattr(node, 'orelse'):
+        if hasattr(node, 'orelse') and node.orelse:
             node.orelse = self.expand_body(node.orelse)
 
         # put things back the way they were (even if we didn't
@@ -278,6 +278,11 @@ class AddSequential(ast.NodeTransformer):
 
         new_body = list()
         cnt = 0
+
+        # This shouldn't happen, but deal with it if it does
+        #
+        if len(body) == 0:
+            return new_body
 
         # If the statement is any sort of "with", then pass it
         # straight through, because this means that it's a
