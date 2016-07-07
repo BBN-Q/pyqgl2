@@ -118,30 +118,35 @@ def pulseLengths(pulses):
     logger.warning("Unknown sequence element %s assumed to have length 0", pulses)
     return lenRes
 
-def markBarrierLengthCalculated(barrierCtr, seqIdx, newLen=float('nan')):
+def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
     '''Update the barrier object in our 3 data structures 
-    for the given counter, sequence with the given length.'''
+    for the given counter, sequence to add the given length
+    to lengthSince; adding in the length of the Id pulse.
+    Note that if it becomes a wait, addLen is NAN, and adding that
+    gives NAN as desired.'''
     # To be called for each sequence that this barrier is on
     global barriersByCtr, barriersBySeqByPos, barriersBySeqByCtr
     barrier = barriersByCtr.get(barrierCtr, None)
+    logger.debug("markBarrierLength adding %s length: %s (old object: %s)", barrierCtr, addLen, barrier)
     if barrier is not None:
-        barrier['lengthSince'] = newLen
+        barrier['lengthSince'] += addLen
         barrier['lengthCalculated'] = True
         barriersByCtr[barrierCtr] = barrier
+        logger.debug("markBarrierLength updated object: %s", barrier)
     else:
         logger.warning("Barrier %s not in barriersByCtr", barrierCtr)
     if seqIdx in barriersBySeqByPos:
         for pos in barriersBySeqByPos[seqIdx]:
             if barrierCtr == barriersBySeqByPos[seqIdx][pos]['counter']:
                 barrier = barriersBySeqByPos[seqIdx][pos]
-                barrier['lengthSince'] = newLen
+                barrier['lengthSince'] += addLen
                 barrier['lengthCalculated'] = True
                 barriersBySeqByPos[seqIdx][pos] = barrier
                 break
     if seqIdx in barriersBySeqByCtr:
         if barrierCtr in barriersBySeqByCtr[seqIdx]:
             barrier = barriersBySeqByCtr[seqIdx][barrierCtr]
-            barrier['lengthSince'] = newLen
+            barrier['lengthSince'] += addLen
             barrier['lengthCalculated'] = True
             barriersBySeqByCtr[seqIdx][barrierCtr] = barrier
 
@@ -189,6 +194,8 @@ def getLengthBetweenBarriers(seqInd, currCtr, prevCtr='-1'):
         logger.debug("getLengthBetween from current -1 (start or error), use length 0")
         # from start
         return 0
+
+    logger.debug("getLengthBetween: currBarrier: %s", currBarrier)
 
     # Basic case: the previous barrier is the one we're looking for
     prevBarrierCtr = currBarrier['prevBarrierCtr']
@@ -1224,9 +1231,9 @@ if __name__ == '__main__':
             Y(q1, length=.2),
             Goto(BlockLabel('end')),
             BlockLabel('myfunc2'),
-            Barrier('3', [q1, q2]),
+            Barrier('3', [q1]),
             MEAS(q1),
-            Barrier('4', [q1, q2]),
+            Barrier('4', [q1]),
             Return(),
             BlockLabel('myfunc'),
             Barrier('1', [q1, q2]),
@@ -1239,6 +1246,24 @@ if __name__ == '__main__':
             Barrier('5', [q1, q2])
         ]
         seqs += [seq]
+        '''
+        B0 -- Id0
+        X - .1
+        Call
+        B1 -- Id .1
+        X90 - .3
+        Call
+        B3 <missing>
+        MEAS
+        B4 <missing>
+        Ret
+        Y90 - .4
+        B2 - last common is B1, should be .7, but I'm getting .4: It didn't carry over across the call block?
+        Ret
+        Y - .2
+        Goto
+        B5 - Id .2
+        '''
         # q2
         seq = [
             Barrier('0', [q1, q2]),
@@ -1254,9 +1279,7 @@ if __name__ == '__main__':
             Barrier('2', [q1, q2]),
             Return(),
             BlockLabel('myfunc2'),
-            Barrier('3', [q1, q2]),
             MEAS(q2),
-            Barrier('4', [q1, q2]),
             Return(),
             BlockLabel('end'),
             Barrier('5', [q1, q2])
@@ -1410,7 +1433,7 @@ Repeat(loopstart)
         seq = [
             Barrier('0', [q1, q2]),
             Id(QBIT_q2, length=0.5),
-            X(QBIT_q2),
+            X(QBIT_q2, length=0.3),
             MEAS(QBIT_q2),
             Barrier('1', [q1, q2])
         ]
@@ -1418,12 +1441,12 @@ Repeat(loopstart)
         # Q1
         seq = [
             Barrier('0', [q1, q2]),
-            Id(QBIT_q1),
+            Id(QBIT_q1, length=0.2),
             X(QBIT_q1, length=0.4),
             MEAS(QBIT_q1),
             Barrier('1', [q1, q2]),
             Barrier('2', [q1, q3]),
-            Y(QBIT_q1),
+            Y(QBIT_q1, length=0.1),
             Barrier('3', [q1, q3])
         ]
         seqs += [seq]
@@ -1454,13 +1477,13 @@ Repeat(loopstart)
         return ret
 
     # Basic 3 qubits not all doing same stuff / diff # barriers
-#    seqs = testFunc()
+    seqs = testFunc()
     # 2 qubits with a repeat inside, doing same stuff
 #    seqs = testFunc2()
     # 2 qubits doing same thing
     # Call inside a barrier
     # which has barriers inside, and does a call itself
-    seqs = testCall()
+#    seqs = testCall()
 
     logger.info("Seqs: \n%s", printSeqs(seqs))
 
