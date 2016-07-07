@@ -195,6 +195,7 @@ def getLengthBetweenBarriers(seqInd, currCtr, prevCtr='-1'):
     prevLen = currBarrier['lengthSince']
     # FIXME: Guard against barrier not having these fields?
     if prevBarrierCtr == prevCtr:
+        logger.debug("Desired previous barrier %s is actual previous from current %s, so use stored length: %s", prevCtr, currCtr, prevLen)
         return prevLen
 
     # Old code stored firstPrev and prevPrev to handle repeat with barrier inside
@@ -204,8 +205,9 @@ def getLengthBetweenBarriers(seqInd, currCtr, prevCtr='-1'):
     # If the length so far is indeterminate, no use in recursing -
     # the whole thing will be indeterminate
     if math.isnan(prevLen):
+        logger.debug("Length to previous from current %s was NAN, return it", currCtr)
         return prevLen
-
+    logger.debug("Length from curr '%s' to prev '%s' will start with length from curr to next '%s': %s", currCtr, prevCtr, prevBarrierCtr, prevLen)
     # If this barrier doesn't store the desired length, then recurse
     return prevLen + getLengthBetweenBarriers(seqInd, prevBarrierCtr, prevCtr)
 
@@ -443,6 +445,19 @@ def getLastSharedBarrierCtr(channels, barrierCtr):
             # This would happen if the last shared barrier is the start
             return '-1'
         prevChannelSet = set(prevBarrier.get('channels', []))
+
+        # Look for error where a barrier claims for channels than sequences it is found on
+        # Typically this is a Wait() that isn't on all channels
+        psc = 0
+        psIs = []
+        for sI in barriersBySeqByCtr:
+            if prevBarrierCtr in barriersBySeqByCtr[sI]:
+                psc += 1
+                psIs.append(sI)
+        if psc != len(prevChannelSet):
+            logger.error("Candidate prevBarrier %s claims %d channels but found on only %d sequences (channels %s but sequences %s)", prevBarrierCtr, len(prevChannelSet), psc, prevChannelSet, psIs)
+    # End of while looking for a prevBarrier with a superset of channels
+
     if channelsSet <= prevChannelSet:
         logger.debug("Found previous barrier %s whose channels %s include at least the channels on Barrier %s: %s", prevBarrierCtr, prevChannelSet, barrierCtr, channelsSet)
         # FIXME: Error check that this barrier is in fact on all the right channels?
@@ -471,6 +486,7 @@ def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
     for seqInd in channelIdxs:
         seq = seqs[seqInd]
         lengths[seqInd] = getLengthBetweenBarriers(seqInd, currCtr, prevForLengthCtr)
+        logger.debug("Seq %d length from curr %s to prev %s: %s", seqInd, currCtr, prevForLengthCtr, lengths[seqInd])
 
     # Find the max (at least 0)
     maxBlockLen = max(list(lengths.values()) + [0])
@@ -487,6 +503,7 @@ def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
        for seqInd in channelIdxs:
            markBarrierLengthCalculated(currCtr, seqInd, maxBlockLen)
        return seqs
+    logger.debug("From %s to %s: maxBlockLen: %s", currCtr, prevForLengthCtr, maxBlockLen)
 
     # For each channel that has this Barrier
     # replace the Barrier in the sequence with an Id pulse
@@ -502,7 +519,7 @@ def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
             raise Exception("Sequence %d doesn't appear to have Barrier %s!" % (seqInd, currCtr))
         channel = chanBySeq[seqInd]
         idlen = maxBlockLen - lengths[seqInd] # Length of Id pulse to pause till last channel done
-        logger.info("Sequence %d: Replacing %s with Id(%s, length=%f)", seqInd, seq[ind],
+        logger.info("Sequence %d: Replacing %s with Id(%s, length=%s)", seqInd, seq[ind],
                     channel, idlen)
         seq[ind] = Id(channel, idlen)
         markBarrierLengthCalculated(currCtr, ind, idlen)
@@ -519,6 +536,8 @@ def getPreviousUndoneBarrierCtr(currCtr, prevCtr, seqIdx):
     # Nominally prevCtr should have lengthCalculated=True,
     # But if it didn't, we'd want to do it
     global barriersBySeqByCtr
+    if currCtr not in barriersBySeqByCtr[seqIdx]:
+        raise Exception("Looking for prevUndoneBarrier: Sequence %d didn't have expected barrier %s" % (seqIdx, currCtr))
     barrier = barriersBySeqByCtr[seqIdx][currCtr]
     while barrier is not None and barrier != -1 and barrier['lengthCalculated']:
         barrierCtr = barrier['prevBarrierCtr']
@@ -588,6 +607,8 @@ def replaceOneBarrier(currCtr, seqIdxToChannelMap, seqs, seqInd = None):
     for seqInd in waitSeqIdxes:
         if prevForLengthCtr not in barriersBySeqByCtr[seqInd]:
             raise Exception("When replacing barrier %s (%s), found last shared barrier was ID %s, but it is not on sequence %d (channel %s) that the original barrier is on" % (currCtr, seqs[seqInd][barrier['seqPos']], prevForLengthCtr, seqInd, seqIdxToChannelMap[seqInd]))
+        if currCtr not in barriersBySeqByCtr[seqInd]:
+            raise Exception("When replacing barrier %s (%s), found it is not on sequence %d (channel %s) when the barrier claimed channels %s" % (currCtr, seqs[barrier['seqIndex']][barrier['seqPos']], seqInd, seqIdxToChannelMap[seqInd], waitChans))
     logger.debug("Using length since barrier %s", prevForLengthCtr)
 
     # If there are any intervening Barriers not marked as measured on any channel
@@ -1155,6 +1176,94 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     logger = logging.getLogger()
 
+    def testCall():
+        # Do a call/return
+        # with barriers inside the call block
+        # nested calls
+#         with concur:
+#             for q in q1, q2:
+#                 X(q)
+#                 Call(myFunc)
+#                 Y(q)
+
+#         myFunc(q):
+#             Barrier
+#             X90(q)
+#             Call myFunc2
+#             Y90
+#             Barrier
+
+#         myFunc2:
+#             Barrier
+#             MEAS(q)
+#             Barrier
+
+        from QGL.ChannelLibrary import QubitFactory
+        from QGL.BlockLabel import BlockLabel
+        from QGL.ControlFlow import Barrier
+        from QGL.ControlFlow import Sync
+        from QGL.ControlFlow import Wait, Call, Goto, Return
+        from QGL.PulsePrimitives import Id
+        from QGL.PulsePrimitives import MEAS
+        from QGL.PulsePrimitives import X, X90
+        from QGL.PulsePrimitives import Y, Y90
+
+        q1 = QubitFactory('q1')
+        QBIT_q1 = q1
+        q2 = QubitFactory('q2')
+        QBIT_q2 = q2
+        q3 = QubitFactory('q3')
+        QBIT_q3 = q3
+
+        seqs = list()
+        # q1
+        seq = [
+            Barrier('0', [q1, q2]),
+            X(q1, length=.1),
+            Call(BlockLabel('myfunc')),
+            Y(q1, length=.2),
+            Goto(BlockLabel('end')),
+            BlockLabel('myfunc2'),
+            Barrier('3', [q1, q2]),
+            MEAS(q1),
+            Barrier('4', [q1, q2]),
+            Return(),
+            BlockLabel('myfunc'),
+            Barrier('1', [q1, q2]),
+            X90(q1, length=.3),
+            Call(BlockLabel('myfunc2')),
+            Y90(q1, length=.4),
+            Barrier('2', [q1, q2]),
+            Return(),
+            BlockLabel('end'),
+            Barrier('5', [q1, q2])
+        ]
+        seqs += [seq]
+        # q2
+        seq = [
+            Barrier('0', [q1, q2]),
+            X(q2),
+            Call(BlockLabel('myfunc')),
+            Y(q2),
+            Goto(BlockLabel('end')),
+            BlockLabel('myfunc'),
+            Barrier('1', [q1, q2]),
+            X90(q2),
+            Call(BlockLabel('myfunc2')),
+            Y90(q2),
+            Barrier('2', [q1, q2]),
+            Return(),
+            BlockLabel('myfunc2'),
+            Barrier('3', [q1, q2]),
+            MEAS(q2),
+            Barrier('4', [q1, q2]),
+            Return(),
+            BlockLabel('end'),
+            Barrier('5', [q1, q2])
+        ]
+        seqs += [seq]
+        return seqs
+
     def testFunc2():
 #with concur
 #  for i in 1,2
@@ -1187,22 +1296,24 @@ if __name__ == '__main__':
         QBIT_q3 = q3
 
         seqs = list()
+        # q1
         seq = [
-            Barrier(),
+            Barrier('0', [q1, q2]),
             LoadRepeat(2),
             BlockLabel('loopstart'),
             X(q1, length=0.5),
             Repeat(BlockLabel('loopstart')),
-            Barrier()
+            Barrier('1', [q1, q2])
             ]
         seqs += [seq]
+        # q2
         seq = [
-            Barrier(),
+            Barrier('0', [q1, q2]),
             LoadRepeat(2),
             BlockLabel('loopstart2'),
             X(q2),
             Repeat(BlockLabel('loopstart2')),
-            Barrier()
+            Barrier('1', [q1, q2])
             ]
         seqs += [seq]
         return seqs
@@ -1277,43 +1388,43 @@ Repeat(loopstart)
         q3 = QubitFactory('q3')
         QBIT_q3 = q3
 
+        # Roughly equivalent to multi/anotherMulti2 without the init
+#    with concur:
+#        for q in [q1, q2]:
+#            Id(q)
+#            X(q)
+#            MEAS(q)
+#    with concur:
+#        for q in [q1, q3]:
+#            Y(q)
+
         seqs = list()
+        # Q3
         seq = [
-            Barrier(),
-            Barrier(),
-            Barrier(),
+            Barrier('2', [q1, q3]),
             Y(QBIT_q3, length=0.6),
-            Barrier()
+            Barrier('3', [q1, q3])
         ]
         seqs += [seq]
+        # Q2
         seq = [
-            Barrier(),
-            Sync(),
-            Wait(),
-            Sync(),
-            Wait(),
-            Barrier()
-        ]
-        seqs += [seq]
-        seq = [
-            Barrier(),
+            Barrier('0', [q1, q2]),
             Id(QBIT_q2, length=0.5),
             X(QBIT_q2),
             MEAS(QBIT_q2),
-            Barrier(),
-            Barrier(),
-            Barrier()
+            Barrier('1', [q1, q2])
         ]
         seqs += [seq]
+        # Q1
         seq = [
-            Barrier(),
+            Barrier('0', [q1, q2]),
             Id(QBIT_q1),
             X(QBIT_q1, length=0.4),
             MEAS(QBIT_q1),
-            Barrier(),
-            Barrier(),
+            Barrier('1', [q1, q2]),
+            Barrier('2', [q1, q3]),
             Y(QBIT_q1),
-            Barrier()
+            Barrier('3', [q1, q3])
         ]
         seqs += [seq]
         return seqs
@@ -1342,7 +1453,14 @@ Repeat(loopstart)
         ret += "\n]\n"
         return ret
 
-    seqs = repeatBarriers()
+    # Basic 3 qubits not all doing same stuff / diff # barriers
+#    seqs = testFunc()
+    # 2 qubits with a repeat inside, doing same stuff
+#    seqs = testFunc2()
+    # 2 qubits doing same thing
+    # Call inside a barrier
+    # which has barriers inside, and does a call itself
+    seqs = testCall()
 
     logger.info("Seqs: \n%s", printSeqs(seqs))
 
