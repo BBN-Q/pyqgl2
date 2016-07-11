@@ -127,14 +127,14 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
     # To be called for each sequence that this barrier is on
     global barriersByCtr, barriersBySeqByPos, barriersBySeqByCtr
     barrier = barriersByCtr.get(barrierCtr, None)
-    logger.debug("markBarrierLength adding %s length: %s (old object: %s)", barrierCtr, addLen, barrier)
+    logger.debug("markBarrierLength adding to barrier '%s' length: %s (old object: %s)", barrierCtr, addLen, barrier)
     if barrier is not None:
         barrier['lengthSince'] += addLen
         barrier['lengthCalculated'] = True
         barriersByCtr[barrierCtr] = barrier
         logger.debug("markBarrierLength updated object: %s", barrier)
     else:
-        logger.warning("Barrier %s not in barriersByCtr", barrierCtr)
+        logger.warning("Barrier '%s' not in barriersByCtr", barrierCtr)
     if seqIdx in barriersBySeqByPos:
         for pos in barriersBySeqByPos[seqIdx]:
             if barrierCtr == barriersBySeqByPos[seqIdx][pos]['counter']:
@@ -222,6 +222,8 @@ def isReplaceableBarrier(barrier, seqs):
     '''Is the given barrier object replacable on its sequence?
     Start, Wait, WaitSome, and barriers that are no longer in
     their sequence are not replacable. So only a Barrier() of the correct id (counter).
+    HOWEVER: We now pretend Wait/WaitSome are replacable so that later we calculate the real length, though
+    we don't actually do the replacement.
     '''
     # Is the given barrier something we can replace?
     # Not a Wait or WaitSome, and still in its sequence
@@ -234,9 +236,10 @@ def isReplaceableBarrier(barrier, seqs):
     if ind < 0:
         logger.debug("Barrier %s is start, not replacable", nextCtr)
         return False
-    if nextType in ('wait', 'waitsome'):
-        logger.debug("Barrier %s is a wait, not replacable", nextCtr)
-        return False
+    # 7/8: Don't bail here; so we can calculate the length later
+    # if nextType in ('wait', 'waitsome'):
+    #     logger.debug("Barrier %s is a wait, not replacable", nextCtr)
+    #     return False
     if seqs:
         if not (seqInd >= 0 and seqInd < len(seqs)):
             logger.debug("Barrier %s claims to be on sequence %d which doesn't exist (cant replace)", nextCtr, seqInd)
@@ -245,11 +248,16 @@ def isReplaceableBarrier(barrier, seqs):
             logger.debug("Barrier %s claims to be at position %d on sequence %d; the sequence has only %d items (cant replace)", nextCtr, ind, seqInd, len(seqs[seqInd]))
             return False
         if hasattr(seqs[seqInd][ind], 'value') and seqs[seqInd][ind].value == nextCtr:
+            # This is a barrier with the desired counter
             return True
         if isID(seqs[seqInd][ind]):
             # Expected when we've already done a replacement
             logger.debug("Barrier %s actual element is (now) %s on sequence %d (dont replace)", nextCtr, seqs[seqInd][ind], seqInd)
             return False
+        # 7/8: We want to let it go through if it's a Wait or WaitSome for now
+        if isWait(seqs[seqInd][ind]) or isWaitSome(seqs[seqInd][ind]):
+            logger.debug("Barrier %s on sequence %d is a Wait or WaitSome - pretend its replacable so we calculate the length: %s", nextCtr, seqInd, seqs[seqInd][ind])
+            return True
         if not isBarrier(seqs[seqInd][ind]):
             # We don't think we've replaced any barriers with waits, so this is unexpected
             logger.debug("Barrier %s claims type %s but actual element is (now) %s on sequence %d (not replaceable)", nextCtr, nextType, seqs[seqInd][ind], seqInd)
@@ -262,8 +270,7 @@ def isReplaceableBarrier(barrier, seqs):
 
 def getNextBarrierCtr(seqs, seqInd, currCtr):
     ''' Find the id (counter) of the next Barrier after currCtr on the given sequence
-    that we could (still) replace. So skip barriers no longer in the sequence, or that
-    are a Wait or WaitSome.
+    that we could (still) replace. So skip barriers no longer in the sequence.
     Return '-1' if there is none.
     '''
     # Walk to the next barrier past currCtr on sequence seqInd and return the counter of that barrier
@@ -453,8 +460,10 @@ def getLastSharedBarrierCtr(channels, barrierCtr):
             return '-1'
         prevChannelSet = set(prevBarrier.get('channels', []))
 
-        # Look for error where a barrier claims for channels than sequences it is found on
+        # Look for error where a barrier claims more channels than sequences it is found on
         # Typically this is a Wait() that isn't on all channels
+        # 7/8: FIXME: counter of a wait is its position in the sequence which may change.
+        # So I can only compare the channel list and type. But 2 WAITs on same channel set would get confused
         psc = 0
         psIs = []
         for sI in barriersBySeqByCtr:
@@ -462,7 +471,7 @@ def getLastSharedBarrierCtr(channels, barrierCtr):
                 psc += 1
                 psIs.append(sI)
         if psc != len(prevChannelSet):
-            logger.error("Candidate prevBarrier %s claims %d channels but found on only %d sequences (channels %s but sequences %s)", prevBarrierCtr, len(prevChannelSet), psc, prevChannelSet, psIs)
+            logger.warning("Candidate prevBarrier %s claims %d channels but found on only %d sequences (channels %s but sequences %s) (may be OK for Wait or WaitSome)", prevBarrierCtr, len(prevChannelSet), psc, prevChannelSet, psIs)
     # End of while looking for a prevBarrier with a superset of channels
 
     if channelsSet <= prevChannelSet:
@@ -526,9 +535,16 @@ def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
             raise Exception("Sequence %d doesn't appear to have Barrier %s!" % (seqInd, currCtr))
         channel = chanBySeq[seqInd]
         idlen = maxBlockLen - lengths[seqInd] # Length of Id pulse to pause till last channel done
-        logger.info("Sequence %d: Replacing %s with Id(%s, length=%s)", seqInd, seq[ind],
-                    channel, idlen)
-        seq[ind] = Id(channel, idlen)
+
+        # 7/8: If this barrier is a wait or waitsome, then don't do the replace, just update the length
+        barrier = getBarrierForSeqCtr(seqInd, currCtr)
+        if barrier != -1 and barrier.get('type', 'barrier') not in ('wait', 'waitsome'):
+            logger.info("Sequence %d: Replacing %s with Id(%s, length=%s)", seqInd, seq[ind],
+                        channel, idlen)
+            seq[ind] = Id(channel, idlen)
+        else:
+            logger.debug("Sequence %d: NOT replacing %s with Id, but marking it as length=%s", seqInd, seq[ind], idlen)
+
         markBarrierLengthCalculated(currCtr, ind, idlen)
     return seqs
 
@@ -546,11 +562,14 @@ def getPreviousUndoneBarrierCtr(currCtr, prevCtr, seqIdx):
     if currCtr not in barriersBySeqByCtr[seqIdx]:
         raise Exception("Looking for prevUndoneBarrier: Sequence %d didn't have expected barrier %s" % (seqIdx, currCtr))
     barrier = barriersBySeqByCtr[seqIdx][currCtr]
-    while barrier is not None and barrier != -1 and barrier['lengthCalculated']:
+    while barrier is not None and barrier != -1 and barrier['counter'] != '-1' and barrier['lengthCalculated'] and barrier['counter'] != prevCtr:
+        logger.debug("Barrier marked as lengthCalculated: %s", barrier)
         barrierCtr = barrier['prevBarrierCtr']
         barrier = barriersBySeqByCtr[seqIdx].get(barrierCtr, None)
-    if barrier is None or barrier == -1 or barrier['counter'] == currCtr:
+    if barrier is None or barrier == -1 or barrier['counter'] == currCtr or barrier['counter'] == '-1' or barrier['lengthCalculated']:
+        logger.debug("Ran out of barriers to check on sequence %d. Found %s", seqIdx, barrier)
         return None
+    logger.debug("Apparently undone barrier: %s", barrier)
     return barrier['counter']
 
 def getLastUnMeasuredBarrierCtr(currCtr, prevCtr, seqIdxes):
@@ -565,15 +584,18 @@ def getLastUnMeasuredBarrierCtr(currCtr, prevCtr, seqIdxes):
     # FIXME: This is a depth first search. So it does not give the latest or earliest
     # such barrier, just the first we encounter. Is that OK?
     for seqIdx in seqIdxes:
+        logger.debug("Looking for last unmeasured on sequence %d starting at barrier '%s'", seqIdx, currCtr)
         undoneBarrierCtr = getPreviousUndoneBarrierCtr(currCtr, prevCtr, seqIdx)
-        if undoneBarrierCtr is not None and undoneBarrierCtr != currCtr and undoneBarrierCtr != '-1':
+        if undoneBarrierCtr is not None and undoneBarrierCtr != currCtr and undoneBarrierCtr != '-1' and undoneBarrierCtr != prevCtr:
+            logger.debug(" ... found '%s'", undoneBarrierCtr)
             return undoneBarrierCtr
+        else:
+            logger.debug(" ... found none ('%s')", undoneBarrierCtr)
     return None
 
 def replaceOneBarrier(currCtr, seqIdxToChannelMap, seqs, seqInd = None):
     '''Replace the barrier with id currCtr on all sequences.
     Use the version of the barrier on the given sequence seqInd if given.
-    Skip barriers that are Wait or WaitSome instances.
     Recursively find intervening Barriers on any related channel that is not
     marked as 'measured' (turned into an Id or will be a WaitSome),
     and replace those first, so that we can correctly calculate
@@ -600,15 +622,16 @@ def replaceOneBarrier(currCtr, seqIdxToChannelMap, seqs, seqInd = None):
     waitSeqIdxes = [ind for ind in seqIdxToChannelMap for chan in waitChans if seqIdxToChannelMap[ind] == chan]
     logger.debug("Replacing Barrier %s on channels %s, sequences %s", currCtr, waitChans, waitSeqIdxes)
 
-    # Skip barriers that are Wait or WaitSome instances.
-    if barrier != -1 and barrier.get('type', 'barrier') in ('wait', 'waitsome'):
-        # do this later
-        logger.info("Found wait barrier %s; handle it later", currCtr)
-        # It should be true that lengthCalculated==True on this barrier
-        # - across all relevant channels. Make sure.
-        for idx in waitSeqIdxes:
-            markBarrierLengthCalculated(currCtr, idx)
-        return seqs
+    # 7/8: No longer skip these here; let the core replace method do the right thing
+#    # Skip barriers that are Wait or WaitSome instances
+#    if barrier != -1 and barrier.get('type', 'barrier') in ('wait', 'waitsome'):
+#        # do this later
+#        logger.info("Found wait barrier %s; handle it later", currCtr)
+#        # It should be true that lengthCalculated==True on this barrier
+#        # - across all relevant channels. Make sure.
+#        for idx in waitSeqIdxes:
+#            markBarrierLengthCalculated(currCtr, idx)
+#        return seqs
     
     prevForLengthCtr = getLastSharedBarrierCtr(waitChans, currCtr)
     for seqInd in waitSeqIdxes:
@@ -791,7 +814,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                     curBarrier['channels'] = chans
                     curBarrier['counter'] = elem.value
                 elif isWaitSome(elem):
-                    # This shouldn't really happen
+                    # This shouldn't really happen I think, but maybe?
                     # But if previous is a Sync then treat this as a Barrier on its listed channels?
                     logger.warning("Got %s at %d?!", elem, seqPos)
                     curBarrier['type'] = 'waitsome'
@@ -1173,7 +1196,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
 # End of replaceBarriers
 
 #####
-# 6/24: Test code below not yet updated
+# Test code below - not complete
 
 if __name__ == '__main__':
     from QGL.Compiler import find_unique_channels
@@ -1390,6 +1413,76 @@ if __name__ == '__main__':
         seqs += [seq]
         return seqs
 
+    def testWaitSome():
+        from QGL.ChannelLibrary import QubitFactory
+        from QGL.BlockLabel import BlockLabel
+        from QGL.ControlFlow import Barrier, Repeat, LoadRepeat
+        from QGL.ControlFlow import Sync
+        from QGL.ControlFlow import Wait
+        from QGL.PulsePrimitives import Id
+        from QGL.PulsePrimitives import MEAS
+        from QGL.PulsePrimitives import X, X90, X90m
+        from QGL.PulsePrimitives import Y, Y90
+
+        q1 = QubitFactory('q1')
+        QBIT_q1 = q1
+        q2 = QubitFactory('q2')
+        QBIT_q2 = q2
+        q3 = QubitFactory('q3')
+        QBIT_q3 = q3
+
+        seqs = list()
+        # q1
+        seq = [
+            Barrier('1', [q1, q2, q3]),
+            Sync(),
+            WaitSome([q1, q2]),
+            X(q1, length=0.1),
+            Barrier('2', [q1, q2]),
+            Y(q1, length=0.2),
+#            Barrier('3', [q1, q2]),
+ #           Wait(),
+            X(q1, length=0.3),
+            Barrier('4', [q1, q2, q3]) # Id .8 without q2 and waitsomes
+        ]
+        '''
+        q1 b4 LSince=.5
+        q2 Br Lsince=0
+        q3 Br LSince=.6
+        q2 2nd waitSome Lsince=0 so it is an Id .3
+        q3 waitsome Lsince = .4
+        '''
+        seqs += [seq]
+        # q2
+        seq = [
+            Barrier('1', [q1, q2, q3]),
+            Sync(),
+            WaitSome([q1, q2]),
+            X(q2),
+            Barrier('2', [q1, q2]),
+            Y(q2),
+#            Barrier('3', [q1, q2]),
+            WaitSome([q2, q3]),
+            X(q2),
+            Barrier('4', [q1, q2, q3]) # Id .5 if no q3
+        ]
+        seqs += [seq]
+        # q3
+        seq = [
+            Barrier('1', [q1, q2, q3]),
+            Sync(),
+#            Wait(),
+            X(q3, length=0.4),
+#            Barrier('2', [q1, q2]),
+            Y(q3, length=0.5),
+#            Barrier('3', [q1, q2]),
+            WaitSome([q2, q3]),
+            X(q3, length=0.6),
+            Barrier('4', [q1, q2, q3])
+        ]
+        seqs += [seq]
+        return seqs
+
     def testRepeat():
         from QGL.ChannelLibrary import QubitFactory
         from QGL.BlockLabel import BlockLabel
@@ -1596,7 +1689,9 @@ Repeat(loopstart)
     # test Repeats including nested repeats
 #    seqs = testRepeat()
     # test explicit waits
-    seqs = testWait()
+#    seqs = testWait()
+    # test explicit WaitSomes
+    seqs = testWaitSome()
 
     logger.info("Seqs: \n%s", printSeqs(seqs))
 
