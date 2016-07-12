@@ -1248,25 +1248,25 @@ if __name__ == '__main__':
         seqs = list()
         # q1
         seq = [
-            Barrier('0', [q1, q2]),
+            Barrier('0', [q1, q2]), # Id 0
             X(q1, length=.1),
             Call(BlockLabel('myfunc')),
             Y(q1, length=.2),
             Goto(BlockLabel('end')),
-            BlockLabel('myfunc2'),
-            Barrier('3', [q1]),
+            BlockLabel('myfunc2'), 
+            Barrier('3', [q1]), # Id 0
             MEAS(q1),
-            Barrier('4', [q1]),
+            Barrier('4', [q1]), # Id 0
             Return(),
-            BlockLabel('myfunc'),
-            Barrier('1', [q1, q2]),
+            BlockLabel('myfunc'), 
+            Barrier('1', [q1, q2]), # Id 0
             X90(q1, length=.3),
             Call(BlockLabel('myfunc2')),
             Y90(q1, length=.4),
-            Barrier('2', [q1, q2]),
+            Barrier('2', [q1, q2]), # Id 0
             Return(),
             BlockLabel('end'),
-            Barrier('5', [q1, q2])
+            Barrier('5', [q1, q2]) # Id 0
         ]
         seqs += [seq]
         '''
@@ -1289,23 +1289,23 @@ if __name__ == '__main__':
         '''
         # q2
         seq = [
-            Barrier('0', [q1, q2]),
+            Barrier('0', [q1, q2]), # Id 0
             X(q2),
             Call(BlockLabel('myfunc')),
             Y(q2),
             Goto(BlockLabel('end')),
             BlockLabel('myfunc'),
-            Barrier('1', [q1, q2]),
+            Barrier('1', [q1, q2]),  #Id .1
             X90(q2),
             Call(BlockLabel('myfunc2')),
             Y90(q2),
-            Barrier('2', [q1, q2]),
+            Barrier('2', [q1, q2]), # Id .7
             Return(),
             BlockLabel('myfunc2'),
             MEAS(q2),
             Return(),
             BlockLabel('end'),
-            Barrier('5', [q1, q2])
+            Barrier('5', [q1, q2])  #Id .2
         ]
         seqs += [seq]
         return seqs
@@ -1344,22 +1344,22 @@ if __name__ == '__main__':
         seqs = list()
         # q1
         seq = [
-            Barrier('0', [q1, q2]),
+            Barrier('0', [q1, q2]), # Id 0
             LoadRepeat(2),
             BlockLabel('loopstart'),
             X(q1, length=0.5),
             Repeat(BlockLabel('loopstart')),
-            Barrier('1', [q1, q2])
+            Barrier('1', [q1, q2]) # Id 0
             ]
         seqs += [seq]
         # q2
         seq = [
-            Barrier('0', [q1, q2]),
+            Barrier('0', [q1, q2]), # Id 0
             LoadRepeat(2),
             BlockLabel('loopstart2'),
             X(q2),
             Repeat(BlockLabel('loopstart2')),
-            Barrier('1', [q1, q2])
+            Barrier('1', [q1, q2]) # Id 1
             ]
         seqs += [seq]
         return seqs
@@ -1385,30 +1385,30 @@ if __name__ == '__main__':
         seqs = list()
         # q1
         seq = [
-            Barrier('1', [q1, q2]),
+            Barrier('1', [q1, q2]), # Id 0
             Sync(),
             Wait(),
             X(q1, length=0.1),
-            Barrier('2', [q1, q2]),
+            Barrier('2', [q1, q2]), # Id 0
             Y(q1, length=0.2),
 #            Barrier('3', [q1, q2]),
             Wait(),
             X(q1, length=0.3),
-            Barrier('4', [q1, q2])
+            Barrier('4', [q1, q2]) # Id 0
         ]
         seqs += [seq]
         # q2
         seq = [
-            Barrier('1', [q1, q2]),
+            Barrier('1', [q1, q2]), # Id 0
             Sync(),
             Wait(),
             X(q2),
-            Barrier('2', [q1, q2]),
+            Barrier('2', [q1, q2]), # Id .1
             Y(q2),
 #            Barrier('3', [q1, q2]),
             Wait(),
             X(q2),
-            Barrier('4', [q1, q2])
+            Barrier('4', [q1, q2]) # Id .3 (since the wait)
         ]
         seqs += [seq]
         return seqs
@@ -1434,51 +1434,44 @@ if __name__ == '__main__':
         seqs = list()
         # q1
         seq = [
-            Barrier('1', [q1, q2, q3]),
+            Barrier('1', [q1, q2, q3]), # Id 0
             Sync(),
-            WaitSome([q1, q2]),
+            WaitSome([q1, q2]), # Note this isn't on q3 and matches line 3 of q2. Should be left alone.
             X(q1, length=0.1),
-            Barrier('2', [q1, q2]),
+            Barrier('2', [q1, q2]), # Prev is the WaitSome; should become Id 0
             Y(q1, length=0.2),
 #            Barrier('3', [q1, q2]),
  #           Wait(),
             X(q1, length=0.3),
-            Barrier('4', [q1, q2, q3]) # Id .8 without q2 and waitsomes
+            Barrier('4', [q1, q2, q3]) # Id .8 without q2 and waitsomes; lSince .6; Make this Id 0.9
         ]
-        '''
-        q1 b4 LSince=.5
-        q2 Br Lsince=0
-        q3 Br LSince=.6
-        q2 2nd waitSome Lsince=0 so it is an Id .3
-        q3 waitsome Lsince = .4
-        '''
         seqs += [seq]
         # q2
         seq = [
-            Barrier('1', [q1, q2, q3]),
+            Barrier('1', [q1, q2, q3]), # Id 0
             Sync(),
-            WaitSome([q1, q2]),
+            WaitSome([q1, q2]), # Note this isn't on q3 and matches line 3 of q2. # Should be left alone.
             X(q2),
-            Barrier('2', [q1, q2]),
+            Barrier('2', [q1, q2]), # Prev is the WaitSome; should become Id 0.1
             Y(q2),
 #            Barrier('3', [q1, q2]),
-            WaitSome([q2, q3]),
+            WaitSome([q2, q3]), # Not on q1; prev is B1; lSince 0; computed could be 0.1; could become Id 0.8 (.9-.1) but leave alone
             X(q2),
-            Barrier('4', [q1, q2, q3]) # Id .5 if no q3
+            Barrier('4', [q1, q2, q3]) # Id .5 if no q3; Prev B1; lSince 0 but computed 0.9; Make this Id 0.6
         ]
         seqs += [seq]
         # q3
         seq = [
-            Barrier('1', [q1, q2, q3]),
+            Barrier('1', [q1, q2, q3]), # Id 0
             Sync(),
 #            Wait(),
             X(q3, length=0.4),
 #            Barrier('2', [q1, q2]),
             Y(q3, length=0.5),
 #            Barrier('3', [q1, q2]),
-            WaitSome([q2, q3]),
+            WaitSome([q2, q3]), # Not on q1; prev is B1; lsince 0.9; could become Id 0 but leave alone
             X(q3, length=0.6),
-            Barrier('4', [q1, q2, q3])
+            Barrier('4', [q1, q2, q3]) # Prev B1; lSince 1.5; Make this Id 0
         ]
         seqs += [seq]
         return seqs
@@ -1504,9 +1497,9 @@ if __name__ == '__main__':
         seqs = list()
         # q1
         seq = [
-            Barrier('1', [q1, q2]),
+            Barrier('1', [q1, q2]), # Id 0
             X(q1, length=0.1),
-            Barrier('2', [q1, q2]),
+            Barrier('2', [q1, q2]), # Id 0
             LoadRepeat(2),
             BlockLabel('startRep1'),
             Y(q1, length=0.2),
@@ -1516,16 +1509,16 @@ if __name__ == '__main__':
             Repeat(BlockLabel('startRep2')),
             X90(q1, length=0.5),
             Repeat(BlockLabel('startRep1')),
-            Barrier('3', [q1, q2]),
+            Barrier('3', [q1, q2]), # Id 0
             Y90(q1, length=0.7),
-            Barrier('4', [q1, q2])
+            Barrier('4', [q1, q2]) # Id 0
         ]
         seqs += [seq]
         # q2
         seq = [
-            Barrier('1', [q1, q2]),
+            Barrier('1', [q1, q2]), # Id 0
             X(q2),
-            Barrier('2', [q1, q2]),
+            Barrier('2', [q1, q2]), # Id .1
             LoadRepeat(2),
             BlockLabel('startRep1'),
             Y(q2),
@@ -1535,9 +1528,9 @@ if __name__ == '__main__':
             Repeat(BlockLabel('startRep2')),
             X90(q2),
             Repeat(BlockLabel('startRep1')),
-            Barrier('3', [q1, q2]),
+            Barrier('3', [q1, q2]), # Id 2.6
             Y90(q2),
-            Barrier('4', [q1, q2])
+            Barrier('4', [q1, q2]) # Id .7
         ]
         seqs += [seq]
         return seqs
@@ -1626,30 +1619,30 @@ Repeat(loopstart)
         seqs = list()
         # Q3
         seq = [
-            Barrier('2', [q1, q3]),
+            Barrier('2', [q1, q3]), # becomes ID 0.6
             Y(QBIT_q3, length=0.6),
-            Barrier('3', [q1, q3])
+            Barrier('3', [q1, q3]) # Becomes Id 0
         ]
         seqs += [seq]
         # Q2
         seq = [
-            Barrier('0', [q1, q2]),
+            Barrier('0', [q1, q2]), # Becomes ID 0
             Id(QBIT_q2, length=0.5),
             X(QBIT_q2, length=0.3),
             MEAS(QBIT_q2),
-            Barrier('1', [q1, q2])
+            Barrier('1', [q1, q2]) # Becomes Id 0
         ]
         seqs += [seq]
         # Q1
         seq = [
-            Barrier('0', [q1, q2]),
+            Barrier('0', [q1, q2]), # Becomes Id 0
             Id(QBIT_q1, length=0.2),
             X(QBIT_q1, length=0.4),
             MEAS(QBIT_q1),
-            Barrier('1', [q1, q2]),
-            Barrier('2', [q1, q3]),
+            Barrier('1', [q1, q2]), # Becomes Id 0.2
+            Barrier('2', [q1, q3]), # Becomes Id 0
             Y(QBIT_q1, length=0.1),
-            Barrier('3', [q1, q3])
+            Barrier('3', [q1, q3]) # Becomes Id 0.5
         ]
         seqs += [seq]
         return seqs
@@ -1680,16 +1673,21 @@ Repeat(loopstart)
 
     # Basic 3 qubits not all doing same stuff / diff # barriers
 #    seqs = testFunc()
+
     # 2 qubits with a repeat inside, doing same stuff
 #    seqs = testFunc2()
+
     # 2 qubits doing same thing
     # Call inside a barrier
     # which has barriers inside, and does a call itself
 #    seqs = testCall()
+
     # test Repeats including nested repeats
 #    seqs = testRepeat()
+
     # test explicit waits
 #    seqs = testWait()
+
     # test explicit WaitSomes
     seqs = testWaitSome()
 
