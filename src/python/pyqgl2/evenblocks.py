@@ -71,6 +71,7 @@ from QGL.BlockLabel import BlockLabel
 from QGL.PulsePrimitives import Id
 from QGL.ChannelLibrary import QubitFactory
 
+import copy
 import logging
 
 logger = logging.getLogger('QGL.Compiler.qgl2')
@@ -127,28 +128,40 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
     # To be called for each sequence that this barrier is on
     global barriersByCtr, barriersBySeqByPos, barriersBySeqByCtr
     barrier = barriersByCtr.get(barrierCtr, None)
-    logger.debug("markBarrierLength adding to barrier '%s' length: %s (old object: %s)", barrierCtr, addLen, barrier)
+    logger.debug("markBarrierLength (seq %d) adding to barrier '%s' length: %s (old object: %s)", seqIdx, barrierCtr, addLen, barrier)
     if barrier is not None:
-        barrier['lengthSince'] += addLen
-        barrier['lengthCalculated'] = True
-        barriersByCtr[barrierCtr] = barrier
-        logger.debug("markBarrierLength updated object: %s", barrier)
+        if barrier['lengthCalculated']:
+            logger.debug("markBarrier (seq %d) found in barriersByCtr %s already calculated: %s", seqIdx, barrierCtr, barrier)
+        elif barrier['seqIndex'] != seqIdx:
+            # We call this once per sequence so we'll catch this next time through
+            logger.debug("markBarrier (seq %d) on %s found wrong sequence in barriersByCtr (%d) - skip", seqIdx, barrierCtr, barrier['seqIndex'])
+        else:
+            barrier['lengthSince'] += addLen
+            barrier['lengthCalculated'] = True
+            barriersByCtr[barrierCtr] = barrier
+            logger.debug("markBarrierLength updated object: %s", barrier)
     else:
         logger.warning("Barrier '%s' not in barriersByCtr", barrierCtr)
     if seqIdx in barriersBySeqByPos:
         for pos in barriersBySeqByPos[seqIdx]:
             if barrierCtr == barriersBySeqByPos[seqIdx][pos]['counter']:
                 barrier = barriersBySeqByPos[seqIdx][pos]
-                barrier['lengthSince'] += addLen
-                barrier['lengthCalculated'] = True
-                barriersBySeqByPos[seqIdx][pos] = barrier
+                if barrier['lengthCalculated']:
+                    logger.debug("markBarrier (seq %d) found in barriersBySeqByPos %s already calculated: %s", seqIdx, barrierCtr, barrier)
+                else:
+                    barrier['lengthSince'] += addLen
+                    barrier['lengthCalculated'] = True
+                    barriersBySeqByPos[seqIdx][pos] = barrier
                 break
     if seqIdx in barriersBySeqByCtr:
         if barrierCtr in barriersBySeqByCtr[seqIdx]:
             barrier = barriersBySeqByCtr[seqIdx][barrierCtr]
-            barrier['lengthSince'] += addLen
-            barrier['lengthCalculated'] = True
-            barriersBySeqByCtr[seqIdx][barrierCtr] = barrier
+            if barrier['lengthCalculated']:
+                logger.debug("markBarrier (seq %d) found in barriersBySeqByCtr %s already calculated: %s", seqIdx, barrierCtr, barrier)
+            else:
+                barrier['lengthSince'] += addLen
+                barrier['lengthCalculated'] = True
+                barriersBySeqByCtr[seqIdx][barrierCtr] = barrier
 
 def getBarrierForSeqCtr(seqInd, currCtr):
     '''Get the barrier object for the currCtr Barrier
@@ -181,7 +194,7 @@ def getLengthBetweenBarriers(seqInd, currCtr, prevCtr='-1'):
     the whole thing is indeterminate.
     '''
     # ctr of '-1' means start
-    # ctr of 'wait-%d' means a Wait at that index in the sequence
+    # ctr of 'wait-' means a Wait of some kind
     # seqInd is the index of the sequence
     import math
     if currCtr == prevCtr:
@@ -204,7 +217,8 @@ def getLengthBetweenBarriers(seqInd, currCtr, prevCtr='-1'):
     if prevBarrierCtr == prevCtr:
         logger.debug("Desired previous barrier %s is actual previous from current %s, so use stored length: %s", prevCtr, currCtr, prevLen)
         return prevLen
-
+    if not currBarrier['lengthCalculated']:
+        logger.debug("Warning: if we recursed, length from %s to %s is not reliable cause not calculated", currCtr, prevBarrierCtr)
     # Old code stored firstPrev and prevPrev to handle repeat with barrier inside
     # But now realize that doesn't make sense; any barrier inside a repeat (if allowed at all)
     # must be treated as indetermine / a Wait
@@ -322,8 +336,10 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
     positions.sort()
     for pos in positions:
         barrier = barriersBySeqByPos[seqInd][pos]
-        if not found and barrier == currBarrier:
+        logger.debug("getNext after %s on seq %s looking at %s", currCtr, seqInd, barrier['counter'])
+        if not found and barriersEqual(barrier, currBarrier):
             # If we hadn't yet found the desired barrier but did now, say so
+            logger.debug("found current")
             found = True
             continue
         if found:
@@ -350,6 +366,23 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
     logger.debug("getNextBarrierCtr failed to find a next (none left?) for sequence %d, barrier %s", seqInd, currCtr)
     return '-1'
 # End getNextBarrierCtr
+
+def barriersEqual(thisB, thatB):
+    '''Return True iff 2 barrier dictionaries are effectively equal,
+    i.e. same sequence and same counter.'''
+    if thisB is None and thatB is None:
+        return True
+    if thisB is None or thatB is None:
+        return False
+    if thisB == thatB:
+        return True
+    thisBCtr = thisB['counter']
+    thatBCtr = thatB['counter']
+    thisBSeq = thisB['seqIndex']
+    thatBSeq = thatB['seqIndex']
+    if thisBCtr == thatBCtr and thisBSeq == thatBSeq:
+        return True
+    return False
 
 def getBarrierChannels(barrierCtr):
     '''Return a list of Channel objects whose sequences have this barrier,
@@ -454,16 +487,15 @@ def getLastSharedBarrierCtr(channels, barrierCtr):
         if prevBarrierCtr == '-1':
             logger.debug("Previous possibly shared is the start: %s", prevBarrier)
             return prevBarrierCtr
-        if not prevBarrier or prevBarrier == -1 or prevBarrier == currBarrier:
+        if not prevBarrier or prevBarrier == -1 or barriersEqual(prevBarrier, currBarrier):
             logger.warning("Failed to find prev Barrier %s on sequence %d in getLastSharedBarrierCtr", prevBarrierCtr, seqInd)
             # This would happen if the last shared barrier is the start
             return '-1'
         prevChannelSet = set(prevBarrier.get('channels', []))
 
         # Look for error where a barrier claims more channels than sequences it is found on
-        # Typically this is a Wait() that isn't on all channels
-        # 7/8: FIXME: counter of a wait is its position in the sequence which may change.
-        # So I can only compare the channel list and type. But 2 WAITs on same channel set would get confused
+        # Typically this is a Wait() that isn't on all channels, or WaitSome
+        # not on the channels it listed
         psc = 0
         psIs = []
         for sI in barriersBySeqByCtr:
@@ -545,7 +577,7 @@ def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
         else:
             logger.debug("Sequence %d: NOT replacing %s with Id, but marking it as length=%s", seqInd, seq[ind], idlen)
 
-        markBarrierLengthCalculated(currCtr, ind, idlen)
+        markBarrierLengthCalculated(currCtr, seqInd, idlen)
     return seqs
 
 def getPreviousUndoneBarrierCtr(currCtr, prevCtr, seqIdx):
@@ -555,22 +587,48 @@ def getPreviousUndoneBarrierCtr(currCtr, prevCtr, seqIdx):
     '''
     # For the given channel, loop up previous barriers,
     # if lengthCalculated==False, return it
-    # FIXME: We're ignoring prevCtr here
     # Nominally prevCtr should have lengthCalculated=True,
     # But if it didn't, we'd want to do it
     global barriersBySeqByCtr
+    logger.debug("getPrevUndone asked for last undone from curr %s to prev %s", currCtr, prevCtr)
     if currCtr not in barriersBySeqByCtr[seqIdx]:
         raise Exception("Looking for prevUndoneBarrier: Sequence %d didn't have expected barrier %s" % (seqIdx, currCtr))
+    prevBarrier = barriersBySeqByCtr[seqIdx].get(prevCtr, None)
+    if prevBarrier is None:
+        raise Exception("getPrevUndone failed to find prev %s in seq %d" % (prevCtr, seqIdx))
+    if prevBarrier != -1 and not prevBarrier['lengthCalculated']:
+        logger.debug("getPrevUndone: prev was not done: %s", prevBarrier)
+        return prevCtr
+    # prevCtr is done....
     barrier = barriersBySeqByCtr[seqIdx][currCtr]
-    while barrier is not None and barrier != -1 and barrier['counter'] != '-1' and barrier['lengthCalculated'] and barrier['counter'] != prevCtr:
-        logger.debug("Barrier marked as lengthCalculated: %s", barrier)
-        barrierCtr = barrier['prevBarrierCtr']
-        barrier = barriersBySeqByCtr[seqIdx].get(barrierCtr, None)
-    if barrier is None or barrier == -1 or barrier['counter'] == currCtr or barrier['counter'] == '-1' or barrier['lengthCalculated']:
-        logger.debug("Ran out of barriers to check on sequence %d. Found %s", seqIdx, barrier)
+    if barrier is None or barrier == -1:
+        logger.debug("getPrevUndone: curr was None/-1: %s", currCtr)
         return None
-    logger.debug("Apparently undone barrier: %s", barrier)
-    return barrier['counter']
+    if barrier['lengthCalculated']:
+        logger.debug("getPrevUndone: curr is done, so return None: %s", barrier)
+        return None
+    # barrier / currCtr is not done
+    if currCtr == prevCtr:
+        logger.debug("getPrevUndone currCtr==prevCtr (%s)", currCtr)
+        return currCtr
+    curPrevCtr = barrier['prevBarrierCtr']
+    if curPrevCtr == prevCtr:
+        # Already know that prevCtr is done and currCtr is not
+        # so if the one before curr is prev, return curr
+        logger.debug("getPrevUndone: prev from %s is prevCtr %s", currCtr, prevCtr)
+        return currCtr
+    # If we get here, theres something between curr and prev
+    curPrevBarrier = barriersBySeqByCtr[seqIdx].get(curPrevCtr, None)
+    if not curPrevBarrier:
+        raise Exception("getPrevUndone failed to find curPrev %s" % curPrevCtr)
+    if curPrevBarrier != -1 and curPrevBarrier['lengthCalculated']:
+        # The one before curr is done but curr is not done, so curr is last
+        logger.debug("getPrevUndone: prev from %s is %s which is done, so return this", currCtr, curPrevCtr)
+        return currCtr
+    # the 1 before cur is also not done
+    # Haven't reached the end, need to iterate
+    logger.debug("getPrevUndone: curr's prev %s is undone so iterate", curPrevCtr)
+    return getPreviousUndoneBarrierCtr(curPrevCtr, prevCtr, seqIdx)
 
 def getLastUnMeasuredBarrierCtr(currCtr, prevCtr, seqIdxes):
     '''Return the counter/id of the last Barrier on the list of sequences
@@ -709,7 +767,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
     # (float, may be 'nan' meaning it becomes a WaitSome)
     # A barrier object that is -1 means the start
     # A barrier ID of '-1' means the start
-    # A wait has a barrier ID of 'wait-<IndexInSequence>'
+    # A wait has a barrier ID of 'wait-....'
     # barrier position of -1 is the start
 
     global barriersBySeqByPos, barriersBySeqByCtr, barriersByCtr, allChannels
@@ -717,7 +775,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
     barriersBySeqByPos = dict() # by sequence Index in seqs, by Pos index of element in sequence
     barriersBySeqByCtr = dict() # by sequence Index in seqs, by Counter ID of barrier
     barriersByCtr = dict() # by Counter ID of barrier
-    allChannels = [ch for ch in seqIdxToChannelMap.values()] # actual Channel objects
+    allChannels = sorted([ch for ch in seqIdxToChannelMap.values()], key=lambda chan: repr(chan)) # actual Channel objects sorted alphabeticallyy
 
     startBarrier = dict()
     startBarrier['type'] = 'start'
@@ -778,6 +836,9 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
         # Is this block between 2 barriers of indeterminate length
         nonDet = False
 
+        # counter of waits in sequence by channels it waits on
+        waitsOnChannels = dict()
+
         # index into the sequence of the current element
         seqPos = 0
 
@@ -811,7 +872,9 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                                 chan = chan[5:]
                             chan = QubitFactory(chan)
                         chans.append(chan)
-                    curBarrier['channels'] = chans
+                    # Store the channels sorted alphabetically for later comparison
+                    curBarrier['channels'] = sorted(chans, key=lambda chan: repr(chan))
+                    curBarrier['chanKey'] = frozenset(curBarrier['channels'])
                     curBarrier['counter'] = elem.value
                 elif isWaitSome(elem):
                     # This shouldn't really happen I think, but maybe?
@@ -826,15 +889,30 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                                 chan = chan[5:]
                             chan = QubitFactory(chan)
                         chans.append(chan)
-                    curBarrier['channels'] = chans
-                    curBarrier['counter'] = 'wait-%d' % seqPos
+                    # Store the channels sorted alphabetically for later comparison
+                    curBarrier['channels'] = sorted(chans, key=lambda chan: repr(chan))
+                    # Make that a frozenset to use as key in dict
+                    curBarrier['chanKey'] = frozenset(curBarrier['channels'])
+                    if curBarrier['chanKey'] not in waitsOnChannels:
+                        waitsOnChannels[curBarrier['chanKey']] = 0
+                    # Keep counter of # times seen a wait for same channels
+                    # as the 2nd wait on same channels should match a waitsome on
+                    # the other sequences on the same channels
+                    waitsOnChannels[curBarrier['chanKey']] += 1
+                    curBarrier['waitCount'] = waitsOnChannels[curBarrier['chanKey']]
+                    curBarrier['counter'] = 'wait-chans-%s-ctr-%d' % (curBarrier['channels'], curBarrier['waitCount'])
                     if not isSync(seq[seqPos-1]):
                         logger.warning("Previous element was not a sync but %s", seq[seqPos-1])
                 elif isWait(elem):
                     logger.info("Got %s at %d", elem, seqPos)
                     curBarrier['type'] = 'wait'
                     curBarrier['channels'] = allChannels
-                    curBarrier['counter'] = 'wait-%d' % seqPos
+                    curBarrier['chanKey'] = frozenset(allChannels)
+                    if curBarrier['chanKey'] not in waitsOnChannels:
+                        waitsOnChannels[curBarrier['chanKey']] = 0
+                    waitsOnChannels[curBarrier['chanKey']] += 1
+                    curBarrier['waitCount'] = waitsOnChannels[curBarrier['chanKey']]
+                    curBarrier['counter'] = 'wait-chans-%s-ctr-%d' % (curBarrier['channels'], curBarrier['waitCount'])
                     if not isSync(seq[seqPos-1]):
                         logger.warning("Previous element was not a sync but %s", seq[seqPos-1])
                 if nonDet:
@@ -865,8 +943,8 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
 
                 # Store this barrier
                 barriersByCtr[curBarrier['counter']] = curBarrier
-                barriersBySeqByPos[seqInd][seqPos] = curBarrier
-                barriersBySeqByCtr[seqInd][curBarrier['counter']] = curBarrier
+                barriersBySeqByPos[seqInd][seqPos] = copy.deepcopy(curBarrier)
+                barriersBySeqByCtr[seqInd][curBarrier['counter']] = copy.deepcopy(curBarrier)
 
                 # Reset vars for next barrier block
                 prevBarrier = curBarrier
@@ -1619,7 +1697,7 @@ Repeat(loopstart)
         seqs = list()
         # Q3
         seq = [
-            Barrier('2', [q1, q3]), # becomes ID 0.6
+            Barrier('2', [q1, q3]), # becomes ID 0.8
             Y(QBIT_q3, length=0.6),
             Barrier('3', [q1, q3]) # Becomes Id 0
         ]
