@@ -200,7 +200,7 @@ def getLengthBetweenBarriers(seqInd, currCtr, prevCtr='-1', iterCnt=0):
     the whole thing is indeterminate.
     '''
     # ctr of '-1' means start
-    # ctr of 'wait-' means a Wait of some kind
+    # ctr of 'wait-' means a Wait of some kind: Format is 'wait-chans-%s-ctr-%d' % (curBarrier['channels'], curBarrier['waitCount'])
     # seqInd is the index of the sequence
     import math
     if currCtr == prevCtr:
@@ -609,18 +609,17 @@ def getPreviousUndoneBarrierCtr(currCtr, prevCtr, seqIdx, iterCnt = 0):
     if prevBarrier != -1 and not prevBarrier['lengthCalculated']:
         logger.debug("  %sgetPrevUndone: prev was not done - so it is last: %s", "  "*iterCnt, prevBarrier)
         return prevCtr
-    # prevCtr is done....
+    # prevCtr is done or -1....
     barrier = barriersBySeqByCtr[seqIdx][currCtr]
     if barrier is None or barrier == -1:
         logger.debug("  %sgetPrevUndone: curr was None/-1: %s", "  "*iterCnt, currCtr)
         return None
     if barrier['lengthCalculated']:
+        # Here we assume that if a barrier is done, then all barriers before it are done
         logger.debug("  %sgetPrevUndone: curr is done, so return None. Current: %s", "  "*iterCnt, barrier)
         return None
-    # barrier / currCtr is not done
-    if currCtr == prevCtr:
-        logger.debug("  %sgetPrevUndone currCtr==prevCtr, return it (%s)", "  "*iterCnt, currCtr)
-        return currCtr
+    # barrier / currCtr is not done, and prev is done or -1
+    # if currCtr == prevCtr - cannot happen
     curPrevCtr = barrier['prevBarrierCtr']
     if curPrevCtr == prevCtr:
         # Already know that prevCtr is done and currCtr is not
@@ -782,7 +781,9 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
     # (float, may be 'nan' meaning it becomes a WaitSome)
     # A barrier object that is -1 means the start
     # A barrier ID of '-1' means the start
-    # A wait has a barrier ID of 'wait-....'
+    # A wait has a barrier ID of 'wait-chans-%s-ctr-%d' % (curBarrier['channels'], curBarrier['waitCount'])
+    #  * where the channels are sorted, and the waitCount is the count of Waits encountered at runtime with the same channels
+    #  * Note the assumption that if a Wait specifies channels, then all channels have that Wait
     # barrier position of -1 is the start
 
     global barriersBySeqByPos, barriersBySeqByCtr, barriersByCtr, allChannels
