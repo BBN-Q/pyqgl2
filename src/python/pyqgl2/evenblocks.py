@@ -135,13 +135,13 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
     if barrier is not None:
         if barrier['lengthCalculated']:
             logger.debug("markBarrier (seq %d) found in barriersByCtr %s already calculated", seqIdx, barrierCtr)
-            logger.debug("Old dict: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", barrier['counter'], barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['lengthCalculated'])
+            logger.debug("Old dict: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
         elif barrier['seqIndex'] != seqIdx:
             # We call this once per sequence so we'll catch this next time through
             # logger.debug("markBarrier (seq %d) on '%s' found wrong sequence in barriersByCtr (%d) - skip", seqIdx, barrierCtr, barrier['seqIndex'])
             pass
         else:
-            logger.debug("markBarrierLength updating barriersByCtr object: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", barrier['counter'], barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['lengthCalculated'])
+            logger.debug("markBarrierLength updating barriersByCtr object: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
             barrier['lengthSince'] += addLen
             barrier['lengthCalculated'] = True
             barriersByCtr[barrierCtr] = barrier
@@ -153,7 +153,7 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
             if barrierCtr == barriersBySeqByPos[seqIdx][pos]['counter']:
                 barrier = barriersBySeqByPos[seqIdx][pos]
                 if barrier['lengthCalculated']:
-                    logger.debug("markBarrier (seq %d) found in barriersBySeqByPos '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'seqPos': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['seqPos'], barrier['lengthSince'], barrier['lengthCalculated'])
+                    logger.debug("markBarrier (seq %d) found in barriersBySeqByPos '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'seqPos': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['seqPos'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
                 else:
                     barrier['lengthSince'] += addLen
                     barrier['lengthCalculated'] = True
@@ -163,7 +163,7 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
         if barrierCtr in barriersBySeqByCtr[seqIdx]:
             barrier = barriersBySeqByCtr[seqIdx][barrierCtr]
             if barrier['lengthCalculated']:
-                logger.debug("markBarrier (seq %d) found in barriersBySeqByCtr '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['lengthCalculated'])
+                logger.debug("markBarrier (seq %d) found in barriersBySeqByCtr '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
             else:
                 barrier['lengthSince'] += addLen
                 barrier['lengthCalculated'] = True
@@ -214,7 +214,7 @@ def getLengthBetweenBarriers(seqInd, currCtr, prevCtr='-1', iterCnt=0):
         # from start
         return 0
 
-    logger.debug("%sgetLengthBetweenBarriers: currBarrier: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", "  "*iterCnt, currBarrier['counter'], currBarrier['counter'], currBarrier['type'], currBarrier['seqIndex'], currBarrier['lengthSince'], currBarrier['lengthCalculated'])
+    logger.debug("%sgetLengthBetweenBarriers: currBarrier: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", "  "*iterCnt, currBarrier['counter'], currBarrier['type'], currBarrier['seqIndex'], currBarrier['lengthSince'], currBarrier['prevBarrierCtr'], currBarrier['lengthCalculated'])
 
     # Basic case: the previous barrier is the one we're looking for
     prevBarrierCtr = currBarrier['prevBarrierCtr']
@@ -546,8 +546,11 @@ def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
         lengths[seqInd] = getLengthBetweenBarriers(seqInd, currCtr, prevForLengthCtr)
         logger.debug("... Sequence %d length from curr '%s' to prev '%s': %s", seqInd, currCtr, prevForLengthCtr, lengths[seqInd])
 
-    # Find the max (at least 0)
-    maxBlockLen = max(list(lengths.values()) + [0])
+    # Find the max (at least 0), or NaN if any are NaN
+    numlist = list(lengths.values()) + [0]
+    maxBlockLen = max(numlist)
+    if any([math.isnan(x) for x in numlist]):
+        maxBlockLen = float('nan')
 
     # If the block is of indeterminate length then later code
     # will replace these Barriers,
@@ -918,7 +921,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                     curBarrier['waitCount'] = waitsOnChannels[curBarrier['chanKey']]
                     curBarrier['counter'] = 'wait-chans-%s-ctr-%d' % (curBarrier['channels'], curBarrier['waitCount'])
                     if not isSync(seq[seqPos-1]):
-                        logger.warning("Previous element was not a sync but %s", seq[seqPos-1])
+                        logger.warning("Previous element was not a Sync, but %s", seq[seqPos-1])
                 elif isWait(elem):
                     logger.info("Got %s at %d", elem, seqPos)
                     curBarrier['type'] = 'wait'
@@ -930,7 +933,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                     curBarrier['waitCount'] = waitsOnChannels[curBarrier['chanKey']]
                     curBarrier['counter'] = 'wait-chans-%s-ctr-%d' % (curBarrier['channels'], curBarrier['waitCount'])
                     if not isSync(seq[seqPos-1]):
-                        logger.warning("Previous element was not a sync but %s", seq[seqPos-1])
+                        logger.warning("Previous element was not a Sync, but %s", seq[seqPos-1])
                 if nonDet:
                     logger.debug("Marking this barrier as indeterminate length")
                     curBarrier['lengthSince'] = float('nan')
@@ -1281,6 +1284,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
 
             # Make sure it's a barrier still
             if isBarrier(seq[bInd]):
+                swapCnt += 1
                 if bType == 'wait' or bChannels == allChannels:                    
                     logger.info("Replacing sequence %d index %d (%s) with Sync();Wait()", seqInd, bInd, seq[bInd])
                     # Replace
@@ -1585,6 +1589,72 @@ if __name__ == '__main__':
         seqs += [seq]
         return seqs
 
+    def testCMP():
+        from QGL.ChannelLibrary import QubitFactory
+        from QGL.BlockLabel import BlockLabel
+        from QGL.ControlFlow import Barrier, Repeat, LoadRepeat
+        from QGL.ControlFlow import Sync
+        from QGL.ControlFlow import Wait
+        from QGL.ControlFlow import LoadCmp, CmpEq
+        from QGL.PulsePrimitives import Id
+        from QGL.PulsePrimitives import MEAS
+        from QGL.PulsePrimitives import X, X90, X90m
+        from QGL.PulsePrimitives import Y, Y90
+
+        q1 = QubitFactory('q1')
+        QBIT_q1 = q1
+        q2 = QubitFactory('q2')
+        QBIT_q2 = q2
+        q3 = QubitFactory('q3')
+        QBIT_q3 = q3
+
+        seqs = list()
+        # q1
+        seq = [
+            Barrier('1', [q1, q2, q3]), # Id 0
+            Sync(),
+            WaitSome([q1, q2]), # Note this isn't on q3 and matches line 3 of q2. Should be left alone.
+            X(q1, length=0.1),
+            Barrier('2', [q1, q2]), # Prev is the WaitSome; should become Id 0
+            Y(q1, length=0.2),
+#            Barrier('3', [q1, q2]),
+ #           Wait(),
+            X(q1, length=0.3),
+            Barrier('4', [q1, q2, q3]) # Id .8 without q2 and waitsomes; lSince .6; Due to q3 becomes NaN: Sync/Wait
+        ]
+        seqs += [seq]
+        # q2
+        seq = [
+            Barrier('1', [q1, q2, q3]), # Id 0
+            Sync(),
+            WaitSome([q1, q2]), # Note this isn't on q3 and matches line 3 of q2. # Should be left alone.
+            X(q2),
+            Barrier('2', [q1, q2]), # Prev is the WaitSome; should become Id 0.1
+            Y(q2),
+#            Barrier('3', [q1, q2]),
+            WaitSome([q2, q3]), # Not on q1; prev is B1; lSince 0; computed: NaN due to q3
+            X(q2),
+            Barrier('4', [q1, q2, q3]) # Id .5 if no q3; Prev B1; lSince 0; Id 0.6 cause that's what's since the Wait? Or must be Sync/Wait to match q1?
+        ]
+        seqs += [seq]
+        # q3
+        seq = [
+            Barrier('1', [q1, q2, q3]), # Id 0
+            Sync(),
+#            Wait(),
+            X(q3, length=0.4),
+#            Barrier('2', [q1, q2]),
+            LoadCmp(),
+            CmpEq(1),
+            Y(q3, length=0.5),
+#            Barrier('3', [q1, q2]),
+            WaitSome([q2, q3]), # Not on q1; prev is B1; lsince 0.9+NaN=NaN; computed NaN
+            X(q3, length=0.6),
+            Barrier('4', [q1, q2, q3]) # Prev B1; lSince NaN (0.6 since WaitSome); Make this Id 0 due to WaitSome already there? Or must be Sync/Wait?
+        ]
+        seqs += [seq]
+        return seqs
+
     def testRepeat():
         from QGL.ChannelLibrary import QubitFactory
         from QGL.BlockLabel import BlockLabel
@@ -1798,7 +1868,10 @@ Repeat(loopstart)
 #    seqs = testWait()
 
     # test explicit WaitSomes
-    seqs = testWaitSome()
+#    seqs = testWaitSome()
+
+    # test WaitSomes and Cmp/LoadCmp
+    seqs = testCMP()
 
     logger.info("Seqs: \n%s", printSeqs(seqs))
 
