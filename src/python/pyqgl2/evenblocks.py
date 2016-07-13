@@ -325,6 +325,9 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
                     # return this ctr
                     if str(barrier) == '-1':
                         return '-1'
+                    elif barrier['lengthCalculated']:
+                        logger.debug("... but this barrier length already calculated, continue")
+                        continue
                     else:
                         logger.debug("First replaceable barrier on sequence %d: %s\n", seqInd, barrier['counter'])
                         return barrier['counter']
@@ -332,6 +335,9 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
                     # logger.debug("%s not (no longer) replaceable", barrier)
                     # keep looping
                     continue
+            # If we get here, there are no replaceable barriers
+            logger.debug("No (more) replaceable barriers on sequence %d\n", seqInd)
+            return '-1'
         else:
             logger.info("Sequence %d has no barriers", seqInd)
             return '-1'
@@ -358,11 +364,15 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
             # Make sure that barrier is actually still in the sequence it claims to be in;
             # we might have already removed it
             if isReplaceableBarrier(barrier, seqs):
-                logger.debug("... returning it as next\n")
                 # return this ctr
                 if str(barrier) == '-1':
+                    logger.debug("... returning it as next\n")
                     return '-1'
+                elif barrier['lengthCalculated']:
+                    logger.debug("... but this barrier length already calculated, continue")
+                    continue
                 else:
+                    logger.debug("... returning it as next\n")
                     return barrier['counter']
             else:
                 # logger.debug("... but not (any longer) replaceable")
@@ -1634,7 +1644,7 @@ if __name__ == '__main__':
 #            Barrier('3', [q1, q2]),
             WaitSome([q2, q3]), # Not on q1; prev is B1; lSince 0; computed: NaN due to q3
             X(q2),
-            Barrier('4', [q1, q2, q3]) # Id .5 if no q3; Prev B1; lSince 0; Id 0.6 cause that's what's since the Wait? Or must be Sync/Wait to match q1?
+            Barrier('4', [q1, q2, q3]) # Id .5 if no q3; Prev B1; lSince 0; must be Sync/Wait to match q1, else Sync then Id 0.6?
         ]
         seqs += [seq]
         # q3
@@ -1650,7 +1660,7 @@ if __name__ == '__main__':
 #            Barrier('3', [q1, q2]),
             WaitSome([q2, q3]), # Not on q1; prev is B1; lsince 0.9+NaN=NaN; computed NaN
             X(q3, length=0.6),
-            Barrier('4', [q1, q2, q3]) # Prev B1; lSince NaN (0.6 since WaitSome); Make this Id 0 due to WaitSome already there? Or must be Sync/Wait?
+            Barrier('4', [q1, q2, q3]) # Prev B1; lSince NaN (0.6 since WaitSome); Make this Sync/Wait to match q1, else could be Sync;Id 0
         ]
         seqs += [seq]
         return seqs
