@@ -7,7 +7,7 @@ from QGL.PulseSequencePlotter import plot_pulse_files
 
 from qgl2.basic_sequences.helpers import create_cal_seqs
 from qgl2.basic_sequences.new_helpers import compileAndPlot
-from qgl2.qgl2 import init
+from qgl2.util import init
 
 from functools import reduce
 import operator

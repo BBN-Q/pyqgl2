@@ -2,7 +2,7 @@ import numpy as np
 from qgl2.qgl2 import qgl2decl, sequence, qbit
 from qgl2.qgl1 import QubitFactory, X90, Id, Y, U90, MEAS, X90
 from qgl2.control import *
-from qgl2.qgl2 import init
+from qgl2.util import init
 from qgl2.basic_sequences.helpers import create_cal_seqs
 
 @qgl2decl

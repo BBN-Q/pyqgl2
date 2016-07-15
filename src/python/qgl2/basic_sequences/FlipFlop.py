@@ -9,7 +9,7 @@ from QGL.PulseSequencePlotter import plot_pulse_files
 from itertools import chain
 
 from qgl2.basic_sequences.new_helpers import addMeasPulse, compileAndPlot
-from qgl2.qgl2 import init
+from qgl2.util import init
 
 def FlipFlopq1(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     """
