@@ -440,7 +440,8 @@ def getAWG(channel):
 def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     '''Custom compile_to_hardware for QGL2 that calls
     c2h once per sequence, specifically asking that the slaveTrigger be added only for the single 
-    channel that actually shares an AWG with the slaveTrigger.'''
+    channel that actually shares an AWG with the slaveTrigger.
+    Return is a list of filenames.'''
     from QGL.Compiler import find_unique_channels, compile_to_hardware
     from QGL.Channels import Qubit as qgl1Qubit
     from QGL import ChannelLibrary
@@ -487,6 +488,8 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
         logger.debug("Randomly putting slaveTrig on sequence %d", slaveSeqInd)
 
     # Now we call c2h for each seq
+    # Start as a set so filenames are unique,
+    # but return as a list so it can be a dictionary key
     files = set()
     for idx,seq in enumerate(seqs):
         if idx not in seqIdxToChannelMap:
@@ -506,7 +509,7 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
             files = files.union(newfiles)
         else:
             logger.debug("Produced no new files")
-    return files
+    return list(files)
 
 ######
 # Code below here is for testing

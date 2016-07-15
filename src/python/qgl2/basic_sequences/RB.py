@@ -9,7 +9,7 @@ from QGL.Compiler import compile_to_hardware
 
 from qgl2.basic_sequences.helpers import create_cal_seqs
 from qgl2.basic_sequences.new_helpers import compileAndPlot
-from qgl2.qgl2 import init
+from qgl2.util import init
 
 from csv import reader
 from functools import reduce

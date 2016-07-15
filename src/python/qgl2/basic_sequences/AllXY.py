@@ -13,7 +13,7 @@ from qgl2.control import *
 from qgl2.basic_sequences.new_helpers import addMeasPulses, repeatSequences, compileAndPlot
 from qgl2.basic_sequences.new_helpers import IdId, XX, YY, XY, YX, X90Id, Y90Id, X90Y90, Y90X90, X90Y, Y90X, \
     XY90, YX90, X90X, XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90
-from qgl2.qgl2 import init
+from qgl2.util import init
 
 @qgl2decl
 def AllXYq2(q: qbit, showPlot = False):

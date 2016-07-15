@@ -1,7 +1,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 from qgl2.qgl2 import qgl2decl, qbit, sequence, concur
-from qgl2.qgl2 import init
+from qgl2.util import init
 from qgl2.qgl1 import MEAS, QubitFactory
 from qgl2.control import *
 from qgl2.basic_sequences.new_helpers import IdId, XX, YY, XY, YX, X90Id, Y90Id, X90Y90, Y90X90, X90Y, Y90X, \
