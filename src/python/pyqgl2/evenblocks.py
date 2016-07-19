@@ -97,29 +97,37 @@ def isBlockLabel(pulse): return isinstance(pulse, BlockLabel)
 def pulseLengths(pulses):
     '''QGL1 function to get the length of a pulse, pulseblock,
     compositepulse, or list or tuple of such things.'''
-    lenRes = 0
+    # First just try to get/return the length attribute
+    try:
+        # This should cover Pulse, CompositePulse, PulseBlock,
+        # ControlInstruction, BlockLabel - all the usual things
+        logger.debug("Pulse %s has length %s", pulses, pulses.length)
+        return pulses.length
+    except:
+        pass
+
+    # If we get here, it has no length attribute
+
+    # Errors
     if pulses is None:
-        logger.debug("pulses was None")
-        return lenRes
+        raise Exception("pulses was None")
+    if isinstance(pulses, str):
+        raise Exception("pulseLengths got string pulses: %r" % pulses)
+
+    lenRes = 0
     if isinstance(pulses, list) or isinstance(pulses, tuple):
-        # logger.debug("pulses was list")
+        logger.debug("pulses was list: %r", pulses)
         if len(pulses) == 0:
             logger.debug("pulses was list of length 0")
-            return lenRes
+            return 0
         for pulse in pulses:
             lenRes += pulseLengths(pulse)
-        return lenRes
-    if isinstance(pulses, Pulse) or isinstance(pulses, CompositePulse) \
-       or isinstance(pulses, PulseBlock) or isinstance(pulses, ControlInstruction) \
-       or isinstance(pulses, BlockLabel):
-        lenRes = pulses.length
-        logger.debug("Pulse %s has length %s", pulses, lenRes)
         return lenRes
 
     # Not a pulse or list of pulses that we know how to handle
     # FIXME! Raise some kind of error?
     # Or are there pulse like things in there that we should ignore?
-    logger.warning("Unknown sequence element %s assumed to have length 0", pulses)
+    logger.warning("Unknown sequence element %s of type %s assumed to have length 0", pulses, type(pulses))
     return lenRes
 
 def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
@@ -493,9 +501,13 @@ def getLastSharedBarrierCtr(channels, barrierCtr):
     # Loop up the barrier's previous pointers, looking to see if its channel set contains all the channels
     # for this Barrier. We're looking for the first previous barrier that is a supert of the channels
     # for this Barrier.
-    while not channelsSet <= prevChannelSet:
+    # Unfortunately, Qubits don't seem to have a nice .equals so set comparison fails.
+    # Here we rely on the string rep of Qubits being sufficient
+    while not (all(str(chan) in str(prevChannelSet) for chan in channelsSet)):
+        #logger.debug("curr %s, prev %s", str(channelsSet), str(prevChannelSet))
         currBarrier = prevBarrier
         prevBarrierCtr = currBarrier['prevBarrierCtr']
+        #logger.debug("From barrier %s, prevBarrierCtr: %s", currBarrier['counter'], prevBarrierCtr)
         prevBarrier = seqBs.get(prevBarrierCtr, None)
         if prevBarrier is None:
             logger.warning("Failed to find prev Barrier '%s' on sequence %d in getLastSharedBarrierCtr", prevBarrierCtr, seqInd)
@@ -523,12 +535,18 @@ def getLastSharedBarrierCtr(channels, barrierCtr):
             # This is an error if we insist all channels share a Wait/WaitSome that waits on those channels
             # Our current naming convention for Waits and way of finding matching waits assumes this
             logger.error("Candidate prevBarrier '%s' claims %d channels but found on only %d sequences (channels %s but sequences %s)", prevBarrierCtr, len(prevChannelSet), psc, prevChannelSet, psIs)
+        logger.debug("currChannelSet: %s; prev %s ChannelSet: %s", channelsSet, prevBarrierCtr, prevChannelSet)
     # End of while looking for a prevBarrier with a superset of channels
 
-    if channelsSet <= prevChannelSet:
-        logger.debug("Found previous barrier '%s' whose channels %s include at least the channels on Barrier '%s': %s", prevBarrierCtr, prevChannelSet, barrierCtr, channelsSet)
+    #if channelsSet <= prevChannelSet:
+    #    logger.debug("Found previous barrier '%s' whose channels %s include at least the channels on Barrier '%s': %s", prevBarrierCtr, prevChannelSet, barrierCtr, channelsSet)
+    #    # FIXME: Error check that this barrier is in fact on all the right channels?
+    #    return prevBarrierCtr
+    if all(str(chan) in str(prevChannelSet) for chan in channelsSet):
+        logger.debug("Found previous barrier '%s' whose channels %s include at least the channels on Barrier '%s': %s (but not using set comparison)", prevBarrierCtr, prevChannelSet, barrierCtr, channelsSet)
         # FIXME: Error check that this barrier is in fact on all the right channels?
         return prevBarrierCtr
+
     logger.info("Failed to find a common previous barrier to barrier '%s' on channels %s. Use start.", barrierCtr, channels)
     return '-1'
     
@@ -831,6 +849,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
     # We track BlockLabels as we go, and of course Call and LoadRepeat
     for seqInd, seq in enumerate(seqs):
         logger.debug("Looking for barriers on Sequence %d", seqInd)
+        #logger.debug(seq)
         barriersBySeqByPos[seqInd] = dict()
         barriersBySeqByCtr[seqInd] = dict()
 
@@ -876,7 +895,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
         # to follow Call/Return/Repeat/Goto commands
         while seqPos < len(seq):
             elem = seq[seqPos]
-            logger.debug("Examining element: %s", elem)
+            logger.debug("Examining element at %d: %s", seqPos, elem)
 
             # if the element is a barrier, we save the length since the last barrier and a pointer to that previous barrier
             # If it is a CMP, then this block is indeterminate length. Next barrier must say so
