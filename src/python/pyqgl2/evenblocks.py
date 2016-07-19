@@ -535,7 +535,7 @@ def getLastSharedBarrierCtr(channels, barrierCtr):
             # This is an error if we insist all channels share a Wait/WaitSome that waits on those channels
             # Our current naming convention for Waits and way of finding matching waits assumes this
             logger.error("Candidate prevBarrier '%s' claims %d channels but found on only %d sequences (channels %s but sequences %s)", prevBarrierCtr, len(prevChannelSet), psc, prevChannelSet, psIs)
-        logger.debug("currChannelSet: %s; prev %s ChannelSet: %s", channelsSet, prevBarrierCtr, prevChannelSet)
+        logger.debug("  currChannelSet: %s; prev %s ChannelSet: %s", channelsSet, prevBarrierCtr, prevChannelSet)
     # End of while looking for a prevBarrier with a superset of channels
 
     if all(str(chan) in str(prevChannelSet) for chan in channelsSet):
@@ -814,7 +814,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
     # barrier position of -1 is the start
 
     global barriersBySeqByPos, barriersBySeqByCtr, barriersByCtr, allChannels
-    logger.debug("In new replaceBarriers")
+    logger.debug("In replaceBarriers...")
     barriersBySeqByPos = dict() # by sequence Index in seqs, by Pos index of element in sequence
     barriersBySeqByCtr = dict() # by sequence Index in seqs, by Counter ID of barrier
     barriersByCtr = dict() # by Counter ID of barrier
