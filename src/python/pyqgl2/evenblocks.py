@@ -501,7 +501,7 @@ def getLastSharedBarrierCtr(channels, barrierCtr):
     # Loop up the barrier's previous pointers, looking to see if its channel set contains all the channels
     # for this Barrier. We're looking for the first previous barrier that is a supert of the channels
     # for this Barrier.
-    # Unfortunately, Qubits don't seem to have a nice .equals so set comparison fails.
+    # Unfortunately, Qubits don't seem to have a nice .equals so set comparison (channelsSet <= prevChannelSet) fails.
     # Here we rely on the string rep of Qubits being sufficient
     while not (all(str(chan) in str(prevChannelSet) for chan in channelsSet)):
         #logger.debug("curr %s, prev %s", str(channelsSet), str(prevChannelSet))
@@ -538,10 +538,6 @@ def getLastSharedBarrierCtr(channels, barrierCtr):
         logger.debug("currChannelSet: %s; prev %s ChannelSet: %s", channelsSet, prevBarrierCtr, prevChannelSet)
     # End of while looking for a prevBarrier with a superset of channels
 
-    #if channelsSet <= prevChannelSet:
-    #    logger.debug("Found previous barrier '%s' whose channels %s include at least the channels on Barrier '%s': %s", prevBarrierCtr, prevChannelSet, barrierCtr, channelsSet)
-    #    # FIXME: Error check that this barrier is in fact on all the right channels?
-    #    return prevBarrierCtr
     if all(str(chan) in str(prevChannelSet) for chan in channelsSet):
         logger.debug("Found previous barrier '%s' whose channels %s include at least the channels on Barrier '%s': %s (but not using set comparison)", prevBarrierCtr, prevChannelSet, barrierCtr, channelsSet)
         # FIXME: Error check that this barrier is in fact on all the right channels?
