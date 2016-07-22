@@ -143,7 +143,7 @@ def Wait() -> control:
     print('Wait')
 
 # This function doesn't exist, but this is a notional wait on specific channels
-@qgl2stub('QGL.ControlFlow')
+@qgl2stub('qgl2.qgl1control')
 def WaitSome(channelList) -> control:
     print('WaitSome(%s)' % channelList)
 
@@ -151,7 +151,8 @@ def WaitSome(channelList) -> control:
 def Sync() -> control:
     print('Sync')
 
-@qgl2stub('QGL.ControlFlow')
+# This function is QGL1 but only for use by QGL2
+@qgl2stub('qgl2.qgl1control')
 def Barrier(ctr, chanlist) -> control:
     # ctr - global counter of barriers to line them up
     # chanlist is list of channels that are waiting here

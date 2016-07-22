@@ -68,7 +68,8 @@ Some things you cannot assume:
 
 # * When all channels start with a Barrier, make it a Wait
 
-from QGL.ControlFlow import Goto, Call, Return, LoadRepeat, Repeat, Wait, LoadCmp, Sync, ComparisonInstruction, ControlInstruction, Barrier, WaitSome
+from QGL.ControlFlow import Goto, Call, Return, LoadRepeat, Repeat, Wait, LoadCmp, Sync, ComparisonInstruction, ControlInstruction
+from qgl2.qgl1control import Barrier, WaitSome
 from QGL.PulseSequencer import Pulse, CompositePulse, PulseBlock
 from QGL.BlockLabel import BlockLabel
 from QGL.PulsePrimitives import Id
@@ -1334,7 +1335,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
 # End of replaceBarriers
 
 #####
-# Test code below - not complete
+# Test code below - for unit testing code in this file.
 
 if __name__ == '__main__':
     from QGL.Compiler import find_unique_channels
@@ -1368,7 +1369,7 @@ if __name__ == '__main__':
 
         from QGL.ChannelLibrary import QubitFactory
         from QGL.BlockLabel import BlockLabel
-        from QGL.ControlFlow import Barrier
+        from qgl2.qgl1control import Barrier
         from QGL.ControlFlow import Sync
         from QGL.ControlFlow import Wait, Call, Goto, Return
         from QGL.PulsePrimitives import Id
@@ -1464,7 +1465,7 @@ if __name__ == '__main__':
 #BARRIER - becomes ID
         from QGL.ChannelLibrary import QubitFactory
         from QGL.BlockLabel import BlockLabel
-        from QGL.ControlFlow import Barrier
+        from qgl2.qgl1control import Barrier
         from QGL.ControlFlow import Sync
         from QGL.ControlFlow import Wait
         from QGL.PulsePrimitives import Id
@@ -1505,8 +1506,8 @@ if __name__ == '__main__':
     def testWait():
         from QGL.ChannelLibrary import QubitFactory
         from QGL.BlockLabel import BlockLabel
-        from QGL.ControlFlow import Barrier, Repeat, LoadRepeat
-        from QGL.ControlFlow import Sync
+        from qgl2.qgl1control import Barrier
+        from QGL.ControlFlow import Sync, Repeat, LoadRepeat
         from QGL.ControlFlow import Wait
         from QGL.PulsePrimitives import Id
         from QGL.PulsePrimitives import MEAS
@@ -1554,8 +1555,8 @@ if __name__ == '__main__':
     def testWaitSome():
         from QGL.ChannelLibrary import QubitFactory
         from QGL.BlockLabel import BlockLabel
-        from QGL.ControlFlow import Barrier, Repeat, LoadRepeat
-        from QGL.ControlFlow import Sync
+        from qgl2.qgl1control import Barrier
+        from QGL.ControlFlow import Sync, Repeat, LoadRepeat
         from QGL.ControlFlow import Wait
         from QGL.PulsePrimitives import Id
         from QGL.PulsePrimitives import MEAS
@@ -1617,8 +1618,8 @@ if __name__ == '__main__':
     def testCMP():
         from QGL.ChannelLibrary import QubitFactory
         from QGL.BlockLabel import BlockLabel
-        from QGL.ControlFlow import Barrier, Repeat, LoadRepeat
-        from QGL.ControlFlow import Sync
+        from qgl2.qgl1control import Barrier
+        from QGL.ControlFlow import Sync, Repeat, LoadRepeat
         from QGL.ControlFlow import Wait
         from QGL.ControlFlow import LoadCmp, CmpEq
         from QGL.PulsePrimitives import Id
@@ -1683,8 +1684,8 @@ if __name__ == '__main__':
     def testRepeat():
         from QGL.ChannelLibrary import QubitFactory
         from QGL.BlockLabel import BlockLabel
-        from QGL.ControlFlow import Barrier, Repeat, LoadRepeat
-        from QGL.ControlFlow import Sync
+        from qgl2.qgl1control import Barrier
+        from QGL.ControlFlow import Sync, Repeat, LoadRepeat
         from QGL.ControlFlow import Wait
         from QGL.PulsePrimitives import Id
         from QGL.PulsePrimitives import MEAS
@@ -1755,7 +1756,7 @@ Repeat(loopstart)
         '''
         from QGL.ChannelLibrary import QubitFactory
         from QGL.BlockLabel import BlockLabel
-        from QGL.ControlFlow import Barrier
+        from qgl2.qgl1control import Barrier
         from QGL.ControlFlow import Sync
         from QGL.ControlFlow import Wait
         from QGL.PulsePrimitives import Id
@@ -1795,7 +1796,7 @@ Repeat(loopstart)
  
     def testFunc():
         from QGL.ChannelLibrary import QubitFactory
-        from QGL.ControlFlow import Barrier
+        from qgl2.qgl1control import Barrier
         from QGL.ControlFlow import Sync
         from QGL.ControlFlow import Wait
         from QGL.PulsePrimitives import Id
