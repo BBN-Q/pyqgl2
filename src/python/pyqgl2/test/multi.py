@@ -1,21 +1,10 @@
+# Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
+
+# Test functions to test end-to-end handling of Barriers & multi qbit sequences
+
 from qgl2.qgl1 import QubitFactory, Id, X, MEAS, Y
 from qgl2.qgl2 import qgl2decl, sequence, concur, seq
 from qgl2.util import init
-
-@qgl2decl
-def multiQbitTest() -> sequence:
-    q1 = QubitFactory('q1')
-    q2 = QubitFactory('q2')
-
-    with concur:
-        with seq:
-            init(q1)
-            Id(q1)
-            X(q1)
-        with seq:
-            init(q2)
-            X(q2)
-            Id(q2)
 
 @qgl2decl
 def multiQbitTest2() -> sequence:
