@@ -104,26 +104,32 @@ class SequenceExtractor(object):
                 else:
                     namespace = subnode.qgl_fname
 
-                fdef = self.importer.resolve_sym(namespace, funcname)
-                if not fdef:
-                    NodeError.error_msg(subnode,
-                            'cannot find import info for [%s]' % funcname)
-                elif not fdef.qgl_stub_import:
-                    NodeError.error_msg(subnode,
-                            'not a stub: [%s]' % funcname)
+                if hasattr(subnode, 'qgl_implicit_import'):
+                    (sym_name, module_name, orig_name) = \
+                            subnode.qgl_implicit_import
                 else:
-                    # print('FI AST %s' % ast.dump(fdef))
+                    fdef = self.importer.resolve_sym(namespace, funcname)
+
+                    if not fdef:
+                        NodeError.error_msg(subnode,
+                                'cannot find import info for [%s]' % funcname)
+                        return False
+                    elif not fdef.qgl_stub_import:
+                        NodeError.error_msg(subnode,
+                                'not a stub: [%s]' % funcname)
+                        return False
+
                     (sym_name, module_name, orig_name) = fdef.qgl_stub_import
 
-                    if orig_name:
-                        import_str = '%s as %s' % (orig_name, sym_name)
-                    else:
-                        import_str = sym_name
+                if orig_name:
+                    import_str = '%s as %s' % (orig_name, sym_name)
+                else:
+                    import_str = sym_name
 
-                    if module_name not in self.stub_imports:
-                        self.stub_imports[module_name] = set()
+                if module_name not in self.stub_imports:
+                    self.stub_imports[module_name] = set()
 
-                    self.stub_imports[module_name].add(import_str)
+                self.stub_imports[module_name].add(import_str)
 
         return True
 
