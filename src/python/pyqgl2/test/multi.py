@@ -3,7 +3,7 @@
 # Test functions to test end-to-end handling of Barriers & multi qbit sequences
 
 from qgl2.qgl1 import QubitFactory, Id, X, MEAS, Y
-from qgl2.qgl2 import qgl2decl, sequence, concur, seq
+from qgl2.qgl2 import qgl2decl, sequence, concur, seq, qbit
 from qgl2.util import init
 
 @qgl2decl
@@ -17,6 +17,18 @@ def multiQbitTest2() -> sequence:
             Id(q)
             X(q)
             MEAS(q)
+
+@qgl2decl
+def doSimple() -> sequence:
+    q2 = QubitFactory('q2')
+    simpleSingle2(q2)
+
+@qgl2decl
+def simpleSingle2(q: qbit) -> sequence:
+    init(q)
+    X(q)
+    MEAS(q)
+
 @qgl2decl
 def simpleSingle() -> sequence:
     q2 = QubitFactory('q2')
