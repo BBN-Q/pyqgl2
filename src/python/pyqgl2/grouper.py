@@ -123,6 +123,15 @@ class MarkReferencedQbits(ast.NodeVisitor):
             if hasattr(child, 'qgl2_referenced_qbits'):
                 referenced_qbits.update(child.qgl2_referenced_qbits)
 
+        # If this is an inline expansion of a function, then
+        # make sure that qbits passed to that call are
+        # marked and added to the referenced qbits for this node.
+        #
+        if hasattr(node, 'qgl2_orig_call'):
+            orig_call = node.qgl2_orig_call
+            self.visit(orig_call)
+            referenced_qbits.update(orig_call.qgl2_referenced_qbits)
+
         node.qgl2_referenced_qbits = referenced_qbits
 
     @staticmethod
@@ -383,6 +392,11 @@ class AddSequential(ast.NodeTransformer):
         MarkReferencedQbits.marker(barrier_ast)
 
         copy_all_loc(barrier_ast, node, recurse=True)
+
+        # Add an "implicit import" for the Barrier function
+        #
+        barrier_ast.value.qgl_implicit_import = (
+                'Barrier', 'qgl2.qgl1', 'Barrier')
 
         # print('MARKED %s [%s] %s' %
         #         (barrier_name,
