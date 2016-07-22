@@ -88,11 +88,6 @@ def main():
 #    q1.pulseParams['length'] = 30e-9
 #    q1.pulseParams['phase'] = pi/2
 
-    # But the current qgl2 compiler doesn't understand Qubits, only
-    # Qbits. So use that instead when running through the QGL2
-    # compiler, but comment this out when running directly.
-    # And I can't easily make it understand stub Qubits either. Bah.
-    # (because it expects the single arg to be an int)
     q1 = QubitFactory(label="q1")
     AllXY(q1)
 
