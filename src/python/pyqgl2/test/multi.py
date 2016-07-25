@@ -50,9 +50,6 @@ def anotherMulti() -> sequence:
         for q in [q1, q2]:
             Y(q)
 
-# Expected to fail!
-# The Wait used in init() will cause an error
-# because it waits on all qbits but isn't on q3
 @qgl2decl
 def anotherMulti2() -> sequence:
     q1 = QubitFactory('q1')
@@ -60,7 +57,8 @@ def anotherMulti2() -> sequence:
     q3 = QubitFactory('q3')
     with concur:
         for q in [q1, q2]:
-            init(q)
+            # Including an init here means a Wait on all but not in q3: fails
+            # init(q)
             Id(q)
             X(q)
             MEAS(q)
@@ -75,7 +73,8 @@ def anotherMulti3() -> sequence:
     q3 = QubitFactory('q3')
     with concur:
         for q in [q1, q2]:
-            init(q)
+            # Including an init here means a Wait on all but not in q3: fails
+            # init(q)
             Id(q, length=0.000002)
             X(q)
             MEAS(q)
