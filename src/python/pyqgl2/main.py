@@ -668,7 +668,9 @@ if __name__ == '__main__':
             os.makedirs(QGL.config.AWGDir)
 
         # Now execute the returned function, which should produce a list of sequences
-        sequences = resFunction(q=QubitFactory('q1'))
+        # Supply a bunch of qbit variables to cover usual cases
+        # For other cases, write your own main().
+        sequences = resFunction(q=QubitFactory('q1'),qubit=QubitFactory('q1'),q1=QubitFactory('q1'),controlQ=QubitFactory('q1'),q2=QubitFactory('q2'),mqubit=QubitFactory('q2'),targetQ=QubitFactory('q2'))
 
         # In verbose mode, turn on DEBUG python logging for the QGL Compiler
         if opts.verbose:
