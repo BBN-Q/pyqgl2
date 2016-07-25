@@ -1,6 +1,8 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qgl2main, pulse
+# See SPAMMin for cleaner QGL2 versions
+
+from qgl2.qgl2 import qgl2decl, qbit, qgl2main, pulse, sequence
 
 from QGL.PulsePrimitives import X, U, Y90, X90, MEAS, Id
 from QGL.Compiler import compile_to_hardware
@@ -11,6 +13,22 @@ from qgl2.util import init
 
 from itertools import chain
 from numpy import pi
+
+@qgl2decl
+def spam_seqs(angle, qubit: qbit, maxSpamBlocks=10) -> sequence:
+    """ Helper function to create a list of sequences increasing SPAM blocks with a given angle. """
+    #SPAMBlock = [X(qubit), U(qubit, phase=pi/2+angle), X(qubit), U(qubit, phase=pi/2+angle)]
+    #return [[Y90(qubit)] + SPAMBlock*rep + [X90(qubit)] for rep in range(maxSpamBlocks)]
+    for rep in range(maxSpamBlocks):
+        init(qubit)
+        Y90(qubit)
+        for _ in range(rep):
+            X(qubit)
+            U(qubit, phase=pi/2+angle)
+            X(qubit)
+            U(qubit, phase=pi/2+angle)
+        X90(qubit)
+        MEAS(qubit)
 
 @qgl2decl
 def SPAM(qubit: qbit, angleSweep, maxSpamBlocks=10, showPlot=False):
@@ -46,34 +64,20 @@ def SPAM(qubit: qbit, angleSweep, maxSpamBlocks=10, showPlot=False):
 
     # if showPlot:
     #     plot_pulse_files(fileNames)
-    @qgl2decl
-    def spam_seqs(angle) -> pulse:
-        """ Helper function to create a list of sequences increasing SPAM blocks with a given angle. """
-        #SPAMBlock = [X(qubit), U(qubit, phase=pi/2+angle), X(qubit), U(qubit, phase=pi/2+angle)]
-        #return [[Y90(qubit)] + SPAMBlock*rep + [X90(qubit)] for rep in range(maxSpamBlocks)]
-        for rep in range(maxSpamBlocks):
-            init(qubit)
-            Y90(qubit)
-            for _ in range(rep):
-                X(qubit)
-                U(qubit, phase=pi/2+angle)
-                X(qubit)
-                U(qubit, phase=pi/2+angle)
-            X90(qubit)
-            MEAS(qubit)
 
     # Insert an identity at the start of every set to mark them off
     for angle in angleSweep:
         init(qubit)
         Id(qubit)
         MEAS(qubit)
-        spam_seqs(angle)
+        spam_seqs(angle, qubit, maxSpamBlocks)
 
     # Add a final pi for reference
     init(qubit)
     X(qubit)
     MEAS(qubit)
 
+    # FIXME: Do this in caller
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
     compileAndPlot('SPAM/SPAM', showPlot)

@@ -1,5 +1,8 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
+# Most of these are no longer used.
+# Some of these are used in AllXY
+
 from qgl2.qgl2 import qgl2decl, qbit_list, qbit, concur, pulse, sequence
 
 from qgl2.basic_sequences.helpers import create_cal_seqs

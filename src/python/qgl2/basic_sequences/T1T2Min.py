@@ -1,23 +1,23 @@
+# Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
+
+# QGL2 clean versions for T1T2.py
+
 from qgl2.qgl2 import qgl2decl, qbit, sequence
 from qgl2.basic_sequences.helpers import create_cal_seqs
 from qgl2.util import init
 from qgl2.qgl1 import QubitFactory, X, Id, MEAS, U90
 import numpy as np
-from numpy import pi
+#from numpy import pi
 
 @qgl2decl
 def doInversionRecovery() -> sequence:
+    # FIXME: No args possible yet
     # delays = np.linspace(0, 5e-6, 11)
     q = QubitFactory('q1')
-    for d in [  0.00000000e+00,   5.00000000e-07,   1.00000000e-06,
-                1.50000000e-06,   2.00000000e-06,   2.50000000e-06,
-                3.00000000e-06,   3.50000000e-06,   4.00000000e-06,
-                4.50000000e-06,   5.00000000e-06]:
+    for d in np.linspace(0, 5e-6, 11):
         init(q)
         X(q)
-        # FIXME: We want that to be an arg not a kwarg but the
-        # compiler doesn't like it
-        Id(q, length=d)
+        Id(q, d)
         MEAS(q)
 
     # Tack on calibration
@@ -26,10 +26,11 @@ def doInversionRecovery() -> sequence:
 
 @qgl2decl
 def doRamsey() -> sequence:
+    # FIXME: No args possible yet
     q = QubitFactory('q1')
     TPPIFreq=1e6
-    # FIXME: QGL2 doesn't deal well with the call to np.arange
-    pulseS = [  1.00000000e-07,   2.00000000e-07,   3.00000000e-07,
+    # FIXME: QGL2 doesn't deal well with the call to np.arange - can't do import
+    pulseSpacings = [  1.00000000e-07,   2.00000000e-07,   3.00000000e-07,
          4.00000000e-07,   5.00000000e-07,   6.00000000e-07,
          7.00000000e-07,   8.00000000e-07,   9.00000000e-07,
          1.00000000e-06,   1.10000000e-06,   1.20000000e-06,
@@ -62,9 +63,12 @@ def doRamsey() -> sequence:
          9.10000000e-06,   9.20000000e-06,   9.30000000e-06,
          9.40000000e-06,   9.50000000e-06,   9.60000000e-06,
          9.70000000e-06,   9.80000000e-06,   9.90000000e-06]
-    #pulseSpacings=np.arange(100e-9, 10e-6, 100e-9)
+#    pulseSpacings=np.arange(100e-9, 10e-6, 100e-9)
     # Create the phases for the TPPI
-    phases = 2*pi*TPPIFreq*pulseS
+    # FIXME: Import of pi fails
+    pi = 3.141592654
+    # FIXME: This fails: can't multiply sequence by non-int of type 'float'
+    phases = 2*pi*TPPIFreq*pulseSpacings
     # Create the basic Ramsey sequence
     # FIXME: QGL2 doesn't deal well with this call to zip
     for d,phase in zip(pulseS, phases):
@@ -76,4 +80,4 @@ def doRamsey() -> sequence:
 
     # Tack on calibration
     # FIXME: create_cal_seqs doesn't yet work in QGL2
-    create_cal_seqs((q,), calRepeats)
+#    create_cal_seqs((q,), calRepeats)

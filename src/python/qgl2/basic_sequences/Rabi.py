@@ -1,5 +1,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
+# See RabiMin for more function QGL2 versions of these functions.
+
 import QGL.PulseShapes
 from QGL.PulsePrimitives import Utheta, MEAS, X, Id
 from QGL.Compiler import compile_to_hardware

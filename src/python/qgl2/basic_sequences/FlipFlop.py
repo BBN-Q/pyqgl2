@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qgl2main, pulse
+from qgl2.qgl2 import qgl2decl, qbit, qgl2main, pulse, sequence
 
 from QGL.PulsePrimitives import X90, X90m, Y90, Id, X, MEAS
 from QGL.Compiler import compile_to_hardware
@@ -89,6 +89,46 @@ def FlipFlopq1(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     compileAndPlot(seqs, 'FlipFlop/FlipFlop', showPlot)
 
 @qgl2decl
+def flipflop_seqs(dragScaling, maxNumFFs, qubit: qbit) -> sequence:
+    """ Helper function to create a list of sequences with a specified drag parameter. """
+    # FIXME: cause qubit is a placeholder, can't access pulseParams
+    qubit.pulseParams['dragScaling'] = dragScaling
+    for rep in range(maxNumFFs):
+        init(qubit)
+        X90(qubit)
+        # FIXME: Original used [X90] + [X90, X90m]... is this right?
+        for _ in range(rep):
+            X90(qubit)
+            X90m(qubit)
+        Y90(qubit)
+        MEAS(qubit) # FIXME: Need original dragScaling?
+
+@qgl2decl
+def FlipFlopMin() -> sequence:
+    # FIXME: No args
+    qubit = QubitFactory('q1')
+    dragParamSweep = [0, 1e-9, 5e-9] # FIXME
+    maxNumFFs = 10
+
+    # FIXME: cause qubit is a placeholder, can't access pulseParams
+    originalScaling = qubit.pulseParams['dragScaling']
+    for dragParam in dragParamSweep:
+        init(qubit)
+        Id(qubit)
+        MEAS(qubit) # FIXME: Need original dragScaling?
+
+        # FIXME: In original this was [[Id]] + flipflop - is this
+        # right?
+        flipflop_seqs(dragParam, maxNumFFs, qubit)
+    # FIXME: cause qubit is a placeholder, can't access pulseParams
+    qubit.pulseParams['dragScaling'] = originalScaling
+
+    # Add a final pi for reference
+    init(qubit)
+    X(qubit)
+    MEAS(qubit)
+
+@qgl2decl
 def FlipFlop(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     """
     Flip-flop sequence (X90-X90m)**n to determine off-resonance or DRAG parameter optimization.
@@ -126,21 +166,6 @@ def FlipFlop(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
-    # FIXME: How do we tell the compiler this should return a list of sequences?
-    @qgl2decl
-    def flipflop_seqs(dragScaling) -> pulse:
-        """ Helper function to create a list of sequences with a specified drag parameter. """
-        qubit.pulseParams['dragScaling'] = dragScaling
-        for rep in range(maxNumFFs):
-            init(qubit)
-            X90(qubit)
-            # FIXME: Original used [X90] + [X90, X90m]... is this right?
-            for _ in range(rep):
-                X90(qubit)
-                X90m(qubit)
-            Y90(qubit)
-            MEAS(qubit) # FIXME: Need original dragScaling?
-
     # Insert an identity at the start of every set to mark them off
     # Want a result something like:
     # [['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9'], ['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9'], ['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9']]
@@ -153,7 +178,7 @@ def FlipFlop(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
 
         # FIXME: In original this was [[Id]] + flipflop - is this
         # right?
-        flipflop_seqs(dragParam)
+        flipflop_seqs(dragParam, maxNumFFs, qubit)
     qubit.pulseParams['dragScaling'] = originalScaling
 
     # Add a final pi for reference

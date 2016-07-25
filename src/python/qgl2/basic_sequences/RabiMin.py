@@ -1,22 +1,16 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
+# QGL2 versions of Rabi.py functions.
+# These work around QGL2 constraints, such as only doing sequence generation and
+# not compilation, or not taking arguments.
+
 import QGL.PulseShapes
 from qgl2.qgl2 import qgl2decl, qbit, sequence, concur
 from qgl2.qgl1 import QubitFactory, Utheta, MEAS, X, Id
 from qgl2.util import init
 import numpy as np
 
-# For use with pyqgl2.main
-# Note hard coded amplitudes and phase
-@qgl2decl
-def doRabiAmp() -> sequence:
-    q = QubitFactory('q1') # Default qubit that will be replaced
-
-    for amp in np.linspace(0,1,11):
-        init(q)
-        Utheta(q, amp=amp, phase=0)
-        MEAS(q)
-
+# 7/25/16: Currently fails
 @qgl2decl
 def doRabiWidth() -> sequence:
     q = QubitFactory("q1")
@@ -26,14 +20,15 @@ def doRabiWidth() -> sequence:
         Utheta(q, length=l, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh)
         MEAS(q)
 
-
-# An example of expanding an expression (a call to np.linspace)
+# For use with pyqgl2.main
+# Note hard coded amplitudes and phase
 @qgl2decl
-def doRabiAmp2() -> sequence:
-    q = QubitFactory("q1")
-    for l in np.linspace(0, 5e-6, 11):
+def doRabiAmp() -> sequence:
+    q = QubitFactory('q1') # Default qubit that will be replaced
+
+    for amp in np.linspace(0,5e-6,11):
         init(q)
-        Utheta(q, amp=l, phase=0)
+        Utheta(q, amp=amp, phase=0)
         MEAS(q)
 
 # An example of multiple expansions (a call to np.linspace, and
