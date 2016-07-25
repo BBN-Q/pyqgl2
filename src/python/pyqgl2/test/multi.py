@@ -49,6 +49,10 @@ def anotherMulti() -> sequence:
     with concur:
         for q in [q1, q2]:
             Y(q)
+
+# Expected to fail!
+# The Wait used in init() will cause an error
+# because it waits on all qbits but isn't on q3
 @qgl2decl
 def anotherMulti2() -> sequence:
     q1 = QubitFactory('q1')
