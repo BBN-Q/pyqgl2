@@ -389,7 +389,6 @@ def make_symtype_check(symname, symtype, actual_param, fpname):
 
     if check_ast:
         pyqgl2.ast_util.copy_all_loc(check_ast, actual_param, recurse=True)
-        print('CHECK_AST %s' % ast.dump(check_ast))
 
     return check_ast
 
@@ -503,8 +502,6 @@ def create_inline_procedure(func_ptree, call_ptree):
     setup_locals = list()
     new_func_body = list()
 
-    print('CALLF %s' % ast.dump(func_ptree))
-
     # parameters that we've already processed (to make sure
     # that we don't do something as both an ordinary and keyword
     # parameter, and make sure that all the keyword parameters
@@ -539,9 +536,6 @@ def create_inline_procedure(func_ptree, call_ptree):
         orig_name = formal_params[param_ind].arg
         actual_param = actual_params[param_ind]
         seen_param_names[orig_name] = actual_param
-
-        print('CALLF orig %s actual %s' %
-                (ast.dump(formal_params[param_ind]), ast.dump(actual_param)))
 
     # Potential optimizations: many other possible cases TODO
     #
