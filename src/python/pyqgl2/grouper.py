@@ -396,7 +396,7 @@ class AddSequential(ast.NodeTransformer):
         # Add an "implicit import" for the Barrier function
         #
         barrier_ast.value.qgl_implicit_import = (
-                'Barrier', 'qgl2.qgl1', 'Barrier')
+                'Barrier', 'qgl2.qgl1control', 'Barrier')
 
         # print('MARKED %s [%s] %s' %
         #         (barrier_name,
