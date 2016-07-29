@@ -106,7 +106,11 @@ class ExprSourceGen(Visitor):
         line = self.formatter.format(line, *args, **kwargs)
 
         level = kwargs.get('level')
-        prx = self.indent * (level if level else self.level)
+        level = (level if level else self.level)
+        if level < 0:
+            prx = ''
+        else:
+            prx = self.indent * level
         print(prx, line, sep='', end='', file=self.out)
 
     def print_lines(self, lines,):
@@ -552,7 +556,7 @@ class Indenter(object):
         self.gen = gen
 
     def __enter__(self):
-        self.gen.print('\n', level=0)
+        self.gen.print('\n', level=-1)
         self.gen.level += 1
 
     def __exit__(self, *args):

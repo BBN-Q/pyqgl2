@@ -13,6 +13,7 @@ from copy import deepcopy
 
 from pyqgl2.pysourcegen import dump_python_source
 
+
 class NodeError(object):
     """
     A mix-in to make it simplify the generation of
@@ -35,10 +36,10 @@ class NodeError(object):
     NODE_ERROR_FATAL = 3
 
     NODE_ERROR_LEGAL_LEVELS = {
-        NODE_ERROR_NONE : 'diag',
-        NODE_ERROR_WARNING : 'warning',
-        NODE_ERROR_ERROR : 'error',
-        NODE_ERROR_FATAL : 'fatal'
+        NODE_ERROR_NONE: 'diag',
+        NODE_ERROR_WARNING: 'warning',
+        NODE_ERROR_ERROR: 'error',
+        NODE_ERROR_FATAL: 'fatal'
     }
 
     # The maximum error level observed so far
@@ -54,7 +55,24 @@ class NodeError(object):
     LAST_ERROR_MSG = ''
     LAST_FATAL_MSG = ''
 
+    # Keep track of all messages emitted, so that we don't
+    # emit messages more than once (we might encounter the
+    # same error during multiple passes through the source,
+    # but we only want to inform the user once.
+    #
     ALL_PRINTED = set()
+
+    # Record most recent LAST_N messages created, even if they
+    # are NOT printed (either because they've already been
+    # printed, or because they are filtered by level, etc).
+    #
+    # Used by unit tests, where we want to check that the right
+    # messages are created.  (if the test expects to create a
+    # large number of messages, it can make LAST_N larger, but
+    # the default is small in order to reduce overhead)
+    #
+    LAST_N = 8
+    LAST_MSGS = list()
 
     def __init__(self):
         NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_NONE
@@ -62,11 +80,19 @@ class NodeError(object):
 
     @staticmethod
     def reset():
+        """
+        Reset the state of created/emitted messages completely,
+        returning to the initial state.
+
+        Does not reset MAX_ERR_LEVEL, MUTE_ERR_LEVEL, or LAST_N.
+        """
+
         NodeError.LAST_DIAG_MSG = ''
         NodeError.LAST_WARNING_MSG = ''
         NodeError.LAST_ERROR_MSG = ''
         NodeError.LAST_FATAL_MSG = ''
         NodeError.ALL_PRINTED = set()
+        NodeError.LAST_MSGS = list()
 
     @staticmethod
     def error_detected():
@@ -77,7 +103,7 @@ class NodeError(object):
         """
         The ordinary use of NodeError is to continue on after encountering
         an error (in the hope of getting useful additional diagnostics).
-        
+
         At certain points in the program, however, it makes little sense
         to continue if there has been an error in an earlier part of
         the program.  Use halt_on_error() to detect this condition and
@@ -124,14 +150,13 @@ class NodeError(object):
         NodeError._make_msg(node, NodeError.NODE_ERROR_FATAL, msg)
 
     @staticmethod
-    def _make_msg(node, level, msg=None):
+    def _create_msg(node, level, msg=None):
         """
         Helper function that does all the real work of formatting
-        the messages, updating the max error level observed, and
-        exiting when a fatal error is encountered
+        the messages
 
-        Does basic sanity checking on its inputs to make sure that
-        the function is called correctly
+        Does not add the message to the list of messages; may
+        be used to create messages speculatively.
         """
 
         # Detect improper usage, and bomb out
@@ -142,9 +167,6 @@ class NodeError(object):
 
         if not msg:
             msg = '?'
-
-        if level > NodeError.MAX_ERR_LEVEL:
-            NodeError.MAX_ERR_LEVEL = level
 
         if level in NodeError.NODE_ERROR_LEGAL_LEVELS:
             level_str = NodeError.NODE_ERROR_LEGAL_LEVELS[level]
@@ -164,6 +186,32 @@ class NodeError(object):
 
         text += ('%s: %s' % (level_str, msg))
 
+        return text
+
+    @staticmethod
+    def _emit_msg(level, text):
+        """
+        Emit a message: update the max error level seen,
+        record the new text in the list of last N messages,
+        then check to see whether it should be printed (according
+        to its level), and if so then print it and add it to the
+        set of all printed messages (which is used to ensure that
+        duplicates of the message won't be printed)
+        """
+
+        if level > NodeError.MAX_ERR_LEVEL:
+            NodeError.MAX_ERR_LEVEL = level
+
+        # FIXME: slightly awkward: changes to LAST_N don't "take effect"
+        # until a message is created
+        #
+        if NodeError.LAST_N <= 0:
+            NodeError.LAST_MSGS = list()
+        else:
+            NodeError.LAST_MSGS.append(text)
+            if len(NodeError.LAST_MSGS) > NodeError.LAST_N:
+                NodeError.LAST_MSGS = NodeError.LAST_MSGS[-NodeError.LAST_N:]
+
         # Only print messages that are at level MUTE_ERR_LEVEL
         # or higher
         #
@@ -175,6 +223,28 @@ class NodeError(object):
             if text not in NodeError.ALL_PRINTED:
                 print('%s' % text)
                 NodeError.ALL_PRINTED.add(text)
+
+    @staticmethod
+    def _make_msg(node, level, msg=None):
+        """
+        Helper function that uses _create_msg and _emit_msg,
+        and then  all the real work of creating
+        the messages, updating the max error level observed, and
+        exiting when a fatal error is encountered
+
+        Does basic sanity checking on its inputs to make sure that
+        the function is called correctly
+        """
+
+        # Detect improper usage, and bomb out
+        if node:
+            assert isinstance(node, ast.AST), 'got %s' % str(type(node))
+
+        assert level in NodeError.NODE_ERROR_LEGAL_LEVELS
+
+        text = NodeError._create_msg(node, level, msg=msg)
+
+        NodeError._emit_msg(level, text)
 
         # If we've encountered a fatal error, then there's no
         # point in continuing (even if we haven't printed the
@@ -194,17 +264,20 @@ def diag_msg(node, msg=None):
     """
     NodeError.diag_msg(node, msg)
 
+
 def warning_msg(node, msg=None):
     """
     Print a warning message associated with the given node
     """
     NodeError.warning_msg(node, msg)
 
+
 def error_msg(node, msg=None):
     """
     Print an error message associated with the given node
     """
     NodeError.error_msg(node, msg)
+
 
 def fatal_msg(node, msg=None):
     """
@@ -230,6 +303,7 @@ class NodeVisitorWithFname(ast.NodeVisitor, NodeError):
     def __init__(self):
         super(NodeVisitorWithFname, self).__init__()
 
+
 def copy_node(node):
     """
     Make a copy of the given ast node and its descendants
@@ -241,6 +315,7 @@ def copy_node(node):
 
     return deepcopy(node)
 
+
 def ast2str(ptree):
     """
     Given an AST parse tree, return the equivalent code
@@ -248,6 +323,7 @@ def ast2str(ptree):
     """
 
     return dump_python_source(ptree)
+
 
 def copy_all_loc(new_node, old_node, recurse=False):
     """
@@ -277,6 +353,7 @@ def copy_all_loc(new_node, old_node, recurse=False):
                 subnode.qgl_fname = old_node.qgl_fname
 
     return new_node
+
 
 def expr2ast(expr_text):
     """

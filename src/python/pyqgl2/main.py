@@ -43,18 +43,19 @@ from pyqgl2.check_qbit import CompileQGLFunctions
 from pyqgl2.check_qbit import FindTypes
 from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_waveforms import CheckWaveforms
-from pyqgl2.concur_unroll import Unroller
-from pyqgl2.concur_unroll import QbitGrouper
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.eval import EvalTransformer, SimpleEvaluator
 from pyqgl2.flatten import Flattener
+from pyqgl2.grouper import AddSequential
+from pyqgl2.grouper import MarkReferencedQbits
+from pyqgl2.grouper import QbitGrouper2
 from pyqgl2.importer import NameSpaces, add_import_from_as
 from pyqgl2.inline import Inliner
 from pyqgl2.repeat import RepeatTransformer
 from pyqgl2.sequence import SequenceCreator
 from pyqgl2.sequences import SequenceExtractor, get_sequence_function
-from pyqgl2.substitute import specialize
 from pyqgl2.sync import SynchronizeBlocks
+
 
 def parse_args(argv):
     """
@@ -203,9 +204,8 @@ def compileFunction(filename, main_name=None, saveOutput=False,
 
     ptree1 = ptree
 
-    # We may need to iterate over the inlining and specialization
-    # processes a few times, because inlining may expose new things
-    # to specialize, and vice versa.
+    # We may need to iterate over the inlining processes a few times,
+    # because inlining may expose new things to inline.
     #
     # TODO: as a stopgap, we're going to limit iterations to 20, which
     # is enough to handle fairly deeply-nested, complex non-recursive
@@ -229,32 +229,12 @@ def compileFunction(filename, main_name=None, saveOutput=False,
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
 
-        # unroller = Unroller(importer)
-        # ptree1 = unroller.visit(ptree1)
-        # NodeError.halt_on_error()
-
-        # print(('UNROLLED CODE (iteration %d):\n%s' %
-        #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-        #         file=intermediate_fout, flush=True)
-
         type_check = CheckType(filename, importer=importer)
         ptree1 = type_check.visit(ptree1)
         NodeError.halt_on_error()
         print(('CHECKED CODE (iteration %d):\n%s' %
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
-
-        # ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
-        #         context=ptree1)
-        # NodeError.halt_on_error()
-        # print(('SPECIALIZED CODE (iteration %d):\n%s' %
-        #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-        #         file=intermediate_fout, flush=True)
-
-        # If we include the unroller, or check for changes by the
-        # specializer, then we would also check for their changes here.
-        # Right now the unroller is not used (unrolling is done
-        # within the evaluator)
 
         if inliner.change_cnt == 0:
             NodeError.diag_msg(None,
@@ -288,13 +268,6 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print(('EVALUATOR + REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1)),
             file=intermediate_fout, flush=True)
 
-    # ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
-    #         context=ptree1)
-    # NodeError.halt_on_error()
-    # print(('SPECIALIZED CODE (iteration %d):\n%s' %
-    #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-    #         file=intermediate_fout, flush=True)
-
     # If we got raw code, then we may have no source file to use
     if not filename or filename == '<stdin>':
         text = '<stdin>'
@@ -314,18 +287,35 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print(('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
             file=intermediate_fout, flush=True)
 
-    # Take with concur blocks and produce with seq blocks for each QBIT_* or EDGE_* referenced therein
-    grouper = QbitGrouper(evaluator.eval_state.locals_stack[-1])
-    new_ptree6 = grouper.visit(new_ptree5)
+    MarkReferencedQbits.marker(new_ptree5,
+            local_vars=evaluator.eval_state.locals_stack[-1])
+
+    seq = AddSequential()
+    new_ptree5 = seq.visit(new_ptree5)
+    NodeError.halt_on_error()
+    print(('SEQUENTIAL CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
+            file=intermediate_fout, flush=True)
+
+    # Take with-infunc and with-concur blocks and produce with-grouped
+    # and with-group blocks
+    #
+    grouper = QbitGrouper2()
+    new_ptree6 = grouper.group(new_ptree5,
+            local_vars=evaluator.eval_state.locals_stack[-1])
     NodeError.halt_on_error()
     print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
             file=intermediate_fout, flush=True)
 
-    repeater = RepeatTransformer()
-    new_ptree6 = repeater.visit(new_ptree6)
-    NodeError.halt_on_error()
-    print(('QREPEAT CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
-            file=intermediate_fout, flush=True)
+    # TODO: move the RepeatTransformer to before the grouper,
+    # and make sure that it doesn't find things that include
+    # any barriers.  We aren't certain how to handle barriers
+    # as part of repeat blocks yet.
+    #
+    # repeater = RepeatTransformer()
+    # new_ptree6 = repeater.visit(new_ptree6)
+    # NodeError.halt_on_error()
+    # print(('QREPEAT CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
+    #         file=intermediate_fout, flush=True)
 
     # Try to flatten out repeat, range, ifs
     flattener = Flattener()
