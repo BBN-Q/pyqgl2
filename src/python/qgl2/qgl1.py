@@ -142,9 +142,22 @@ def qwait(kind="TRIG") -> control:
 def Wait() -> control:
     print('Wait')
 
+# This function doesn't exist, but this is a notional wait on specific channels
+@qgl2stub('qgl2.qgl1control')
+def WaitSome(channelList) -> control:
+    print('WaitSome(%s)' % channelList)
+
 @qgl2stub('QGL.ControlFlow')
 def Sync() -> control:
     print('Sync')
+
+# This function is QGL1 but only for use by QGL2
+@qgl2stub('qgl2.qgl1control')
+def Barrier(ctr, chanlist) -> control:
+    # ctr - global counter of barriers to line them up
+    # chanlist is list of channels that are waiting here
+    # chanlist must be enough to produce some later wait on specific channels
+    print('Barrier(%s, %s)' % (ctr, chanlist))
 
 @qgl2stub('QGL.ControlFlow')
 def LoadCmp() -> control:
@@ -236,7 +249,3 @@ def BlockLabel(label):
     # label is a string, output is a BlockLabel
     pass
 
-@qgl2stub('QGL.ControlFlow')
-def CmpEq(label) -> control:
-    # label is a string, output is a Comparison
-    pass

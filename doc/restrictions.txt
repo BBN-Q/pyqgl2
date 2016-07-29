@@ -12,14 +12,15 @@ Some current limitations of the QGL2 language
 * QGL2 tries to tie method calls to qbits. A method call without a
   qbit gets tied to the empty qbit, in general. This can cause issues.
 * QGL2 programs should import the QGL2 stubs of QGL1 functions. EG:
-from qgl2.qgl2 import qgl2decl, qbit, sequence, concur
-from qgl2.basic_sequences.qgl2_plumbing import init
+  from qgl2.qgl2 import qgl2decl, qbit, sequence, concur
+  from qgl2.basic_sequences.qgl2_plumbing import init
 
 Things to fix:
 
 * QGL2 does not yet recognize when a variable is constant and can be
   replace with the proper value. Variable arguments and assignments
   to not work as expected yet.
+  * Check: Still a problem?
 * 'label' argument to Qubit() must be a literal string - no variable
   whose value is a string, no expression, etc
  * EG see `test_Sequences` which loops over qbit names. That won't work.
@@ -28,6 +29,7 @@ Things to fix:
  * So for example, create_cal_seqs fails.
 * Id() takes an optional delay/length int/float. This confuses QGL2
   if supplied. Make it a keyword argument and things compile.
+  * Check: still a problem?
 * A Qubit() creation is only recognized if it is in an assignment. EG
   x = Qubit("alabel") works, but
   return Qubit("alabel") does not
@@ -38,7 +40,6 @@ Other to do items for QGL2:
 
 * Need to do more error checking on arguments other than qbit
 * Large pieces of code need refactoring
-* Should init() be moved out of qgl2_plumbing?
 * Rewrite left side of assign of qbits
 * APS2 stack is only 8 or 16 frames. So track nested Call()s and
   ensure we don't get that far.

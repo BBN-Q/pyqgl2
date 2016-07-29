@@ -139,9 +139,11 @@ def SingleQubitRB(qubit: qbit, seqs, showPlot=False):
             clifford_seq(c, qubit)
         MEAS(qubit)
 
+    # FIXME: This doesn't work yet
     # Tack on calibration sequences
     create_cal_seqs((qubit,), 2)
 
+    # FIXME: Do this in calling function instead
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
     compileAndPlot('RB/RB', showPlot)
@@ -239,6 +241,21 @@ def SingleQubitRB_AC(qubit: qbit, seqs, showPlot=False):
     compileAndPlot('RB/RB', showPlot)
 
 @qgl2decl
+def doACPulse(qubit: qbit, cliffNum) -> sequence:
+    if cliffNum == 24:
+        cliffNum = 0
+    if cliffNum > 24:
+        raise Exception("Max cliffNum 24, got %d" % cliffNum)
+    AC(qubit, cliffNum)
+
+@qgl2decl
+def getPulseSeq(qubit: qbit, pulseSeqStr) -> sequence:
+    init(qubit)
+    for pulseStr in pulseSeqStr:
+        doACPulse(qubit, int(pulseStr))
+    MEAS(qubit)
+
+@qgl2decl
 def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
     """
     Single qubit interleaved randomized benchmarking using atomic Clifford pulses. 
@@ -282,15 +299,6 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
-    # FIXME: How do we tell the compiler this should return a list of pulses?
-    @qgl2decl
-    def doACPulse(qubit: qbit, cliffNum) -> pulse:
-        if cliffNum == 24:
-            cliffNum = 0
-        if cliffNum > 24:
-            raise Exception("Max cliffNum 24, got %d" % cliffNum)
-        AC(qubit, cliffNum)
-
     pulseSeqStrs = []
     with open(seqFile, 'r') as FID:
         fileReader = reader(FID)
@@ -298,15 +306,6 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
         for pulseSeqStr in fileReader:
             pulseSeqStrs.append(pulseSeqStr)
     numSeqs = len(pulseSeqStrs)
-
-    # FIXME: How do we tell the compiler this should return a sequence of pulses?
-    @qgl2decl
-    def getPulseSeq(qubit: qbit, seqNum) -> pulse:
-        pulseSeqStr = pulseSeqStrs[seqNum]
-        init(qubit)
-        for pulseStr in pulseSeqStr:
-            doACPulse(qubit, int(pulseStr))
-        MEAS(qubit)
 
     # Hack for limited APS waveform memory and break it up into multiple files
     # We've shuffled the sequences so that we loop through each gate length on the inner loop
@@ -316,7 +315,7 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
         doCt = ct
         isOne = True
         while doCt < numSeqs:
-            getPulseSeq(qubit, doCt)
+            getPulseSeq(qubit, pulseSeqStrs[doCt])
 
             # Tack on calibration scalings
             if isOne:
@@ -337,6 +336,7 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
             # Now write these sequences
             # FIXME: Then magically get the sequences here....
             # This needs to get refactored....
+            # We need to split creating seqs from c_to_h
             fileNames = compile_to_hardware([], 'RB/RB',
                                             suffix='_{0}'.format(2*ct+1+1*(not
                                                                            isOne)),
@@ -393,16 +393,6 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
-    # FIXME: How do we tell the compiler this should return a list of pulses?
-    @qgl2decl
-    def doACPulse(qubit: qbit, cliffNum) -> pulse:
-        if cliffNum == 24:
-            analyzedPulse
-        elif cliffNum > 24:
-            raise Exception("Max cliffNum 24, got %d" % cliffNum)
-        else: 
-            AC(qubit, cliffNum)
-
     pulseSeqStrs = []
     for ct in range(10):
         fileName = 'RBT_Seqs_fast_{0}_F1.txt'.format(ct+1)
@@ -417,14 +407,6 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False
     seqsPerFile = 100
     numFiles = numSeqs//seqsPerFile
     numCals = 4
-
-    # FIXME: How do we tell the compiler this should return a sequence of pulses?
-    @qgl2decl
-    def getPulseSeq(qubit: qbit, pulseSeqStr) -> pulse:
-        init(qubit)
-        for pulseStr in pulseSeqStr:
-            doACPulse(qubit, int(pulseStr))
-        MEAS(qubit)
 
     for ct in range(numFiles):
         for s in range(seqsPerFile):
@@ -442,12 +424,15 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False
             MEAS(qubit)
         # FIXME: Then magically get the sequences here....
         # This needs to get refactored....
+        # We need to split creating seqs from c_to_h
         fileNames = compile_to_hardware([], 'RBT/RBT',
                                         suffix='_{0}'.format(ct+1), qgl2=True)
 
+    # FIXME: Do this from calling function
     if showPlot:
         plot_pulse_files(fileNames)
 
+# FIXME: No args
 @qgl2decl
 def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
     """
@@ -500,9 +485,11 @@ def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
             for q in qubits:
                 MEAS(q)
 
+    # FIXME: Not working in QGL2 yet
     # Tack on calibration
     create_cal_seqs((qubits), 2)
 
+    # FIXME: Do this from calling function, not here
     # QGL2 compiler must supply missing list of sequences argument
     compileAndPlot('RB/RB', showPlot)
 

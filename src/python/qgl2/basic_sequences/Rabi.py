@@ -1,5 +1,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
+# See RabiMin for more function QGL2 versions of these functions.
+
 import QGL.PulseShapes
 from QGL.PulsePrimitives import Utheta, MEAS, X, Id
 from QGL.Compiler import compile_to_hardware
@@ -50,17 +52,20 @@ def RabiAmpq1(qubit: qbit, amps, phase=0, showPlot=False):
 
 # For use with pyqgl2.main
 # Note hard coded amplitudes and phase
+# 7/25/16: works
 @qgl2decl
 def doRabiAmp() -> sequence:
     q = QubitFactory('q1')
 
-    # FIXME: QGL2 can't handle evaluating this itself
-#        for amp in np.linspace(0,1,11):
-    for amp in [ 0. ,  0.1,  0.2,  0.3,  0.4,  0.5,  0.6,  0.7,  0.8,  0.9,  1. ]:
+    for amp in np.linspace(0,1,11):
         init(q)
         Utheta(q, amp=amp, phase=0)
         MEAS(q)
 
+# 7/25/16
+# This does not work, as we no longer
+# do compile within the function,
+# and do not currently allow arguments
 @qgl2decl
 def RabiAmp(qubit: qbit, amps, phase=0, showPlot=False):
     """
@@ -129,11 +134,7 @@ def RabiWidthq1(qubit: qbit, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.ta
 def doRabiWidth() -> sequence:
     q = QubitFactory("q1")
 
-#        for l in np.linspace(0, 5e-6, 11):
-    for l in [  0.00000000e+00,   5.00000000e-07,   1.00000000e-06,
-                1.50000000e-06,   2.00000000e-06,   2.50000000e-06,
-                3.00000000e-06,   3.50000000e-06,   4.00000000e-06,
-                4.50000000e-06,   5.00000000e-06]:
+    for l in np.linspace(0, 5e-6, 11):
         init(q)
         # FIXME: QGL2 loses the import needed for this QGL function
         Utheta(q, length=l, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh)
