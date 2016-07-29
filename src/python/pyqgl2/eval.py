@@ -478,7 +478,76 @@ class SimpleEvaluator(object):
         If there's an error, return ERROR.
         """
 
+        # If the function we're trying to call is the value of a
+        # local symbol, then we need to track down that value.
+        # If it turns out to be a qgl2stub, then turn the symbol
+        # back into that stub.  [NOTE: this needs to be fixed to
+        # work properly if the stub is not accessible in the current
+        # namespace, or has been aliased within this namespace!]
+        #
+        # We're not good at finding things generally, but we
+        # can try to find it in the local bindings.
+        #
+        if ((not isinstance(call_node.func, ast.Name)) and
+                (not isinstance(call_node.func, ast.Attribute))):
+            NodeError.error_msg(
+                    call_node, 'cannot handle anonymous func yet')
+            return self.ERROR
+
+        local_variables = self.locals_stack[-1]
+        if call_node.func.id in local_variables:
+            # print('found locally %s' % call_node.func.id)
+            val = local_variables[call_node.func.id]
+
+            if hasattr(val, '__qgl2_wrapper__'):
+                # print('has qgl2 wrapper %s' % call_node.func.id)
+                if val.__qgl2_wrapper__ == 'qgl2stub':
+                    # print('has qgl2 stub wrapper %s' % call_node.func.id)
+
+                    # do surgery on the call to set the name back from
+                    # the local name to the stub name.  NOTE: this can
+                    # ONLY be done AFTER loops are unrolled, and
+                    # everything is converted to static single
+                    # assignment, or else this might clobber a
+                    # symbol that is still a variable.
+                    #
+                    call_node.func = ast.Name(id=val.__name__)
+                    call_node.qgl_implicit_import = (
+                            val.__name__, val.__qgl_implicit_import__, None)
+                    return self.QGL2STUB
+                else:
+                    NodeError.error_msg(
+                            call_node,
+                            ('cannot handle %s func arg [%s] yet' %
+                                (val.__qgl2_wrapper__, val.__name__)))
+                    return self.ERROR
+
+            elif hasattr(val, '__name__'):
+                # print('has a name %s (%s)' % (call_node.func.id, val.__name__))
+                # similar to the qgl2stub case (see above)
+                call_node.func = ast.Name(id=val.__name__)
+                return self.NONQGL2
+
+            else:
+                # Something unanticipated...
+                NodeError.error_msg(
+                        call_node,
+                        ('local symbol unexpectedly used as function [%s]' %
+                            ast.dump(call_node)))
+                return self.ERROR
+
+        # If we get here, it's because the call is NOT via a
+        # local symbol, so we need to look up the symbol.
+
+        # print('not local %s' % call_node.func.id)
+
         funcname = pyqgl2.importer.collapse_name(call_node.func)
+        if not funcname:
+            NodeError.error_msg(call_node,
+                    ('no function definition found for [%s]' %
+                        ast.dump(call_node.func)))
+            return self.ERROR
+
         func_ast = self.importer.resolve_sym(call_node.qgl_fname, funcname)
         if not func_ast:
             if funcname in __builtins__:
