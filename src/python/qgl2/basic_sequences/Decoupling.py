@@ -1,5 +1,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
+# See DecouplingMin for versions that work better in QGL2
+
 from qgl2.qgl2 import qgl2decl, qbit, qgl2main
 
 from QGL.PulsePrimitives import X90, Id, Y, U90, MEAS
@@ -11,6 +13,8 @@ from qgl2.util import init
 
 from math import pi
 
+# FIXME: QGL2 can't take arguments yet
+# FIXME: Don't do the compilation in the function that generates the sequence
 @qgl2decl
 def HahnEcho(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=False):
     """
@@ -39,8 +43,6 @@ def HahnEcho(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=Fal
 
     # if showPlot:
     #     plot_pulse_files(fileNames)
-
-    # FIXME: QGL2 doesn't understand this for loop yet
 
     for k in range(len(pulseSpacings)):
         init(qubit)
@@ -103,6 +105,13 @@ def HahnEchoq1(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=F
     compileAndPlot(seqs, 'Echo/Echo', showPlot)
 
 @qgl2decl
+def idPulse(qubit: qbit, pulseSpacing):
+    Id(qubit, (pulseSpacing - qubit.pulseParams['length'])/2)
+
+# FIXME: QGL2 can't take arguments yet
+# FIXME: Don't do the compilation in the function that generates the sequence
+# No nested QGL2 functions; can have 1 call another though
+@qgl2decl
 def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     """
     CPMG pulse train with fixed pulse spacing. Note this pulse spacing is centre to centre,
@@ -133,21 +142,15 @@ def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     # if showPlot:
     #     plot_pulse_files(fileNames)
 
-    @qgl2decl
-    def idPulse(qubit: qbit):
-        Id(qubit, (pulseSpacing - qubit.pulseParams['length'])/2)
-
-    # FIXME: QGL2 doesn't understand these for loops yet
-
     # Create numPulses sequences
     for rep in numPulses:
         init(qubit)
         X90(qubit)
         # Repeat the t-180-t block rep times
         for _ in range(rep):
-            idPulse(qubit)
+            idPulse(qubit, pulseSpacing)
             Y(qubit)
-            idPulse(qubit)
+            idPulse(qubit, pulseSpacing)
         X90(qubit)
         MEAS(qubit)
 

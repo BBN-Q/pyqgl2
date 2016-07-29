@@ -260,6 +260,7 @@ def qreset(qubits: qbit_list, measDelay, signVec, buf, measChans) -> pulse:
     # EG for 2 qubits of opposite signVec, it gives:
     # [Id(q1)*X(q2), Id(q1)*Id(q2), X(q1)*X(q2), X(q1)*Id(q2)]
     # FIXME: Is qgl2decl un-necessary here?
+    # FIXME: No nested functions in QGL2; pull this out
     @qgl2decl
     def makePulsesList(qubits: qbit_list, signVec):
         FbGates = []
@@ -280,11 +281,11 @@ def qreset(qubits: qbit_list, measDelay, signVec, buf, measChans) -> pulse:
     # Make the pulses list once
     pulsesList = makePulsesList(qubits, signVec)
 
-    # FIXME: How do we tell the compiler this should return a list of pulses?
     # Pick the proper pulseSet from the pulsesList
     # And evaluate the set concurrently
+    # FIXME: No nested functions; pull this out
     @qgl2decl
-    def ifClause(count, pulsesList) -> pulse:
+    def ifClause(count, pulsesList) -> sequence:
         with concur:
             for pq in pulsesList[count]:
                 pq[0](pq[1])
@@ -519,9 +520,8 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     # QGL2 compiler
     compileAndPlot(seqs, 'Reset/Reset', showPlot)
 
-# FIXME: How do we tell the compiler this should return a list of pulses?
 @qgl2decl
-def qreset_Blake2(q: qbit, measDelay, buf, measSign) -> pulse:
+def qreset_Blake2(q: qbit, measDelay, buf, measSign) -> sequence:
     m = MEAS(q)
     # FIXME: In future, QGL2
     # Compiler inserts Id(measDelay+buf) or just buf if HW is fixed,
@@ -529,9 +529,8 @@ def qreset_Blake2(q: qbit, measDelay, buf, measSign) -> pulse:
     if m * measSign == 1:
         X(q)
 
-# FIXME: How do we tell the compiler this should return a list of pulses?
 @qgl2decl
-def qreset_Blake_intermediate(q: qbit, measDelay, buf, measSign) -> pulse:
+def qreset_Blake_intermediate(q: qbit, measDelay, buf, measSign) -> sequence:
     m = MEAS(q)
     Id(q, measDelay) # Wait to be sure signal reaches all qbits
 
@@ -545,9 +544,8 @@ def qreset_Blake_intermediate(q: qbit, measDelay, buf, measSign) -> pulse:
     if m * measSign == 1:
         X(q)
 
-# FIXME: How do we tell the compiler this should return a list of pulses?
 @qgl2decl
-def qreset_Blake(q: qbit, measDelay, buf, measSign) -> pulse:
+def qreset_Blake(q: qbit, measDelay, buf, measSign) -> sequence:
     m = MEAS(q)
     Id(q, measDelay) # Wait to be sure signal reaches all qbits
 

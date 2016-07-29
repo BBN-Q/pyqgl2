@@ -43,18 +43,19 @@ from pyqgl2.check_qbit import CompileQGLFunctions
 from pyqgl2.check_qbit import FindTypes
 from pyqgl2.check_symtab import CheckSymtab
 from pyqgl2.check_waveforms import CheckWaveforms
-from pyqgl2.concur_unroll import Unroller
-from pyqgl2.concur_unroll import QbitGrouper
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.eval import EvalTransformer, SimpleEvaluator
 from pyqgl2.flatten import Flattener
+from pyqgl2.grouper import AddSequential
+from pyqgl2.grouper import MarkReferencedQbits
+from pyqgl2.grouper import QbitGrouper2
 from pyqgl2.importer import NameSpaces, add_import_from_as
 from pyqgl2.inline import Inliner
 from pyqgl2.repeat import RepeatTransformer
 from pyqgl2.sequence import SequenceCreator
 from pyqgl2.sequences import SequenceExtractor, get_sequence_function
-from pyqgl2.substitute import specialize
 from pyqgl2.sync import SynchronizeBlocks
+
 
 def parse_args(argv):
     """
@@ -195,16 +196,16 @@ def compileFunction(filename, main_name=None, saveOutput=False,
 
     modname = ptree.qgl_fname
     if not (add_import_from_as(importer, modname, 'qgl2.qgl1', 'Wait') and
-            add_import_from_as(importer, modname, 'qgl2.qgl1', 'Sync')):
+            add_import_from_as(importer, modname, 'qgl2.qgl1', 'Sync') and
+            add_import_from_as(importer, modname, 'qgl2.qgl1', 'Barrier')):
         NodeError.error_msg(ptree,
-                'Wait() and/or Sync() cannot be found: missing imports?')
+                'Wait() and/or Sync() and/or Barrier() cannot be found: missing imports?')
         NodeError.halt_on_error()
 
     ptree1 = ptree
 
-    # We may need to iterate over the inlining and specialization
-    # processes a few times, because inlining may expose new things
-    # to specialize, and vice versa.
+    # We may need to iterate over the inlining processes a few times,
+    # because inlining may expose new things to inline.
     #
     # TODO: as a stopgap, we're going to limit iterations to 20, which
     # is enough to handle fairly deeply-nested, complex non-recursive
@@ -228,32 +229,12 @@ def compileFunction(filename, main_name=None, saveOutput=False,
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
 
-        # unroller = Unroller(importer)
-        # ptree1 = unroller.visit(ptree1)
-        # NodeError.halt_on_error()
-
-        # print(('UNROLLED CODE (iteration %d):\n%s' %
-        #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-        #         file=intermediate_fout, flush=True)
-
         type_check = CheckType(filename, importer=importer)
         ptree1 = type_check.visit(ptree1)
         NodeError.halt_on_error()
         print(('CHECKED CODE (iteration %d):\n%s' %
                 (iteration, pyqgl2.ast_util.ast2str(ptree1))),
                 file=intermediate_fout, flush=True)
-
-        # ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
-        #         context=ptree1)
-        # NodeError.halt_on_error()
-        # print(('SPECIALIZED CODE (iteration %d):\n%s' %
-        #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-        #         file=intermediate_fout, flush=True)
-
-        # If we include the unroller, or check for changes by the
-        # specializer, then we would also check for their changes here.
-        # Right now the unroller is not used (unrolling is done
-        # within the evaluator)
 
         if inliner.change_cnt == 0:
             NodeError.diag_msg(None,
@@ -287,13 +268,6 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print(('EVALUATOR + REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1)),
             file=intermediate_fout, flush=True)
 
-    # ptree1 = specialize(ptree1, list(), type_check.func_defs, importer,
-    #         context=ptree1)
-    # NodeError.halt_on_error()
-    # print(('SPECIALIZED CODE (iteration %d):\n%s' %
-    #         (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-    #         file=intermediate_fout, flush=True)
-
     # If we got raw code, then we may have no source file to use
     if not filename or filename == '<stdin>':
         text = '<stdin>'
@@ -313,18 +287,35 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     print(('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
             file=intermediate_fout, flush=True)
 
-    # Take with concur blocks and produce with seq blocks for each QBIT_* or EDGE_* referenced therein
-    grouper = QbitGrouper(evaluator.eval_state.locals_stack[-1])
-    new_ptree6 = grouper.visit(new_ptree5)
+    MarkReferencedQbits.marker(new_ptree5,
+            local_vars=evaluator.eval_state.locals_stack[-1])
+
+    seq = AddSequential()
+    new_ptree5 = seq.visit(new_ptree5)
+    NodeError.halt_on_error()
+    print(('SEQUENTIAL CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
+            file=intermediate_fout, flush=True)
+
+    # Take with-infunc and with-concur blocks and produce with-grouped
+    # and with-group blocks
+    #
+    grouper = QbitGrouper2()
+    new_ptree6 = grouper.group(new_ptree5,
+            local_vars=evaluator.eval_state.locals_stack[-1])
     NodeError.halt_on_error()
     print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
             file=intermediate_fout, flush=True)
 
-    repeater = RepeatTransformer()
-    new_ptree6 = repeater.visit(new_ptree6)
-    NodeError.halt_on_error()
-    print(('QREPEAT CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
-            file=intermediate_fout, flush=True)
+    # TODO: move the RepeatTransformer to before the grouper,
+    # and make sure that it doesn't find things that include
+    # any barriers.  We aren't certain how to handle barriers
+    # as part of repeat blocks yet.
+    #
+    # repeater = RepeatTransformer()
+    # new_ptree6 = repeater.visit(new_ptree6)
+    # NodeError.halt_on_error()
+    # print(('QREPEAT CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
+    #         file=intermediate_fout, flush=True)
 
     # Try to flatten out repeat, range, ifs
     flattener = Flattener()
@@ -445,8 +436,10 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     from QGL.Compiler import find_unique_channels, compile_to_hardware
     from QGL.Channels import Qubit as qgl1Qubit
     from QGL import ChannelLibrary
+    from pyqgl2.evenblocks import replaceBarriers
     import logging
     logger = logging.getLogger('QGL.Compiler.qgl2')
+
     # Find the channel for each sequence
     seqIdxToChannelMap = dict()
     for idx, seq in enumerate(seqs):
@@ -458,6 +451,37 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
                 logger.debug("Sequence %d is channel %s", idx, ch)
                 logger.debug(" - which is AWG '%s'", getAWG(ch))
                 break
+
+    # Hack: skip the empty sequence(s) now before doing anything else
+    useseqs = list()
+    decr = 0 # How much to decrement the index
+    toDecr = dict() # Map of old index to amount to decrement
+    for idx, seq in enumerate(seqs):
+        if idx not in seqIdxToChannelMap:
+            # Indicates an error usually, but could be a channel in the program that doesn nothing
+            logger.debug("Sequence %d has no channel - skip", idx)
+            decr = decr+1
+            continue
+        if decr:
+            toDecr[idx] = decr
+            logger.debug("Will shift index of sequence %d by %d", idx, decr)
+        useseqs.append(seq)
+    seqs = useseqs
+    if decr:
+        newmap = dict()
+        for ind in seqIdxToChannelMap:
+            if ind in toDecr:
+                newmap[ind-decr] = seqIdxToChannelMap[ind]
+                logger.debug("Sequence %d (channel %s) is now sequence %d", ind, seqIdxToChannelMap[ind], ind-decr)
+            elif ind in seqIdxToChannelMap:
+                logger.debug("Sequence %d keeping map to %s", ind, seqIdxToChannelMap[ind])
+                newmap[ind] = seqIdxToChannelMap[ind]
+            else:
+                logger.debug("Dropping (empty) sequence %d", ind)
+        seqIdxToChannelMap = newmap
+
+    # Try to replace Barrier commands with Id pulses where possible, else with Sync/Wait
+    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
 
     # Find the sequence whose channel's AWG is same as slave Channel, if
     # any. Avoid sequences without a qubit channel if any.
@@ -491,11 +515,7 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     # Start as a set so filenames are unique,
     # but return as a list so it can be a dictionary key
     files = set()
-    for idx,seq in enumerate(seqs):
-        if idx not in seqIdxToChannelMap:
-            # Indicates an error - that empty sequence
-            logger.debug("Sequence %d has no channel - skip", idx)
-            continue
+    for idx, seq in enumerate(seqs):
         doSlave = False
         if idx == slaveSeqInd:
             logger.debug("Asking for slave trigger with sequence %d", idx)
@@ -638,12 +658,9 @@ if __name__ == '__main__':
             os.makedirs(QGL.config.AWGDir)
 
         # Now execute the returned function, which should produce a list of sequences
-        sequences = resFunction(q=QubitFactory('q1'))
-
-#        # Get length
-#        from pyqgl2.pulselength import pulseLengths
-#        length = pulseLengths(sequences)
-#        print("Sequence length: %s" % length)
+        # Supply a bunch of qbit variables to cover usual cases
+        # For other cases, write your own main().
+        sequences = resFunction(q=QubitFactory('q1'),qubit=QubitFactory('q1'),q1=QubitFactory('q1'),controlQ=QubitFactory('q1'),q2=QubitFactory('q2'),mqubit=QubitFactory('q2'),targetQ=QubitFactory('q2'))
 
         # In verbose mode, turn on DEBUG python logging for the QGL Compiler
         if opts.verbose:

@@ -1,11 +1,9 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
+# See AllXYMin for simpler / newer attempts
+
 from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main, sequence
 from qgl2.qgl1 import QubitFactory
-
-#from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
-#from QGL.Compiler import compile_to_hardware
-#from QGL.PulseSequencePlotter import plot_pulse_files
 
 from qgl2.qgl1 import Id, X, Y, X90, Y90, MEAS
 from qgl2.control import *
@@ -15,6 +13,8 @@ from qgl2.basic_sequences.new_helpers import IdId, XX, YY, XY, YX, X90Id, Y90Id,
     XY90, YX90, X90X, XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90
 from qgl2.util import init
 
+# This will not work in QGL2: Do not build sequence
+# and do compilation in same function
 @qgl2decl
 def AllXYq2(q: qbit, showPlot = False):
     # This is the kind of thing that I would like to work in QGL2, but
@@ -36,6 +36,7 @@ def AllXYq2(q: qbit, showPlot = False):
     # generates to compileAndPlot
     compileAndPlot('AllXY/AllXY', showPlot)
 
+# FIXME: Fails cause cannot loop over functions yet
 @qgl2decl
 def doAllXY() -> sequence:
     q = QubitFactory(label="q1")
@@ -88,11 +89,6 @@ def main():
 #    q1.pulseParams['length'] = 30e-9
 #    q1.pulseParams['phase'] = pi/2
 
-    # But the current qgl2 compiler doesn't understand Qubits, only
-    # Qbits. So use that instead when running through the QGL2
-    # compiler, but comment this out when running directly.
-    # And I can't easily make it understand stub Qubits either. Bah.
-    # (because it expects the single arg to be an int)
     q1 = QubitFactory(label="q1")
     AllXY(q1)
 

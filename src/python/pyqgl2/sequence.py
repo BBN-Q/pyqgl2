@@ -6,8 +6,9 @@ import sys
 
 from copy import deepcopy
 
+from pyqgl2.ast_qgl2 import is_concur, is_seq
 from pyqgl2.ast_util import ast2str, NodeError
-from pyqgl2.concur_unroll import is_concur, is_seq, find_all_channels
+from pyqgl2.find_channels import find_all_channels
 from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
 

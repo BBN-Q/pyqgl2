@@ -1,5 +1,8 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
+# 7/25/16:
+# FIXME: This fails due to use of 'product'
+
 from qgl2.qgl2 import qgl2decl, qbit_list, concur, pulse
 
 from qgl2.util import init
@@ -45,6 +48,7 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
     # For QGL1
 #    calSeqs = []
 
+    # FIXME 7/25/16: product doesn't get imported
     # Create iterator with the right number of Id and X pulses
     for pulseSet in product(calSet, repeat=len(qubits)):
         # Repeat each entry numRepeats times
@@ -68,8 +72,10 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
             # Get all combinations of the pulses and qubits
             # doing the pulse on the qubit
             # Do the pulses concurrently for this pulseSet
+            # FIXME 7/25/16: I think we have trouble with zip currently
             with concur:
                 for pulse,qubit in zip(pulseSet, qubits):
+                    # FIXME 7/25/16: I doubt this works
                     pulse(qubit)
             # Add on the measurement pulses (done concurrently)
             with concur:

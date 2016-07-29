@@ -9,11 +9,12 @@ import sys
 
 from copy import deepcopy
 
+from pyqgl2.ast_qgl2 import is_seq, is_with_label
 from pyqgl2.ast_util import ast2str, NodeError
-from pyqgl2.concur_unroll import is_concur, is_seq, find_all_channels
+from pyqgl2.find_channels import find_all_channels
+from pyqgl2.find_labels import getChanLabel
 from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
-from pyqgl2.substitute import getChanLabel
 
 class SequenceExtractor(object):
     """
@@ -103,26 +104,32 @@ class SequenceExtractor(object):
                 else:
                     namespace = subnode.qgl_fname
 
-                fdef = self.importer.resolve_sym(namespace, funcname)
-                if not fdef:
-                    NodeError.error_msg(subnode,
-                            'cannot find import info for [%s]' % funcname)
-                elif not fdef.qgl_stub_import:
-                    NodeError.error_msg(subnode,
-                            'not a stub: [%s]' % funcname)
+                if hasattr(subnode, 'qgl_implicit_import'):
+                    (sym_name, module_name, orig_name) = \
+                            subnode.qgl_implicit_import
                 else:
-                    # print('FI AST %s' % ast.dump(fdef))
+                    fdef = self.importer.resolve_sym(namespace, funcname)
+
+                    if not fdef:
+                        NodeError.error_msg(subnode,
+                                'cannot find import info for [%s]' % funcname)
+                        return False
+                    elif not fdef.qgl_stub_import:
+                        NodeError.error_msg(subnode,
+                                'not a stub: [%s]' % funcname)
+                        return False
+
                     (sym_name, module_name, orig_name) = fdef.qgl_stub_import
 
-                    if orig_name:
-                        import_str = '%s as %s' % (orig_name, sym_name)
-                    else:
-                        import_str = sym_name
+                if orig_name:
+                    import_str = '%s as %s' % (orig_name, sym_name)
+                else:
+                    import_str = sym_name
 
-                    if module_name not in self.stub_imports:
-                        self.stub_imports[module_name] = set()
+                if module_name not in self.stub_imports:
+                    self.stub_imports[module_name] = set()
 
-                    self.stub_imports[module_name].add(import_str)
+                self.stub_imports[module_name].add(import_str)
 
         return True
 
@@ -168,15 +175,17 @@ class SequenceExtractor(object):
             if assignment:
                 self.qbit_creates.append(assignment)
                 continue
-            elif is_concur(stmnt):
+            elif is_with_label(stmnt, 'grouped'):
                 # print("Found concur at line %d: %s" % (lineNo+1,stmnt))
                 for s in stmnt.body:
                     if is_seq(s):
+                        chan_name = '_'.join(sorted(s.qgl_chan_list))
+
                         # print("Found with seq for qbits %s: %s" % (s.qgl_chan_list, ast2str(s)))
                         #print("With seq next at line %d: %s" % (lineNo+1,s))
-                        if str(s.qgl_chan_list) not in self.sequences:
-                            self.sequences[str(s.qgl_chan_list)] = list()
-                        thisSeq = self.sequences[str(s.qgl_chan_list)]
+                        if chan_name not in self.sequences:
+                            self.sequences[chan_name] = list()
+                        thisSeq = self.sequences[chan_name]
                         # print("Append body %s" % s.body)
                         # for s2 in s.body:
                         #     print(ast2str(s2))
@@ -184,14 +193,33 @@ class SequenceExtractor(object):
                         #print("lineNo now %d" % lineNo)
                     else:
                         NodeError.error_msg(s, "Not seq next at line %d: %s" % (lineNo+1,s))
-            elif len(self.qbits) == 1:
-                # print("Append expr %s to sequence for %s" % (ast2str(stmnt), self.qbits))
-                if len(self.sequences) == 0:
-                    self.sequences[list(self.qbits)[0]] = list()
-                self.sequences[list(self.qbits)[0]].append(stmnt)
+            elif isinstance(stmnt, ast.Expr):
+                if len(self.qbits) == 1:
+                    # print("Append expr %s to sequence for %s" % (ast2str(stmnt), self.qbits))
+                    if len(self.sequences) == 0:
+                        self.sequences[list(self.qbits)[0]] = list()
+                    self.sequences[list(self.qbits)[0]].append(stmnt)
+                else:
+                    chan_list = list(find_all_channels(stmnt))
+                    if len(chan_list) != 1:
+                        NodeError.error_msg(stmnt,
+                                            'orphan expression %s' % ast.dump(stmnt))
+                    if len(self.sequences) == 0 or str(chan_list) not in self.sequences:
+                        self.sequences[str(chan_list)] = list()
+                    thisSeq = self.sequences[str(chan_list)]
+                    thisSeq.append(stmnt)
+                    # print("Added %s to seq for %s" % (ast2str(stmnt), chan_list))
+                    # print("Have sequences: %s" % (self.sequences.keys()))
             else:
-                NodeError.error_msg(stmnt,
-                        'orphan statement %s' % ast.dump(stmnt))
+                chan_list = list(find_all_channels(stmnt))
+                if len(chan_list) != 1:
+                    NodeError.error_msg(stmnt,
+                                        'orphan statement %s' % ast.dump(stmnt))
+                if len(self.sequences) == 0 or str(chan_list) not in self.sequences:
+                    self.sequences[str(chan_list)] = list()
+                thisSeq = self.sequences[str(chan_list)]
+                thisSeq.append(stmnt)
+                # print("Added %s to seq for %s" % (ast2str(stmnt), chan_list))
 
         # print("Seqs: %s" % self.sequences)
         if not self.sequences:
@@ -260,7 +288,9 @@ class SequenceExtractor(object):
         seqs_str = ''
         seq_strs = list()
 
-        for seq in self.sequences.values():
+        for chan_name in sorted(self.sequences.keys()):
+            seq = self.sequences[chan_name]
+
             #print("Looking at seq %s" % seq)
             sequence = [ast2str(item).strip() for item in seq]
             #print ("It is %s" % sequence)
@@ -275,14 +305,14 @@ class SequenceExtractor(object):
                 sequence = sequence[1:]
 
             # TODO there must be a more elegant way to indent this properly
-            seq_str = indent + 'seq = [\n' + 2 * indent
+            seq_str = indent + ('seq_%s = [\n' % chan_name) + 2 * indent
             seq_str += (',\n' + 2 * indent).join(sequence)
             seq_str += '\n' + indent + ']\n'
+            seq_str += indent + 'seqs += [seq_%s]\n' % chan_name
             seq_strs.append(seq_str)
 
         for seq_str in seq_strs:
             seqs_str += seq_str
-            seqs_str += indent + 'seqs += [seq]\n'
 
         postamble = indent + 'return seqs\n'
 

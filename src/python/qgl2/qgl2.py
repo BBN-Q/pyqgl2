@@ -12,6 +12,8 @@ from qgl2.qgl2 import classical, pulse, qbit, qbit_list, sequence, control, GATH
 from qgl2.qgl1 import *
 """
 
+from functools import wraps
+
 class SimpleWithObject(object):
     """
     Base class that defines a degenerate __enter__ and __exit__
@@ -99,16 +101,20 @@ class Seq(SimpleWithObject):
 
 
 def qgl2main(function):
+    @wraps(function)
     def wrapper(*f_args, **f_kwargs):
         return function
+    wrapper.__qgl2_wrapper__ = 'qgl2decl'
     return wrapper
 
 def qgl2decl(function):
+    @wraps(function)
     def wrapper(*f_args, **f_kwargs):
         return function
+    wrapper.__qgl2_wrapper__ = 'qgl2decl'
     return wrapper
 
-def qgl2stub(function, **args):
+def qgl2stub(import_path=None):
     '''
     Mark a function as a stub for a QGL1 function, and add
     proper annotations.
@@ -133,9 +139,18 @@ def qgl2stub(function, **args):
     in the output QGL code.
     '''
 
-    def wrapper(*f_args, **f_kwargs):
-        return function
-    return wrapper
+    def deco(func):
+
+        @wraps(func)
+
+        def wrapper(*f_args, **f_kwargs):
+            return func(*f_args, **f_kwargs)
+
+        wrapper.__qgl2_wrapper__ = 'qgl2stub'
+        wrapper.__qgl_implicit_import__ = import_path
+        return wrapper
+
+    return deco
 
 # Symbols used for method signature annotation.  Their value has
 # no meaning; they're only assigned a value so that Python considers

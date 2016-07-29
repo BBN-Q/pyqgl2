@@ -9,6 +9,7 @@ class QGL2(object):
     # import (currently qgl2.qgl2)
     #
     QCONCUR = 'concur'
+    QINFUNC = 'infunc'
     QSEQ = 'seq'
     QMAIN = 'qgl2main'
     QDECL = 'qgl2decl'
@@ -28,3 +29,7 @@ class QGL2(object):
     CONTROL = 'control'
     # A sequence of pulses
     SEQUENCE = 'sequence'
+
+    REPEAT = 'Qrepeat'
+    FOR = 'Qfor'
+    ITER = 'Qiter'
