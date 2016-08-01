@@ -769,6 +769,10 @@ class EvalTransformer(object):
         assert isinstance(orig_node, ast.FunctionDef), \
                 ('expected ast.FunctionDef, got %s' % type(node))
 
+        if orig_node.args.args:
+            NodeError.error_msg(orig_node, 'qgl2main cannot take parameters')
+            return orig_node
+
         self.change_cnt = 0
         node = deepcopy(orig_node)
 
