@@ -1568,7 +1568,7 @@ def add_runtime_call_check(call_ptree, func_ptree):
     """
 
     # print('CALL AST %s' % ast.dump(call_ptree))
-    print('FUNC AST %s' % ast.dump(func_ptree))
+    # print('FUNC AST %s' % ast.dump(func_ptree))
 
     tmp_names = TempVarManager.create_temp_var_manager()
 
@@ -1588,18 +1588,18 @@ def add_runtime_call_check(call_ptree, func_ptree):
         # TODO: add location info to new stmnt!
 
         tmp_assts.append(new_ast)
-
-        tmp_chk_txt = 'QGL2check(%s, \'%s\', \'%s\', %d, %d)' % (
-                new_name, func_ptree.args.args[arg_index].annotation.id,
-                ap_node.qgl_fname, ap_node.lineno, ap_node.col_offset)
-
-        new_ast = expr2ast(tmp_chk_txt)
-
-        # TODO: add location info to new stmnt!
-
-        tmp_checks.append(new_ast)
-
         tmp_args_names.append(new_name)
+
+        if func_ptree.args.args[arg_index].annotation:
+            tmp_chk_txt = 'QGL2check(%s, \'%s\', \'%s\', %d, %d)' % (
+                    new_name, func_ptree.args.args[arg_index].annotation.id,
+                    ap_node.qgl_fname, ap_node.lineno, ap_node.col_offset)
+
+            new_ast = expr2ast(tmp_chk_txt)
+
+            # TODO: add location info to new stmnt!
+
+            tmp_checks.append(new_ast)
 
     # Then kwargs in the call:
     for arg_index in range(len(call_ptree.keywords)):
@@ -1614,6 +1614,22 @@ def add_runtime_call_check(call_ptree, func_ptree):
         tmp_kwargs_names.append((fp_name, new_name))
 
         # FIND ANNOTATION, use it here to create a check
+
+        anno = None
+        for arg in func_ptree.args.args:
+            if arg.arg == fp_name:
+                if arg.annotation:
+                    anno = arg.annotation.id
+
+        if anno:
+            tmp_chk_txt = 'QGL2check(%s, \'%s\', \'%s\', %d, %d)' % (
+                    new_name, anno,
+                    ap_node.qgl_fname, ap_node.lineno, ap_node.col_offset)
+            new_ast = expr2ast(tmp_chk_txt)
+
+            # TODO: add location info to new stmnt!
+
+            tmp_checks.append(new_ast)
 
 
     new_call_txt = '%s('
