@@ -13,6 +13,8 @@ from pyqgl2.lang import QGL2
 import pyqgl2.ast_util
 import pyqgl2.scope
 
+from pyqgl2.ast_util import ast2str
+
 class BarrierIdentifier(object):
 
     NEXTNUM = 1
@@ -1297,6 +1299,9 @@ class Inliner(ast.NodeTransformer):
             # We don't do anything with qgl2decl procedures right now
             # (they get handled inside the inliner).  Someday we might
             # want to unify this, but we don't do this right now.
+
+            print('PUNTING ON call to %s' % func_name)
+
             return call_ptree
 
         elif is_qgl2_stub(func_ptree):
@@ -1332,6 +1337,7 @@ class Inliner(ast.NodeTransformer):
                 # If it's a symbol, then we can check the
                 # type in-place and don't need to make a copy.
                 if not fp_arg.annotation:
+                    print('NEWNAME3 %s %s' % (ap_arg.id, fp_arg.id))
                     new_args.append(ap_arg)
                     continue
 
@@ -1339,6 +1345,7 @@ class Inliner(ast.NodeTransformer):
                     new_name = ap_arg.id
                     to_check = ap_arg
                     new_args.append(ap_arg)
+                    print('NEWNAME2 %s' % new_name)
                 else:
                     new_name = tmp_var.create_tmp_name(orig_name=fp_arg.arg)
                     to_check = ast.Name(id=new_name)
@@ -1350,6 +1357,7 @@ class Inliner(ast.NodeTransformer):
 
                     val_str = pyqgl2.ast_util.ast2str(ap_arg).strip()
                     expr = '%s = %s' % (new_name, val_str)
+                    print('NEWNAME %s old %s' % (new_name, val_str))
                     new_assignments.append(expr2ast(expr))
 
                 # def make_symtype_check(symname, symtype, actual_param, fpname):
@@ -1426,6 +1434,7 @@ class Inliner(ast.NodeTransformer):
 
             inlined = inline_call(call_ptree, self.importer)
             if isinstance(inlined, ast.Call):
+                print('INLINED GOT CALL %s' % call_ptree.func.id)
                 stmnt.value = inlined
                 new_body.append(stmnt)
 
@@ -1433,13 +1442,25 @@ class Inliner(ast.NodeTransformer):
                 # when the checked_call function does the right
                 # thing.
                 #
-                # checked_call = self.make_checked_call(call_ptree)
+                checked_call = self.make_checked_call(call_ptree)
+                if isinstance(checked_call, list):
+                    print('CHECKED:')
+                    for elem in checked_call:
+                        print('%s' % ast.dump(elem))
+                    print('ENDCHECKED:')
+                    print('ASCODE')
+                    for elem in checked_call:
+                        print('%s' % ast2str(elem).strip())
+                    print('ENDASCODE')
+
                 # if isinstance(checked_call, ast.Call):
                 #     stmnt.value = inlined
                 #     new_body.append(stmnt)
                 # else:
                 #     new_body += checked_call
                 continue
+            else:
+                print('INLINED NOT GOT CALL %s' % call_ptree.func.id)
 
             self.change_cnt += 1
 
@@ -1479,6 +1500,140 @@ class Inliner(ast.NodeTransformer):
         node.orelse = self.inline_body(node.orelse)
         node.finalbody = self.inline_body(node.finalbody)
         return node
+
+def add_runtime_call_check(call_ptree, func_ptree):
+    """
+    Insert runtime checks for valid parameters for the given call
+    to the given function.
+
+    If the function does not have parameter type annotations, then
+    there is nothing to do, and we just return a statement
+    list containing the call (from call_ptree).
+
+    NOTE: we're treating this call as a statement because we
+    assume that it's not being used as an expression.  THIS IS
+    NOT GENERALLY TRUE and we'll need to handle the general
+    case soon.
+
+    If the function has parameter type annotations, then
+    for each parameter with a type annotation, we need to add a check.
+    The current process is described below: it could be made more
+    efficient by handling special cases more elegantly, but efficiency
+    is not a high priority for compile-time type checking (at this time),
+    so we're aiming for simplicity instead.
+
+    1. Create a tmp symbol name for each typed formal parameter.
+
+    2. Create an assignment statement that assigns each formal parameter
+        to the corresponding tmp symbol.
+
+    3. Create a new call to the func specified by the func_ptree
+        that uses the value bound to the tmp symbol names as its actual
+        parameters
+
+    4. For each symbol created in step 1, create a statement to check that
+        it is of the correct type, with error messages that match the
+        location information in the corresponding actual parameter.
+
+    5. Put together a statement list containing the statements from
+        steps 2, 4, and 3.
+
+        The symbol bindings and checks from steps 2 and 4 can be interleaved
+        (if that makes it easier to implement), but all of steps 2 and 4
+        must be finished before step 4.
+
+    So, for example, if we had a function defined list:
+
+    @qgl2decl
+    def foo(a: classical, b: qbit) -> classical:
+        return a # we don't care about the body here
+
+    and then a call to foo like:
+
+        foo(x + y, q)
+
+    We would transform this call from
+
+        [ foo(x + y, q) ]
+
+    to something like:
+
+        [
+            tmp_a = x + y,
+            tmp_b = q,
+            if not is_classical(tmp_a): print('a must be classical'); fail(),
+            if not is_qbit(tmp_b) : print('b must be a qbit'); fail(),
+            foo(tmp_a, tmp_b)
+        ]
+    """
+
+    # print('CALL AST %s' % ast.dump(call_ptree))
+    print('FUNC AST %s' % ast.dump(func_ptree))
+
+    tmp_names = TempVarManager.create_temp_var_manager()
+
+    stmnts = list()
+    tmp_assts = list()
+    tmp_checks = list()
+    tmp_args_names = list()
+    tmp_kwargs_names = list()
+
+    # Regular args in the call first:
+    for arg_index in range(len(call_ptree.args)):
+        ap_node = call_ptree.args[arg_index]
+        fp_name = func_ptree.args.args[arg_index].arg
+        new_name = tmp_names.create_tmp_name(orig_name=fp_name)
+        new_ast = expr2ast('%s = %s' % (new_name, ast2str(ap_node).strip()))
+
+        # TODO: add location info to new stmnt!
+
+        tmp_assts.append(new_ast)
+
+        tmp_chk_txt = 'QGL2check(%s, \'%s\', \'%s\', %d, %d)' % (
+                new_name, func_ptree.args.args[arg_index].annotation.id,
+                ap_node.qgl_fname, ap_node.lineno, ap_node.col_offset)
+
+        new_ast = expr2ast(tmp_chk_txt)
+
+        # TODO: add location info to new stmnt!
+
+        tmp_checks.append(new_ast)
+
+        tmp_args_names.append(new_name)
+
+    # Then kwargs in the call:
+    for arg_index in range(len(call_ptree.keywords)):
+        fp_name = call_ptree.keywords[arg_index].arg
+        new_name = tmp_names.create_tmp_name(orig_name=fp_name)
+        new_ast = expr2ast('%s = %s' %
+                (new_name, ast2str(call_ptree.keywords[arg_index]).strip()))
+
+        # TODO: add location info
+
+        tmp_assts.append(new_ast)
+        tmp_kwargs_names.append((fp_name, new_name))
+
+        # FIND ANNOTATION, use it here to create a check
+
+
+    new_call_txt = '%s('
+    args_txt = ', '.join(tmp_args_names)
+    kwargs_txt = ', '.join(['%s=%s' % (fpn, new_name)
+            for (fpn, new_name) in tmp_kwargs_names])
+    if args_txt and kwargs_txt:
+        args_txt = args_txt + ', ' + kwargs_txt
+    elif kwargs_txt:
+        args_txt = kwargs_txt
+
+    new_call_txt = '%s(%s)' % (func_ptree.name, args_txt)
+    new_call_ast = expr2ast(new_call_txt)
+
+    new_stmnts = tmp_assts
+    new_stmnts += tmp_checks
+    new_stmnts.append(new_call_ast)
+
+    for new_asst in new_stmnts:
+        print('>>    %s' % ast2str(new_asst).strip())
 
 
 def inline_call(base_call, importer):
@@ -1528,6 +1683,8 @@ def inline_call(base_call, importer):
         NodeError.diag_msg(base_call,
                 'definition for %s() not found' % func_name)
         return base_call
+
+    add_runtime_call_check(base_call, func_ptree)
 
     if not is_qgl_procedure(func_ptree):
         if is_qgl2_stub(func_ptree):
