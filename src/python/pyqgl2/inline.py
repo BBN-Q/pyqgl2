@@ -1565,91 +1565,138 @@ def add_runtime_call_check(call_ptree, func_ptree):
             if not is_qbit(tmp_b) : print('b must be a qbit'); fail(),
             foo(tmp_a, tmp_b)
         ]
+
+    A subtle note is how to handle a call to a function that has
+    some of its formal parameters annotated with types, but not all.
+    (maybe this will be illegal someday, but right now partial types
+    are permitted...)  It is tempting to only perform this transformation
+    on actual parameters that can be type checked, i.e.
+
+        def foo(a, b, c: qbit):
+            pass
+
+        foo(x(), y(), z())
+
+    Would be transformed to something like:
+
+        tmp_z = z()
+        QGL2check(z, 'qbit', ...)
+        foo(x(), y(), tmp_z)
+
+    But this reorders the evaluation of the expressions in the
+    call (z() is called before x() and y()), and this can change
+    the behavior of the program if any of these functions have
+    side effects (and the ability of Python to create non-obvious
+    side effects makes this impractical to check).  We need
+    to preserve the relative order of evaluation across all the
+    actual parameters.
     """
 
     # print('CALL AST %s' % ast.dump(call_ptree))
     # print('FUNC AST %s' % ast.dump(func_ptree))
 
+    # if the function doesn't have any annotations, then there's
+    # nothing for us to do.  Might as well check that up front.
+    #
+    found_anno = False
+    for fparam in func_ptree.args.args:
+        if fparam.annotation:
+            found_anno = True
+            break
+
+    if not found_anno:
+        return list([call_ptree])
+
     tmp_names = TempVarManager.create_temp_var_manager()
 
-    stmnts = list()
     tmp_assts = list()
     tmp_checks = list()
     tmp_args_names = list()
-    tmp_kwargs_names = list()
 
     # Regular args in the call first:
     for arg_index in range(len(call_ptree.args)):
         ap_node = call_ptree.args[arg_index]
         fp_name = func_ptree.args.args[arg_index].arg
         new_name = tmp_names.create_tmp_name(orig_name=fp_name)
-        new_ast = expr2ast('%s = %s' % (new_name, ast2str(ap_node).strip()))
-
-        # TODO: add location info to new stmnt!
-
-        tmp_assts.append(new_ast)
         tmp_args_names.append(new_name)
 
-        if func_ptree.args.args[arg_index].annotation:
+        new_ast = expr2ast('%s = %s' % (new_name, ast2str(ap_node).strip()))
+        pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
+        tmp_assts.append(new_ast)
+
+        anno = func_ptree.args.args[arg_index].annotation
+        if anno:
+            if not isinstance(anno, ast.Name):
+                NodeError.error_msg(
+                        anno, 'type annotations must be names')
+                return list()
+
+            # TODO: the name "QGL2check" is tentative
+
             tmp_chk_txt = 'QGL2check(%s, \'%s\', \'%s\', %d, %d)' % (
-                    new_name, func_ptree.args.args[arg_index].annotation.id,
-                    ap_node.qgl_fname, ap_node.lineno, ap_node.col_offset)
+                    new_name, anno.id,
+                    new_ast.qgl_fname, new_ast.lineno, new_ast.col_offset)
 
+            pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
             new_ast = expr2ast(tmp_chk_txt)
-
-            # TODO: add location info to new stmnt!
 
             tmp_checks.append(new_ast)
 
     # Then kwargs in the call:
+    #
+    # (there's a lot of commonality here with the regular args,
+    # and perhaps it can be simplified, but there are differences)
+    #
     for arg_index in range(len(call_ptree.keywords)):
-        fp_name = call_ptree.keywords[arg_index].arg
+        ap_node = call_ptree.keywords[arg_index]
+        fp_name = ap_node.arg
         new_name = tmp_names.create_tmp_name(orig_name=fp_name)
-        new_ast = expr2ast('%s = %s' %
-                (new_name, ast2str(call_ptree.keywords[arg_index]).strip()))
+        tmp_args_names.append('%s=%s' % (fp_name, new_name))
 
-        # TODO: add location info
-
+        new_ast = expr2ast('%s = %s' % (new_name, ast2str(ap_node).strip()))
+        pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
         tmp_assts.append(new_ast)
-        tmp_kwargs_names.append((fp_name, new_name))
 
-        # FIND ANNOTATION, use it here to create a check
-
+        # We need to scan through the function definition to find
+        # whether there's an annotation for this parameter
+        #
         anno = None
         for arg in func_ptree.args.args:
             if arg.arg == fp_name:
                 if arg.annotation:
-                    anno = arg.annotation.id
+                    anno = arg.annotation
 
         if anno:
-            tmp_chk_txt = 'QGL2check(%s, \'%s\', \'%s\', %d, %d)' % (
-                    new_name, anno,
-                    ap_node.qgl_fname, ap_node.lineno, ap_node.col_offset)
-            new_ast = expr2ast(tmp_chk_txt)
+            if not isinstance(anno, ast.Name):
+                NodeError.error_msg(
+                        anno, 'type annotations must be names')
+                return list()
 
-            # TODO: add location info to new stmnt!
+            tmp_chk_txt = 'QGL2check(%s, \'%s\', \'%s\', %d, %d)' % (
+                    new_name, anno.id,
+                    new_ast.qgl_fname, new_ast.lineno, new_ast.col_offset)
+            new_ast = expr2ast(tmp_chk_txt)
+            pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
 
             tmp_checks.append(new_ast)
 
-
-    new_call_txt = '%s('
-    args_txt = ', '.join(tmp_args_names)
-    kwargs_txt = ', '.join(['%s=%s' % (fpn, new_name)
-            for (fpn, new_name) in tmp_kwargs_names])
-    if args_txt and kwargs_txt:
-        args_txt = args_txt + ', ' + kwargs_txt
-    elif kwargs_txt:
-        args_txt = kwargs_txt
-
-    new_call_txt = '%s(%s)' % (func_ptree.name, args_txt)
+    new_call_txt = '%s(%s)' % (func_ptree.name, ', '.join(tmp_args_names))
     new_call_ast = expr2ast(new_call_txt)
+
+    pyqgl2.ast_util.copy_all_loc(new_call_ast, call_ptree, recurse=True)
 
     new_stmnts = tmp_assts
     new_stmnts += tmp_checks
     new_stmnts.append(new_call_ast)
 
+    # TODO: remove; for debugging only
+    #
+    print('checked call:')
     for new_asst in new_stmnts:
         print('>>    %s' % ast2str(new_asst).strip())
+    print(' - - - - - -')
+
+    return new_stmnts
 
 
 def inline_call(base_call, importer):
