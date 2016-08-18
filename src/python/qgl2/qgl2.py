@@ -114,7 +114,7 @@ def qgl2decl(function):
     wrapper.__qgl2_wrapper__ = 'qgl2decl'
     return wrapper
 
-def qgl2stub(import_path=None):
+def qgl2stub(import_path=None, origName=None):
     '''
     Mark a function as a stub for a QGL1 function, and add
     proper annotations.
