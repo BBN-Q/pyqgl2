@@ -373,7 +373,8 @@ class AddSequential(ast.NodeTransformer):
         else:
             return False
 
-    def make_barrier_ast(self, qbits, node, name='seq', bid=None):
+    @staticmethod
+    def make_barrier_ast(qbits, node, name='seq', bid=None):
 
         if not bid:
             bid = BarrierIdentifier.next_bid()
@@ -534,7 +535,18 @@ class QbitGrouper2(ast.NodeTransformer):
             with_group = expr2ast('with group(%s): pass' % qbit)
             copy_all_loc(with_group, node, recurse=True)
 
-            with_group.body = pruned_body
+            # Insert a special Barrier named "group_marker..."
+            # at the start of each per-qbit group.
+            # The compiler later looks for this to know
+            # which sequence is for which Qubit.
+            bid = BarrierIdentifier.next_bid()
+            beg_barrier = AddSequential.make_barrier_ast(
+                [qbit], with_group,
+                name='group_marker', bid=bid)
+            print("For qbit %s, inserting group_marker: %s" % (qbit, ast2str(beg_barrier)))
+
+            with_group.body = [beg_barrier] + pruned_body
+
             with_group.qbit = qbit
             MarkReferencedQbits.marker(with_group, local_vars=local_vars)
 
