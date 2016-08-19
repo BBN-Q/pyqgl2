@@ -575,16 +575,13 @@ class SimpleEvaluator(object):
 
         """
         namespace = self.importer.path2namespace[call_node.qgl_fname]
-        print('EV NS %s' % namespace)
         local_variables = self.locals_stack[-1]
         success = namespace.native_exec(call_node,
                 local_variables=local_variables)
         if not success:
             NodeError.error_msg(call_node,
                     'failed to evaluate [%s]' % ast2str(call_node))
-            return False
-
-        print('EV locals %s' % str(self.locals_stack[-1]))
+            return self.ERROR
         """
 
         return self.NONQGL2
@@ -1359,7 +1356,7 @@ class EvalTransformer(object):
                 elif success == self.eval_state.NONQGL2:
                     # We don't know what to do...  punt.
                     self.eval_state.eval_expr(stmnt)
-                    print('NSH %s' % ast2str(stmnt))
+                    # print('NSH %s' % ast2str(stmnt).strip())
                     NodeError.warning_msg(stmnt,
                             ('not sure how to handle [%s]' %
                                 ast2str(stmnt).strip()))
