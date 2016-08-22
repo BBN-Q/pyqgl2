@@ -13,7 +13,7 @@ def QGL2check(value, required_type, fp_name, fname, lineno, colno):
             sys.exit(1)
 
     elif required_type == 'classical':
-        if isinstance(value, Qubit):
+        if isinstance(value, QubitPlaceholder):
             print('%s:%d:%d: error: bad type: [%s] must be classical' %
                     (fname, lineno, colno, fp_name))
             sys.exit(1)
