@@ -17,10 +17,8 @@ def doHahnEcho() -> sequence:
     steps = 11
     # FIXME: Can't do arguments yet
     periods = 0
-    # FIXME 7/25/16: Can't do variable assignment yet with expansion of np.linspace
-#    pulseSpacings = np.linspace(0, 5e-6, steps)
-    for k in range(steps):
-#    for k in range(len(pulseSpacings)):
+    pulseSpacings = np.linspace(0, 5e-6, steps)
+    for k in range(len(pulseSpacings)):
         init(q)
         X90(q)
         # FIXME 7/25/16: np.linspace doesn't get expanded by QGL2,
@@ -32,9 +30,11 @@ def doHahnEcho() -> sequence:
 #        Id(q, length=spacing)
         Id(q, 0)
         # FIXME 7/25/16: pi doesn't get imported
+        # FIXME: And len doesn't seem to work
 #        U90(q, phase=2*pi*periods/len(pulseSpacings)*k)
+#        U90(q, phase=2*3.141592654*periods/len(pulseSpacings)*k)
 #        U90(q, phase=2*pi*periods/steps*k)
-#        U90(q, phase=2*3.14159265*periods/steps*k)
+        U90(q, phase=2*3.14159265*periods/steps*k)
 #        U90(q, phase=0)
         MEAS(q)
 
