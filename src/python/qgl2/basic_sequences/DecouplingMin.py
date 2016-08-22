@@ -17,14 +17,14 @@ def doHahnEcho() -> sequence:
     steps = 11
     # FIXME: Can't do arguments yet
     periods = 0
-    # FIXME 7/25/16: Can't do variable assignment yet
+    # FIXME 7/25/16: Can't do variable assignment yet with expansion of np.linspace
 #    pulseSpacings = np.linspace(0, 5e-6, steps)
     for k in range(steps):
 #    for k in range(len(pulseSpacings)):
         init(q)
         X90(q)
         # FIXME 7/25/16: np.linspace doesn't get expanded by QGL2,
-        # and so we get an import error
+        # and so we get an import error: NameError: name 'np' is not defined
 #        Id(q, np.linspace(0, 5e-6, steps)[k])
         Id(q, 0)
         Y(q)
@@ -33,7 +33,8 @@ def doHahnEcho() -> sequence:
         Id(q, 0)
         # FIXME 7/25/16: pi doesn't get imported
 #        U90(q, phase=2*pi*periods/len(pulseSpacings)*k)
-        U90(q, phase=2*3.14159265*periods/steps*k)
+#        U90(q, phase=2*pi*periods/steps*k)
+#        U90(q, phase=2*3.14159265*periods/steps*k)
 #        U90(q, phase=0)
         MEAS(q)
 
@@ -42,7 +43,7 @@ def doHahnEcho() -> sequence:
 #    create_cal_seqs((q,), calRepeats)
 
 
-# qgl2 functions cannot be nested; otherwise those goes inside CPMG
+# qgl2 functions cannot be nested; otherwise this goes inside CPMG
 @qgl2decl
 def idPulseCPMG(q: qbit, pulseSpacing) -> pulse:
     # FIXME: arg confuses QGL2 compiler if not a kwarg
@@ -52,16 +53,11 @@ def idPulseCPMG(q: qbit, pulseSpacing) -> pulse:
 #    Id(q, length=(pulseSpacing - q.pulseParams['length'])/2)
     Id(q, length=(pulseSpacing - qPulseLength)/2)
 
-# 7/25/16: FIXME
-# Get this 3x:
-# ERROR: should not see Qiter at this level
-# And then AP2Pattern.py gets an index out of range
-# (but it get that far)
 @qgl2decl
 def doCPMG() -> sequence:
     q = QubitFactory('q1')
 
-    # FIXME: Can't have arguments
+    # FIXME: Can't have arguments; otherwise want these next 3 as args
 
     # Create numPulses sequences
     numPulses = [0, 2, 4, 6]
