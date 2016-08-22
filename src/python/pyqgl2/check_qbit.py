@@ -661,16 +661,21 @@ class CheckType(NodeTransformerWithFname):
 
             # If we can't find the function definition, check to see
             # whether it's a builtin.  If we can't find it, or it's
-            # not declared to be QGL, then we can't handle it.
+            # not declared to be QGL, then we can't check it.
             # Return immediately.
             #
             # TODO the way we check whether a function is a builtin
             # is a non-portable hack.
             #
             if not func_def:
+                """
+                # This error is no longer valid; it's not an error
+                # if it's not a builtin
+                #
                 if func_name not in __builtins__:
                     NodeError.error_msg(
                             value, 'function [%s] not defined' % func_name)
+                """
                 return node
 
             if func_def.returns:
