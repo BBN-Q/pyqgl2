@@ -49,6 +49,8 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
 #    calSeqs = []
 
     # FIXME 7/25/16: product doesn't get imported
+    # ../../../../../../home/ahelsing/Projects/Quantum/pyqgl2-exp/src/python/qgl2/basic_sequences/helpers.py:53:20: error: eval failure [product(calSet___qgl2_tmp_013___ass_031, repeat=len(qubits___qgl2_tmp_008___ass_028))]: name 'product' is not defined
+
     # Create iterator with the right number of Id and X pulses
     for pulseSet in product(calSet, repeat=len(qubits)):
         # Repeat each entry numRepeats times
