@@ -1664,13 +1664,28 @@ def add_runtime_call_check(call_ptree, func_ptree):
     tmp_assts = list()
     tmp_checks = list()
     tmp_args_names = list()
+    params_seen = set()
+
+    # make sure that the user hasn't provided more args
+    # than the function was declared to take...
+    #
+    max_argcnt = len(func_ptree.args.args)
+    act_argcnt = len(call_ptree.args)
+
+    if max_argcnt < act_argcnt:
+        NodeError.error_msg(
+                call_ptree,
+                ('too many parameters to %s (%d given, max %d)' %
+                    (func_ptree.name, act_argcnt, max_argcnt)))
+        return None
 
     # Regular args in the call first:
-    for arg_index in range(len(call_ptree.args)):
+    for arg_index in range(act_argcnt):
         ap_node = call_ptree.args[arg_index]
         fp_name = func_ptree.args.args[arg_index].arg
         new_name = tmp_names.create_tmp_name(orig_name=fp_name)
         tmp_args_names.append((fp_name, new_name))
+        params_seen.add(fp_name)
 
         new_ast = expr2ast('%s = %s' % (new_name, ast2str(ap_node).strip()))
         pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
@@ -1681,7 +1696,7 @@ def add_runtime_call_check(call_ptree, func_ptree):
             if not isinstance(anno, ast.Name):
                 NodeError.error_msg(
                         anno, 'a type annotations must be a names')
-                return list()
+                return None
 
             check_ast = make_check_ast(new_name, anno.id, ap_node, fp_name)
             tmp_checks.append(check_ast)
@@ -1696,6 +1711,23 @@ def add_runtime_call_check(call_ptree, func_ptree):
         fp_name = ap_node.arg
         new_name = tmp_names.create_tmp_name(orig_name=fp_name)
         tmp_args_names.append((fp_name, new_name))
+
+        # NOTE: this test isn't always exercised right now,
+        # because the AST parser currently fails when it tries
+        # to parse a call with a repeated keyword parameter.
+        # But we need it to detect when a kw arg shadows
+        # a positional arg.  Unfortunately, this means that
+        # the user may see two different error messages for
+        # what is essentially the same bug.
+        #
+        if fp_name in params_seen:
+            NodeError.error_msg(
+                    call_ptree,
+                    ('[%s] parameter [%s] multiply defined' %
+                        (func_ptree.name, fp_name)))
+            return None
+
+        params_seen.add(fp_name)
 
         new_ast = expr2ast('%s = %s' % (new_name, ast2str(ap_node).strip()))
         pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
@@ -1714,7 +1746,7 @@ def add_runtime_call_check(call_ptree, func_ptree):
             if not isinstance(anno, ast.Name):
                 NodeError.error_msg(
                         anno, 'type annotations must be names')
-                return list()
+                return None
 
             check_ast = make_check_ast(new_name, anno.id, new_ast, fp_name)
             tmp_checks.append(check_ast)
