@@ -6,13 +6,11 @@ from qgl2.qgl2 import qgl2decl, sequence, qbit
 from qgl2.control import *
 from qgl2.qgl1 import QubitFactory, Y90, X, U, X90, MEAS, Id
 from qgl2.util import init
-#from numpy import pi
+from numpy import pi
 import numpy as np
 
 @qgl2decl
 def spam_seqs(angle, qubit: qbit, maxSpamBlocks=10) -> sequence:
-    # FIXME: Import of pi fails
-    pi=3.141592654
     for rep in range(maxSpamBlocks):
         init(q)
         Y90(q)
@@ -28,14 +26,14 @@ def spam_seqs(angle, qubit: qbit, maxSpamBlocks=10) -> sequence:
 @qgl2decl
 def doSPAM() -> sequence:
     # FIXME: No args, including of angleSweep
-    # FIXME: Can't define variable to np.linspace return
+    # FIXME: Here, pi comes out undefined
+    pi = 3.141592654
+    angleSweep = np.linspace(0, pi/2, 11)
     q = QubitFactory('q1')
     maxSpamBlocks=10
-    # FIXME: Import of pi fails
-    pi=3.141592654
 
     # Insert an identity at the start of every set to mark them off
-    for angle in np.linspace(0, pi/2, 11):
+    for angle in angleSweep:
         init(q)
         Id(q)
         MEAS(q)

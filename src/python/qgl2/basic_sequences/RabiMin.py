@@ -35,12 +35,13 @@ def doRabiAmp() -> sequence:
 # the parameters to np.linspace)
 @qgl2decl
 def doRabiAmp3() -> sequence:
+    q = QubitFactory('q1')
     steps = 3
     zero = 0
-    q = QubitFactory('q1')
+    phase = 0
     for l in np.linspace(zero, 5e-6, steps):
         init(q)
-        Utheta(q, amp=l, phase=0)
+        Utheta(q, amp=l, phase=phase)
         MEAS(q)
 
 # FIXME: Giving args to this makes it fail,
@@ -48,11 +49,13 @@ def doRabiAmp3() -> sequence:
 @qgl2decl
 def doRabiAmp4() -> sequence:
     q = QubitFactory('q1')
-    # This fails to import np.linspace
-    # - in check_qbit assign_simple I think
-#    amps=np.linspace(0, 5e-6, 3)
+
+    steps = 3
+    zero = 0
     phase=0
-    for l in np.linspace(0, 5e-6, 3):
+
+    amps=np.linspace(zero, 5e-6, steps)
+    for l in amps:
         init(q)
         Utheta(q, amp=l, phase=phase)
         MEAS(q)
@@ -62,11 +65,9 @@ def doRabiAmp4() -> sequence:
 def doRabiAmpPi() -> sequence:
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
-    # FIXME: This fails to import np.linspace
-    # - in check_qbit assign_simple I think
-#    amps=np.linspace(0, 5e-6, 3)
+    amps=np.linspace(0, 5e-6, 3)
     phase=0
-    for l in np.linspace(0, 5e-6, 3):
+    for l in amps:
         with concur:
             init(q1)
             init(q2)
