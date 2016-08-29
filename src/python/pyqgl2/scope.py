@@ -216,7 +216,7 @@ class CheckScoping(ast.NodeVisitor):
                     'symbol [%s] referenced outside defining block' % name)
 
     def do_lval(self, lval):
-        assigned_names, _dotted_names = self.name_finder.find_names(lval)
+        assigned_names, _dotted, _arrays = self.name_finder.find_names(lval)
 
         for name in assigned_names:
             if name not in self.local_names:
