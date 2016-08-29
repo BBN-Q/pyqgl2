@@ -439,6 +439,19 @@ class NameSpace(object):
                     'in %s [%s] failed: %s' % (caller_fname, text, str(exc)))
             return False
 
+    def native_single(self, stmnt, local_variables=None):
+        """
+        Evaluate a single statement (such as an assignment statement)
+        for effect, in the context of (and modifying) the local_variables)
+
+        A wrapper around native_eval that permits assignment statements,
+        which are not permitted in expressions.
+        """
+
+        success, _val = self.native_eval(stmnt,
+                local_variables=local_variables, mode='single')
+        return success
+
     def native_exec(self, stmnt, local_variables=None):
 
         success, _val = self.native_eval(stmnt,
@@ -505,6 +518,7 @@ class NameSpace(object):
             if local_variables is None:
                 local_variables = dict()
 
+            print('EXPR %s' % expr_str.strip())
             val = eval(final_expr, self.native_globals, local_variables)
             return True, val
         except BaseException as exc:
@@ -515,8 +529,8 @@ class NameSpace(object):
             #
             if isinstance(expr, ast.AST) and hasattr(expr, 'qgl_fname'):
                 NodeError.error_msg(expr,
-                        ('eval failure [%s]: %s' %
-                            (expr_str.strip(), str(exc))))
+                        ('ast eval failure [%s]: type %s %s' %
+                            (expr_str.strip(), str(type(exc)), str(exc))))
             else:
                 print('eval failure [%s]: %s' % (expr_str.strip(), str(exc)))
             return False, None
