@@ -708,7 +708,7 @@ class EvalTransformer(object):
             # sure that it contains all the values referenced
             # in the statements
             #
-            names, _dotted_names = name_finder.find_names(stmnt)
+            names, _dotted_names, _sub_names = name_finder.find_names(stmnt)
             for name in names:
                 if name in local_variables:
                     new_values[name] = local_variables[name]
@@ -824,20 +824,57 @@ class EvalTransformer(object):
         else:
             target = stmnt.target
 
-        target_var_names, dotted_var_names = name_finder.find_names(target)
+        (simple_names, dotted_names, sub_names) = name_finder.find_names(
+                target)
 
-        if dotted_var_names:
+        # TODO: handle this like we do for array subscripts
+        #
+        if dotted_names:
             NodeError.warning_msg(target,
                     ('assignment to attributes is unreliable in QGL2 %s' %
-                        str(list(dotted_var_names))))
+                        str(list(dotted_names))))
 
         tmp_targets = TempVarManager.create_temp_var_manager(
                 name_prefix='___ass')
 
-        for name in target_var_names:
+        for name in simple_names:
             new_name = tmp_targets.create_tmp_name(name)
-            # print('EV RA %s -> %s' % (name, new_name))
             self.rewriter.add_mapping(name, new_name)
+
+        # For each of the subscripted names, we need to make a copy
+        # of the object so that the new reference will work.
+        # For example, if the assignment is "a[1] = x" and we give
+        # "a" the new name "a__ass_001" then we need to copy
+        # "a" to "a__ass_001" (or else "a__ass_001[1] = x" isn't
+        # going to work).
+        #
+        local_variables = self.eval_state.locals_stack[-1]
+
+        for name in sub_names:
+            if name in self.rewriter.name2name:
+                use_name = self.rewriter.name2name[name]
+            else:
+                print('UNEXPECTED error: use name not in rewriter')
+                print('    use_name [%s]' % name)
+                use_name = name
+                # We're probably about to crash
+
+            new_name = tmp_targets.create_tmp_name(name)
+            print('EV RA sub %s -> %s' % (name, new_name))
+            self.rewriter.add_mapping(name, new_name)
+
+            if use_name not in local_variables:
+                print('UNEXPECTED error: use name not in local variables')
+                print('    use_name [%s]' % use_name)
+            else:
+                val = local_variables[use_name]
+
+                if isinstance(val, list):
+                    local_variables[use_name] = val[:]
+                elif isinstance(val, dict):
+                    local_variables[use_name] = dict.copy(val)
+                else:
+                    local_variables[new_name] = deepcopy(val)
 
         self.rewriter.rewrite(target)
 
@@ -916,7 +953,8 @@ class EvalTransformer(object):
         iters_list = list()
 
         targets = stmnt.target
-        loop_var_names, dotted_var_names = name_finder.find_names(targets)
+        loop_var_names, dotted_var_names, sub_var_names = name_finder.find_names(targets)
+        print('DO FOR SUB %s' % str(sub_var_names))
         # print('EV X2 [%s][%s]' % (str(loop_var_names), dotted_var_names))
 
         # TODO: what should we do with dotted names?  We don't really
@@ -956,7 +994,7 @@ class EvalTransformer(object):
             new_body = quickcopy(body_template)
             new_targets = quickcopy(targets_template)
 
-            loop_var_names, _ = name_finder.find_names(new_targets)
+            loop_var_names, _, _ = name_finder.find_names(new_targets)
             for name in loop_var_names:
                 new_name = tmp_targets.create_tmp_name(name)
                 # print('EV Fl loop var %s -> %s' % (name, new_name))
@@ -1316,7 +1354,8 @@ class EvalTransformer(object):
                 #
                 self.rewriter.rewrite(stmnt.value)
 
-                self.rewrite_assign(stmnt)
+                subscripted = self.rewrite_assign(stmnt)
+                print('THINGS TO CLONE %s' % str(subscripted))
 
                 success, values = self.eval_state.do_assignment(stmnt)
                 if success:
