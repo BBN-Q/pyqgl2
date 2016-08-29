@@ -836,6 +836,7 @@ class NameFinder(ast.NodeVisitor):
     def reset(self):
         self.simple_names = set()
         self.dotted_names = set()
+        self.array_names = set()
 
     def visit_Attribute(self, node):
         name = collapse_name(node)
@@ -844,14 +845,20 @@ class NameFinder(ast.NodeVisitor):
     def visit_Name(self, node):
         self.simple_names.add(node.id)
 
+    def visit_Subscript(self, node):
+        self.array_names.add(node.value.id)
+
     def find_names(self, node):
         """
         Find the simple names (purely local names) and the
         "dotted" names (attributes of an instance, class,
         or module) referenced by a given AST node.
 
-        Returns (simple, dotted) where "simple" is the set
-        of simple names and "dotted" is the set of dotted names.
+        Returns (simple, dotted, array) where "simple" is the set
+        of simple names, "dotted" is the set of dotted names,
+        and "array" is the set of array names (i.e. subscripted
+        symbols, which may be lists, dictionaries, or anything
+        else that can be subscripted -- not just arrays).
 
         Note that this skips NameConstants, because these
         names are fixed symbols in Python 3.4+ and cannot be
@@ -862,16 +869,17 @@ class NameFinder(ast.NodeVisitor):
         self.reset()
         self.visit(node)
 
-        return self.simple_names, self.dotted_names
+        return self.simple_names, self.dotted_names, self.array_names
 
     def find_local_names(self, node):
         """
-        A specialized form of find_names that only
-        returns the local names
+        A specialized form of find_names that only returns the
+        simple local names, discarding the dotted and array names
         """
 
-        simple, _dotted = self.find_names(node)
+        simple, _dotted, _array = self.find_names(node)
         return simple
+
 
 class NameRedirector(ast.NodeTransformer):
     """
