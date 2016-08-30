@@ -272,7 +272,7 @@ class SimpleEvaluator(object):
                 local_variables=local_variables)
         if not success:
             NodeError.error_msg(node,
-                    'failed to evaluate [%s]' % ast2str(node).strip())
+                    'failed to evaluate test [%s]' % ast2str(node).strip())
             return False, None
         else:
             return True, val
@@ -290,7 +290,7 @@ class SimpleEvaluator(object):
                 local_variables=local_variables)
         if not success:
             NodeError.error_msg(node,
-                    'failed to evaluate [%s]' % ast2str(node).strip())
+                    'failed to evaluate iters [%s]' % ast2str(node).strip())
             return False, None
 
         # TODO: review whether this always works.
@@ -352,7 +352,8 @@ class SimpleEvaluator(object):
                 node.value, local_variables=local_variables)
         if not success:
             NodeError.error_msg(node,
-                    'failed to evaluate [%s]' % ast2str(node).strip())
+                    ('failed to evaluate assignment [%s]' %
+                        ast2str(node).strip()))
             return False, None
 
         # print('EV locals %s' % str(self.locals_stack[-1]))
@@ -384,6 +385,12 @@ class SimpleEvaluator(object):
         namespace = self.importer.path2namespace[target_ast.qgl_fname]
 
         local_variables = self.locals_stack[-1]
+
+        # TODO: MUST figure out why making a deep copy of the local
+        # variables seemed like a good idea.  It breaks references,
+        # so it's a little weird, but I might be breaking something
+        # else by NOT doing it.
+        #
         scratch_locals = quickcopy(local_variables)
 
         self.fake_assignment_worker(
@@ -860,7 +867,6 @@ class EvalTransformer(object):
                 # We're probably about to crash
 
             new_name = tmp_targets.create_tmp_name(name)
-            print('EV RA sub %s -> %s' % (name, new_name))
             self.rewriter.add_mapping(name, new_name)
 
             if use_name not in local_variables:
@@ -1354,8 +1360,7 @@ class EvalTransformer(object):
                 #
                 self.rewriter.rewrite(stmnt.value)
 
-                subscripted = self.rewrite_assign(stmnt)
-                print('THINGS TO CLONE %s' % str(subscripted))
+                self.rewrite_assign(stmnt)
 
                 success, values = self.eval_state.do_assignment(stmnt)
                 if success:
