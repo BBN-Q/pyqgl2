@@ -876,9 +876,9 @@ class EvalTransformer(object):
                 val = local_variables[use_name]
 
                 if isinstance(val, list):
-                    local_variables[use_name] = val[:]
+                    local_variables[new_name] = val[:]
                 elif isinstance(val, dict):
-                    local_variables[use_name] = dict.copy(val)
+                    local_variables[new_name] = dict.copy(val)
                 else:
                     local_variables[new_name] = deepcopy(val)
 
