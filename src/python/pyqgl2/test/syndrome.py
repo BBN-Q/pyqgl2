@@ -2,23 +2,32 @@ from qgl2.qgl2 import qgl2decl, qgl2main, qbit, concur
 from qgl2.qgl1 import QubitFactory, X, Y, Z
 from qgl2.qgl2_check import QGL2check
 
-class SyndromeRole(object):
+@qgl2decl
+def syndrome_cycle(qbits, role_def):
 
-    def __init__(self, qbit_type, neighbors):
+    with concur:
+        for q in qbits:
+            if role_def[q].is_x():
+                H(q)
 
-        # half-hearted error checking
-        #
-        # We don't check that the neighbors are bogus
-        #
-        assert qbit_type in ['x', 'z', 'd'], \
-                ('invalid qbit_type [%s]' % str(qbit_type))
-        assert isinstance(neighbors, list)
-        assert len(neighbors) == 4
+    for direction in range(4):
+        with concur:
+            for q in qbits:
+                role = role_def[q]
+                neighbor = role.neighbors[direction]
 
-        self.qbit_type = qbit_type
-        self.neighbors = list(neighbors)
+                if neighbor:
+                    if role.is_x():
+                        CNOT(q, neighbor)
+                    elif role.is_z():
+                        CNOT(neighbor, q)
 
-# Completely fake Hadamard and CNOT operations;
+    with concur:
+        for q in qbits:
+            if role_def[q].is_x():
+                H(q)
+
+# Fake Hadamard and CNOT operations;
 # placeholders for the real operations
 #
 @qgl2decl
@@ -31,30 +40,35 @@ def CNOT(q1: qbit, q2: qbit):
         X(q1)
         Y(q2)
 
-@qgl2decl
-def syndrome_cycle(qbits, role_def):
 
-    with concur:
-        for q in qbits:
-            if role_def[q].qbit_type == 'x':
-                H(q)
+class SyndromeRole(object):
+    """
+    Simple mockup of the role of a qbit in a syndrome calculation:
+    represents whether it's a data, x, or z bit, and the list
+    of neighbors in each direction (up, left, right, and down; if
+    there is no neighbor in a given direction, use None).
+    """
 
-    for direction in range(4):
-        with concur:
-            for q in qbits:
-                role = role_def[q]
-                neighbor = role.neighbors[direction]
+    def __init__(self, qbit_type, neighbors):
 
-                if neighbor:
-                    if role.qbit_type == 'x':
-                        CNOT(q, neighbor)
-                    elif role.qbit_type == 'z':
-                        CNOT(neighbor, q)
+        # half-hearted error checking
+        #
+        # We don't check whether the neighbors are bogus
+        #
+        assert qbit_type in ['x', 'z', 'd'], \
+                ('invalid qbit_type [%s]' % str(qbit_type))
+        assert isinstance(neighbors, list)
+        assert len(neighbors) == 4
 
-    with concur:
-        for q in qbits:
-            if role_def[q].qbit_type == 'x':
-                H(q)
+        self.qbit_type = qbit_type
+        self.neighbors = list(neighbors)
+
+    def is_x(self):
+        return self.qbit_type == 'x'
+
+    def is_z(self):
+        return self.qbit_type == 'z'
+
 
 @qgl2main
 def main():
@@ -66,8 +80,6 @@ def main():
     q6:d  q7:x  q8:d
 
     And the order of CNOTs is up-left-right-down
-
-    This might be bogus, but it's just for an illustration
     """
 
     q0 = QubitFactory('0')
@@ -92,17 +104,5 @@ def main():
     role_def[q6] = SyndromeRole('d', [q3, None, q7, None])
     role_def[q7] = SyndromeRole('x', [q4, q6, q8, None])
     role_def[q8] = SyndromeRole('d', [q5, q7, None, None])
-
-    #role_def = {
-    #        q0 : SyndromeRole('d', [None, None, q1, q3]),
-    #        q1 : SyndromeRole('x', [None, q0, q2, q4]),
-    #        q2 : SyndromeRole('d', [None, q1, None, q5]),
-    #        q3 : SyndromeRole('z', [q0, None, q4, q6]),
-    #        q4 : SyndromeRole('d', [q1, q3, q5, q7]),
-    #        q5 : SyndromeRole('z', [q2, q4, None, q8]),
-    #        q6 : SyndromeRole('d', [q3, None, q7, None]),
-    #        q7 : SyndromeRole('x', [q4, q6, q8, None]),
-    #        q8 : SyndromeRole('d', [q5, q7, None, None]),
-    #}
 
     syndrome_cycle(all_qbits, role_def)
