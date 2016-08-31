@@ -234,12 +234,12 @@ def compileFunction(filename,
                   file=intermediate_fout, flush=True)
 
         type_check = CheckType(filename, importer=importer)
-        ptree1 = type_check.visit(ptree1)
+        # ptree1 = type_check.visit(ptree1)
         NodeError.halt_on_error()
-        if intermediate_output:
-            print(('CHECKED CODE (iteration %d):\n%s' %
-                   (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-                  file=intermediate_fout, flush=True)
+        # if intermediate_output:
+        #     print(('CHECKED CODE (iteration %d):\n%s' %
+        #            (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+        #           file=intermediate_fout, flush=True)
 
         if inliner.change_cnt == 0:
             NodeError.diag_msg(None,
