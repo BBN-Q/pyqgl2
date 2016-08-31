@@ -1218,6 +1218,7 @@ class EvalTransformer(object):
         """
 
         if (isinstance(test_expr, ast.Call) and
+                isinstance(test_expr.func, ast.Name) and
                 (test_expr.func.id == 'MEAS')):
             return False, False
         elif (isinstance(test_expr, ast.UnaryOp) and
