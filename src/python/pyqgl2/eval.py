@@ -10,7 +10,7 @@ import pyqgl2.ast_util
 import pyqgl2.inline
 
 
-from pyqgl2.ast_util import NodeError, ast2str, copy_all_loc
+from pyqgl2.ast_util import NodeError, ast2str, expr2ast, copy_all_loc
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import NameFinder, NameRedirector, NameRewriter
@@ -468,6 +468,56 @@ class SimpleEvaluator(object):
     QGL2STUB = 1
     QGL2DECL = 2
     ERROR = -1
+
+    def expand_qgl2decl_call(self, call_node):
+
+        # If the function we're trying to call is the value of a
+        # local symbol, then we need to track down that value.
+        # If it turns out to be a qgl2stub, then turn the symbol
+        # back into that stub.  [NOTE: this needs to be fixed to
+        # work properly if the stub is not accessible in the current
+        # namespace, or has been aliased within this namespace!]
+        #
+        # We're not good at finding things generally, but we
+        # can try to find it in the local bindings.
+        #
+        if ((not isinstance(call_node.func, ast.Name)) and
+                (not isinstance(call_node.func, ast.Attribute))):
+            return None
+
+        # TODO: this probably isn't right for looking up Attributes
+        #
+        local_variables = self.locals_stack[-1]
+        if call_node.func.id not in local_variables:
+            return None
+
+        val = local_variables[call_node.func.id]
+
+        if (not hasattr(val, '__qgl2_wrapper__') or
+                (val.__qgl2_wrapper__ != 'qgl2decl')):
+            return None
+
+        func_name = val.__name__
+        namespace = self.importer.path2namespace[call_node.qgl_fname]
+        func_def = namespace.local_defs[func_name]
+
+        # TODO: things can go wrong here, and if we can't find func_name
+        # or func_def, then we need to bail out right away
+        # FIXME
+
+        # build a new call and a new block to expand that call within
+        #
+        new_call_node = ast.Call(
+                func=ast.Name(id=func_name),
+                args=call_node.args, keywords=call_node.keywords)
+
+        new_call_ast = expr2ast('with qgl2call:\n    1\n')
+        pyqgl2.ast_util.copy_all_loc(new_call_ast, call_node, recurse=True)
+        new_call_ast.body = list([new_call_node])
+
+        print('AST REF %s' % ast.dump(new_call_ast))
+        print('AST TXT [%s]' % ast2str(new_call_ast).strip())
+        return new_call_ast
 
     def do_call(self, call_node):
         """
@@ -1378,6 +1428,17 @@ class EvalTransformer(object):
                     isinstance(stmnt.value, ast.Call)):
 
                 self.rewriter.rewrite(stmnt)
+
+                # If it's a call to something we have to expand
+                # (a reference to a qgl2decl) then do some surgery
+                # on the body to replace the call with a wrapper
+                # for the expansion of the call, and then do the
+                # expansion
+                #
+                new_stmnt = self.eval_state.expand_qgl2decl_call(stmnt.value)
+                if new_stmnt:
+                    print('QGL2DECL out of the blue')
+                    print('def %s' % str(type(new_stmnt)))
 
                 # If it's a call, we need to figure out whether it's
                 # something we should leave alone, expand, or consider
