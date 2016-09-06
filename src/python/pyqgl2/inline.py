@@ -1426,11 +1426,11 @@ class Inliner(ast.NodeTransformer):
         func_name = collapse_name(call_ptree.func)
         func_ptree = self.importer.resolve_sym(func_filename, func_name)
 
-        if not func_ptree:
-            print('add_runtime_checks: no definition for [%s]' % func_name)
-            return None
-        else:
+        if func_ptree:
             return add_runtime_call_check(call_ptree, func_ptree)
+        else:
+            # print('add_runtime_checks: no definition for [%s]' % func_name)
+            return None
 
     def inline_body(self, body):
         """
