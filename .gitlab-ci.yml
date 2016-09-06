@@ -1,0 +1,20 @@
+image: caryan/pycontrol
+
+before_script:
+  - pip install coveralls meta watchdog
+  - conda install future
+  - conda install -c ecpy atom
+  - pip install git+https://github.com/BBN-Q/QGL.git
+  - export PYTHONPATH=$PWD/src/python
+
+stages:
+  - test
+
+run_tests:
+  stage: test
+  script:
+    - cd src/python
+    - python -m unittest discover
+  # to add later
+  #after_script:
+  #  - coverage report -m
