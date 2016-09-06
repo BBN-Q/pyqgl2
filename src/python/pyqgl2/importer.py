@@ -518,7 +518,7 @@ class NameSpace(object):
             if local_variables is None:
                 local_variables = dict()
 
-            print('EXPR %s' % expr_str.strip())
+            # print('EXPR %s' % expr_str.strip())
             val = eval(final_expr, self.native_globals, local_variables)
             return True, val
         except BaseException as exc:
