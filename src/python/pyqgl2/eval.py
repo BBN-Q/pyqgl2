@@ -14,6 +14,7 @@ from pyqgl2.ast_util import NodeError, ast2str, expr2ast, copy_all_loc
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import inline_call
+from pyqgl2.inline import Inliner
 from pyqgl2.inline import NameFinder, NameRedirector, NameRewriter
 from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.inline import TempVarManager
@@ -506,32 +507,45 @@ class SimpleEvaluator(object):
         # or func_def, then we need to bail out right away
         # FIXME
 
-        # build a new call and a new block to expand that call within
+        inliner = Inliner(self.importer)
+
+        # build a new call node with the same actuals, but the correct
+        # function name
         #
         new_call_node = ast.Call(
                 func=ast.Name(id=func_name),
                 args=call_node.args, keywords=call_node.keywords)
         pyqgl2.ast_util.copy_all_loc(new_call_node, call_node, recurse=True)
 
-        new_call_ast = expr2ast('with qgl2call:\n    1\n')
-        pyqgl2.ast_util.copy_all_loc(new_call_ast, call_node, recurse=True)
-        new_call_ast.body = list([new_call_node])
-
-        print('AST REF %s' % ast.dump(new_call_ast))
-        print('AST TXT [%s]' % ast2str(new_call_ast).strip())
+        runtime_check = inliner.add_runtime_checks(new_call_node)
+        if runtime_check:
+            (chk_assts, chk_checks, chk_call, chk_names) = runtime_check
+            checks = chk_assts + chk_checks
+            new_call_node = chk_call.value
+        else:
+            checks = None
 
         sketch_call = inline_call(new_call_node, self.importer)
-        print('ORIG %s' % str(new_call_node))
         if isinstance(sketch_call, list):
             new_call_with = sketch_call[0]
-            print('SKETCH [%s]' % ast2str(new_call_with).strip())
+
+            # if there are checks, then insert them into the body
+            #
+            if checks:
+                new_call_with.body = checks + new_call_with.body
+
+            # print('INLINED REF [\n%s\n]' % ast2str(new_call_with).strip())
             return new_call_with
         else:
+            # TODO: if we got this far and then failed, something
+            # terrible probably happened.  Come up with decent
+            # diagnostics
+            #
             return None
 
-    def do_call(self, call_node):
+    def find_call_type(self, call_node):
         """
-        Pseudo-execute a call.
+        Find the type of a call.
 
         If it's a call to a stub function, then we don't do anything
         now, because we'll actually execute it later.  Return QGL2STUB.
@@ -635,21 +649,6 @@ class SimpleEvaluator(object):
         elif pyqgl2.inline.is_qgl2_def(func_ast):
             # print('EV IS QGL2DECL: passing through')
             return self.QGL2DECL
-
-        # otherwise, let's see if we can evaluate it.  We do this only
-        # for its side effects; we don't care what the value returned
-        # by the call is (or if there even is one).
-
-        """
-        namespace = self.importer.path2namespace[call_node.qgl_fname]
-        local_variables = self.locals_stack[-1]
-        success = namespace.native_exec(call_node,
-                local_variables=local_variables)
-        if not success:
-            NodeError.error_msg(call_node,
-                    'failed to evaluate [%s]' % ast2str(call_node))
-            return self.ERROR
-        """
 
         return self.NONQGL2
 
@@ -1020,7 +1019,7 @@ class EvalTransformer(object):
 
         targets = stmnt.target
         loop_var_names, dotted_var_names, sub_var_names = name_finder.find_names(targets)
-        print('DO FOR SUB %s' % str(sub_var_names))
+        # print('DO FOR SUB %s' % str(sub_var_names))
         # print('EV X2 [%s][%s]' % (str(loop_var_names), dotted_var_names))
 
         # TODO: what should we do with dotted names?  We don't really
@@ -1346,7 +1345,7 @@ class EvalTransformer(object):
         stmnt_index = 0
 
         while stmnt_index < last_index:
-            print('stmnt_index = %d' % stmnt_index)
+            # print('stmnt_index = %d' % stmnt_index)
 
             # TODO: if we've seen a "break" or "continue" but we're
             # not inside a nested statement that supports these,
@@ -1450,22 +1449,19 @@ class EvalTransformer(object):
 
                 self.rewriter.rewrite(stmnt)
 
-                # If it's a call to something we have to expand
-                # (a reference to a qgl2decl) then do some surgery
-                # on the body to replace the call with a wrapper
-                # for the expansion of the call, and then do the
-                # expansion
+                # If it's a call to a reference to a qgl2decl, then
+                # we need to do just-in-time inlining.
                 #
-                new_stmnt = self.eval_state.expand_qgl2decl_call(stmnt.value)
-                if new_stmnt:
-                    # back up the stmnt_index: we need to do this
-                    # one again
-                    #
+                # We create a new with-infunc and replace its body
+                # with the type checking for the call followed by
+                # the inlined version of the call, and then do a
+                # decrement the stmnt_index and continue to restart
+                # evaluation on the expansion
+                #
+                ref_call = self.eval_state.expand_qgl2decl_call(stmnt.value)
+                if ref_call:
                     stmnt_index -= 1
-                    body[stmnt_index] = new_stmnt
-
-                    print('QGL2DECL out of the blue')
-                    print('def %s' % str(type(new_stmnt)))
+                    body[stmnt_index] = ref_call
                     continue
 
                 # If it's a call, we need to figure out whether it's
@@ -1473,27 +1469,25 @@ class EvalTransformer(object):
                 # to be an error.
 
                 # XXX should we keep it, or get rid of it?
-                success = self.eval_state.do_call(stmnt.value)
-                if success == self.eval_state.ERROR:
+                call_type = self.eval_state.find_call_type(stmnt.value)
+                if call_type == self.eval_state.ERROR:
                     # Ooops.  Fail hard.
                     break
-                elif success == self.eval_state.QGL2DECL:
+                elif call_type == self.eval_state.QGL2DECL:
                     # We can't proceed, with the evaluation,
                     # but leave the stmnt in the new body,
                     # in the hope that we can expand it later.
                     #
+                    NodeError.error_msg(
+                            stmnt, 'internal failure: qgl2decl not inlined?')
                     new_body.append(stmnt)
-                    continue
-                elif success == self.eval_state.QGL2STUB:
+                elif call_type == self.eval_state.QGL2STUB:
                     # real success
                     new_body.append(stmnt)
-                elif success == self.eval_state.NONQGL2:
-                    # We don't know what to do...  punt.
+                elif call_type == self.eval_state.NONQGL2:
+                    # Do the statement for effect
+                    #
                     self.eval_state.eval_expr(stmnt)
-                    # print('NSH %s' % ast2str(stmnt).strip())
-                    NodeError.warning_msg(stmnt,
-                            ('not sure how to handle [%s]' %
-                                ast2str(stmnt).strip()))
                     continue
 
             elif isinstance(stmnt, ast.For):
