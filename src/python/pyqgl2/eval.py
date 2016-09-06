@@ -13,6 +13,7 @@ import pyqgl2.inline
 from pyqgl2.ast_util import NodeError, ast2str, expr2ast, copy_all_loc
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.importer import NameSpaces
+from pyqgl2.inline import inline_call
 from pyqgl2.inline import NameFinder, NameRedirector, NameRewriter
 from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.inline import TempVarManager
@@ -510,6 +511,7 @@ class SimpleEvaluator(object):
         new_call_node = ast.Call(
                 func=ast.Name(id=func_name),
                 args=call_node.args, keywords=call_node.keywords)
+        pyqgl2.ast_util.copy_all_loc(new_call_node, call_node, recurse=True)
 
         new_call_ast = expr2ast('with qgl2call:\n    1\n')
         pyqgl2.ast_util.copy_all_loc(new_call_ast, call_node, recurse=True)
@@ -517,7 +519,15 @@ class SimpleEvaluator(object):
 
         print('AST REF %s' % ast.dump(new_call_ast))
         print('AST TXT [%s]' % ast2str(new_call_ast).strip())
-        return new_call_ast
+
+        sketch_call = inline_call(new_call_node, self.importer)
+        print('ORIG %s' % str(new_call_node))
+        if isinstance(sketch_call, list):
+            new_call_with = sketch_call[0]
+            print('SKETCH [%s]' % ast2str(new_call_with).strip())
+            return new_call_with
+        else:
+            return None
 
     def do_call(self, call_node):
         """
@@ -1326,7 +1336,17 @@ class EvalTransformer(object):
 
         new_body = list()
 
-        for stmnt_index in range(len(body)):
+        # We can't use an ordinary for loop over range(len(body))
+        # because sometimes we restart the iteration after rewriting
+        # elements of the body, and therefore the number of times
+        # we execute the loop may be larger than the number of elements
+        # in the body
+        #
+        last_index = len(body)
+        stmnt_index = 0
+
+        while stmnt_index < last_index:
+            print('stmnt_index = %d' % stmnt_index)
 
             # TODO: if we've seen a "break" or "continue" but we're
             # not inside a nested statement that supports these,
@@ -1343,6 +1363,7 @@ class EvalTransformer(object):
                 break
 
             stmnt = body[stmnt_index]
+            stmnt_index += 1
 
             # deal with "op=" two-address bin-op assignments by rewriting
             # them as three-address statements.  We need this in order
@@ -1437,8 +1458,15 @@ class EvalTransformer(object):
                 #
                 new_stmnt = self.eval_state.expand_qgl2decl_call(stmnt.value)
                 if new_stmnt:
+                    # back up the stmnt_index: we need to do this
+                    # one again
+                    #
+                    stmnt_index -= 1
+                    body[stmnt_index] = new_stmnt
+
                     print('QGL2DECL out of the blue')
                     print('def %s' % str(type(new_stmnt)))
+                    continue
 
                 # If it's a call, we need to figure out whether it's
                 # something we should leave alone, expand, or consider
