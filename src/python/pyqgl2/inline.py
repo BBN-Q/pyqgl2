@@ -1542,7 +1542,7 @@ def funcdef_has_type_anno(func_ptree):
 
     return found_anno
 
-def make_check_ast(symname, typename, src_ast, orig_name):
+def make_check_ast(symname, typename, src_ast, orig_name, fun_name):
     """
     Create AST for a call to check that the given symname has the type
     specified by typename
@@ -1555,8 +1555,8 @@ def make_check_ast(symname, typename, src_ast, orig_name):
     # TODO: the name "QGL2check" is tentative.  It should be
     # a fully qualified name (with module).
 
-    chk_txt = 'QGL2check(%s, \'%s\', \'%s\', \'%s\', %d, %d)' % (
-            symname, typename, orig_name,
+    chk_txt = 'QGL2check(%s, \'%s\', \'%s\', \'%s\', \'%s\', %d, %d)' % (
+            symname, typename, orig_name, fun_name,
             src_ast.qgl_fname, src_ast.lineno, src_ast.col_offset)
 
     chk_ast = expr2ast(chk_txt)
@@ -1706,7 +1706,8 @@ def add_runtime_call_check(call_ptree, func_ptree):
                         anno, 'a type annotations must be a names')
                 return None
 
-            check_ast = make_check_ast(new_name, anno.id, ap_node, fp_name)
+            check_ast = make_check_ast(
+                    new_name, anno.id, ap_node, fp_name, func_ptree.name)
             tmp_checks.append(check_ast)
 
     # Then kwargs in the call:
@@ -1756,7 +1757,8 @@ def add_runtime_call_check(call_ptree, func_ptree):
                         anno, 'type annotations must be names')
                 return None
 
-            check_ast = make_check_ast(new_name, anno.id, new_ast, fp_name)
+            check_ast = make_check_ast(
+                    new_name, anno.id, new_ast, fp_name, func_ptree.name)
             tmp_checks.append(check_ast)
 
 
