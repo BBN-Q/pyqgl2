@@ -12,7 +12,7 @@ import numpy as np
 
 # 7/25/16: Currently fails
 @qgl2decl
-def doRabiWidth() -> sequence:
+def doRabiWidth():
     q = QubitFactory("q1")
     for l in np.linspace(0, 5e-6, 11):
         init(q)
@@ -23,10 +23,10 @@ def doRabiWidth() -> sequence:
 # For use with pyqgl2.main
 # Note hard coded amplitudes and phase
 @qgl2decl
-def doRabiAmp() -> sequence:
-    q = QubitFactory('q1') # Default qubit that will be replaced
+def doRabiAmp():
+    q = QubitFactory('q1')
 
-    for amp in np.linspace(0,5e-6,11):
+    for amp in np.linspace(0, 1, 11):
         init(q)
         Utheta(q, amp=amp, phase=0)
         MEAS(q)
@@ -34,7 +34,7 @@ def doRabiAmp() -> sequence:
 # An example of multiple expansions (a call to np.linspace, and
 # the parameters to np.linspace)
 @qgl2decl
-def doRabiAmp3() -> sequence:
+def doRabiAmp3():
     q = QubitFactory('q1')
     steps = 3
     zero = 0
@@ -47,7 +47,7 @@ def doRabiAmp3() -> sequence:
 # FIXME: Giving args to this makes it fail,
 # but want amps & phase as args
 @qgl2decl
-def doRabiAmp4() -> sequence:
+def doRabiAmp4():
     q = QubitFactory('q1')
 
     steps = 3
@@ -62,7 +62,7 @@ def doRabiAmp4() -> sequence:
 
 # FIXME: As above, want to pass in amps, phase, qbits
 @qgl2decl
-def doRabiAmpPi() -> sequence:
+def doRabiAmpPi():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     amps=np.linspace(0, 5e-6, 3)
@@ -77,7 +77,7 @@ def doRabiAmpPi() -> sequence:
         MEAS(q2)
 
 @qgl2decl
-def doSingleShot() -> sequence:
+def doSingleShot():
     q = QubitFactory('q1')
     init(q)
     Id(q)
@@ -87,7 +87,7 @@ def doSingleShot() -> sequence:
     MEAS(q)
 
 @qgl2decl
-def doPulsedSpec() -> sequence:
+def doPulsedSpec():
     q = QubitFactory('q1')
     # FIXME: Want a specOn arg but that currently doesn't work
 # qgl2/basic_sequences/RabiMin.py:80:7: error: eval failure [specOn]: name 'specOn' is not defined
