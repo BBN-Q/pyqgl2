@@ -18,6 +18,7 @@ The project is under continuous integration using Docker.  To test locally:
     ```shell
     docker run -i --rm -v /path/to/repo/:/pyqgl2 pyqgl2 /bin/bash
     ```
+  Or you can use the provided launch script, `launch_test_env.sh`.
 
 3. In the container setup and run the tests
 
