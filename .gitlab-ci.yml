@@ -1,0 +1,15 @@
+image: bjohnson/pyqgl2
+
+before_script:
+  - export PYTHONPATH=$PWD/src/python
+
+stages:
+  - test
+
+run_tests:
+  stage: test
+  script:
+    - coverage run --source=pyqgl2,qgl2 -m unittest discover
+
+after_script:
+  - coverage report
