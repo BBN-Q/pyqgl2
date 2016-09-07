@@ -12,16 +12,16 @@ The project is under continuous integration using Docker.  To test locally:
     docker build -t pyqgl2 .
     ```
 
-1. Run an ephemeral container based off of the image and mount the local copy of
+2. Run an ephemeral container based off of the image and mount the local copy of
    the repository with changes to test.
 
     ```shell
-    docker run -it --rm -v /path/to/repo/:/pyqgl2 pyqgl2 /bin/bash
+    docker run -i --rm -v /path/to/repo/:/pyqgl2 pyqgl2 /bin/bash
     ```
 
-1. In the container setup and run the tests
+3. In the container setup and run the tests
 
     ```shell
-    export PYTHONPATH=/pyqgl2/
+    export PYTHONPATH=/pyqgl2/src/python
     python -m unittest discover
     ```
