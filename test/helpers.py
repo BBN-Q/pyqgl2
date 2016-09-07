@@ -1,14 +1,24 @@
 '''
 Utilities for creating a basic channel configuration for testing.
 '''
+from math import pi
+
+from pyqgl2.main import mapQubitsToSequences
+from pyqgl2.evenblocks import replaceBarriers
+from QGL import *
+
+def channel_setup():
+    # TODO have this stash the current channel library, and unconditionally
+    # create the test configuration
+    if len(ChannelLibrary.channelLib.keys()) == 0:
+        create_channel_library()
+        ChannelLibrary.channelLib.write_to_file()
 
 # Create a basic channel library
 # Code stolen from QGL's test_Sequences
 # It creates channels that are taken from test_Sequences APS2Helper
-def chanSetup(channels=dict()):
-    from QGL.Channels import LogicalMarkerChannel, Measurement, Qubit, PhysicalQuadratureChannel, PhysicalMarkerChannel, Edge
-    from QGL.ChannelLibrary import QubitFactory, MeasFactory, EdgeFactory
-    from math import pi
+def create_channel_library(channels=dict()):
+    from QGL.Channels import LogicalMarkerChannel, PhysicalQuadratureChannel, PhysicalMarkerChannel
     qubit_names = ['q1','q2']
     logical_names = ['digitizerTrig', 'slaveTrig']
 
@@ -88,10 +98,30 @@ def chanSetup(channels=dict()):
 
 # Store the given channels in the QGL ChannelLibrary
 def finalize_map(mapping, channels):
-    from QGL import ChannelLibrary
     for name,value in mapping.items():
         channels[name].physChan = channels[value]
 
-    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
+    # ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
     ChannelLibrary.channelLib.channelDict = channels
     ChannelLibrary.channelLib.build_connectivity_graph()
+
+def discard_zero_Ids(seqs):
+    # assume seqs has a structure like [[entry0, entry1, ..., entryN]]
+    for seq in seqs:
+        ct = 0
+        while ct < len(seq):
+            entry = seq[ct]
+            if isinstance(entry, Pulse) and entry.label == "Id" and entry.length == 0:
+                del seq[ct]
+            else:
+                ct += 1
+
+def testable_sequence(seqs):
+    '''
+    Transform a QGL2 result function output into something more easily testable,
+    by replacing barriers and discarding zero length Id's.
+    '''
+    seqIdxToChannelMap, _ = mapQubitsToSequences(seqs)
+    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
+    discard_zero_Ids(seqs)
+    return seqs

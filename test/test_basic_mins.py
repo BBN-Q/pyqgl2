@@ -2,35 +2,13 @@ import unittest
 import numpy as np
 
 from pyqgl2.main import compileFunction
-from pyqgl2.main import qgl2_compile_to_hardware
-from pyqgl2.main import mapQubitsToSequences
-from pyqgl2.evenblocks import replaceBarriers
 from QGL import *
 
-def discard_zero_Ids(seqs):
-    # assume seqs has a structure like [[entry0, entry1, ..., entryN]]
-    for seq in seqs:
-        ct = 0
-        while ct < len(seq):
-            entry = seq[ct]
-            if isinstance(entry, Pulse) and entry.label == "Id" and entry.length == 0:
-                del seq[ct]
-            else:
-                ct += 1
-
-def testable_sequence(seqs):
-    '''
-    Transform a QGL2 result function output into something more easily testable,
-    by replacing barriers and discarding zero length Id's.
-    '''
-    seqIdxToChannelMap, _ = mapQubitsToSequences(seqs)
-    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
-    discard_zero_Ids(seqs)
-    return seqs
+from .helpers import channel_setup, testable_sequence
 
 class TestBasicMins(unittest.TestCase):
     def setUp(self):
-        pass
+        channel_setup()
 
     def tearDown(self):
         pass
