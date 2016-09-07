@@ -1,10 +1,6 @@
-image: caryan/pycontrol
+image: bjohnson/pyqgl2
 
 before_script:
-  - pip install coveralls meta watchdog
-  - conda install future
-  - conda install -c ecpy atom
-  - pip install git+https://github.com/BBN-Q/QGL.git
   - export PYTHONPATH=$PWD/src/python
 
 stages:
