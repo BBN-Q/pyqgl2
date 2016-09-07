@@ -315,8 +315,9 @@ def compileFunction(filename,
     new_ptree1 = ptree1
 
     # Make sure that functions that take qbits are getting qbits
-    sym_check = CheckSymtab(filename, type_check.func_defs, importer)
-    new_ptree5 = sym_check.visit(new_ptree1)
+    new_ptree5 = new_ptree1
+    # sym_check = CheckSymtab(filename, type_check.func_defs, importer)
+    # new_ptree5 = sym_check.visit(new_ptree1)
     NodeError.halt_on_error()
     if intermediate_output:
         print(('%s: SYMTAB CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree5))),
