@@ -13,4 +13,5 @@ run_tests:
     - coverage run -m unittest discover
 
 after_script:
+  - cd src/python
   - coverage report -m
