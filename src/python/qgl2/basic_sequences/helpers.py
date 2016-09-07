@@ -15,20 +15,20 @@ from QGL.PulsePrimitives import Id, X, MEAS
 from QGL.ControlFlow import qwait
 
 @qgl2decl
-def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, waitcmp=False) -> pulse:
+def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list):
     """
     Helper function to create a set of calibration sequences.
 
     Parameters
     ----------
-    qubits : logical channels, e.g. (q1,) or (q1,q2) (tuple) 
+    qubits : logical channels, e.g. (q1,) or (q1,q2) (tuple)
     numRepeats = number of times to repeat calibration sequences (int)
     waitcmp = True if the sequence contains branching
     """
     # Make all combinations for qubit calibration states for n qubits and repeat
 
-    # Assuming numRepeats=2 and qubits are q1, q2 and waitCmp=False, 
-    # Produces 2 ^ #qubits * numRepeats sequences of Id, X, MEAS, 
+    # Assuming numRepeats=2 and qubits are q1, q2 and waitCmp=False,
+    # Produces 2 ^ #qubits * numRepeats sequences of Id, X, MEAS,
     # something like
     # [[Id(q1)*Id(q2), M(q1)*M(q2)], [Id(q1)*Id(q2), M(q1)*M(q2)],
     #  [Id(q1)*X(q2), M(q1)*M(q2)],  [Id(q1)*X(q2), M(q1)*M(q2)],
@@ -37,7 +37,7 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
 
     # Original:
     # calSeqs = [reduce(operator.mul, [p(q) for p,q in zip(pulseSet, qubits)]) for pulseSet in product(calSet, repeat=len(qubits)) for _ in range(numRepeats)]
-    # return [[seq, MEAS(*measChans), qwait('CMP')] if waitcmp else [seq, MEAS(*measChans)] for seq in calSeqs] 
+    # return [[seq, MEAS(*measChans), qwait('CMP')] if waitcmp else [seq, MEAS(*measChans)] for seq in calSeqs]
 
     if measChans is None:
         measChans = qubits
@@ -86,9 +86,6 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
             with concur:
                 for chan in measChans:
                     MEAS(chan)
-            # Optionally wait here
-            if waitcmp:
-                qwait('CMP') # How will QGL2 do with this ControlInstruction?
 
     # QGL1 only here:
 #    # Add on the measurement operator, optionally waiting
@@ -99,4 +96,3 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
 #        else:
 #            newCalSeqs.append([seq, MEAS(*tuple(measChans))])
 #    return newCalSeqs
-
