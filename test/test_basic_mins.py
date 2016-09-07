@@ -35,7 +35,7 @@ class TestBasicMins(unittest.TestCase):
         pass
 
     def test_RabiAmp(self):
-        resFunction = compileFunction("qgl2/basic_sequences/RabiMin.py",
+        resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiAmp")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -53,7 +53,7 @@ class TestBasicMins(unittest.TestCase):
         self.assertEqual(seqs[0], expectedseq)
 
     def test_RabiWidth(self):
-        resFunction = compileFunction("qgl2/basic_sequences/RabiMin.py",
+        resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiWidth")
         seqs = resFunction()
         seqs = testable_sequence(seqs)

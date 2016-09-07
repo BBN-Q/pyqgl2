@@ -9,9 +9,7 @@ stages:
 run_tests:
   stage: test
   script:
-    - cd src/python
     - coverage run --source=pyqgl2,qgl2 -m unittest discover
 
 after_script:
-  - cd src/python
-  - coverage report -m
+  - coverage report
