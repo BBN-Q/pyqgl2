@@ -36,10 +36,10 @@ def doRabiAmp():
 @qgl2decl
 def doRabiAmp3():
     q = QubitFactory('q1')
-    steps = 3
+    steps = 11
     zero = 0
     phase = 0
-    for l in np.linspace(zero, 5e-6, steps):
+    for l in np.linspace(zero, 1, steps):
         init(q)
         Utheta(q, amp=l, phase=phase)
         MEAS(q)
@@ -50,11 +50,11 @@ def doRabiAmp3():
 def doRabiAmp4():
     q = QubitFactory('q1')
 
-    steps = 3
+    steps = 11
     zero = 0
     phase=0
 
-    amps=np.linspace(zero, 5e-6, steps)
+    amps = np.linspace(zero, 1, steps)
     for l in amps:
         init(q)
         Utheta(q, amp=l, phase=phase)
@@ -65,8 +65,8 @@ def doRabiAmp4():
 def doRabiAmpPi():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
-    amps=np.linspace(0, 5e-6, 3)
-    phase=0
+    amps = np.linspace(0, 1, 11)
+    phase = 0
     for l in amps:
         with concur:
             init(q1)
