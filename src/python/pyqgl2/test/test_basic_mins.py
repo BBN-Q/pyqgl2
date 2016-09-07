@@ -8,7 +8,6 @@ from pyqgl2.evenblocks import replaceBarriers
 from QGL import *
 
 def discard_zero_Ids(seqs):
-    from QGL.PulseSequencer import Pulse
     # assume seqs has a structure like [[entry0, entry1, ..., entryN]]
     ct = 0
     while ct < len(seqs[0]):
