@@ -501,11 +501,28 @@ class SimpleEvaluator(object):
 
         func_name = val.__name__
         namespace = self.importer.path2namespace[call_node.qgl_fname]
-        func_def = namespace.local_defs[func_name]
 
-        # TODO: things can go wrong here, and if we can't find func_name
-        # or func_def, then we need to bail out right away
-        # FIXME
+        if func_name in namespace.local_defs:
+            func_def = namespace.local_defs[func_name]
+        elif func_name in namespace.from_as:
+            # TODO: check whether this commutes, or whether we
+            # need to chase down the reference if the import-from
+            # is for a symbol that in turn is an import-from...
+            # (but beware of loops!)
+            #
+            (from_func_name, from_func_fname) = namespace.from_as[func_name]
+            from_namespace = self.importer.path2namespace[from_func_fname]
+            func_def = from_namespace.local_defs[from_func_name]
+        else:
+            NodeError.error_msg(
+                    call_node, 'symbol [%s] is not defined' % func_name)
+            return None
+
+        if not isinstance(func_def, ast.FunctionDef):
+            print('%s' % str(func_def))
+            NodeError.error_msg(
+                    call_node, 'symbol [%s] is not a function' % func_name)
+            return None
 
         inliner = Inliner(self.importer)
 
