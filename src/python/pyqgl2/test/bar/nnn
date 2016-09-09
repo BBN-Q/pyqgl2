@@ -1,0 +1,189 @@
+json file /home/dellard/QGL2/QGL/QGL/ChannelParams.json not found
+Error json file is not a ChannelLibrary
+No channel library found.
+Creating an APS2ish config with 2 Qubits for testing
+../../../qgl2/qgl1.py:239:0: warning: redefinition of function [CmpEq]
+ITERATION 0
+ITERATION 1
+CALLING EVALUATOR
+EVALUATOR RESULT:
+
+@qgl2main
+def main___qgl2_tmp_006():
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    q3 = QubitFactory('q3')
+    with infunc('loopy2', q1, q2, q3):
+        with Qfor:
+            with Qiter:
+                with concur:
+                    X90(q___qgl2_tmp_004___targ_001)
+            with Qiter:
+                with concur:
+                    X90(q___qgl2_tmp_004___targ_002)
+            with Qiter:
+                with concur:
+                    X90(q___qgl2_tmp_004___targ_003)
+
+EV RB sym absent [concur] in b9.py
+EV RB sym absent [Qiter] in b9.py
+EV RB sym absent [infunc] in b9.py
+EV RB sym absent [Qfor] in b9.py
+EVALUATOR REBINDINGS:
+
+@qgl2main
+def main___qgl2_tmp_006():
+    QBIT_q1 = QubitFactory('q1')
+    QBIT_q2 = QubitFactory('q2')
+    QBIT_q3 = QubitFactory('q3')
+    with infunc('loopy2', QBIT_q1, QBIT_q2, QBIT_q3):
+        with Qfor:
+            with Qiter:
+                with concur:
+                    X90(QBIT_q1)
+            with Qiter:
+                with concur:
+                    X90(QBIT_q2)
+            with Qiter:
+                with concur:
+                    X90(QBIT_q3)
+
+NODE X90(QBIT_q1) => {'QBIT_q1'} {'QBIT_q1'}
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='concur_beg_6'), List(elts=[Name(id='QBIT_q1', ctx=Load())], ctx=Load())], keywords=[]))
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='concur_end_6'), List(elts=[Name(id='QBIT_q1', ctx=Load())], ctx=Load())], keywords=[]))
+NODE with concur:
+    Barrier('concur_beg_6', [QBIT_q1])
+    X90(QBIT_q1)
+    Barrier('concur_end_6', [QBIT_q1]) => {'QBIT_q1'} {'QBIT_q1'}
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='seq_0_4'), List(elts=[Name(id='QBIT_q1', ctx=Load()), Name(id='QBIT_q2', ctx=Load()), Name(id='QBIT_q3', ctx=Load())], ctx=Load())], keywords=[]))
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='eseq_1_4'), List(elts=[Name(id='QBIT_q1', ctx=Load()), Name(id='QBIT_q2', ctx=Load()), Name(id='QBIT_q3', ctx=Load())], ctx=Load())], keywords=[]))
+NODE with Qiter:
+    Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+    with concur:
+        Barrier('concur_beg_6', [QBIT_q1])
+        X90(QBIT_q1)
+        Barrier('concur_end_6', [QBIT_q1])
+    Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3]) => {'QBIT_q3', 'QBIT_q2', 'QBIT_q1'} {'QBIT_q3', 'QBIT_q2', 'QBIT_q1'}
+NODE X90(QBIT_q2) => {'QBIT_q2'} {'QBIT_q2'}
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='concur_beg_9'), List(elts=[Name(id='QBIT_q2', ctx=Load())], ctx=Load())], keywords=[]))
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='concur_end_9'), List(elts=[Name(id='QBIT_q2', ctx=Load())], ctx=Load())], keywords=[]))
+NODE with concur:
+    Barrier('concur_beg_9', [QBIT_q2])
+    X90(QBIT_q2)
+    Barrier('concur_end_9', [QBIT_q2]) => {'QBIT_q2'} {'QBIT_q2'}
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='seq_0_7'), List(elts=[Name(id='QBIT_q1', ctx=Load()), Name(id='QBIT_q2', ctx=Load()), Name(id='QBIT_q3', ctx=Load())], ctx=Load())], keywords=[]))
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='eseq_1_7'), List(elts=[Name(id='QBIT_q1', ctx=Load()), Name(id='QBIT_q2', ctx=Load()), Name(id='QBIT_q3', ctx=Load())], ctx=Load())], keywords=[]))
+NODE with Qiter:
+    Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+    with concur:
+        Barrier('concur_beg_9', [QBIT_q2])
+        X90(QBIT_q2)
+        Barrier('concur_end_9', [QBIT_q2])
+    Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3]) => {'QBIT_q3', 'QBIT_q2', 'QBIT_q1'} {'QBIT_q3', 'QBIT_q2', 'QBIT_q1'}
+NODE X90(QBIT_q3) => {'QBIT_q3'} {'QBIT_q3'}
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='concur_beg_12'), List(elts=[Name(id='QBIT_q3', ctx=Load())], ctx=Load())], keywords=[]))
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='concur_end_12'), List(elts=[Name(id='QBIT_q3', ctx=Load())], ctx=Load())], keywords=[]))
+NODE with concur:
+    Barrier('concur_beg_12', [QBIT_q3])
+    X90(QBIT_q3)
+    Barrier('concur_end_12', [QBIT_q3]) => {'QBIT_q3'} {'QBIT_q3'}
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='seq_0_10'), List(elts=[Name(id='QBIT_q1', ctx=Load()), Name(id='QBIT_q2', ctx=Load()), Name(id='QBIT_q3', ctx=Load())], ctx=Load())], keywords=[]))
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='eseq_1_10'), List(elts=[Name(id='QBIT_q1', ctx=Load()), Name(id='QBIT_q2', ctx=Load()), Name(id='QBIT_q3', ctx=Load())], ctx=Load())], keywords=[]))
+NODE with Qiter:
+    Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+    with concur:
+        Barrier('concur_beg_12', [QBIT_q3])
+        X90(QBIT_q3)
+        Barrier('concur_end_12', [QBIT_q3])
+    Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3]) => {'QBIT_q3', 'QBIT_q2', 'QBIT_q1'} {'QBIT_q3', 'QBIT_q2', 'QBIT_q1'}
+NODE with Qfor:
+    with Qiter:
+        Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+        with concur:
+            Barrier('concur_beg_6', [QBIT_q1])
+            X90(QBIT_q1)
+            Barrier('concur_end_6', [QBIT_q1])
+        Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+    with Qiter:
+        Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+        with concur:
+            Barrier('concur_beg_9', [QBIT_q2])
+            X90(QBIT_q2)
+            Barrier('concur_end_9', [QBIT_q2])
+        Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+    with Qiter:
+        Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+        with concur:
+            Barrier('concur_beg_12', [QBIT_q3])
+            X90(QBIT_q3)
+            Barrier('concur_end_12', [QBIT_q3])
+        Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3]) => {'QBIT_q3', 'QBIT_q2', 'QBIT_q1'} {'QBIT_q3', 'QBIT_q2', 'QBIT_q1'}
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='seq_0_2'), List(elts=[Name(id='QBIT_q1', ctx=Load()), Name(id='QBIT_q2', ctx=Load()), Name(id='QBIT_q3', ctx=Load())], ctx=Load())], keywords=[]))
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='eseq_1_2'), List(elts=[Name(id='QBIT_q1', ctx=Load()), Name(id='QBIT_q2', ctx=Load()), Name(id='QBIT_q3', ctx=Load())], ctx=Load())], keywords=[]))
+NODE with infunc('loopy2', QBIT_q1, QBIT_q2, QBIT_q3):
+    Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+    with Qfor:
+        with Qiter:
+            Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            with concur:
+                Barrier('concur_beg_6', [QBIT_q1])
+                X90(QBIT_q1)
+                Barrier('concur_end_6', [QBIT_q1])
+            Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+        with Qiter:
+            Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            with concur:
+                Barrier('concur_beg_9', [QBIT_q2])
+                X90(QBIT_q2)
+                Barrier('concur_end_9', [QBIT_q2])
+            Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+        with Qiter:
+            Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+            with concur:
+                Barrier('concur_beg_12', [QBIT_q3])
+                X90(QBIT_q3)
+                Barrier('concur_end_12', [QBIT_q3])
+            Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+    Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3]) => {'QBIT_q3', 'QBIT_q2', 'QBIT_q1'} {'QBIT_q3', 'QBIT_q2', 'QBIT_q1'}
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='seq_0_1'), List(elts=[Name(id='QBIT_q1', ctx=Load()), Name(id='QBIT_q2', ctx=Load()), Name(id='QBIT_q3', ctx=Load())], ctx=Load())], keywords=[]))
+BARRIER_AST Expr(value=Call(func=Name(id='Barrier', ctx=Load()), args=[Str(s='eseq_1_1'), List(elts=[Name(id='QBIT_q1', ctx=Load()), Name(id='QBIT_q2', ctx=Load()), Name(id='QBIT_q3', ctx=Load())], ctx=Load())], keywords=[]))
+EV RB sym absent [grouped] in b9.py
+EV RB sym absent [seq] in b9.py
+EV RB sym absent [Barrier] in b9.py
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+GOT IMPLICIT IMPORT
+Saved compiled code to /home/dellard/QGL2/pyqgl2-exp/src/python/pyqgl2/test/bar/b9qgl1.py

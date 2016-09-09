@@ -1,0 +1,513 @@
+ORIGINAL CODE:
+
+@qgl2main
+def main():
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    q3 = QubitFactory('q3')
+    loopy2(q1, q2, q3)
+
+INLINED CODE (iteration 0):
+
+@qgl2main
+def main___qgl2_tmp_005():
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    q3 = QubitFactory('q3')
+    with infunc('loopy2', q1, q2, q3):
+        for q___qgl2_tmp_004 in [q1, q2, q3]:
+            with concur:
+                X90(q___qgl2_tmp_004)
+
+CHECKED CODE (iteration 0):
+
+@qgl2main
+def main___qgl2_tmp_005():
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    q3 = QubitFactory('q3')
+    with infunc('loopy2', q1, q2, q3):
+        for q___qgl2_tmp_004 in [q1, q2, q3]:
+            with concur:
+                X90(q___qgl2_tmp_004)
+
+INLINED CODE (iteration 1):
+
+@qgl2main
+def main___qgl2_tmp_006():
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    q3 = QubitFactory('q3')
+    with infunc('loopy2', q1, q2, q3):
+        for q___qgl2_tmp_004 in [q1, q2, q3]:
+            with concur:
+                X90(q___qgl2_tmp_004)
+
+CHECKED CODE (iteration 1):
+
+@qgl2main
+def main___qgl2_tmp_006():
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    q3 = QubitFactory('q3')
+    with infunc('loopy2', q1, q2, q3):
+        for q___qgl2_tmp_004 in [q1, q2, q3]:
+            with concur:
+                X90(q___qgl2_tmp_004)
+
+EVALUATOR + REBINDINGS:
+
+@qgl2main
+def main___qgl2_tmp_006():
+    QBIT_q1 = QubitFactory('q1')
+    QBIT_q2 = QubitFactory('q2')
+    QBIT_q3 = QubitFactory('q3')
+    with infunc('loopy2', QBIT_q1, QBIT_q2, QBIT_q3):
+        with Qfor:
+            with Qiter:
+                with concur:
+                    X90(QBIT_q1)
+            with Qiter:
+                with concur:
+                    X90(QBIT_q2)
+            with Qiter:
+                with concur:
+                    X90(QBIT_q3)
+
+EXPANDED NAMESPACE:
+
+from qgl2.qgl2 import concur
+from qgl2.qgl2 import qbit
+from qgl2.qgl2 import qgl2decl
+
+from qgl2.qgl2 import sequence
+from qgl2.qgl2 import pulse
+from qgl2.qgl2 import qgl2main
+from qgl2.qgl2 import classical
+
+from qgl2.qgl1 import QubitFactory
+from qgl2.qgl1 import X90
+from qgl2.qgl1 import Y90
+from qgl2.qgl1 import X
+from qgl2.qgl1 import MEAS
+from qgl2.qgl1 import Utheta
+from qgl2.qgl1 import Xtheta
+
+from qgl2.qgl1 import Call
+from qgl2.qgl1 import BlockLabel
+from qgl2.qgl1 import Goto
+from qgl2.qgl1 import LoadRepeat
+from qgl2.qgl1 import Repeat
+from qgl2.qgl1 import Return
+
+from qgl2.qgl1 import CmpEq
+
+from qgl2.util import init
+
+@qgl2decl
+def loopy2(a:qbit, b:qbit, c:qbit):
+    for q in [a, b, c]:
+        with concur:
+            X90(q)
+
+@qgl2main
+def main():
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    q3 = QubitFactory('q3')
+    loopy2(q1, q2, q3)
+
+from qgl2.qgl1 import Wait
+
+from qgl2.qgl1 import Sync
+
+@qgl2main
+def main___qgl2_tmp_005():
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    q3 = QubitFactory('q3')
+    with infunc('loopy2', q1, q2, q3):
+        for q___qgl2_tmp_004 in [q1, q2, q3]:
+            with concur:
+                X90(q___qgl2_tmp_004)
+
+@qgl2main
+def main___qgl2_tmp_006():
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    q3 = QubitFactory('q3')
+    with infunc('loopy2', q1, q2, q3):
+        for q___qgl2_tmp_004 in [q1, q2, q3]:
+            with concur:
+                X90(q___qgl2_tmp_004)
+
+SYMTAB CODE:
+
+@qgl2main
+def main___qgl2_tmp_006():
+    QBIT_q1 = QubitFactory('q1')
+    QBIT_q2 = QubitFactory('q2')
+    QBIT_q3 = QubitFactory('q3')
+    with infunc('loopy2', QBIT_q1, QBIT_q2, QBIT_q3):
+        with Qfor:
+            with Qiter:
+                with concur:
+                    X90(QBIT_q1)
+            with Qiter:
+                with concur:
+                    X90(QBIT_q2)
+            with Qiter:
+                with concur:
+                    X90(QBIT_q3)
+
+SEQUENTIAL CODE:
+
+@qgl2main
+def main___qgl2_tmp_006():
+    QBIT_q1 = QubitFactory('q1')
+    QBIT_q2 = QubitFactory('q2')
+    QBIT_q3 = QubitFactory('q3')
+    Barrier('seq_0_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+    with infunc('loopy2', QBIT_q1, QBIT_q2, QBIT_q3):
+        Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+        with Qfor:
+            with Qiter:
+                Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+                with concur:
+                    Barrier('concur_beg_6', [QBIT_q1])
+                    X90(QBIT_q1)
+                    Barrier('concur_end_6', [QBIT_q1])
+                Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            with Qiter:
+                Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+                with concur:
+                    Barrier('concur_beg_9', [QBIT_q2])
+                    X90(QBIT_q2)
+                    Barrier('concur_end_9', [QBIT_q2])
+                Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            with Qiter:
+                Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+                with concur:
+                    Barrier('concur_beg_12', [QBIT_q3])
+                    X90(QBIT_q3)
+                    Barrier('concur_end_12', [QBIT_q3])
+                Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+        Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+    Barrier('eseq_1_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+
+GROUPED CODE:
+
+@qgl2main
+def main___qgl2_tmp_006():
+    QBIT_q1 = QubitFactory('q1')
+    QBIT_q2 = QubitFactory('q2')
+    QBIT_q3 = QubitFactory('q3')
+    with grouped:
+        with group(QBIT_q1):
+            Barrier('seq_0_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+            with infunc('loopy2', QBIT_q1, QBIT_q2, QBIT_q3):
+                Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+                with Qfor:
+                    with Qiter:
+                        Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+                        with concur:
+                            Barrier('concur_beg_6', [QBIT_q1])
+                            X90(QBIT_q1)
+                            Barrier('concur_end_6', [QBIT_q1])
+                        Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+                    with Qiter:
+                        Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+                        Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+                    with Qiter:
+                        Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+                        Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+                Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+        with group(QBIT_q2):
+            Barrier('seq_0_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+            with infunc('loopy2', QBIT_q1, QBIT_q2, QBIT_q3):
+                Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+                with Qfor:
+                    with Qiter:
+                        Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+                        Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+                    with Qiter:
+                        Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+                        with concur:
+                            Barrier('concur_beg_9', [QBIT_q2])
+                            X90(QBIT_q2)
+                            Barrier('concur_end_9', [QBIT_q2])
+                        Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+                    with Qiter:
+                        Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+                        Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+                Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+        with group(QBIT_q3):
+            Barrier('seq_0_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+            with infunc('loopy2', QBIT_q1, QBIT_q2, QBIT_q3):
+                Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+                with Qfor:
+                    with Qiter:
+                        Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+                        Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+                    with Qiter:
+                        Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+                        Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+                    with Qiter:
+                        Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+                        with concur:
+                            Barrier('concur_beg_12', [QBIT_q3])
+                            X90(QBIT_q3)
+                            Barrier('concur_end_12', [QBIT_q3])
+                        Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+                Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+
+FLATTENED CODE:
+
+@qgl2main
+def main___qgl2_tmp_006():
+    QBIT_q1 = QubitFactory('q1')
+    QBIT_q2 = QubitFactory('q2')
+    QBIT_q3 = QubitFactory('q3')
+    with grouped:
+        with seq:
+            Barrier('seq_0_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('concur_beg_6', [QBIT_q1])
+            X90(QBIT_q1)
+            Barrier('concur_end_6', [QBIT_q1])
+            Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+        with seq:
+            Barrier('seq_0_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('concur_beg_9', [QBIT_q2])
+            X90(QBIT_q2)
+            Barrier('concur_end_9', [QBIT_q2])
+            Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+        with seq:
+            Barrier('seq_0_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('concur_beg_12', [QBIT_q3])
+            X90(QBIT_q3)
+            Barrier('concur_end_12', [QBIT_q3])
+            Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+
+Final qglmain: main___qgl2_tmp_006
+FINAL CODE:
+-- -- -- -- --
+
+from qgl2.qgl2 import concur
+from qgl2.qgl2 import qbit
+from qgl2.qgl2 import qgl2decl
+
+from qgl2.qgl2 import sequence
+from qgl2.qgl2 import pulse
+from qgl2.qgl2 import qgl2main
+from qgl2.qgl2 import classical
+
+from qgl2.qgl1 import QubitFactory
+from qgl2.qgl1 import X90
+from qgl2.qgl1 import Y90
+from qgl2.qgl1 import X
+from qgl2.qgl1 import MEAS
+from qgl2.qgl1 import Utheta
+from qgl2.qgl1 import Xtheta
+
+from qgl2.qgl1 import Call
+from qgl2.qgl1 import BlockLabel
+from qgl2.qgl1 import Goto
+from qgl2.qgl1 import LoadRepeat
+from qgl2.qgl1 import Repeat
+from qgl2.qgl1 import Return
+
+from qgl2.qgl1 import CmpEq
+
+from qgl2.util import init
+
+@qgl2decl
+def loopy2(a:qbit, b:qbit, c:qbit):
+    for q in [a, b, c]:
+        with concur:
+            X90(q)
+
+@qgl2main
+def main():
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    q3 = QubitFactory('q3')
+    loopy2(q1, q2, q3)
+
+from qgl2.qgl1 import Wait
+
+from qgl2.qgl1 import Sync
+
+@qgl2main
+def main___qgl2_tmp_005():
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    q3 = QubitFactory('q3')
+    with infunc('loopy2', q1, q2, q3):
+        for q___qgl2_tmp_004 in [q1, q2, q3]:
+            with concur:
+                X90(q___qgl2_tmp_004)
+
+@qgl2main
+def main___qgl2_tmp_006():
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    q3 = QubitFactory('q3')
+    with infunc('loopy2', q1, q2, q3):
+        for q___qgl2_tmp_004 in [q1, q2, q3]:
+            with concur:
+                X90(q___qgl2_tmp_004)
+
+-- -- -- -- --
+SYNCED SEQUENCES:
+
+@qgl2main
+def main___qgl2_tmp_006():
+    QBIT_q1 = QubitFactory('q1')
+    QBIT_q2 = QubitFactory('q2')
+    QBIT_q3 = QubitFactory('q3')
+    with grouped:
+        with seq:
+            Barrier('seq_0_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('concur_beg_6', [QBIT_q1])
+            X90(QBIT_q1)
+            Barrier('concur_end_6', [QBIT_q1])
+            Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+        with seq:
+            Barrier('seq_0_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('concur_beg_9', [QBIT_q2])
+            X90(QBIT_q2)
+            Barrier('concur_end_9', [QBIT_q2])
+            Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+        with seq:
+            Barrier('seq_0_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('concur_beg_12', [QBIT_q3])
+            X90(QBIT_q3)
+            Barrier('concur_end_12', [QBIT_q3])
+            Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3])
+            Barrier('eseq_1_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+
+#start function
+def main(**kwargs):
+    from QGL.ChannelLibrary import QubitFactory
+    from QGL.PulsePrimitives import X90
+    from qgl2.qgl1 import Barrier as Barrier
+
+    if 'QBIT_q1' in kwargs:
+        QBIT_q1 = kwargs['QBIT_q1']
+    else:
+        QBIT_q1 = QubitFactory('q1')
+    if 'QBIT_q2' in kwargs:
+        QBIT_q2 = kwargs['QBIT_q2']
+    else:
+        QBIT_q2 = QubitFactory('q2')
+    if 'QBIT_q3' in kwargs:
+        QBIT_q3 = kwargs['QBIT_q3']
+    else:
+        QBIT_q3 = QubitFactory('q3')
+    QBIT_q1 = QBIT_q1
+    QBIT_q2 = QBIT_q2
+    QBIT_q3 = QBIT_q3
+    from pyqgl2.eval import EvalTransformer
+    _v = EvalTransformer.PRECOMPUTED_VALUES
+    seqs = list()
+    seq_QBIT_q1 = [
+        Barrier('seq_0_1', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('concur_beg_6', [QBIT_q1]),
+        X90(QBIT_q1),
+        Barrier('concur_end_6', [QBIT_q1]),
+        Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('eseq_1_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+    ]
+    seqs += [seq_QBIT_q1]
+    seq_QBIT_q2 = [
+        Barrier('seq_0_1', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('concur_beg_9', [QBIT_q2]),
+        X90(QBIT_q2),
+        Barrier('concur_end_9', [QBIT_q2]),
+        Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('eseq_1_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+    ]
+    seqs += [seq_QBIT_q2]
+    seq_QBIT_q3 = [
+        Barrier('seq_0_1', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('seq_0_2', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('seq_0_4', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('eseq_1_4', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('seq_0_7', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('eseq_1_7', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('seq_0_10', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('concur_beg_12', [QBIT_q3]),
+        X90(QBIT_q3),
+        Barrier('concur_end_12', [QBIT_q3]),
+        Barrier('eseq_1_10', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('eseq_1_2', [QBIT_q1, QBIT_q2, QBIT_q3]),
+        Barrier('eseq_1_1', [QBIT_q1, QBIT_q2, QBIT_q3])
+    ]
+    seqs += [seq_QBIT_q3]
+    return seqs
+
+#end function
