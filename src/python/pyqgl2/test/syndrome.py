@@ -1,5 +1,5 @@
 from qgl2.qgl2 import qgl2decl, qgl2main, qbit, concur
-from qgl2.qgl1 import QubitFactory, X, Y, Z
+from qgl2.qgl1 import QubitFactory, X, Y, Z, Y90, X180
 from qgl2.qgl2_check import QGL2check
 
 @qgl2decl
@@ -27,19 +27,20 @@ def syndrome_cycle(qbits, role_def):
             if role_def[q].is_x():
                 H(q)
 
-# Fake Hadamard and CNOT operations;
-# placeholders for the real operations
-#
 @qgl2decl
-def H(q: qbit):
-    Z(q)
+def Hadamard(q: qbit):
+    Y90(q)
+    X180(q)
 
+# Fake CNOT operation; placeholders for the real operations
+#
 @qgl2decl
 def CNOT(q1: qbit, q2: qbit):
     with concur:
-        X(q1)
-        Y(q2)
-
+        # this is bogus, but we assign waveforms to make
+        # the output human-readable
+        Z(q1)
+        Z90(q2)
 
 class SyndromeRole(object):
     """
