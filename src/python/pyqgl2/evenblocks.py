@@ -143,8 +143,9 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
     barrier = barriersByCtr.get(barrierCtr, None)
     if barrier is not None:
         if barrier['lengthCalculated']:
-            logger.debug("markBarrier (seq %d) found in barriersByCtr %s already calculated", seqIdx, barrierCtr)
-            logger.debug("Old dict: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("markBarrier (seq %d) found in barriersByCtr %s already calculated", seqIdx, barrierCtr)
+                logger.debug("Old dict: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
         elif barrier['seqIndex'] != seqIdx:
             # We call this once per sequence so we'll catch this next time through
             # logger.debug("markBarrier (seq %d) on '%s' found wrong sequence in barriersByCtr (%d) - skip", seqIdx, barrierCtr, barrier['seqIndex'])
@@ -162,7 +163,8 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
             if barrierCtr == barriersBySeqByPos[seqIdx][pos]['counter']:
                 barrier = barriersBySeqByPos[seqIdx][pos]
                 if barrier['lengthCalculated']:
-                    logger.debug("markBarrier (seq %d) found in barriersBySeqByPos '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'seqPos': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['seqPos'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug("markBarrier (seq %d) found in barriersBySeqByPos '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'seqPos': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['seqPos'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
                 else:
                     barrier['lengthSince'] += addLen
                     barrier['lengthCalculated'] = True
@@ -172,7 +174,8 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
         if barrierCtr in barriersBySeqByCtr[seqIdx]:
             barrier = barriersBySeqByCtr[seqIdx][barrierCtr]
             if barrier['lengthCalculated']:
-                logger.debug("markBarrier (seq %d) found in barriersBySeqByCtr '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("markBarrier (seq %d) found in barriersBySeqByCtr '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
             else:
                 barrier['lengthSince'] += addLen
                 barrier['lengthCalculated'] = True
