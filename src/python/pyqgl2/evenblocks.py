@@ -609,9 +609,17 @@ def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
         # 7/8: If this barrier is a wait or waitsome, then don't do the replace, just update the length
         barrier = getBarrierForSeqCtr(seqInd, currCtr)
         if barrier != -1 and barrier.get('type', 'barrier') not in ('wait', 'waitsome'):
-            logger.info("Sequence %d: Replacing %s with Id(%s, length=%s)\n", seqInd, seq[ind],
-                        channel, idlen)
-            seq[ind] = Id(channel, idlen)
+            if idlen == 0:
+                # Instead of creating a new pulse Id(q, length=0) that
+                # uses memory and just has to get removed later, put
+                # in a constant - 0, which we remove later. We put in
+                # something here to keep the indices of barriers from changing.
+                logger.info("Sequence %d: Removing %s (is Id(length=0))", seqInd, seq[ind])
+                seq[ind] = 0
+            else:
+                logger.info("Sequence %d: Replacing %s with Id(%s, length=%s)\n", seqInd, seq[ind],
+                            channel, idlen)
+                seq[ind] = Id(channel, idlen)
         else:
             logger.debug("Sequence %d: NOT replacing %s with Id, but marking it as length=%s\n", seqInd, seq[ind], idlen)
 
@@ -1322,6 +1330,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                     logger.info("Replacing sequence %d index %d (%s) with Sync(); WaitSome(%s)", seqInd, bInd, seq[bInd], bChannels)
                     seqs[seqInd] = seq[:bInd] + [Sync(), WaitSome(bChannels)] + seq[bInd+1:]
             else:
+                # This is common / expected
                 logger.debug("Spot %d in sequence %d (channel %s) not (no longer) a barrier, but: %s", barrierInd, seqInd, seqIdxToChannelMap[seqInd], seq[barrierInd])
                 continue
         logger.debug("Swapped %d barriers on sequence %d\n", swapCnt, seqInd)
@@ -1329,10 +1338,29 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
     # Done swapping remaining barriers for Sync/Waits
 
     # Now all Barriers should be gone.
+    # Now we can also remove the stub "0" entries for Id(q, length=0) pulses
     for sidx, seq in enumerate(seqs):
+        newSeq = []
         for idx in range(len(seq)):
             if isBarrier(seq[idx]):
-                logger.warn("Sequence %d still has %s at %d!", sidx, seq[idx], idx)
+                logger.warn("Sequence %d still has %s at %d - remove!", sidx,
+                            seq[idx], idx)
+            elif seq[idx] == 0:
+                logger.debug("Removing placeholder 0 for Id(0) in sequence %d at %d", sidx, idx)
+            else:
+                newSeq.append(seq[idx])
+        seqs[sidx] = newSeq
+
+    # Debug: Print final sequences
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(" ")
+        logger.debug("Final QGL1 sequences:")
+        for sidx, seq in enumerate(seqs):
+            logger.debug("Sequence %d", sidx)
+            for idx in range(len(seq)):
+                logger.debug("  %d: %s", idx, seq[idx])
+        logger.debug(" ")
+
     logger.debug("Done replacing Barriers\n")
     return seqs
 # End of replaceBarriers
