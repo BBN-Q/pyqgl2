@@ -959,7 +959,10 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                     curBarrier['waitCount'] = waitsOnChannels[curBarrier['chanKey']]
                     curBarrier['counter'] = 'wait-chans-%s-ctr-%d' % (curBarrier['channels'], curBarrier['waitCount'])
                     if not isSync(seq[seqPos-1]):
-                        logger.warning("Previous element was not a Sync, but %s", seq[seqPos-1])
+                        if isBarrier(seq[seqPos-1]) and isSync(seq[seqPos-2]):
+                            logger.debug("9/2016: Core inserts a barrier between the sync and wait to ensure sequential")
+                        else:
+                            logger.warning("Previous element was not a Sync, but %s", seq[seqPos-1])
                 if nonDet:
                     logger.debug("Marking this barrier as indeterminate length")
                     curBarrier['lengthSince'] = float('nan')
