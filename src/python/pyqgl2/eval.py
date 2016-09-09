@@ -519,7 +519,6 @@ class SimpleEvaluator(object):
             return None
 
         if not isinstance(func_def, ast.FunctionDef):
-            print('%s' % str(func_def))
             NodeError.error_msg(
                     call_node, 'symbol [%s] is not a function' % func_name)
             return None
