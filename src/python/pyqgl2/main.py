@@ -596,8 +596,9 @@ def countChannelsInSequences(seqs):
                     seqIdxToEdgeMap[idx] = list()
                 if not ch in seqIdxToEdgeMap[idx]:
                     seqIdxToEdgeMap[idx].append(ch)
-                    logger.debug("Sequence %d uses %s", idx, ch)
-                    logger.debug(" - which is AWG '%s'", getAWG(ch))
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug("Sequence %d uses %s", idx, ch)
+                        logger.debug(" - which is AWG '%s'", getAWG(ch))
             if not isinstance(ch, qgl1Qubit):
                 continue
             seqToChToCnt[idx][ch] = 0
