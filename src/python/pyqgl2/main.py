@@ -823,14 +823,14 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     # Hack: skip the empty sequence(s) now before doing anything else
     (seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxMap) = getNonEmptySequences(seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxMap)
 
+    # Try to replace Barrier commands with Id pulses where possible, else with Sync/Wait
+    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
+
     # Build a per sequence list of the edges that share an AWG with that sequence (Qubit),
     # falling back to picking the sequence matching the source of the edge
     # Produce dict of seq index (int) to list of edges to actually compile on that sequence
     seqIdxToEdgeToCompileMap = getEdgesToCompile(seqIdxToEdgeMap, awgToSeqIdxMap, seqIdxToChannelMap)
     # Now I have a per idx list of Edges that are OK To compile with that sequence
-
-    # Try to replace Barrier commands with Id pulses where possible, else with Sync/Wait
-    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
 
     # Pick the sequence with which to compile the slave Trigger.
     # Find the sequence whose channel's AWG is same as slave Channel, if
