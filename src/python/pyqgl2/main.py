@@ -431,11 +431,11 @@ def getAWG(channel):
 
     return awg
 
-def getNonEmptySequences(seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxMap):
+def getNonEmptySequences(seqs, seqIdxToChannelMap, seqIdxToEdgeMap):
     '''
     Filter the set of sequences to only include non-empty sequences.
-    Reset indices in the 3 maps to match.
-    Return a tuple of (newly revised) seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxMap
+    Reset indices in the 2 maps to match.
+    Return a tuple of (newly revised) seqs, seqIdxToChannelMap, seqIdxToEdgeMap
     '''
     import logging
 
@@ -459,34 +459,22 @@ def getNonEmptySequences(seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxM
     if decr:
         newmap = dict()
         newEdgeMap = dict()
-        newAWGToIdxMap = dict()
         for ind in seqIdxToChannelMap:
             if ind in toDecr:
                 newmap[ind-decr] = seqIdxToChannelMap[ind]
                 if ind in seqIdxToEdgeMap:
                     newEdgeMap[ind-decr] = seqIdxToEdgeMap[ind]
-                for awg in awgToSeqIdxMap:
-                    if awgToSeqIdxMap[awg] == ind:
-                        newAWGToIdxMap[awg] = ind-decr
-                        logger.debug("AWG %s is now seq %d", awg, ind-decr)
-                        break
                 logger.debug("Sequence %d (channel %s) is now sequence %d", ind, seqIdxToChannelMap[ind], ind-decr)
             elif ind in seqIdxToChannelMap:
                 logger.debug("Sequence %d keeping map to %s", ind, seqIdxToChannelMap[ind])
                 newmap[ind] = seqIdxToChannelMap[ind]
                 if ind in seqIdxToEdgeMap:
                     newEdgeMap[ind] = seqIdxToEdgeMap[ind]
-                for awg in awgToSeqIdxMap:
-                    if awgToSeqIdxMap[awg] == ind:
-                        newAWGToIdxMap[awg] = ind
-                        logger.debug("%s keeping map to %d", awg, ind)
-                        break
             else:
                 logger.debug("Dropping (empty) sequence %d", ind)
         seqIdxToChannelMap = newmap
         seqIdxToEdgeMap = newEdgeMap
-        awgToSeqIdxMap = newAWGToIdxMap
-    return (seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxMap)
+    return (seqs, seqIdxToChannelMap, seqIdxToEdgeMap)
 
 def getEdgesToCompile(seqIdxToEdgeMap, awgToSeqIdxMap, seqIdxToChannelMap):
     '''
@@ -813,18 +801,18 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     # on each sequence
     (seqIdxToChannelMap, seqIdxToEdgeMap) = mapQubitsToSequences(seqs)
 
+    # Hack: skip the empty sequence(s) now before doing anything else
+    (seqs, seqIdxToChannelMap, seqIdxToEdgeMap) = getNonEmptySequences(seqs, seqIdxToChannelMap, seqIdxToEdgeMap)
+
+    # Try to replace Barrier commands with Id pulses where possible, else with Sync/Wait
+    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
+
     # Assign AWGs
     awgToSeqIdxMap = dict() # awg to int sequence index
     for seq in seqIdxToChannelMap:
         awg = getAWG(seqIdxToChannelMap[seq])
         awgToSeqIdxMap[awg] = seq
         logger.debug("Sequence %d is on AWG %s", seq, awg)
-
-    # Hack: skip the empty sequence(s) now before doing anything else
-    (seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxMap) = getNonEmptySequences(seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxMap)
-
-    # Try to replace Barrier commands with Id pulses where possible, else with Sync/Wait
-    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
 
     # Build a per sequence list of the edges that share an AWG with that sequence (Qubit),
     # falling back to picking the sequence matching the source of the edge
