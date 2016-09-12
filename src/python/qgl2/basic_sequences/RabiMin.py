@@ -8,16 +8,25 @@ import QGL.PulseShapes
 from qgl2.qgl2 import qgl2decl, qbit, sequence, concur
 from qgl2.qgl1 import QubitFactory, Utheta, MEAS, X, Id
 from qgl2.util import init
+from qgl2.basic_sequences.helpers import create_cal_seqs
 import numpy as np
 
 # 7/25/16: Currently fails
 @qgl2decl
 def doRabiWidth():
+    # FIXME: No arguments
     q = QubitFactory("q1")
-    for l in np.linspace(0, 5e-6, 11):
+    widths = np.linspace(0, 5e-6, 11)
+    amp = 1
+    phase = 0
+    shapeFun = QGL.PulseShapes.tanh
+    for l in widths:
         init(q)
         # FIXME: QGL2 loses the import needed for this QGL function
-        Utheta(q, length=l, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh)
+        Utheta(q, length=l, amp=amp, phase=phase,
+               shapeFun=QGL.PulseShapes.tanh)
+        # Doing it this way gives: KeyError: 'shapeFun___ass_004'
+        # Utheta(q, length=l, amp=amp, phase=phase, shapeFun=shapeFun)
         MEAS(q)
 
 # For use with pyqgl2.main
@@ -25,39 +34,13 @@ def doRabiWidth():
 @qgl2decl
 def doRabiAmp():
     q = QubitFactory('q1')
-
-    for amp in np.linspace(0, 1, 11):
-        init(q)
-        Utheta(q, amp=amp, phase=0)
-        MEAS(q)
-
-# An example of multiple expansions (a call to np.linspace, and
-# the parameters to np.linspace)
-@qgl2decl
-def doRabiAmp3():
-    q = QubitFactory('q1')
     steps = 11
-    zero = 0
+    amps = np.linspace(0, 1, steps)
     phase = 0
-    for l in np.linspace(zero, 1, steps):
+
+    for amp in amps:
         init(q)
-        Utheta(q, amp=l, phase=phase)
-        MEAS(q)
-
-# FIXME: Giving args to this makes it fail,
-# but want amps & phase as args
-@qgl2decl
-def doRabiAmp4():
-    q = QubitFactory('q1')
-
-    steps = 11
-    zero = 0
-    phase=0
-
-    amps = np.linspace(zero, 1, steps)
-    for l in amps:
-        init(q)
-        Utheta(q, amp=l, phase=phase)
+        Utheta(q, amp=amp, phase=phase)
         MEAS(q)
 
 # FIXME: As above, want to pass in amps, phase, qbits
@@ -67,6 +50,7 @@ def doRabiAmpPi():
     q2 = QubitFactory('q2')
     amps = np.linspace(0, 1, 11)
     phase = 0
+
     for l in amps:
         with concur:
             init(q1)
@@ -98,3 +82,52 @@ def doPulsedSpec():
     else:
         Id(q)
     MEAS(q)
+
+@qgl2decl
+def doRabiAmp_NQubits():
+    # FIXME: Can't have args
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    qubits = [q1, q2]
+    measChans = None
+    amps = np.linspace(0, 5e-6, 11)
+    phase = 0
+    docals = False
+    calRepeats = 2
+
+    if not measChans:
+        measChans = qubits
+
+    for amp in amps:
+        with concur:
+            # FIXME: generator to iterate over doesnt work
+            for q,ct in list(zip(qubits, range(len(qubits)))):
+                init(q)
+                Utheta(q, amp=amp, phase=phase)
+                MEAS(measChans[ct])
+
+    if docals:
+        # FIXME: This isn't working yet
+        create_cal_seqs(qubits, calRepeats, measChans=measChans)
+
+@qgl2decl
+def doSwap():
+    # FIXME: Args
+    q = QubitFactory('q1')
+    mq = QubitFactory('q2')
+    delays = np.linspace(0, 5e-6, 11)
+
+    for d in delays:
+        with concur:
+            init(q)
+            init(mq)
+        X(q)
+        X(mq)
+        Id(mq, d)
+        with concur:
+            MEAS(mq)
+            MEAS(q)
+
+    # FIXME: This isn't working yet
+    # create_cal_seqs((mq, q), 2)
+
