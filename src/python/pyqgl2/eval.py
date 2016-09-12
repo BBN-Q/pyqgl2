@@ -1546,10 +1546,15 @@ class EvalTransformer(object):
                 # print('WITH %s' % ast.dump(stmnt))
 
                 new_with = quickcopy(stmnt)
+                # new_with = expr2ast('with True:\n    pass')
+                # pyqgl2.ast_util.copy_all_loc(new_with, stmnt, recurse=True)
+                # new_with.items = deepcopy(stmnt.items)
+
                 for item in new_with.items:
                     self.rewriter.rewrite(item)
 
                 new_with.body = self.do_body(new_with.body)
+                # new_with.body = self.do_body(stmnt.body)
 
                 new_body.append(new_with)
 
