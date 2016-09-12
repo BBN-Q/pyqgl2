@@ -1805,9 +1805,9 @@ def add_runtime_call_check(call_ptree, func_ptree):
 
     new_call_txt = '%s(%s)' % (func_ptree.name, args_txt)
 
-    print('NEW CALL TXT %s' % new_call_txt)
+    # print('NEW CALL TXT %s' % new_call_txt)
 
-    # new_call_ast = expr2ast(new_call_txt)
+    new_call_ast = expr2ast(new_call_txt)
 
     pyqgl2.ast_util.copy_all_loc(new_call_ast, call_ptree, recurse=True)
     new_call_ast.value.qgl2_checked_call = True
