@@ -7,9 +7,9 @@ from qgl2.qgl2 import qgl2decl, qbit_list, concur, pulse
 
 from qgl2.util import init
 
-from functools import reduce
+#from functools import reduce
 from itertools import product
-import operator
+#import operator
 
 from QGL.PulsePrimitives import Id, X, MEAS
 from QGL.ControlFlow import qwait
@@ -51,8 +51,11 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
     # FIXME 7/25/16: product doesn't get imported
     # ../../../../../../home/ahelsing/Projects/Quantum/pyqgl2-exp/src/python/qgl2/basic_sequences/helpers.py:53:20: error: eval failure [product(calSet___qgl2_tmp_013___ass_031, repeat=len(qubits___qgl2_tmp_008___ass_028))]: name 'product' is not defined
 
+    # FIXME: product is a generator I think, and we don't handle those
+    # yet to iterate over, except by wrapping in a list
+
     # Create iterator with the right number of Id and X pulses
-    for pulseSet in product(calSet, repeat=len(qubits)):
+    for pulseSet in list(product(calSet, repeat=len(qubits))):
         # Repeat each entry numRepeats times
         for _ in range(numRepeats):
             # then do each pulse on each qubit concurrently
@@ -76,7 +79,7 @@ def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list = None, 
             # Do the pulses concurrently for this pulseSet
             # FIXME 7/25/16: I think we have trouble with zip currently
             with concur:
-                for pulse,qubit in zip(pulseSet, qubits):
+                for pulse,qubit in list(zip(pulseSet, qubits)):
                     # FIXME 7/25/16: I doubt this works
                     pulse(qubit)
             # Add on the measurement pulses (done concurrently)

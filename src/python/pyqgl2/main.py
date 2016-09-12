@@ -18,6 +18,7 @@ import sys
 
 from argparse import ArgumentParser
 from copy import deepcopy
+from datetime import datetime
 
 # Add the necessary module paths: find the directory that this
 # executable lives in, and then add paths from there to the
@@ -181,7 +182,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     ptree = importer.qglmain
 
     ast_text_orig = pyqgl2.ast_util.ast2str(ptree)
-    print(('ORIGINAL CODE:\n%s' % ast_text_orig),
+    print(('%s: ORIGINAL CODE:\n%s' % (datetime.now(), ast_text_orig)),
             file=intermediate_fout, flush=True)
 
     # if Wait() and Sync() aren't accessible from the namespace
@@ -219,7 +220,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     MAX_ITERS = 20
     for iteration in range(MAX_ITERS):
 
-        print('ITERATION %d' % iteration)
+        print('%s: ITERATION %d' % (datetime.now(), iteration))
 
         inliner = Inliner(importer)
         ptree1 = inliner.inline_function(ptree1)
@@ -247,11 +248,11 @@ def compileFunction(filename, main_name=None, saveOutput=False,
 
     evaluator = EvalTransformer(SimpleEvaluator(importer, None))
 
-    print('CALLING EVALUATOR')
+    print('%s: CALLING EVALUATOR' % datetime.now())
     ptree1 = evaluator.visit(ptree1)
     NodeError.halt_on_error()
 
-    print('EVALUATOR RESULT:\n%s' % pyqgl2.ast_util.ast2str(ptree1))
+    print('%s: EVALUATOR RESULT:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(ptree1)))
     # It's very hard to read the intermediate form, before the
     # QBIT names are added, so we don't save this right now.
     # print(('EVALUATOR RESULT:\n%s' % pyqgl2.ast_util.ast2str(ptree1)),
@@ -264,7 +265,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
 
     evaluator.replace_bindings(ptree1.body)
 
-    print('EVALUATOR REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1))
+    print('%s: EVALUATOR REBINDINGS:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(ptree1)))
     print(('EVALUATOR + REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1)),
             file=intermediate_fout, flush=True)
 
@@ -284,7 +285,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     sym_check = CheckSymtab(filename, type_check.func_defs, importer)
     new_ptree5 = sym_check.visit(new_ptree1)
     NodeError.halt_on_error()
-    print(('SYMTAB CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
+    print(('%s: SYMTAB CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree5))),
             file=intermediate_fout, flush=True)
 
     MarkReferencedQbits.marker(new_ptree5,
@@ -293,7 +294,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     seq = AddSequential()
     new_ptree5 = seq.visit(new_ptree5)
     NodeError.halt_on_error()
-    print(('SEQUENTIAL CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree5)),
+    print(('%s: SEQUENTIAL CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree5))),
             file=intermediate_fout, flush=True)
 
     # Take with-infunc and with-concur blocks and produce with-grouped
@@ -303,7 +304,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     new_ptree6 = grouper.group(new_ptree5,
             local_vars=evaluator.eval_state.locals_stack[-1])
     NodeError.halt_on_error()
-    print(('GROUPED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree6)),
+    print(('%s: GROUPED CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree6))),
             file=intermediate_fout, flush=True)
 
     # TODO: move the RepeatTransformer to before the grouper,
@@ -321,7 +322,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     flattener = Flattener()
     new_ptree7 = flattener.visit(new_ptree6)
     NodeError.halt_on_error()
-    print(('FLATTENED CODE:\n%s' % pyqgl2.ast_util.ast2str(new_ptree7)),
+    print(('%s: FLATTENED CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree7))),
             file=intermediate_fout, flush=True)
 
     evaluator.replace_bindings(new_ptree7.body)
@@ -350,13 +351,13 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     # These values are set above
     #base_namespace = importer.path2namespace[filename]
     #text = base_namespace.pretty_print()
-    print(('FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % text),
+    print(('%s: FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % (datetime.now(), text)),
             file=intermediate_fout, flush=True)
 
     sync = SynchronizeBlocks(new_ptree7)
     new_ptree8 = sync.visit(deepcopy(new_ptree7))
     NodeError.halt_on_error()
-    print(('SYNCED SEQUENCES:\n%s' % pyqgl2.ast_util.ast2str(new_ptree8)),
+    print(('%s: SYNCED SEQUENCES:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree8))),
             file=intermediate_fout, flush=True)
 
     # Done. Time to generate the QGL1
@@ -431,11 +432,11 @@ def getAWG(channel):
 
     return awg
 
-def getNonEmptySequences(seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxMap):
+def getNonEmptySequences(seqs, seqIdxToChannelMap, seqIdxToEdgeMap):
     '''
     Filter the set of sequences to only include non-empty sequences.
-    Reset indices in the 3 maps to match.
-    Return a tuple of (newly revised) seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxMap
+    Reset indices in the 2 maps to match.
+    Return a tuple of (newly revised) seqs, seqIdxToChannelMap, seqIdxToEdgeMap
     '''
     import logging
 
@@ -459,34 +460,22 @@ def getNonEmptySequences(seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxM
     if decr:
         newmap = dict()
         newEdgeMap = dict()
-        newAWGToIdxMap = dict()
         for ind in seqIdxToChannelMap:
             if ind in toDecr:
                 newmap[ind-decr] = seqIdxToChannelMap[ind]
                 if ind in seqIdxToEdgeMap:
                     newEdgeMap[ind-decr] = seqIdxToEdgeMap[ind]
-                for awg in awgToSeqIdxMap:
-                    if awgToSeqIdxMap[awg] == ind:
-                        newAWGToIdxMap[awg] = ind-decr
-                        logger.debug("AWG %s is now seq %d", awg, ind-decr)
-                        break
                 logger.debug("Sequence %d (channel %s) is now sequence %d", ind, seqIdxToChannelMap[ind], ind-decr)
             elif ind in seqIdxToChannelMap:
                 logger.debug("Sequence %d keeping map to %s", ind, seqIdxToChannelMap[ind])
                 newmap[ind] = seqIdxToChannelMap[ind]
                 if ind in seqIdxToEdgeMap:
                     newEdgeMap[ind] = seqIdxToEdgeMap[ind]
-                for awg in awgToSeqIdxMap:
-                    if awgToSeqIdxMap[awg] == ind:
-                        newAWGToIdxMap[awg] = ind
-                        logger.debug("%s keeping map to %d", awg, ind)
-                        break
             else:
                 logger.debug("Dropping (empty) sequence %d", ind)
         seqIdxToChannelMap = newmap
         seqIdxToEdgeMap = newEdgeMap
-        awgToSeqIdxMap = newAWGToIdxMap
-    return (seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxMap)
+    return (seqs, seqIdxToChannelMap, seqIdxToEdgeMap)
 
 def getEdgesToCompile(seqIdxToEdgeMap, awgToSeqIdxMap, seqIdxToChannelMap):
     '''
@@ -608,8 +597,9 @@ def countChannelsInSequences(seqs):
                     seqIdxToEdgeMap[idx] = list()
                 if not ch in seqIdxToEdgeMap[idx]:
                     seqIdxToEdgeMap[idx].append(ch)
-                    logger.debug("Sequence %d uses %s", idx, ch)
-                    logger.debug(" - which is AWG '%s'", getAWG(ch))
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug("Sequence %d uses %s", idx, ch)
+                        logger.debug(" - which is AWG '%s'", getAWG(ch))
             if not isinstance(ch, qgl1Qubit):
                 continue
             seqToChToCnt[idx][ch] = 0
@@ -813,6 +803,12 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     # on each sequence
     (seqIdxToChannelMap, seqIdxToEdgeMap) = mapQubitsToSequences(seqs)
 
+    # Hack: skip the empty sequence(s) now before doing anything else
+    (seqs, seqIdxToChannelMap, seqIdxToEdgeMap) = getNonEmptySequences(seqs, seqIdxToChannelMap, seqIdxToEdgeMap)
+
+    # Try to replace Barrier commands with Id pulses where possible, else with Sync/Wait
+    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
+
     # Assign AWGs
     awgToSeqIdxMap = dict() # awg to int sequence index
     for seq in seqIdxToChannelMap:
@@ -820,17 +816,11 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
         awgToSeqIdxMap[awg] = seq
         logger.debug("Sequence %d is on AWG %s", seq, awg)
 
-    # Hack: skip the empty sequence(s) now before doing anything else
-    (seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxMap) = getNonEmptySequences(seqs, seqIdxToChannelMap, seqIdxToEdgeMap, awgToSeqIdxMap)
-
     # Build a per sequence list of the edges that share an AWG with that sequence (Qubit),
     # falling back to picking the sequence matching the source of the edge
     # Produce dict of seq index (int) to list of edges to actually compile on that sequence
     seqIdxToEdgeToCompileMap = getEdgesToCompile(seqIdxToEdgeMap, awgToSeqIdxMap, seqIdxToChannelMap)
     # Now I have a per idx list of Edges that are OK To compile with that sequence
-
-    # Try to replace Barrier commands with Id pulses where possible, else with Sync/Wait
-    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
 
     # Pick the sequence with which to compile the slave Trigger.
     # Find the sequence whose channel's AWG is same as slave Channel, if
@@ -890,7 +880,11 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
 #####
 
 if __name__ == '__main__':
+    import psutil
     opts = parse_args(sys.argv[1:])
+    if opts.verbose:
+        process = psutil.Process(os.getpid())
+        print("Memory usage: {} MB".format(process.memory_info().rss // (1 << 20)))
 
     import QGL
     if QGL.ChannelLibrary.channelLib and 'slaveTrig' in QGL.ChannelLibrary.channelLib:
@@ -929,3 +923,5 @@ if __name__ == '__main__':
     else:
         # Didn't produce a function
         pass
+    if opts.verbose:
+        print("Memory usage: {} MB".format(process.memory_info().rss // (1 << 20)))

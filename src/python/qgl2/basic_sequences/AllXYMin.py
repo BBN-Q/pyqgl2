@@ -7,8 +7,12 @@ from qgl2.util import init
 from qgl2.qgl1 import MEAS, QubitFactory
 from qgl2.basic_sequences.new_helpers import IdId, XX, YY, XY, YX, X90Id, Y90Id, X90Y90, Y90X90, X90Y, Y90X, \
     XY90, YX90, X90X, XX90, Y90Y, YY90, XId, YId, X90X90, Y90Y90
+#from qgl2.qgl2_check import QGL2check
 
-# 7/25/16: FIXME: iterating over list of functions fails, so this fails
+# 7/25/16: FIXME: iterating over list of functions fails, so this
+# fails
+# 9/12/16: f.runtime-param-checks branch works on this, but fails to
+# run MEAS(qubit)
 @qgl2decl
 def doAllXY() -> sequence:
     # Temporary qbit to be over-ridden on compilation
@@ -25,6 +29,8 @@ def doAllXY() -> sequence:
             MEAS(q)
 
 # 7/25/16: FIXME: iterating over list of functions fails, so this fails
+# 9/12/16: f.runtime-param-checks branch works on this, but fails to
+# run MEAS(qubit)
 @qgl2decl
 def AllXYq2() -> sequence:
     # Temporary qbit to be over-ridden on compilation

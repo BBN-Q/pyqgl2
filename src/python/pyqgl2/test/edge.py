@@ -2,7 +2,7 @@
 
 # Tests for end to end Edge handling, and handling stubs on >1 qubits
 
-from qgl2.qgl1 import QubitFactory, Id, X, MEAS, Y, echoCR
+from qgl2.qgl1 import QubitFactory, Id, X, MEAS, Y, echoCR, CNOT_CR
 from qgl2.qgl2 import qgl2decl, sequence, concur, seq, qbit, qgl2stub
 from qgl2.util import init
 
@@ -78,3 +78,12 @@ def edgeTest5() -> sequence:
         for q in [q1, q2]:
             init(q)
             MyPulse(q)
+
+@qgl2decl
+def cnotcrTest() -> sequence:
+    q1 = QubitFactory('q1')
+    q2 = QubitFactory('q2')
+    with concur:
+        for q in [q1, q2]:
+            init(q)
+    CNOT_CR(q1, q2)

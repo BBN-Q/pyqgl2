@@ -515,7 +515,7 @@ def Swap(qubit: qbit, mqubit: qbit, delays, showPlot=False):
             MEAS(mqubit)
             MEAS(qubit)
 
-    cal_seqs((mqubit, qubit), 2)
+    create_cal_seqs((mqubit, qubit), 2)
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot

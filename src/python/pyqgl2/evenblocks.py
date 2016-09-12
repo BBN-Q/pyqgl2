@@ -143,8 +143,9 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
     barrier = barriersByCtr.get(barrierCtr, None)
     if barrier is not None:
         if barrier['lengthCalculated']:
-            logger.debug("markBarrier (seq %d) found in barriersByCtr %s already calculated", seqIdx, barrierCtr)
-            logger.debug("Old dict: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("markBarrier (seq %d) found in barriersByCtr %s already calculated", seqIdx, barrierCtr)
+                logger.debug("Old dict: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
         elif barrier['seqIndex'] != seqIdx:
             # We call this once per sequence so we'll catch this next time through
             # logger.debug("markBarrier (seq %d) on '%s' found wrong sequence in barriersByCtr (%d) - skip", seqIdx, barrierCtr, barrier['seqIndex'])
@@ -162,7 +163,8 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
             if barrierCtr == barriersBySeqByPos[seqIdx][pos]['counter']:
                 barrier = barriersBySeqByPos[seqIdx][pos]
                 if barrier['lengthCalculated']:
-                    logger.debug("markBarrier (seq %d) found in barriersBySeqByPos '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'seqPos': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['seqPos'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug("markBarrier (seq %d) found in barriersBySeqByPos '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'seqPos': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['seqPos'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
                 else:
                     barrier['lengthSince'] += addLen
                     barrier['lengthCalculated'] = True
@@ -172,7 +174,8 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
         if barrierCtr in barriersBySeqByCtr[seqIdx]:
             barrier = barriersBySeqByCtr[seqIdx][barrierCtr]
             if barrier['lengthCalculated']:
-                logger.debug("markBarrier (seq %d) found in barriersBySeqByCtr '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("markBarrier (seq %d) found in barriersBySeqByCtr '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
             else:
                 barrier['lengthSince'] += addLen
                 barrier['lengthCalculated'] = True
@@ -609,9 +612,17 @@ def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
         # 7/8: If this barrier is a wait or waitsome, then don't do the replace, just update the length
         barrier = getBarrierForSeqCtr(seqInd, currCtr)
         if barrier != -1 and barrier.get('type', 'barrier') not in ('wait', 'waitsome'):
-            logger.info("Sequence %d: Replacing %s with Id(%s, length=%s)\n", seqInd, seq[ind],
-                        channel, idlen)
-            seq[ind] = Id(channel, idlen)
+            if idlen == 0:
+                # Instead of creating a new pulse Id(q, length=0) that
+                # uses memory and just has to get removed later, put
+                # in a constant - 0, which we remove later. We put in
+                # something here to keep the indices of barriers from changing.
+                logger.info("Sequence %d: Removing %s (is Id(length=0))", seqInd, seq[ind])
+                seq[ind] = 0
+            else:
+                logger.info("Sequence %d: Replacing %s with Id(%s, length=%s)\n", seqInd, seq[ind],
+                            channel, idlen)
+                seq[ind] = Id(channel, idlen)
         else:
             logger.debug("Sequence %d: NOT replacing %s with Id, but marking it as length=%s\n", seqInd, seq[ind], idlen)
 
@@ -959,7 +970,10 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                     curBarrier['waitCount'] = waitsOnChannels[curBarrier['chanKey']]
                     curBarrier['counter'] = 'wait-chans-%s-ctr-%d' % (curBarrier['channels'], curBarrier['waitCount'])
                     if not isSync(seq[seqPos-1]):
-                        logger.warning("Previous element was not a Sync, but %s", seq[seqPos-1])
+                        if isBarrier(seq[seqPos-1]) and isSync(seq[seqPos-2]):
+                            logger.debug("9/2016: Core inserts a barrier between the sync and wait to ensure sequential")
+                        else:
+                            logger.warning("Previous element was not a Sync, but %s", seq[seqPos-1])
                 if nonDet:
                     logger.debug("Marking this barrier as indeterminate length")
                     curBarrier['lengthSince'] = float('nan')
@@ -1319,6 +1333,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                     logger.info("Replacing sequence %d index %d (%s) with Sync(); WaitSome(%s)", seqInd, bInd, seq[bInd], bChannels)
                     seqs[seqInd] = seq[:bInd] + [Sync(), WaitSome(bChannels)] + seq[bInd+1:]
             else:
+                # This is common / expected
                 logger.debug("Spot %d in sequence %d (channel %s) not (no longer) a barrier, but: %s", barrierInd, seqInd, seqIdxToChannelMap[seqInd], seq[barrierInd])
                 continue
         logger.debug("Swapped %d barriers on sequence %d\n", swapCnt, seqInd)
@@ -1326,10 +1341,29 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
     # Done swapping remaining barriers for Sync/Waits
 
     # Now all Barriers should be gone.
+    # Now we can also remove the stub "0" entries for Id(q, length=0) pulses
     for sidx, seq in enumerate(seqs):
+        newSeq = []
         for idx in range(len(seq)):
             if isBarrier(seq[idx]):
-                logger.warn("Sequence %d still has %s at %d!", sidx, seq[idx], idx)
+                logger.warn("Sequence %d still has %s at %d - remove!", sidx,
+                            seq[idx], idx)
+            elif seq[idx] == 0:
+                logger.debug("Removing placeholder 0 for Id(0) in sequence %d at %d", sidx, idx)
+            else:
+                newSeq.append(seq[idx])
+        seqs[sidx] = newSeq
+
+    # Debug: Print final sequences
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(" ")
+        logger.debug("Final QGL1 sequences:")
+        for sidx, seq in enumerate(seqs):
+            logger.debug("Sequence %d", sidx)
+            for idx in range(len(seq)):
+                logger.debug("  %d: %s", idx, seq[idx])
+        logger.debug(" ")
+
     logger.debug("Done replacing Barriers\n")
     return seqs
 # End of replaceBarriers
