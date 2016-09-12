@@ -1468,7 +1468,7 @@ class Inliner(ast.NodeTransformer):
 
             runtime_check = self.add_runtime_checks(call_ptree)
             if runtime_check:
-                (chk_assts, chk_checks, chk_call, chk_names) = runtime_check
+                (chk_assts, chk_checks, chk_call) = runtime_check
                 new_body += chk_assts
                 new_body += chk_checks
 
@@ -1559,6 +1559,8 @@ def make_check_ast(symname, typename, src_ast, orig_name, fun_name):
             symname, typename, orig_name, fun_name,
             src_ast.qgl_fname, src_ast.lineno, src_ast.col_offset)
 
+    # print('CHECK TEXT %s' % chk_txt)
+
     chk_ast = expr2ast(chk_txt)
     pyqgl2.ast_util.copy_all_loc(chk_ast, src_ast, recurse=True)
 
@@ -1567,6 +1569,15 @@ def make_check_ast(symname, typename, src_ast, orig_name, fun_name):
     chk_ast.value.qgl2_checked_call = True
 
     return chk_ast
+
+def make_check_tuple_ast(symname, typename, src_ast, orig_name, fun_name):
+
+    tuple_txt = '(%s, \'%s\', \'%s\', \'%s\', \'%s\', %d, %d)' % (
+            symname, typename, orig_name, fun_name,
+            src_ast.qgl_fname, src_ast.lineno, src_ast.col_offset)
+
+    tuple_ast = expr2ast(tuple_txt)
+    return tuple_ast
 
 
 def add_runtime_call_check(call_ptree, func_ptree):
@@ -1671,8 +1682,10 @@ def add_runtime_call_check(call_ptree, func_ptree):
 
     tmp_assts = list()
     tmp_checks = list()
-    tmp_args_names = list()
     params_seen = set()
+
+    pos_args = list()
+    kw_args = list()
 
     # make sure that the user hasn't provided more args
     # than the function was declared to take...
@@ -1689,21 +1702,29 @@ def add_runtime_call_check(call_ptree, func_ptree):
 
     # Regular args in the call first:
     for arg_index in range(act_argcnt):
-        ap_node = call_ptree.args[arg_index]
         fp_name = func_ptree.args.args[arg_index].arg
-        new_name = tmp_names.create_tmp_name(orig_name=fp_name)
-        tmp_args_names.append((fp_name, new_name))
         params_seen.add(fp_name)
 
-        new_ast = expr2ast('%s = %s' % (new_name, ast2str(ap_node).strip()))
-        pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
-        tmp_assts.append(new_ast)
+        ap_node = call_ptree.args[arg_index]
+        if (isinstance(ap_node, ast.Name) or isinstance(ap_node, ast.Num)):
+            new_name = ast2str(ap_node).strip()
+            new_arg = ap_node
+
+            pos_args.append(ap_node)
+        else:
+            new_name = tmp_names.create_tmp_name(orig_name=fp_name)
+            new_ast = expr2ast(
+                    '%s = %s' % (new_name, ast2str(ap_node).strip()))
+            pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
+            tmp_assts.append(new_ast)
+
+            pos_args.append(new_ast.targets[0])
 
         anno = func_ptree.args.args[arg_index].annotation
         if anno:
             if not isinstance(anno, ast.Name):
                 NodeError.error_msg(
-                        anno, 'a type annotations must be a names')
+                        anno, 'a type annotations must be a name')
                 return None
 
             check_ast = make_check_ast(
@@ -1718,8 +1739,6 @@ def add_runtime_call_check(call_ptree, func_ptree):
     for arg_index in range(len(call_ptree.keywords)):
         ap_node = call_ptree.keywords[arg_index]
         fp_name = ap_node.arg
-        new_name = tmp_names.create_tmp_name(orig_name=fp_name)
-        tmp_args_names.append((fp_name, new_name))
 
         # NOTE: this test isn't always exercised right now,
         # because the AST parser currently fails when it tries
@@ -1738,9 +1757,17 @@ def add_runtime_call_check(call_ptree, func_ptree):
 
         params_seen.add(fp_name)
 
-        new_ast = expr2ast('%s = %s' % (new_name, ast2str(ap_node).strip()))
-        pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
-        tmp_assts.append(new_ast)
+        if (isinstance(ap_node, ast.Name) or isinstance(ap_node, ast.Num)):
+            new_name = ast2str(ap_node).strip()
+            new_arg = ap_node
+
+            kw_args.append((fp_name, new_name))
+        else:
+            new_name = tmp_names.create_tmp_name(orig_name=fp_name)
+
+            new_ast = expr2ast('%s = %s' % (new_name, ast2str(ap_node).strip()))
+            pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
+            tmp_assts.append(new_ast)
 
         # We need to scan through the function definition to find
         # whether there's an annotation for this parameter
@@ -1761,14 +1788,26 @@ def add_runtime_call_check(call_ptree, func_ptree):
                     new_name, anno.id, new_ast, fp_name, func_ptree.name)
             tmp_checks.append(check_ast)
 
-
     # We pass all the parameters to the new call as keyword arguments.
     # Python doesn't care, and it makes things easier for us if we don't
     # have to keep track of args vs kwargs.
     #
-    args_txt = ', '.join(['%s=%s' % arg for arg in tmp_args_names])
+    args_txt = ''
+    if pos_args:
+        args_txt += ', '.join(
+                ['%s' % ast2str(arg).strip() for arg in pos_args])
+
+    if pos_args and kw_args:
+        args_txt += ', '
+
+    if kw_args:
+        args_txt += ', '.join(['%s=%s' % arg for arg in kw_args])
+
     new_call_txt = '%s(%s)' % (func_ptree.name, args_txt)
-    new_call_ast = expr2ast(new_call_txt)
+
+    print('NEW CALL TXT %s' % new_call_txt)
+
+    # new_call_ast = expr2ast(new_call_txt)
 
     pyqgl2.ast_util.copy_all_loc(new_call_ast, call_ptree, recurse=True)
     new_call_ast.value.qgl2_checked_call = True
@@ -1778,7 +1817,7 @@ def add_runtime_call_check(call_ptree, func_ptree):
     new_stmnts += tmp_checks
     new_stmnts.append(new_call_ast)
 
-    return tmp_assts, tmp_checks, new_call_ast, tmp_args_names
+    return tmp_assts, tmp_checks, new_call_ast
 
 
 def inline_call(base_call, importer):
