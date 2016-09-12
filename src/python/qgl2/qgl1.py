@@ -148,7 +148,7 @@ def qif(mask, ifSeq: sequence, elseSeq: sequence = None) -> control:
 
 @qgl2stub('QGL.ControlFlow')
 def qwait(kind="TRIG") -> control:
-    pring('qwait')
+    print('qwait')
 
 # Note that this is really a class
 @qgl2stub('QGL.ControlFlow')
