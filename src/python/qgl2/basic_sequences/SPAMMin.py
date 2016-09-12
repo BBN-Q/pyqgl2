@@ -26,10 +26,10 @@ def spam_seqs(angle, qubit: qbit, maxSpamBlocks=10) -> sequence:
 @qgl2decl
 def doSPAM() -> sequence:
     # FIXME: No args, including of angleSweep
-    # FIXME: Here, pi comes out undefined
-    pi = 3.141592654
-    angleSweep = np.linspace(0, pi/2, 11)
     q = QubitFactory('q1')
+    # FIXME: Here, pi comes out undefined
+    pi = 3.141592653589793
+    angleSweep = np.linspace(0, pi/2, 11)
     maxSpamBlocks=10
 
     # Insert an identity at the start of every set to mark them off
