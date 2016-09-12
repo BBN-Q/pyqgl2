@@ -88,6 +88,19 @@ def AC(qubit: qbit, cliffNum) -> pulse:
 def flat_top_gaussian(chan: qbit, riseFall, length, amp, phase=0) -> pulse:
     print('flat_top_gaussian')
 
+# QGL1 function that takes 2 qubits, creates edge
+def flat_top_gaussian_edge_impl(source, target, riseFall, length, amp,
+                                phase=0):
+    from QGL.PulsePrimitives import flat_top_gaussian
+    from QGL.ChannelLibrary import EdgeFactory
+    CRchan = EdgeFactory(source, target)
+    return flat_top_gaussian(CRchan, riseFall, length, amp, phase=0)
+
+@qgl2stub('qgl2.qgl1', 'flat_top_gaussian_edge_impl')
+def flat_top_gaussian_edge(source: qbit, target: qbit, riseFall,
+                           length, amp, phase=0) -> pulse:
+    print('flat_top_gaussian_edge')
+
 @qgl2stub('QGL.PulsePrimitives')
 def echoCR(controlQ: qbit, targetQ: qbit, amp=1, phase=0, length=200e-9, riseFall=20e-9, lastPi=True) -> sequence:
     print('echoCR')
