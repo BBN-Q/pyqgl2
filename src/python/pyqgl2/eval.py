@@ -535,7 +535,7 @@ class SimpleEvaluator(object):
 
         runtime_check = inliner.add_runtime_checks(new_call_node)
         if runtime_check:
-            (chk_assts, chk_checks, chk_call, chk_names) = runtime_check
+            (chk_assts, chk_checks, chk_call) = runtime_check
             checks = chk_assts + chk_checks
             new_call_node = chk_call.value
         else:
