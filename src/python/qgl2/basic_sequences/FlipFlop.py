@@ -92,26 +92,26 @@ def FlipFlopq1(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
 def flipflop_seqs(dragScaling, maxNumFFs, qubit: qbit) -> sequence:
     """ Helper function to create a list of sequences with a specified drag parameter. """
     # FIXME: cause qubit is a placeholder, can't access pulseParams
-    qubit.pulseParams['dragScaling'] = dragScaling
+    # qubit.pulseParams['dragScaling'] = dragScaling
     for rep in range(maxNumFFs):
         init(qubit)
-        X90(qubit)
+        X90(qubit, dragScaling=dragScaling)
         # FIXME: Original used [X90] + [X90, X90m]... is this right?
         for _ in range(rep):
-            X90(qubit)
-            X90m(qubit)
-        Y90(qubit)
+            X90(qubit, dragScaling=dragScaling)
+            X90m(qubi, dragScaling=dragScaling)
+        Y90(qubit, dragScaling=dragScaling)
         MEAS(qubit) # FIXME: Need original dragScaling?
 
 @qgl2decl
 def FlipFlopMin() -> sequence:
     # FIXME: No args
     qubit = QubitFactory('q1')
-    dragParamSweep = [0, 1e-9, 5e-9] # FIXME
+    dragParamSweep = np.linspace(0, 5e-6, 11) # FIXME
     maxNumFFs = 10
 
     # FIXME: cause qubit is a placeholder, can't access pulseParams
-    originalScaling = qubit.pulseParams['dragScaling']
+    # originalScaling = qubit.pulseParams['dragScaling']
     for dragParam in dragParamSweep:
         init(qubit)
         Id(qubit)
@@ -121,7 +121,7 @@ def FlipFlopMin() -> sequence:
         # right?
         flipflop_seqs(dragParam, maxNumFFs, qubit)
     # FIXME: cause qubit is a placeholder, can't access pulseParams
-    qubit.pulseParams['dragScaling'] = originalScaling
+    # qubit.pulseParams['dragScaling'] = originalScaling
 
     # Add a final pi for reference
     init(qubit)
