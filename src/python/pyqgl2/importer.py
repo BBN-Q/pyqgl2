@@ -224,6 +224,10 @@ class NameSpace(object):
 
     def __init__(self, path):
 
+        # for diagnostics
+        #
+        self.path = path
+
         # functions and variables defined locally
         #
         self.local_defs = dict()
@@ -518,6 +522,8 @@ class NameSpace(object):
             if local_variables is None:
                 local_variables = dict()
 
+            # global_variables = dict.copy(self.native_globals)
+
             # print('EXPR %s' % expr_str.strip())
             val = eval(final_expr, self.native_globals, local_variables)
             return True, val
@@ -675,7 +681,7 @@ class NameSpaces(object):
                 # If it's not in any of the lists for this namespace
                 # (not a local variable, not a local def, not something
                 # imported via from-as) then maybe it's a reference
-                # to a module element.  Bail out of this look to find
+                # to a module element.  Bail out of this loop to find
                 # out.
                 #
                 break
@@ -1054,6 +1060,16 @@ class NameSpaces(object):
         package X.  We DO NOT support this feature yet.
 
         """
+
+        # setup the namespace for this module
+        # NOTE: this is incomplete: it only sets up the specific
+        # name, and may do so repeatedly.
+        # TODO: We should only do this once
+        # TODO: and we should import the entire namespace so that
+        # local functions can access local definitions and
+        # functions that are otherwise private
+        #
+        namespace.native_import(pyqgl2.ast_util.ast2str(stmnt), stmnt)
 
         namespace.add_from_as_stmnt(stmnt)
 
