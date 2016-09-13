@@ -14,11 +14,28 @@ class TestCompiler(unittest.TestCase):
     def tearDown(self):
         pass
 
+    @unittest.expectedFailure
     def test_tomo(self):
-        resFunction = compileFunction("src/python/pyqgl2/test/tomo.py")
+        resFunction = compileFunction("src/python/pyqgl2/test/tomo.py", "main")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
+        expectedseq1, expectedseq2 = self.tomo_result()
+
+        self.assertEqual(seqs[0], expectedseq1)
+        self.assertEqual(seqs[1], expectedseq2)
+
+    def test_tomo_no_generators(self):
+        resFunction = compileFunction("src/python/pyqgl2/test/tomo.py", "main_no_generators")
+        seqs = resFunction()
+        seqs = testable_sequence(seqs)
+
+        expectedseq1, expectedseq2 = self.tomo_result()
+
+        self.assertEqual(seqs[0], expectedseq1)
+        self.assertEqual(seqs[1], expectedseq2)
+
+    def tomo_result(self):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         fncs = [Id, X90, Y90, X]
@@ -30,17 +47,13 @@ class TestCompiler(unittest.TestCase):
 	            expectedseq1 += [
                     p1(q1),
                     X90(q1),
-                    Y90(q1),
                     m1(q1),
                     MEAS(q1)
 	            ]
 	            expectedseq2 += [
 	                p2(q2),
-                    X90(q2),
                     Y90(q2),
                     m2(q2),
                     MEAS(q2)
 	            ]
-
-        self.assertEqual(seqs[0], expectedseq1)
-        self.assertEqual(seqs[1], expectedseq2)
+        return expectedseq1, expectedseq2
