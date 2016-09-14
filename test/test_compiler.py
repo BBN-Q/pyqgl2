@@ -43,17 +43,17 @@ class TestCompiler(unittest.TestCase):
         expectedseq1 = []
         expectedseq2 = []
         for (p1, p2) in product(fncs, fncs):
-	        for (m1, m2) in product(fncs, fncs):
-	            expectedseq1 += [
+            for (m1, m2) in product(fncs, fncs):
+                expectedseq1 += [
                     p1(q1),
                     X90(q1),
                     m1(q1),
                     MEAS(q1)
-	            ]
-	            expectedseq2 += [
-	                p2(q2),
+                ]
+                expectedseq2 += [
+                    p2(q2),
                     Y90(q2),
                     m2(q2),
                     MEAS(q2)
-	            ]
+                ]
         return expectedseq1, expectedseq2
