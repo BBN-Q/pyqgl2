@@ -278,12 +278,35 @@ class NameSpace(object):
         # make sure the __file__ is set properly
         # self.native_globals['__file__'] = path
 
+        self.native_load()
+
     def __repr__(self):
         return self.__str__()
 
     def __str__(self):
         return ('local %s from_as %s import_as %s' %
                 (str(self.local_defs), str(self.from_as), str(self.import_as)))
+
+    def native_load(self):
+        """
+        Exec the entire text of the file, so that the native_globals
+        will be properly initialized
+        """
+
+        try:
+            text = open(self.path, 'r').read()
+        except BaseException as exc:
+            NodeError.error_msg(None,
+                    'read of [%s] failed: %s' % (self.path, str(exc)))
+            return False
+
+        try:
+            exec(text, self.native_globals)
+            return True
+        except BaseException as exc:
+            NodeError.error_msg(None,
+                    'import of [%s] failed: %s' % (self.path, str(exc)))
+            return False
 
     def check_dups(self, name, def_type='unknown'):
         """
