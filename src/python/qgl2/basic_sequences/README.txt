@@ -11,13 +11,21 @@ Look for FIXME comments about things that do not currently work.
 The base files generally have a main, intended to help unit test these
 files. That main has not been run in a while.
 
-There are a number of things that keep theses functions from working
-* assignign the results of np.* to a variable fails to import the
-function
-* import of pi fails
-* zip/product imports fail
-* looping over functions broke again
-* Our qubit is a stub; so explicit references to qubit.pulseParams
-fail
-* shapeFun argument of a function reference fails
+There are a number of things that keep theses functions from working:
+* Imports of library functions like `math.pi` and `numpy.linspace` and
+sometimes `product` fail, particularly when used in argument to a
+function call. We work around some of these with hard coded
+values. See e.g. `create_cal_seqs` in `helpers.py`, `doHahnEcho` in
+`DecouplingMin.py`, `doSPAM` in `SPAMMin.py`, `doRabiWidth`, etc. See issue #58
+* You cannot iterate over a generator like `product`. See
+e.g. `create_cal_seqs` in `helpers.py`. See issue #63.
+* We have no good way to pass in arguments, so these (including
+Qubits) must be hard coded in the `do*` methods in `*Min.py`. See
+issue #62, etc.
+* We don't yet have a good way to use the result of a `MEAS`, as in
+`Reset` in `Feedback.py`. See issue #66.
+* Qubits are not full objects so you can't use the `pulseParams`, as
+in `doCPMG` or `doFlipFlop`. See issue #65.
+* Various file reading methods fail, so Clifford sequence functions as
+in `RB.py` fail. See issue #67, 68, 69.
 
