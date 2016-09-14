@@ -790,11 +790,12 @@ class NameSpaces(object):
         # preprocessor always ignores these, without warning.
         #
         for node in ast.walk(ptree):
-            if (isinstance(node, ast.Import) or
-                    isinstance(node, ast.ImportFrom)):
-                if node.col_offset != 0:
-                    NodeError.warning_msg(node,
-                            'conditional/runtime import ignored by pyqgl2')
+            if ((isinstance(node, ast.Import) or
+                    isinstance(node, ast.ImportFrom)) and
+                    (node.col_offset != 0)):
+                NodeError.warning_msg(node,
+                        ('conditional/runtime import [%s] ignored by pyqgl2' %
+                            pyqgl2.ast_util.ast2str(node).strip()))
 
         # Populate the namespace
         #
