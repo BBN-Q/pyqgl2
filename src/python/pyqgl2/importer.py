@@ -222,7 +222,16 @@ class NameSpace(object):
     Manage the namespace for a single file
     """
 
-    def __init__(self, path):
+    def __init__(self, path, ptree=None):
+        """
+        path is the path to the Python source of the module
+
+        ptree is the AST node that caused the NameSpace to be
+        created (typically an import statement); it may be
+        omitted.  It is currently used only to help create
+        more meaningful diagnostic messages when something
+        fails
+        """
 
         # for diagnostics
         #
@@ -278,7 +287,7 @@ class NameSpace(object):
         # make sure the __file__ is set properly
         # self.native_globals['__file__'] = path
 
-        self.native_load()
+        self.native_load(ptree)
 
     def __repr__(self):
         return self.__str__()
@@ -287,7 +296,7 @@ class NameSpace(object):
         return ('local %s from_as %s import_as %s' %
                 (str(self.local_defs), str(self.from_as), str(self.import_as)))
 
-    def native_load(self):
+    def native_load(self, node=None):
         """
         Exec the entire text of the file, so that the native_globals
         will be properly initialized
@@ -307,6 +316,7 @@ class NameSpace(object):
             NodeError.error_msg(None,
                     'import of [%s] failed: %s' % (self.path, str(exc)))
             return False
+        return True
 
     def check_dups(self, name, def_type='unknown'):
         """
@@ -754,12 +764,18 @@ class NameSpaces(object):
 
         try:
             text = open(path, 'r').read()
-            return self.read_import_str(text, path)
-
         except BaseException as exc:
             NodeError.fatal_msg(None,
                     'cannot open [%s]: %s' % (path, str(exc)))
             return None
+
+        try:
+            return self.read_import_str(text, path)
+        except BaseException as exc:
+            NodeError.fatal_msg(None,
+                    'failed to import [%s]: %s %s' % (path, type(exc), exc))
+            return None
+
 
     def read_import_str(self, text, path='<stdin>', module_name='__main__'):
 
@@ -797,10 +813,13 @@ class NameSpaces(object):
                         ('conditional/runtime import [%s] ignored by pyqgl2' %
                             pyqgl2.ast_util.ast2str(node).strip()))
 
+        print('POPULATE')
         # Populate the namespace
         #
-        namespace = NameSpace(path)
+        namespace = NameSpace(path, ptree=ptree)
         self.path2namespace[path] = namespace
+
+        print('PROC')
 
         for stmnt in ptree.body:
             if isinstance(stmnt, ast.FunctionDef):
