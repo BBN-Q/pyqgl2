@@ -139,7 +139,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     # Use whether intermediate_output is None to decide
     # whether to call printout blocks at all
     # Old code set intermediate_output to /dev/null
-    
+
     if intermediate_output:
         try:
             intermediate_fout = open(intermediate_output, 'w')
