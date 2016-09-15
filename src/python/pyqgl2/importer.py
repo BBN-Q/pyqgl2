@@ -813,13 +813,10 @@ class NameSpaces(object):
                         ('conditional/runtime import [%s] ignored by pyqgl2' %
                             pyqgl2.ast_util.ast2str(node).strip()))
 
-        print('POPULATE')
         # Populate the namespace
         #
         namespace = NameSpace(path, ptree=ptree)
         self.path2namespace[path] = namespace
-
-        print('PROC')
 
         for stmnt in ptree.body:
             if isinstance(stmnt, ast.FunctionDef):
