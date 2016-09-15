@@ -18,13 +18,11 @@ from pyqgl2.inline import Inliner
 from pyqgl2.inline import NameFinder, NameRedirector, NameRewriter
 from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.inline import TempVarManager
+from pyqgl2.qgl2_check import QGL2check
 from pyqgl2.single import is_qbit_create
 from pyqgl2.quickcopy import quickcopy
 
 from QGL import Qubit
-
-# TODO: move this into pyqgl2.
-import qgl2.qgl2_check
 
 def insert_keyword(kwargs, key, value):
 
@@ -1394,8 +1392,7 @@ class EvalTransformer(object):
             # this function can detect whether an error has
             # been detected and act accordingly
             #
-            qgl2.qgl2_check.QGL2check(
-                    value, type_name, fp_name, func, src, row, col)
+            QGL2check(value, type_name, fp_name, func, src, row, col)
 
     def do_body(self, body):
 
