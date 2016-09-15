@@ -1351,6 +1351,34 @@ class EvalTransformer(object):
         return True, list([stmnt])
 
     def call_checker(self, vec):
+        """
+        Called to do runtime type checking.
+
+        The runtime type checks are defined by tuples of the form
+        (var_name, type_name, fp_name, func, src, row, col) where
+
+        var_name: the name of the variable to check (see below
+            for how to find this in the current scope)
+
+        type_name: the name of the type this variable must be
+            (right now 'qbit' or 'classical')
+
+        fp_name: the name of the formal parameter that will be
+            bound to that var_name
+
+        func: the name of the function being called
+
+        src, row, col: the source file path, source row number,
+            and source column number
+
+        Note that the var_name may be the name of a temporary
+        variable, which may in turn have been overwritten as
+        part of a later transformation, like translation to
+        single static assignment (after the check was created)
+        so before looking for this name in the local scope,
+        it needs to be mapped (using the rewriter) to whatever
+        name it has in this context.
+        """
 
         local_variables = self.eval_state.locals_stack[-1]
 
@@ -1360,6 +1388,12 @@ class EvalTransformer(object):
             mapped_name = self.rewriter.get_mapping(var_name)
             value = local_variables[mapped_name]
 
+            # QGL2check actually does the check and prints
+            # warning/error messages as needed, and sets the
+            # error level accordingly, so that the caller of
+            # this function can detect whether an error has
+            # been detected and act accordingly
+            #
             qgl2.qgl2_check.QGL2check(
                     value, type_name, fp_name, func, src, row, col)
 
@@ -1479,6 +1513,11 @@ class EvalTransformer(object):
             elif (isinstance(stmnt, ast.Expr) and
                     isinstance(stmnt.value, ast.Call)):
 
+                # If this is a check function, then send it
+                # to the call_checker to be evaluated.
+                # (The stmnt itself is ignored; all the info
+                # is in the qgl2_check_vector attribute)
+                #
                 if hasattr(stmnt.value, 'qgl2_check_vector'):
                     self.call_checker(stmnt.value.qgl2_check_vector)
                     continue
