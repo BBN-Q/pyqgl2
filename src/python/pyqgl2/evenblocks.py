@@ -75,7 +75,7 @@ from QGL.BlockLabel import BlockLabel
 from QGL.PulsePrimitives import Id
 from QGL.ChannelLibrary import QubitFactory
 
-from quickcopy import quickcopy
+from pyqgl2.quickcopy import quickcopy
 import logging
 
 logger = logging.getLogger('QGL.Compiler.qgl2')

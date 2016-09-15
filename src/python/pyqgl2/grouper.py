@@ -6,7 +6,6 @@ Group nodes by the qbits they operate on
 
 import ast
 
-from quickcopy import quickcopy
 
 import pyqgl2.ast_util
 
@@ -18,6 +17,7 @@ from pyqgl2.ast_util import NodeError
 from pyqgl2.inline import BarrierIdentifier
 from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.debugmsg import DebugMsg
+from pyqgl2.quickcopy import quickcopy
 
 def find_all_channels(node, local_vars=None):
     """

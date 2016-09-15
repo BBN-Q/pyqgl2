@@ -5,7 +5,6 @@
 import ast
 
 from ast import NodeTransformer
-from quickcopy import quickcopy
 
 import pyqgl2.ast_util
 import pyqgl2.inline
@@ -18,6 +17,7 @@ from pyqgl2.inline import NameFinder, NameRedirector, NameRewriter
 from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.inline import TempVarManager
 from pyqgl2.single import is_qbit_create
+from pyqgl2.quickcopy import quickcopy
 
 def insert_keyword(kwargs, key, value):
 
