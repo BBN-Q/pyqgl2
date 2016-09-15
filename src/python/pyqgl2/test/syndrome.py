@@ -1,6 +1,5 @@
 from qgl2.qgl2 import qgl2decl, qgl2main, qbit, concur
 from qgl2.qgl1 import QubitFactory, X, Y, Z, Y90, X180
-from qgl2.qgl2_check import QGL2check
 
 @qgl2decl
 def syndrome_cycle(qbits, role_def):

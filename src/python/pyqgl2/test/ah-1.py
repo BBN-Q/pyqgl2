@@ -1,7 +1,6 @@
 from qgl2.basic_sequences.helpers import create_cal_seqs
 from qgl2.qgl1 import Id, QubitFactory, MEAS
 from qgl2.qgl2 import qgl2decl, qgl2stub, qbit, pulse, sequence, qgl2main
-from qgl2.qgl2_check import QGL2check
 
 def read_ac_lines(fname):
 
