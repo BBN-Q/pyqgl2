@@ -1553,40 +1553,9 @@ def funcdef_has_type_anno(func_ptree):
 
     return found_anno
 
-def make_check_ast_old(symname, typename, src_ast, orig_name, fun_name):
-    """
-    Create AST for a call to check that the given symname has the type
-    specified by typename
-
-    The src_ast is the AST that provides the location info for
-    this new call (typically the statement that assigned the value
-    to the symname)
-    """
-
-    # TODO: the name "QGL2check" is tentative.  It should be
-    # a fully qualified name (with module).
-
-    chk_txt = 'QGL2check(%s, \'%s\', \'%s\', \'%s\', \'%s\', %d, %d)' % (
-            symname, typename, orig_name, fun_name,
-            src_ast.qgl_fname, src_ast.lineno, src_ast.col_offset)
-
-    # print('CHECK TEXT %s' % chk_txt)
-
-    chk_ast = expr2ast(chk_txt)
-    pyqgl2.ast_util.copy_all_loc(chk_ast, src_ast, recurse=True)
-
-    # Never check the checking call itself: assume that it's OK.
-    #
-    chk_ast.value.qgl2_checked_call = True
-
-    return make_check_ast(symname, typename, src_ast, orig_name, fun_name)
-
-    return chk_ast
-
 def make_check_ast(symname, typename, src_ast, fp_name, fun_name):
 
-    chk_txt = 'QGL2check(\'%s\', \'%s\')' % (fun_name, fp_name)
-    print('CHK_TXT [%s]' % chk_txt)
+    chk_txt = '%s(\'%s\', \'%s\')' % (QGL2.CHECK_FUNC, fun_name, fp_name)
 
     chk_ast = expr2ast(chk_txt)
     pyqgl2.ast_util.copy_all_loc(chk_ast, src_ast, recurse=True)
@@ -1598,6 +1567,18 @@ def make_check_ast(symname, typename, src_ast, fp_name, fun_name):
     chk_ast.value.qgl2_check_vector = list([chk_args])
 
     return chk_ast
+
+def make_check_ast_vec(fun_name, src_ast, vec):
+
+    chk_ast = expr2ast('QGL2check(\'%s\')' % fun_name)
+
+    chk_ast.value.qgl2_checked_call = True
+    chk_ast.value.qgl2_check_vector = vec
+
+    pyqgl2.ast_util.copy_all_loc(chk_ast, src_ast, recurse=True)
+
+    return chk_ast
+
 
 def make_check_tuple(symname, typename, src_ast, fp_name, fun_name):
 
@@ -1750,14 +1731,8 @@ def add_runtime_call_check(call_ptree, func_ptree):
                         anno, 'a type annotations must be a name')
                 return None
 
-            check_ast = make_check_ast(
-                    new_name, anno.id, call_ptree, fp_name, func_ptree.name)
-            tmp_checks.append(check_ast)
-
             check_tuple = make_check_tuple(
                     new_name, anno.id, call_ptree, fp_name, func_ptree.name)
-            print('QCVT %s' % str(check_tuple))
-
             tmp_check_tuples.append(check_tuple)
 
     # Then kwargs in the call:
@@ -1808,9 +1783,9 @@ def add_runtime_call_check(call_ptree, func_ptree):
                         anno, 'type annotations must be names')
                 return None
 
-            check_ast = make_check_ast(
-                    new_name, anno.id, new_ast, fp_name, func_ptree.name)
-            tmp_checks.append(check_ast)
+            check_tuple = make_check_tuple(
+                    new_name, anno.id, call_ptree, fp_name, func_ptree.name)
+            tmp_check_tuples.append(check_tuple)
 
     # We pass all the parameters to the new call as keyword arguments.
     # Python doesn't care, and it makes things easier for us if we don't
@@ -1836,10 +1811,12 @@ def add_runtime_call_check(call_ptree, func_ptree):
     pyqgl2.ast_util.copy_all_loc(new_call_ast, call_ptree, recurse=True)
     new_call_ast.value.qgl2_checked_call = True
 
-    new_stmnts = list()
-    new_stmnts += tmp_assts
-    new_stmnts += tmp_checks
-    new_stmnts.append(new_call_ast)
+    if tmp_check_tuples:
+        checker = make_check_ast_vec(
+                func_ptree.name, call_ptree, tmp_check_tuples)
+        tmp_checks = list([checker])
+    else:
+        tmp_checks = list()
 
     return tmp_assts, tmp_checks, new_call_ast
 
