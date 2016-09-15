@@ -136,14 +136,10 @@ def parse_args(argv):
 def compileFunction(filename, main_name=None, saveOutput=False,
                     intermediate_output=None):
 
-    # Always open up a file for the intermediate output,
-    # even if it's just /dev/null, so we don't have to
-    # muddy up the code with endless checks for whether
-    # we're supposed to save the intermediate output
-    #
-    if not intermediate_output:
-        intermediate_output = '/dev/null'
-
+    # Use whether intermediate_output is None to decide
+    # whether to call printout blocks at all
+    # Old code set intermediate_output to /dev/null
+    
     if intermediate_output:
         try:
             intermediate_fout = open(intermediate_output, 'w')
@@ -151,6 +147,8 @@ def compileFunction(filename, main_name=None, saveOutput=False,
             NodeError.fatal_msg(None,
                     ('cannot save intermediate output in [%s]' %
                         intermediate_output))
+    else:
+        intermediate_fout = None
 
     # Process imports in the input file, and find the main.
     # If there's no main, then bail out right away.
@@ -181,9 +179,10 @@ def compileFunction(filename, main_name=None, saveOutput=False,
 
     ptree = importer.qglmain
 
-    ast_text_orig = pyqgl2.ast_util.ast2str(ptree)
-    print(('%s: ORIGINAL CODE:\n%s' % (datetime.now(), ast_text_orig)),
-            file=intermediate_fout, flush=True)
+    if intermediate_output:
+        ast_text_orig = pyqgl2.ast_util.ast2str(ptree)
+        print(('%s: ORIGINAL CODE:\n%s' % (datetime.now(), ast_text_orig)),
+              file=intermediate_fout, flush=True)
 
     # if Wait() and Sync() aren't accessible from the namespace
     # used by the qglmain, then things are going to fail later;
@@ -226,16 +225,18 @@ def compileFunction(filename, main_name=None, saveOutput=False,
         ptree1 = inliner.inline_function(ptree1)
         NodeError.halt_on_error()
 
-        print(('INLINED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-                file=intermediate_fout, flush=True)
+        if intermediate_output:
+            print(('INLINED CODE (iteration %d):\n%s' %
+                   (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+                  file=intermediate_fout, flush=True)
 
         type_check = CheckType(filename, importer=importer)
         ptree1 = type_check.visit(ptree1)
         NodeError.halt_on_error()
-        print(('CHECKED CODE (iteration %d):\n%s' %
-                (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-                file=intermediate_fout, flush=True)
+        if intermediate_output:
+            print(('CHECKED CODE (iteration %d):\n%s' %
+                   (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+                  file=intermediate_fout, flush=True)
 
         if inliner.change_cnt == 0:
             NodeError.diag_msg(None,
@@ -252,7 +253,8 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     ptree1 = evaluator.visit(ptree1)
     NodeError.halt_on_error()
 
-    print('%s: EVALUATOR RESULT:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(ptree1)))
+    if DebugMsg.ACTIVE_LEVEL < 3:
+        print('%s: EVALUATOR RESULT:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(ptree1)))
     # It's very hard to read the intermediate form, before the
     # QBIT names are added, so we don't save this right now.
     # print(('EVALUATOR RESULT:\n%s' % pyqgl2.ast_util.ast2str(ptree1)),
@@ -265,9 +267,12 @@ def compileFunction(filename, main_name=None, saveOutput=False,
 
     evaluator.replace_bindings(ptree1.body)
 
-    print('%s: EVALUATOR REBINDINGS:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(ptree1)))
-    print(('EVALUATOR + REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1)),
-            file=intermediate_fout, flush=True)
+    if DebugMsg.ACTIVE_LEVEL < 3:
+        print('%s: EVALUATOR REBINDINGS:\n%s' % (datetime.now(),
+                                                 pyqgl2.ast_util.ast2str(ptree1)))
+    if intermediate_output:
+        print(('EVALUATOR + REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1)),
+              file=intermediate_fout, flush=True)
 
     # If we got raw code, then we may have no source file to use
     if not filename or filename == '<stdin>':
@@ -276,8 +281,9 @@ def compileFunction(filename, main_name=None, saveOutput=False,
         base_namespace = importer.path2namespace[filename]
         text = base_namespace.pretty_print()
 
-    print(('EXPANDED NAMESPACE:\n%s' % text),
-            file=intermediate_fout, flush=True)
+    if intermediate_output:
+        print(('EXPANDED NAMESPACE:\n%s' % text),
+              file=intermediate_fout, flush=True)
 
     new_ptree1 = ptree1
 
@@ -285,8 +291,9 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     sym_check = CheckSymtab(filename, type_check.func_defs, importer)
     new_ptree5 = sym_check.visit(new_ptree1)
     NodeError.halt_on_error()
-    print(('%s: SYMTAB CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree5))),
-            file=intermediate_fout, flush=True)
+    if intermediate_output:
+        print(('%s: SYMTAB CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree5))),
+              file=intermediate_fout, flush=True)
 
     MarkReferencedQbits.marker(new_ptree5,
             local_vars=evaluator.eval_state.locals_stack[-1])
@@ -294,8 +301,9 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     seq = AddSequential()
     new_ptree5 = seq.visit(new_ptree5)
     NodeError.halt_on_error()
-    print(('%s: SEQUENTIAL CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree5))),
-            file=intermediate_fout, flush=True)
+    if intermediate_output:
+        print(('%s: SEQUENTIAL CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree5))),
+              file=intermediate_fout, flush=True)
 
     # Take with-infunc and with-concur blocks and produce with-grouped
     # and with-group blocks
@@ -304,8 +312,9 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     new_ptree6 = grouper.group(new_ptree5,
             local_vars=evaluator.eval_state.locals_stack[-1])
     NodeError.halt_on_error()
-    print(('%s: GROUPED CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree6))),
-            file=intermediate_fout, flush=True)
+    if intermediate_output:
+        print(('%s: GROUPED CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree6))),
+              file=intermediate_fout, flush=True)
 
     # TODO: move the RepeatTransformer to before the grouper,
     # and make sure that it doesn't find things that include
@@ -322,8 +331,9 @@ def compileFunction(filename, main_name=None, saveOutput=False,
     flattener = Flattener()
     new_ptree7 = flattener.visit(new_ptree6)
     NodeError.halt_on_error()
-    print(('%s: FLATTENED CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree7))),
-            file=intermediate_fout, flush=True)
+    if intermediate_output:
+        print(('%s: FLATTENED CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree7))),
+              file=intermediate_fout, flush=True)
 
     evaluator.replace_bindings(new_ptree7.body)
 
@@ -334,31 +344,35 @@ def compileFunction(filename, main_name=None, saveOutput=False,
         sequencer.visit(new_ptree7)
         NodeError.halt_on_error()
 
-        print('FINAL SEQUENCES:')
-        for qbit in sequencer.qbit2sequence:
-            print('%s:' % qbit)
-            for inst in sequencer.qbit2sequence[qbit]:
-                if inst.startswith('BlockLabel'):
-                    txt = re.sub('BlockLabel\(\'', '', inst)
-                    txt = re.sub('\'.', ':', txt)
-                    print('    %s' % txt)
-                else:
-                    print('         %s' % inst)
+        if DebugMsg.ACTIVE_LEVEL < 3:
+            print('FINAL SEQUENCES:')
+            for qbit in sequencer.qbit2sequence:
+                print('%s:' % qbit)
+                for inst in sequencer.qbit2sequence[qbit]:
+                    if inst.startswith('BlockLabel'):
+                        txt = re.sub('BlockLabel\(\'', '', inst)
+                        txt = re.sub('\'.', ':', txt)
+                        print('    %s' % txt)
+                    else:
+                        print('         %s' % inst)
 
-    print(('Final qglmain: %s' % new_ptree7.name),
-            file=intermediate_fout, flush=True)
+    if intermediate_output:
+        print(('Final qglmain: %s' % new_ptree7.name),
+              file=intermediate_fout, flush=True)
 
     # These values are set above
     #base_namespace = importer.path2namespace[filename]
     #text = base_namespace.pretty_print()
-    print(('%s: FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % (datetime.now(), text)),
-            file=intermediate_fout, flush=True)
+    if intermediate_output:
+        print(('%s: FINAL CODE:\n-- -- -- -- --\n%s\n-- -- -- -- --' % (datetime.now(), text)),
+              file=intermediate_fout, flush=True)
 
     sync = SynchronizeBlocks(new_ptree7)
     new_ptree8 = sync.visit(deepcopy(new_ptree7))
     NodeError.halt_on_error()
-    print(('%s: SYNCED SEQUENCES:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree8))),
-            file=intermediate_fout, flush=True)
+    if intermediate_output:
+        print(('%s: SYNCED SEQUENCES:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree8))),
+              file=intermediate_fout, flush=True)
 
     # Done. Time to generate the QGL1
 

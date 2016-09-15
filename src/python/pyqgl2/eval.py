@@ -5,7 +5,7 @@
 import ast
 
 from ast import NodeTransformer
-from copy import deepcopy
+from quickcopy import quickcopy
 
 import pyqgl2.ast_util
 import pyqgl2.inline
@@ -382,7 +382,7 @@ class SimpleEvaluator(object):
         namespace = self.importer.path2namespace[target_ast.qgl_fname]
 
         local_variables = self.locals_stack[-1]
-        scratch_locals = deepcopy(local_variables)
+        scratch_locals = quickcopy(local_variables)
 
         self.fake_assignment_worker(
                 target_ast, values, scratch_locals, namespace)
@@ -774,7 +774,7 @@ class EvalTransformer(object):
             return orig_node
 
         self.change_cnt = 0
-        node = deepcopy(orig_node)
+        node = quickcopy(orig_node)
 
         # restore the last known set of locals before
         # trying to process the body of the node
@@ -890,7 +890,7 @@ class EvalTransformer(object):
 
         # TODO: sanity checking
 
-        iter_copy = deepcopy(stmnt.iter)
+        iter_copy = quickcopy(stmnt.iter)
 
         self.rewriter.rewrite(iter_copy)
 
@@ -948,8 +948,8 @@ class EvalTransformer(object):
                         optional_vars=None)]),
                     body=list())
 
-            new_body = deepcopy(body_template)
-            new_targets = deepcopy(targets_template)
+            new_body = quickcopy(body_template)
+            new_targets = quickcopy(targets_template)
 
             loop_var_names, _ = name_finder.find_names(new_targets)
             for name in loop_var_names:
@@ -1037,7 +1037,7 @@ class EvalTransformer(object):
                     'QGL2 while statements cannot have an else clause')
             return False, list()
 
-        new_stmnt = deepcopy(stmnt)
+        new_stmnt = quickcopy(stmnt)
         self.rewriter.rewrite(new_stmnt)
 
         is_classical, test = self.is_classical_test(new_stmnt.test)
@@ -1069,7 +1069,7 @@ class EvalTransformer(object):
             # Make a copy, so that the rewriter changes the
             # copy for the *next* iteration
             #
-            stmnt = deepcopy(stmnt)
+            stmnt = quickcopy(stmnt)
             self.rewriter.rewrite(stmnt)
 
             is_classical, test = self.is_classical_test(stmnt.test)
@@ -1250,7 +1250,7 @@ class EvalTransformer(object):
             #
             if isinstance(stmnt, ast.AugAssign):
                 new_right = ast.BinOp(
-                        left=deepcopy(stmnt.target),
+                        left=quickcopy(stmnt.target),
                         right=stmnt.value,
                         op=stmnt.op)
                 new_stmnt = ast.Assign(targets=[stmnt.target],
@@ -1396,7 +1396,7 @@ class EvalTransformer(object):
 
                 # print('WITH %s' % ast.dump(stmnt))
 
-                new_with = deepcopy(stmnt)
+                new_with = quickcopy(stmnt)
                 for item in new_with.items:
                     self.rewriter.rewrite(item)
 
