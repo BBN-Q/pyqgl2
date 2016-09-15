@@ -1570,7 +1570,7 @@ def make_check_ast(symname, typename, src_ast, fp_name, fun_name):
 
 def make_check_ast_vec(fun_name, src_ast, vec):
 
-    chk_ast = expr2ast('QGL2check(\'%s\')' % fun_name)
+    chk_ast = expr2ast('%s(\'%s\')' % (QGL2.CHECK_FUNC, fun_name))
 
     chk_ast.value.qgl2_checked_call = True
     chk_ast.value.qgl2_check_vector = vec
