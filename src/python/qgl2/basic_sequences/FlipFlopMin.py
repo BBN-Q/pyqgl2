@@ -7,23 +7,23 @@ from qgl2.qgl1 import X90, X90m, Y90, MEAS, QubitFactory, Id, X
 import numpy as np
 
 @qgl2decl
-def flipflop_seqs(dragScaling, maxNumFFs, qubit: qbit) -> sequence:
+def flipflop_seqs(dragParam, maxNumFFs, qubit: qbit) -> sequence:
     """ Helper function to create a list of sequences with a specified drag parameter. """
     # FIXME: cause qubit is a placeholder, can't access pulseParams
     # So instead, supply the dragScaling as an explicit kwarg to all pulses
-    # qubit.pulseParams['dragScaling'] = dragScaling
+    # qubit.pulseParams['dragScaling'] = dragParam
     for rep in range(maxNumFFs):
         init(qubit)
-        X90(qubit, dragScaling=dragScaling)
+        X90(qubit, dragScaling=dragParam)
         # FIXME: Original used [X90] + [X90, X90m]... is this right?
         for _ in range(rep):
-            X90(qubit, dragScaling=dragScaling)
-            X90m(qubi, dragScaling=dragScaling)
-        Y90(qubit, dragScaling=dragScaling)
+            X90(qubit, dragScaling=dragParam)
+            X90m(qubit, dragScaling=dragParam)
+        Y90(qubit, dragScaling=dragParam)
         MEAS(qubit) # FIXME: Need original dragScaling?
 
 @qgl2decl
-def FlipFlopMin() -> sequence:
+def doFlipFlop():
     # FIXME: No args
     qubit = QubitFactory('q1')
     dragParamSweep = np.linspace(0, 5e-6, 11) # FIXME
