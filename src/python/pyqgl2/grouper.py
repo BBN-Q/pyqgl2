@@ -6,7 +6,6 @@ Group nodes by the qbits they operate on
 
 import ast
 
-from copy import deepcopy
 
 import pyqgl2.ast_util
 
@@ -17,6 +16,8 @@ from pyqgl2.ast_util import copy_all_loc
 from pyqgl2.ast_util import NodeError
 from pyqgl2.inline import BarrierIdentifier
 from pyqgl2.inline import QubitPlaceholder
+from pyqgl2.debugmsg import DebugMsg
+from pyqgl2.quickcopy import quickcopy
 
 def find_all_channels(node, local_vars=None):
     """
@@ -274,10 +275,11 @@ class AddSequential(ast.NodeTransformer):
             if new_refs:
                 node.qgl2_referenced_qbits = new_refs
 
-        print('NODE %s => %s %s' %
-                (ast2str(node).strip(),
-                    str(node.qgl2_referenced_qbits),
-                    str(self.referenced_qbits)))
+        if DebugMsg.ACTIVE_LEVEL < 3:
+            print('NODE %s => %s %s' %
+                  (ast2str(node).strip(),
+                   str(node.qgl2_referenced_qbits),
+                   str(self.referenced_qbits)))
 
         # put things back the way they were (even if we didn't
         # change anything)
@@ -491,7 +493,7 @@ class QbitGrouper2(ast.NodeTransformer):
         qbit_seqs = list()
 
         for qbit in all_qbits:
-            scratch = deepcopy(node)
+            scratch = quickcopy(node)
 
             pruned = QbitPruner(set([qbit])).visit(scratch)
             if pruned:
@@ -503,7 +505,7 @@ class QbitGrouper2(ast.NodeTransformer):
     @staticmethod
     def group(node, local_vars=None):
 
-        new_node = deepcopy(node)
+        new_node = quickcopy(node)
 
         all_qbits = MarkReferencedQbits.marker(node, local_vars=local_vars)
 
@@ -526,7 +528,7 @@ class QbitGrouper2(ast.NodeTransformer):
         new_groups = list()
 
         for qbit in sorted(all_qbits):
-            scratch_body = deepcopy(body_stmnts)
+            scratch_body = quickcopy(body_stmnts)
 
             pruned_body = QbitPruner(set([qbit])).prune_body(scratch_body)
             if not pruned_body:
@@ -543,7 +545,8 @@ class QbitGrouper2(ast.NodeTransformer):
             beg_barrier = AddSequential.make_barrier_ast(
                 [qbit], with_group,
                 name='group_marker', bid=bid)
-            print("For qbit %s, inserting group_marker: %s" % (qbit, ast2str(beg_barrier)))
+            if DebugMsg.ACTIVE_LEVEL < 3:
+                print("For qbit %s, inserting group_marker: %s" % (qbit, ast2str(beg_barrier)))
 
             with_group.body = [beg_barrier] + pruned_body
 

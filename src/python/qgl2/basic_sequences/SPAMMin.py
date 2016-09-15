@@ -10,7 +10,7 @@ from numpy import pi
 import numpy as np
 
 @qgl2decl
-def spam_seqs(angle, qubit: qbit, maxSpamBlocks=10) -> sequence:
+def spam_seqs(angle, q: qbit, maxSpamBlocks=10) -> sequence:
     for rep in range(maxSpamBlocks):
         init(q)
         Y90(q)

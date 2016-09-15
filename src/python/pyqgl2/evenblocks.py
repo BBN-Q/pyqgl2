@@ -75,7 +75,7 @@ from QGL.BlockLabel import BlockLabel
 from QGL.PulsePrimitives import Id
 from QGL.ChannelLibrary import QubitFactory
 
-import copy
+from pyqgl2.quickcopy import quickcopy
 import logging
 
 logger = logging.getLogger('QGL.Compiler.qgl2')
@@ -131,6 +131,8 @@ def pulseLengths(pulses):
     logger.warning("Unknown sequence element %s of type %s assumed to have length 0", pulses, type(pulses))
     return lenRes
 
+# FIXME: This gets called a bunch. Removing log statements doesn't
+# speed it up. What would help?
 def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
     '''Update the barrier object in our 3 data structures 
     for the given counter, sequence to add the given length
@@ -151,7 +153,8 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
             # logger.debug("markBarrier (seq %d) on '%s' found wrong sequence in barriersByCtr (%d) - skip", seqIdx, barrierCtr, barrier['seqIndex'])
             pass
         else:
-            logger.debug("markBarrierLength updating barriersByCtr object: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("markBarrierLength updating barriersByCtr object: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
             barrier['lengthSince'] += addLen
             barrier['lengthCalculated'] = True
             barriersByCtr[barrierCtr] = barrier
@@ -300,6 +303,7 @@ def isReplaceableBarrier(barrier, seqs):
             return False
     return False
 
+# FIXME: This gets called a bunch. Can we speed it up?
 def getNextBarrierCtr(seqs, seqInd, currCtr):
     ''' Find the id (counter) of the next Barrier after currCtr on the given sequence
     that we could (still) replace. So skip barriers no longer in the sequence.
@@ -396,6 +400,7 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
     return '-1'
 # End getNextBarrierCtr
 
+# FIXME: This gets called a bunch. Can we speed it up?
 def barriersEqual(thisB, thatB):
     '''Return True iff 2 barrier dictionaries are effectively equal,
     i.e. same sequence and same counter.'''
@@ -1002,8 +1007,8 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
 
                 # Store this barrier
                 barriersByCtr[curBarrier['counter']] = curBarrier
-                barriersBySeqByPos[seqInd][seqPos] = copy.deepcopy(curBarrier)
-                barriersBySeqByCtr[seqInd][curBarrier['counter']] = copy.deepcopy(curBarrier)
+                barriersBySeqByPos[seqInd][seqPos] = quickcopy(curBarrier)
+                barriersBySeqByCtr[seqInd][curBarrier['counter']] = quickcopy(curBarrier)
 
                 # Reset vars for next barrier block
                 prevBarrier = curBarrier

@@ -270,6 +270,9 @@ class SequenceExtractor(object):
         preamble += indent + found_imports
         preamble += '\n\n'
 
+        # FIXME: In below block, calls to ast2str are the slowest part
+        # (78%) of calling get_sequence_function. Fixable?
+
         for (sym_name, _use_name, node) in self.qbit_creates:
             preamble += indent + 'if \'' + sym_name + '\' in kwargs:\n'
             preamble += (2 * indent) + sym_name
