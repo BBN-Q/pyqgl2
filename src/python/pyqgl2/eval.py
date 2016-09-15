@@ -23,6 +23,9 @@ from pyqgl2.quickcopy import quickcopy
 
 from QGL import Qubit
 
+# TODO: move this into pyqgl2.
+import qgl2.qgl2_check
+
 def insert_keyword(kwargs, key, value):
 
     if not isinstance(key, str):
@@ -1347,6 +1350,19 @@ class EvalTransformer(object):
         self.in_quantum_condition = was_in_quantum_condition
         return True, list([stmnt])
 
+    def call_checker(self, vec):
+
+        local_variables = self.eval_state.locals_stack[-1]
+
+        for check in vec:
+            (var_name, type_name, fp_name, func, src, row, col) = check
+
+            mapped_name = self.rewriter.get_mapping(var_name)
+            value = local_variables[mapped_name]
+
+            qgl2.qgl2_check.QGL2check(
+                    value, type_name, fp_name, func, src, row, col)
+
     def do_body(self, body):
 
         new_body = list()
@@ -1462,6 +1478,10 @@ class EvalTransformer(object):
 
             elif (isinstance(stmnt, ast.Expr) and
                     isinstance(stmnt.value, ast.Call)):
+
+                if hasattr(stmnt.value, 'qgl2_check_vector'):
+                    self.call_checker(stmnt.value.qgl2_check_vector)
+                    continue
 
                 self.rewriter.rewrite(stmnt)
 

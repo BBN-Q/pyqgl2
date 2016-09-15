@@ -745,8 +745,7 @@ def create_inline_procedure(func_ptree, call_ptree):
         for subnode in ast.walk(assignment):
             subnode.qgl_fname = source_file
 
-            pyqgl2.ast_util.copy_all_loc(assignment, call_ptree)
-            ast.fix_missing_locations(assignment)
+            pyqgl2.ast_util.copy_all_loc(assignment, call_ptree, recurse=True)
 
     # Make a list of all of the formal parameters declared to be qbits,
     # and use this to define the barrier statements for this call
@@ -756,6 +755,18 @@ def create_inline_procedure(func_ptree, call_ptree):
     for formal_param in formal_params:
         if (formal_param.annotation and
                 formal_param.annotation.id == QGL2.QBIT):
+
+            # If we get a parameter that's not an ast.Name, but it's declared
+            # to be a qbit, then we know that the type checking is going
+            # to fail.  Return an empty list now and let the error checker
+            # figure out what happened.
+            #
+            # TODO: what if the expression isn't a const?
+            #
+            if not isinstance(
+                    rewriter.name2const[formal_param.arg], ast.Name):
+                return list()
+
             qbit_fparams.append(formal_param.arg)
             qbit_aparams.append(rewriter.name2const[formal_param.arg].id)
 
@@ -1542,7 +1553,7 @@ def funcdef_has_type_anno(func_ptree):
 
     return found_anno
 
-def make_check_ast(symname, typename, src_ast, orig_name, fun_name):
+def make_check_ast_old(symname, typename, src_ast, orig_name, fun_name):
     """
     Create AST for a call to check that the given symname has the type
     specified by typename
@@ -1568,17 +1579,33 @@ def make_check_ast(symname, typename, src_ast, orig_name, fun_name):
     #
     chk_ast.value.qgl2_checked_call = True
 
+    return make_check_ast(symname, typename, src_ast, orig_name, fun_name)
+
     return chk_ast
 
-def make_check_tuple_ast(symname, typename, src_ast, orig_name, fun_name):
+def make_check_ast(symname, typename, src_ast, fp_name, fun_name):
 
-    tuple_txt = '(%s, \'%s\', \'%s\', \'%s\', \'%s\', %d, %d)' % (
-            symname, typename, orig_name, fun_name,
+    chk_txt = 'QGL2check(\'%s\', \'%s\')' % (fun_name, fp_name)
+    print('CHK_TXT [%s]' % chk_txt)
+
+    chk_ast = expr2ast(chk_txt)
+    pyqgl2.ast_util.copy_all_loc(chk_ast, src_ast, recurse=True)
+    chk_ast.value.qgl2_checked_call = True
+
+    chk_args = make_check_tuple(
+            symname, typename, src_ast, fp_name, fun_name)
+
+    chk_ast.value.qgl2_check_vector = list([chk_args])
+
+    return chk_ast
+
+def make_check_tuple(symname, typename, src_ast, fp_name, fun_name):
+
+    check_tuple = (
+            symname, typename, fp_name, fun_name,
             src_ast.qgl_fname, src_ast.lineno, src_ast.col_offset)
 
-    tuple_ast = expr2ast(tuple_txt)
-    return tuple_ast
-
+    return check_tuple
 
 def add_runtime_call_check(call_ptree, func_ptree):
     """
@@ -1687,6 +1714,8 @@ def add_runtime_call_check(call_ptree, func_ptree):
     pos_args = list()
     kw_args = list()
 
+    tmp_check_tuples = list()
+
     # make sure that the user hasn't provided more args
     # than the function was declared to take...
     #
@@ -1706,19 +1735,13 @@ def add_runtime_call_check(call_ptree, func_ptree):
         params_seen.add(fp_name)
 
         ap_node = call_ptree.args[arg_index]
-        if (isinstance(ap_node, ast.Name) or isinstance(ap_node, ast.Num)):
-            new_name = ast2str(ap_node).strip()
-            new_arg = ap_node
+        new_name = tmp_names.create_tmp_name(orig_name=fp_name)
+        new_ast = expr2ast(
+                '%s = %s' % (new_name, ast2str(ap_node).strip()))
+        pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
+        tmp_assts.append(new_ast)
 
-            pos_args.append(ap_node)
-        else:
-            new_name = tmp_names.create_tmp_name(orig_name=fp_name)
-            new_ast = expr2ast(
-                    '%s = %s' % (new_name, ast2str(ap_node).strip()))
-            pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
-            tmp_assts.append(new_ast)
-
-            pos_args.append(new_ast.targets[0])
+        pos_args.append(new_ast.targets[0])
 
         anno = func_ptree.args.args[arg_index].annotation
         if anno:
@@ -1728,8 +1751,14 @@ def add_runtime_call_check(call_ptree, func_ptree):
                 return None
 
             check_ast = make_check_ast(
-                    new_name, anno.id, ap_node, fp_name, func_ptree.name)
+                    new_name, anno.id, call_ptree, fp_name, func_ptree.name)
             tmp_checks.append(check_ast)
+
+            check_tuple = make_check_tuple(
+                    new_name, anno.id, call_ptree, fp_name, func_ptree.name)
+            print('QCVT %s' % str(check_tuple))
+
+            tmp_check_tuples.append(check_tuple)
 
     # Then kwargs in the call:
     #
@@ -1757,17 +1786,12 @@ def add_runtime_call_check(call_ptree, func_ptree):
 
         params_seen.add(fp_name)
 
-        if (isinstance(ap_node, ast.Name) or isinstance(ap_node, ast.Num)):
-            new_name = ast2str(ap_node).strip()
-            new_arg = ap_node
+        new_name = tmp_names.create_tmp_name(orig_name=fp_name)
 
-            kw_args.append((fp_name, new_name))
-        else:
-            new_name = tmp_names.create_tmp_name(orig_name=fp_name)
-
-            new_ast = expr2ast('%s = %s' % (new_name, ast2str(ap_node).strip()))
-            pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
-            tmp_assts.append(new_ast)
+        new_ast = expr2ast('%s = %s' % (new_name, ast2str(ap_node).strip()))
+        pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
+        tmp_assts.append(new_ast)
+        kw_args.append((fp_name, new_name))
 
         # We need to scan through the function definition to find
         # whether there's an annotation for this parameter
