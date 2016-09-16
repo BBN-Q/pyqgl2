@@ -798,6 +798,14 @@ def create_inline_procedure(func_ptree, call_ptree):
         else:
             qbit_aparams_reverse[qbit_aparam] = qbit_fparam
 
+    # We want to preserve a reference to the original call,
+    # and make sure it doesn't get clobbered.
+    #
+    # I'm not sure whether we need to make a complete copy
+    # of the original call_ptree, but it won't hurt
+    #
+    orig_call_ptree = deepcopy(call_ptree)
+
     isFirst = True
     for stmnt in func_body:
         # Skip over method docs
@@ -811,16 +819,15 @@ def create_inline_procedure(func_ptree, call_ptree):
         ast.fix_missing_locations(new_stmnt)
         new_func_body.append(new_stmnt)
 
-        # stash a reference to the original call in the new_stmnt,
-        # so that we can trace back the original variables used
-        # in the call
+        # If it's any kind of a control-flow statement, then
+        # it needs to get executed on all of the qbits in
+        # the context of the original call, so link back
+        # to the original call, but if it's an expression,
+        # then it only needs to execute on the qbits that
+        # it references directly.
         #
-        # We want to preserve the call, and make sure it doesn't
-        # get clobbered.  I'm not sure whether we need to make a
-        # scratch copy of the original call_ptree, but it won't
-        # hurt
-        #
-        new_stmnt.qgl2_orig_call = deepcopy(call_ptree)
+        if not isinstance(new_stmnt, ast.Expr):
+            new_stmnt.qgl2_orig_call = orig_call_ptree
 
     with_infunc = expr2ast(
             ('with infunc(\'%s\', %s): pass' %
