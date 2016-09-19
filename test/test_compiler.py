@@ -5,7 +5,7 @@ from itertools import product
 from pyqgl2.main import compileFunction
 from QGL import *
 
-from .helpers import channel_setup, testable_sequence
+from test.helpers import channel_setup, testable_sequence, discard_zero_Ids
 
 class TestCompiler(unittest.TestCase):
     def setUp(self):
