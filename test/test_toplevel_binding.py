@@ -126,6 +126,7 @@ class TestTopLevelBinding(unittest.TestCase):
         self.assertEqual(seqs[0], expectedseq)
 
     def test_main3(self):
+        # add a qubit input
         q1 = QubitFactory('q1')
         amps = range(5)
         expectedseq = [Xtheta(q1, amp=a) for a in amps]
@@ -135,6 +136,23 @@ class TestTopLevelBinding(unittest.TestCase):
             "src/python/pyqgl2/test/toplevel_binding.py",
             "main3",
             (q1, amps)
+            )
+        seqs = resFunction()
+        seqs = testable_sequence(seqs)
+
+        self.assertEqual(seqs[0], expectedseq)
+
+    def test_main4(self):
+        # add a function handle as an input
+        q1 = QubitFactory('q1')
+        amps = range(5)
+        expectedseq = [Xtheta(q1, amp=a, shapeFun=PulseShapes.tanh) for a in amps]
+
+        # tuple input for toplevel_bindings
+        resFunction = compileFunction(
+            "src/python/pyqgl2/test/toplevel_binding.py",
+            "main4",
+            (q1, amps, PulseShapes.tanh)
             )
         seqs = resFunction()
         seqs = testable_sequence(seqs)

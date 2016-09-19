@@ -18,3 +18,8 @@ def main2(amps, phase):
 def main3(q:qbit, amps):
     for a in amps:
         Xtheta(q, amp=a)
+
+@qgl2decl
+def main4(q:qbit, amps, shape):
+    for a in amps:
+        Xtheta(q, amp=a, shapeFun=shape)
