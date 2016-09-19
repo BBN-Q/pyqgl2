@@ -10,7 +10,7 @@ import pyqgl2.ast_util
 import pyqgl2.inline
 
 
-from pyqgl2.ast_util import NodeError, ast2str
+from pyqgl2.ast_util import NodeError, ast2str, copy_all_loc
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import NameFinder, NameRedirector, NameRewriter
@@ -18,6 +18,8 @@ from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.inline import TempVarManager
 from pyqgl2.single import is_qbit_create
 from pyqgl2.quickcopy import quickcopy
+
+from QGL import Qubit
 
 def insert_keyword(kwargs, key, value):
 
@@ -774,9 +776,19 @@ class EvalTransformer(object):
 
         # restore the last known set of locals before
         # trying to process the body of the node
-        #
         self.setup_locals()
 
+        # add assignments for passed qbit parameters
+        qbit_preamble = list()
+        local_variables = self.eval_state.locals_stack[-1]
+        for k, v in local_variables.items():
+            if isinstance(v, Qubit):
+                # FIXME kludge assumption that label is sufficient description
+                stmnt = ast.parse("{0} = QubitFactory('{1}')".format(k, v.label))
+                stmnt.body[0].qgl_fname = orig_node.qgl_fname
+                copy_all_loc(stmnt.body[0], node, recurse=True)
+                qbit_preamble.append(stmnt.body[0])
+        node.body = qbit_preamble + node.body
         node.body = self.do_body(node.body)
 
         # For debugging purposes, print out what we have stored up.

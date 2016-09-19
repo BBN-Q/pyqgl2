@@ -13,3 +13,8 @@ def main2(amps, phase):
     q = QubitFactory('q1')
     for a in amps:
         Utheta(q, amp=a, phase=phase)
+
+@qgl2decl
+def main3(q:qbit, amps):
+    for a in amps:
+        Xtheta(q, amp=a)
