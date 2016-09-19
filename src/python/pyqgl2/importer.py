@@ -303,7 +303,9 @@ class NameSpace(object):
         """
 
         try:
-            text = open(self.path, 'r').read()
+            fin = open(self.path, 'r')
+            text = fin.read()
+            fin.close()
         except BaseException as exc:
             NodeError.error_msg(None,
                     'read of [%s] failed: %s' % (self.path, str(exc)))
@@ -645,7 +647,11 @@ class NameSpaces(object):
         # a sentinel value, so we use self.qgl2main.  This is
         # bogus -- we should make a fake node for this purpose
         # FIXME
-        text = open(self.base_fname, 'r').read()
+
+        fin = open(self.base_fname, 'r')
+        text = fin.read()
+        fin.close()
+
         namespace = self.path2namespace[self.base_fname]
         namespace.native_import(text, self.qglmain)
 
@@ -763,10 +769,12 @@ class NameSpaces(object):
         #
 
         try:
-            text = open(path, 'r').read()
+            fin = open(path, 'r')
+            text = fin.read()
+            fin.close()
         except BaseException as exc:
-            NodeError.fatal_msg(None,
-                    'cannot open [%s]: %s' % (path, str(exc)))
+            NodeError.fatal_msg(
+                    None, 'cannot open [%s]: %s' % (path, str(exc)))
             return None
 
         try:
