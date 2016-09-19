@@ -769,10 +769,6 @@ class EvalTransformer(object):
         assert isinstance(orig_node, ast.FunctionDef), \
                 ('expected ast.FunctionDef, got %s' % type(node))
 
-        if orig_node.args.args:
-            NodeError.error_msg(orig_node, 'qgl2main cannot take parameters')
-            return orig_node
-
         self.change_cnt = 0
         node = quickcopy(orig_node)
 
@@ -1231,7 +1227,7 @@ class EvalTransformer(object):
             # TODO: if we've seen a "break" or "continue" but we're
             # not inside a nested statement that supports these,
             # then something is wrong
-            # 
+            #
             if self.seen_break or self.seen_continue:
                 break
 
@@ -1558,4 +1554,3 @@ if __name__ == '__main__':
 
     et = EvalTransformer(SimpleEvaluator(importer, None))
     ptree2 = et.visit(ptree)
-

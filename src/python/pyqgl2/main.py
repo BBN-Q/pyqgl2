@@ -133,7 +133,10 @@ def parse_args(argv):
     return options
 
 
-def compileFunction(filename, main_name=None, saveOutput=False,
+def compileFunction(filename,
+                    main_name=None,
+                    toplevel_bindings=None,
+                    saveOutput=False,
                     intermediate_output=None):
 
     # Use whether intermediate_output is None to decide
@@ -247,7 +250,21 @@ def compileFunction(filename, main_name=None, saveOutput=False,
         NodeError.error_msg(None,
                 ('expansion did not converge after %d iterations' % MAX_ITERS))
 
-    evaluator = EvalTransformer(SimpleEvaluator(importer, None))
+    # transform passed toplevel_bindings into a local_context dictionary
+    arg_names = [x.arg for x in ptree1.args.args]
+    if isinstance(toplevel_bindings, tuple):
+        local_context = {name: value for name, value in zip(arg_names, toplevel_bindings)}
+    elif isinstance(toplevel_bindings, dict):
+        invalid_args = toplevel_bindings.keys() - arg_names
+        if len(invalid_args) > 0:
+            NodeError.error_msg(None,
+                'Invalid arguments supplied to qgl2main: {}'.format(invalid_args))
+        local_context = toplevel_bindings
+    else:
+        NodeError.error_msg(None,
+            'Unrecognized type for toplevel_bindings')
+
+    evaluator = EvalTransformer(SimpleEvaluator(importer, local_context))
 
     print('%s: CALLING EVALUATOR' % datetime.now())
     ptree1 = evaluator.visit(ptree1)
