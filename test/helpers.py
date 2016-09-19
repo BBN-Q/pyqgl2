@@ -13,11 +13,13 @@ def channel_setup():
     if len(ChannelLibrary.channelLib.keys()) == 0:
         create_channel_library()
         ChannelLibrary.channelLib.write_to_file()
+    else:
+        create_channel_library(new=True)
 
 # Create a basic channel library
 # Code stolen from QGL's test_Sequences
 # It creates channels that are taken from test_Sequences APS2Helper
-def create_channel_library(channels=dict()):
+def create_channel_library(channels=dict(), new=False):
     from QGL.Channels import LogicalMarkerChannel, PhysicalQuadratureChannel, PhysicalMarkerChannel
     qubit_names = ['q1','q2']
     logical_names = ['digitizerTrig', 'slaveTrig']
@@ -53,9 +55,9 @@ def create_channel_library(channels=dict()):
         cr = EdgeFactory(q1, q2)
     except:
         cr = Edge(label="cr", source = q1, target = q2, gateChan = channels['cr-gate'] )
-        cr.pulseParams['length'] = 30e-9
-        cr.pulseParams['phase'] = pi/4
-        channels["cr"] = cr
+    cr.pulseParams['length'] = 30e-9
+    cr.pulseParams['phase'] = pi/4
+    channels["cr"] = cr
 
     mq1q2g = LogicalMarkerChannel(label='M-q1q2-gate')
     channels['M-q1q2-gate']  = mq1q2g
@@ -93,15 +95,16 @@ def create_channel_library(channels=dict()):
                 'M-q1q2'        : 'APS6-12',
                 'M-q1q2-gate'   : 'APS6-12m1'}
 
-    finalize_map(mapping, channels)
+    finalize_map(mapping, channels, new)
     return channels
 
 # Store the given channels in the QGL ChannelLibrary
-def finalize_map(mapping, channels):
+def finalize_map(mapping, channels, new=False):
     for name,value in mapping.items():
         channels[name].physChan = channels[value]
 
-    # ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
+    if new:
+        ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
     ChannelLibrary.channelLib.channelDict = channels
     ChannelLibrary.channelLib.build_connectivity_graph()
 
