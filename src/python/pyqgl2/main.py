@@ -253,13 +253,13 @@ def compileFunction(filename,
     # transform passed toplevel_bindings into a local_context dictionary
     arg_names = [x.arg for x in ptree1.args.args]
     if isinstance(toplevel_bindings, tuple):
-        local_context = {name: value for name, value in zip(arg_names, toplevel_bindings)}
+        local_context = {name: deepcopy(value) for name, value in zip(arg_names, toplevel_bindings)}
     elif isinstance(toplevel_bindings, dict):
         invalid_args = toplevel_bindings.keys() - arg_names
         if len(invalid_args) > 0:
             NodeError.error_msg(None,
                 'Invalid arguments supplied to qgl2main: {}'.format(invalid_args))
-        local_context = toplevel_bindings
+        local_context = deepcopy(toplevel_bindings)
     else:
         NodeError.error_msg(None,
             'Unrecognized type for toplevel_bindings')
