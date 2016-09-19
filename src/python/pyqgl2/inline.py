@@ -1441,6 +1441,14 @@ class Inliner(ast.NodeTransformer):
             return None
 
         func_filename = call_ptree.qgl_fname
+
+        if not isinstance(call_ptree.func, ast.Name):
+            NodeError.error_msg(
+                    call_ptree,
+                    ('cannot inline function expression [%s]'
+                        % ast2str(call_ptree).strip()))
+            return None
+
         func_name = collapse_name(call_ptree.func)
         func_ptree = self.importer.resolve_sym(func_filename, func_name)
 
@@ -1507,9 +1515,16 @@ class Inliner(ast.NodeTransformer):
                 new_body += inlined
                 self.change_cnt += 1
 
-            NodeError.diag_msg(
-                    call_ptree,
-                    ('inlined call to %s()' % collapse_name(call_ptree.func)))
+            if inlined != call_ptree:
+                NodeError.diag_msg(
+                        call_ptree,
+                        ('inlined call to %s' %
+                            ast2str(call_ptree).strip()))
+            else:
+                NodeError.error_msg(
+                        call_ptree,
+                        ('failed to inline call to %s' %
+                            ast2str(call_ptree).strip()))
 
         return new_body
 
@@ -1861,6 +1876,13 @@ def inline_call(base_call, importer):
 
     if not isinstance(base_call, ast.Call):
         NodeError.error_msg(base_call, 'not a call')
+        return base_call
+
+    if not isinstance(base_call.func, ast.Name):
+        NodeError.error_msg(
+                base_call,
+                ('function not called by name [%s]' %
+                    ast2str(base_call).strip()))
         return base_call
 
     func_filename = base_call.qgl_fname
