@@ -260,9 +260,11 @@ def compileFunction(filename,
             NodeError.error_msg(None,
                 'Invalid arguments supplied to qgl2main: {}'.format(invalid_args))
         local_context = deepcopy(toplevel_bindings)
-    else:
+    elif toplevel_bindings:
         NodeError.error_msg(None,
             'Unrecognized type for toplevel_bindings')
+    else:
+        local_context = None
 
     evaluator = EvalTransformer(SimpleEvaluator(importer, local_context))
 
