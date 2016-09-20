@@ -1521,9 +1521,9 @@ class Inliner(ast.NodeTransformer):
                         ('inlined call to %s' %
                             ast2str(call_ptree).strip()))
             else:
-                NodeError.error_msg(
+                NodeError.diag_msg(
                         call_ptree,
-                        ('failed to inline call to %s' %
+                        ('did not inline call to %s' %
                             ast2str(call_ptree).strip()))
 
         return new_body
