@@ -17,7 +17,7 @@ class TestCompiler(unittest.TestCase):
 
     @unittest.expectedFailure
     def test_tomo(self):
-        resFunction = compileFunction("src/python/pyqgl2/test/tomo.py", "main")
+        resFunction = compileFunction("test/code/tomo.py", "main")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -27,7 +27,7 @@ class TestCompiler(unittest.TestCase):
         assertPulseSequenceEqual(self, seqs[1], expectedseq2)
 
     def test_tomo_no_generators(self):
-        resFunction = compileFunction("src/python/pyqgl2/test/tomo.py", "main_no_generators")
+        resFunction = compileFunction("test/code/tomo.py", "main_no_generators")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
