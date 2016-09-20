@@ -5,7 +5,8 @@ from math import pi
 from pyqgl2.main import compileFunction
 from QGL import *
 
-from .helpers import channel_setup, testable_sequence, discard_zero_Ids
+from .helpers import testable_sequence, discard_zero_Ids
+from pyqgl2.channelSetup import channel_setup
 
 class TestBasicMins(unittest.TestCase):
     def setUp(self):
@@ -600,6 +601,14 @@ class TestBasicMins(unittest.TestCase):
             self.assertEqual(seqs[0], expectedseq2)
 
     # FIXME: This isn't correct yet / doesn't work yet
+    # lengths are coming out wrong. 1st has len 4e-8, other is
+    # 1.00000004e-8
+    # Why is QGL2 version 3 bigger (or 4x)?
+    # Looks like my test puts in a pause to line them up that is
+    # smaller than the "real" code. Not sure which is right.
+    # But also, the "real" code is putting in the barrier before the
+    # requested Id. But that seems wrong - I'd expect the barrier to
+    # be after the "real" Id (before the MEAS).
     # FIXME: Update this when calibration added
     def xtest_Swap(self):
         q = QubitFactory('q1')
@@ -635,8 +644,28 @@ class TestBasicMins(unittest.TestCase):
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expectedseq1, expectedseq2])
 
+        ## FIXME: Debug stuff here...
+        print("q1seq:\n")
+        for ele in expectedseq1:
+            print(ele)
+        print("q2seq:\n")
+        for ele in expectedseq2:
+            print(ele)
+
+        from pyqgl2.ast_util import NodeError
+        from pyqgl2.debugmsg import DebugMsg
+        NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+        DebugMsg.set_level(0)
+        import logging
+        from QGL.Compiler import set_log_level
+        # Note this acts on QGL.Compiler at DEBUG by default
+        # Could specify other levels, loggers
+        set_log_level()
+        ## End of debug stuff
+
+        # FIXME: Remove True arg when not debugging
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doSwap")
+                                      "doSwap", True)
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -644,9 +673,27 @@ class TestBasicMins(unittest.TestCase):
         self.assertEqual(len(seqs), 2)
         self.maxDiff = None
         if seqs[0][2] == X(q):
+            ## FIXME: Debug stuff...
+            print("But got:\n")
+            for ele in seqs[0]:
+                print(ele)
+            print("q2:\n")
+            for ele in seqs[1]:
+                print(ele)
+            ## End of Debug stuff
+
             self.assertEqual(seqs[0], expectedseq1)
             self.assertEqual(seqs[1], expectedseq2)
         else:
+            ## FIXME: Debug stuff
+            print("But got:\n")
+            for ele in seqs[1]:
+                print(ele)
+            print("q2:\n")
+            for ele in seqs[0]:
+                print(ele)
+            ## End of Debug stuff
+
             self.assertEqual(seqs[1], expectedseq1)
             self.assertEqual(seqs[0], expectedseq2)
 
