@@ -75,7 +75,7 @@ from QGL.BlockLabel import BlockLabel
 from QGL.PulsePrimitives import Id
 from QGL.ChannelLibrary import QubitFactory
 
-from copy import copy
+from pyqgl2.quickcopy import quickcopy
 import logging
 
 logger = logging.getLogger('QGL.Compiler.qgl2')
@@ -415,6 +415,7 @@ def getNextBarrierCtr(seqs, seqInd, currCtr, positions):
     return '-1'
 # End getNextBarrierCtr
 
+# FIXME: This gets called a bunch. Can we speed it up?
 def barriersEqual(thisB, thatB):
     '''Return True iff 2 barrier dictionaries are effectively equal,
     i.e. same sequence and same counter.'''

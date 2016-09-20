@@ -469,6 +469,21 @@ class TestBasicMins(unittest.TestCase):
                 MEAS(q1)
             ]
 
+    ## RB isn't ready yet
+
+    ## Rabi
+
+    def test_RabiAmp(self):
+        q1 = QubitFactory('q1')
+        expectedseq = []
+        for amp in np.linspace(0, 1, 11):
+            expectedseq += [
+                qsync(),
+                qwait(),
+                Utheta(q1, amp=amp),
+                MEAS(q1)
+            ]
+
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiAmp")
         seqs = resFunction()
