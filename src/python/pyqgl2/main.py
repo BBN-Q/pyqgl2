@@ -139,6 +139,11 @@ def compileFunction(filename,
                     saveOutput=False,
                     intermediate_output=None):
 
+    NodeError.reset()
+
+    print('\n\nCOMPILING [%s] main %s' %
+            (filename, main_name if main_name else '(default)'))
+
     # Use whether intermediate_output is None to decide
     # whether to call printout blocks at all
     # Old code set intermediate_output to /dev/null
