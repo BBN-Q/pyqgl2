@@ -905,9 +905,8 @@ if __name__ == '__main__':
         print("Using ChannelLibrary from config")
     else:
         # Hack. Create a basic channel library
-        print("Creating an APS2ish config with 2 Qubits for testing")
-        import test_setup
-        test_setup.chanSetup()
+        import pyqgl2.channelSetup
+        pyqgl2.channelSetup.channel_setup()
 
     resFunction = compileFunction(opts.filename, opts.main_name, opts.saveOutput,
                                   intermediate_output=opts.intermediate_output)
