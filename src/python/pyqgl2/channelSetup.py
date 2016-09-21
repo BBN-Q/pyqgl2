@@ -64,9 +64,24 @@ def create_channel_library(channels=dict(), new=False):
     channels['M-q1q2-gate']  = mq1q2g
     channels['M-q1q2']       = Measurement(label='M-q1q2', gateChan = mq1q2g, trigChan=channels['digitizerTrig'])
 
+    # Add a 2nd edge from q2 back to q1 to support edgeTest4 (which is weird)
+    channels['cr2-gate'] = LogicalMarkerChannel(label='cr2-gate')
+    cr2 = None
+    try:
+        cr2 = EdgeFactory(q2, q1)
+    except:
+        cr2 = Edge(label="cr2", source = q2, target = q1, gateChan = channels['cr2-gate'] )
+    cr2.pulseParams['length'] = 30e-9
+    cr2.pulseParams['phase'] = pi/4
+    channels["cr2"] = cr2
+
+    mq2q1g = LogicalMarkerChannel(label='M-q2q1-gate')
+    channels['M-q2q1-gate']  = mq2q1g
+    channels['M-q2q1']       = Measurement(label='M-q2q1', gateChan = mq2q1g, trigChan=channels['digitizerTrig'])
+
     # Now assign physical channels
     for name in ['APS1', 'APS2', 'APS3', 'APS4', 'APS5', 'APS6',
-                 'APS7', 'APS8']:
+                 'APS7', 'APS8', 'APS9', 'APS10']:
         channelName = name + '-12'
         channel = PhysicalQuadratureChannel(label=channelName)
         channel.samplingRate = 1.2e9
@@ -99,7 +114,11 @@ def create_channel_library(channels=dict(), new=False):
                 'cr'            : 'APS5-12',
                 'cr-gate'       : 'APS5-12m1',
                 'M-q1q2'        : 'APS6-12',
-                'M-q1q2-gate'   : 'APS6-12m1'}
+                'M-q1q2-gate'   : 'APS6-12m1',
+                'cr2'           : 'APS9-12',
+                'cr2-gate'      : 'APS9-12m1',
+                'M-q2q1'        : 'APS10-12',
+                'M-q2q1-gate'   : 'APS10-12m1'}
 
     finalize_map(mapping, channels, new)
     return channels
