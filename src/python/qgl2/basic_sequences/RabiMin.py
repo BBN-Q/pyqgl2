@@ -83,33 +83,45 @@ def doPulsedSpec():
         Id(q)
     MEAS(q)
 
+# Rabi_Amp_NQubits in QGL1 has a bug; it should
+# be doing MEAS over the measChans. So something like below.
+
 @qgl2decl
 def doRabiAmp_NQubits():
     # FIXME: Can't have args
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     qubits = [q1, q2]
-    measChans = None
+#    measChans = None
     amps = np.linspace(0, 5e-6, 11)
-    phase = 0
+    p = 0
     docals = False
     calRepeats = 2
 
-    if not measChans:
-        measChans = qubits
+    # FIXME: Re-assigning measChans fails.
+    # Once it is assigned, you cannot re-assign it
+#    if not measChans:
+    measChans = qubits
+#    measChans = [q2, q1]
 
-    for amp in amps:
+    for a in amps:
         with concur:
-            # FIXME: generator to iterate over doesnt work
-            for q,ct in list(zip(qubits, range(len(qubits)))):
+            # FIXME: Can't handle enumerate generator
+            for ct, q in list(enumerate(qubits)):
                 init(q)
-                Utheta(q, amp=amp, phase=phase)
-                MEAS(measChans[ct])
+                Utheta(q, amp=a, phase=p)
+                if measChans == qubits:
+                    MEAS(q)
+                else:
+                    MEAS(measChans[ct])
 
     if docals:
         # FIXME: This isn't working yet
         create_cal_seqs(qubits, calRepeats, measChans=measChans)
 
+# This version allows the Xs and Id pulse to be done in parallel,
+# as quick as possible. But we can't tell what the QGL1 method was
+# trying to do, so this may be meaningless.
 @qgl2decl
 def doSwap():
     # FIXME: Args
@@ -121,9 +133,9 @@ def doSwap():
         with concur:
             init(q)
             init(mq)
-        X(q)
-        X(mq)
-        Id(mq, d)
+            X(q)
+            X(mq)
+            Id(mq, d)
         with concur:
             MEAS(mq)
             MEAS(q)
