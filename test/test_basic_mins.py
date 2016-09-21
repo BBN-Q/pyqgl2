@@ -554,36 +554,50 @@ class TestBasicMins(unittest.TestCase):
 
         self.assertEqual(seqs[0], expectedseq)
 
-    # FIXME: This isn't correct / doesn't work
-    def xtest_RabiAmp_NQubits(self):
+    # FIXME: Add Calibration
+    def test_RabiAmp_NQubits(self):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         qubits = [q1, q2]
         measChans = qubits
         amps = np.linspace(0, 5e-6, 11)
-        phase = 0
+        p = 0
         expectedseq1 = []
         expectedseq2 = []
-        for amp in amps:
-            q1l = Utheta(q1, amp=amp, phase=phase).length + MEAS(q1).length
-            q2l = Utheta(q2, amp=amp, phase=phase).length + MEAS(q2).length
+        for a in amps:
+            q1l = Utheta(q1, amp=a, phase=p).length + MEAS(measChans[0]).length
+            q2l = Utheta(q2, amp=a, phase=p).length + MEAS(measChans[1]).length
             expectedseq1 += [
                 qsync(),
                 qwait(),
-                Utheta(q1, amp=amp, phase=phase),
-                MEAS(q1)
+                Utheta(q1, amp=a, phase=p),
+                MEAS(measChans[0]) # Hard code the list is 2 long
             ]
             if q2l > q1l:
                 expectedseq1 += [Id(q1, q2l-q1l)]
+
             expectedseq2 += [
                 qsync(),
                 qwait(),
-                Utheta(q2, amp=amp, phase=phase),
-                MEAS(q2)
+                Utheta(q2, amp=a, phase=p),
+                MEAS(measChans[1]) # Hard code the list is 2 long
             ]
             if q1l > q2l:
                 expectedseq2 += [Id(q2, q1l-q2l)]
         # FIXME: No calibration yet
+
+        # Get rid of any 0 length Id pulses just added
+        discard_zero_Ids([expectedseq1, expectedseq2])
+
+        # from pyqgl2.ast_util import NodeError
+        # from pyqgl2.debugmsg import DebugMsg
+        # NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+        # DebugMsg.set_level(0)
+        # import logging
+        # from QGL.Compiler import set_log_level
+        # # Note this acts on QGL.Compiler at DEBUG by default
+        # # Could specify other levels, loggers
+        # set_log_level()
 
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiAmp_NQubits")
@@ -593,24 +607,18 @@ class TestBasicMins(unittest.TestCase):
         # Need to map right seq to right expected seq
         self.assertEqual(len(seqs), 2)
         self.maxDiff = None
-        if seqs[0][2] == Utheta(q1, amp=0, phase=phase):
+        if seqs[0][2] == Utheta(q1, amp=amps[0], phase=p):
             self.assertEqual(seqs[0], expectedseq1)
             self.assertEqual(seqs[1], expectedseq2)
         else:
             self.assertEqual(seqs[1], expectedseq1)
             self.assertEqual(seqs[0], expectedseq2)
 
-    # FIXME: This isn't correct yet / doesn't work yet
-    # lengths are coming out wrong. 1st has len 4e-8, other is
-    # 1.00000004e-8
-    # Why is QGL2 version 3 bigger (or 4x)?
-    # Looks like my test puts in a pause to line them up that is
-    # smaller than the "real" code. Not sure which is right.
-    # But also, the "real" code is putting in the barrier before the
-    # requested Id. But that seems wrong - I'd expect the barrier to
-    # be after the "real" Id (before the MEAS).
+    # Swap that does the Xs and Id as fast as possible
+    # Note we don't understand the QGL1 function, so
+    # this test isn't strictly necessary.
     # FIXME: Update this when calibration added
-    def xtest_Swap(self):
+    def test_Swap(self):
         q = QubitFactory('q1')
         mq = QubitFactory('q2')
         delays = np.linspace(0, 5e-6, 11)
@@ -623,20 +631,23 @@ class TestBasicMins(unittest.TestCase):
                 qsync(),
                 qwait(),
                 X(q)]
-            if x2l > x1l:
-                expectedseq1 += [Id(q, x2l-x1l)]
+            # Pause for mq if necessary
+            if x2l+d > x1l:
+                expectedseq1 += [Id(q, x2l+d-x1l)]
             expectedseq1 += [
-                Id(q, d),
                 MEAS(q)
             ]
+
             expectedseq2 += [
                 qsync(),
                 qwait(),
-                X(mq)]
-            if x1l > x2l:
-                expectedseq2 += [Id(mq, x1l-x2l)]
+                X(mq),
+                Id(mq, d)
+            ]
+            # Pause for q if necessary
+            if x1l > x2l+d:
+                expectedseq2 += [Id(mq, x1l-x2l-d)]
             expectedseq2 += [
-                Id(mq, d),
                 MEAS(mq)
             ]
         # FIXME: No calibration yet
@@ -644,56 +655,29 @@ class TestBasicMins(unittest.TestCase):
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expectedseq1, expectedseq2])
 
-        ## FIXME: Debug stuff here...
-        print("q1seq:\n")
-        for ele in expectedseq1:
-            print(ele)
-        print("q2seq:\n")
-        for ele in expectedseq2:
-            print(ele)
+        # from pyqgl2.ast_util import NodeError
+        # from pyqgl2.debugmsg import DebugMsg
+        # NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+        # DebugMsg.set_level(0)
+        # import logging
+        # from QGL.Compiler import set_log_level
+        # # Note this acts on QGL.Compiler at DEBUG by default
+        # # Could specify other levels, loggers
+        # set_log_level()
 
-        from pyqgl2.ast_util import NodeError
-        from pyqgl2.debugmsg import DebugMsg
-        NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
-        DebugMsg.set_level(0)
-        import logging
-        from QGL.Compiler import set_log_level
-        # Note this acts on QGL.Compiler at DEBUG by default
-        # Could specify other levels, loggers
-        set_log_level()
-        ## End of debug stuff
-
-        # FIXME: Remove True arg when not debugging
+        # Add final True arg for debugging
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doSwap", True)
+                                      "doSwap")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
         # Need to map right seq to right expected seq
         self.assertEqual(len(seqs), 2)
-        self.maxDiff = None
+        # self.maxDiff = None
         if seqs[0][2] == X(q):
-            ## FIXME: Debug stuff...
-            print("But got:\n")
-            for ele in seqs[0]:
-                print(ele)
-            print("q2:\n")
-            for ele in seqs[1]:
-                print(ele)
-            ## End of Debug stuff
-
             self.assertEqual(seqs[0], expectedseq1)
             self.assertEqual(seqs[1], expectedseq2)
         else:
-            ## FIXME: Debug stuff
-            print("But got:\n")
-            for ele in seqs[1]:
-                print(ele)
-            print("q2:\n")
-            for ele in seqs[0]:
-                print(ele)
-            ## End of Debug stuff
-
             self.assertEqual(seqs[1], expectedseq1)
             self.assertEqual(seqs[0], expectedseq2)
 
