@@ -22,7 +22,7 @@ def channel_setup():
 # It creates channels that are taken from test_Sequences APS2Helper
 def create_channel_library(channels=dict(), new=False):
     from QGL.Channels import LogicalMarkerChannel, PhysicalQuadratureChannel, PhysicalMarkerChannel
-    qubit_names = ['q1','q2']
+    qubit_names = ['q1','q2','q3']
     logical_names = ['digitizerTrig', 'slaveTrig']
 
     for name in logical_names:
@@ -65,7 +65,8 @@ def create_channel_library(channels=dict(), new=False):
     channels['M-q1q2']       = Measurement(label='M-q1q2', gateChan = mq1q2g, trigChan=channels['digitizerTrig'])
 
     # Now assign physical channels
-    for name in ['APS1', 'APS2', 'APS3', 'APS4', 'APS5', 'APS6']:
+    for name in ['APS1', 'APS2', 'APS3', 'APS4', 'APS5', 'APS6',
+                 'APS7', 'APS8']:
         channelName = name + '-12'
         channel = PhysicalQuadratureChannel(label=channelName)
         channel.samplingRate = 1.2e9
@@ -91,6 +92,10 @@ def create_channel_library(channels=dict(), new=False):
                 'q2-gate'       : 'APS3-12m1',
                 'M-q2'          : 'APS4-12',
                 'M-q2-gate'     : 'APS4-12m1',
+                'q3'            : 'APS7-12',
+                'q3-gate'       : 'APS7-12m1',
+                'M-q3'          : 'APS8-12',
+                'M-q3-gate'     : 'APS8-12m1',
                 'cr'            : 'APS5-12',
                 'cr-gate'       : 'APS5-12m1',
                 'M-q1q2'        : 'APS6-12',
