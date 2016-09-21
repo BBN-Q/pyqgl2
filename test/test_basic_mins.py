@@ -5,7 +5,7 @@ from math import pi
 from pyqgl2.main import compileFunction
 from QGL import *
 
-from .helpers import testable_sequence, discard_zero_Ids
+from .helpers import testable_sequence, discard_zero_Ids, flattenSeqs
 from pyqgl2.channelSetup import channel_setup
 
 class TestBasicMins(unittest.TestCase):
@@ -146,6 +146,7 @@ class TestBasicMins(unittest.TestCase):
         riseFall=40e-9
         amp=1
         phase=0
+        calRepeats=2
 
         expected_seq_q1 = []
         # Seq1
@@ -196,6 +197,9 @@ class TestBasicMins(unittest.TestCase):
                 MEAS(targetQ)
             ]
         # calibration not included - doesn't work yet
+
+        # Flatten the echos
+        expected_seq_q1, expected_seq_q2 = flattenSeqs([expected_seq_q1, expected_seq_q2])
 
         # To turn on verbose logging in compileFunction
 #        from pyqgl2.ast_util import NodeError
@@ -303,6 +307,9 @@ class TestBasicMins(unittest.TestCase):
 
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expected_seq_q1, expected_seq_q2])
+
+        # Flatten the echos
+        expected_seq_q1, expected_seq_q2 = flattenSeqs([expected_seq_q1, expected_seq_q2])
 
         # To turn on verbose logging in compileFunction
 #        from pyqgl2.ast_util import NodeError
