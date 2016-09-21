@@ -25,6 +25,8 @@ Some current limitations of the QGL2 language
   up your control flow.
 * Do not use QGL1 functions that return a list of pulses. Much better
   (and may be soon required) to rewrite that as a QGL2 function. Issue #79.
+* Do not use a QGL2 function where a pure python function will do;
+  using QGL2 is slower / less efficient.
 
 Things to fix:
 

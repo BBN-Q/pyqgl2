@@ -17,7 +17,7 @@ import re
 import sys
 
 from argparse import ArgumentParser
-from copy import deepcopy
+from pyqgl2.quickcopy import quickcopy
 from datetime import datetime
 
 # Add the necessary module paths: find the directory that this
@@ -368,7 +368,7 @@ def compileFunction(filename, main_name=None, saveOutput=False,
               file=intermediate_fout, flush=True)
 
     sync = SynchronizeBlocks(new_ptree7)
-    new_ptree8 = sync.visit(deepcopy(new_ptree7))
+    new_ptree8 = sync.visit(quickcopy(new_ptree7))
     NodeError.halt_on_error()
     if intermediate_output:
         print(('%s: SYNCED SEQUENCES:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree8))),
@@ -905,9 +905,8 @@ if __name__ == '__main__':
         print("Using ChannelLibrary from config")
     else:
         # Hack. Create a basic channel library
-        print("Creating an APS2ish config with 2 Qubits for testing")
-        import test_setup
-        test_setup.chanSetup()
+        import pyqgl2.channelSetup
+        pyqgl2.channelSetup.channel_setup()
 
     resFunction = compileFunction(opts.filename, opts.main_name, opts.saveOutput,
                                   intermediate_output=opts.intermediate_output)

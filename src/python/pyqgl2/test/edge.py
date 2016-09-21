@@ -18,7 +18,7 @@ def edgeTest() -> sequence:
             X(q)
     echoCR(q1, q2)
 
-# Simples possible test
+# Simplest possible test
 @qgl2decl
 def edgeTest2() -> sequence:
     q1 = QubitFactory('q1')
