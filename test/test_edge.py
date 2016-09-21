@@ -162,4 +162,4 @@ class TestEdge(unittest.TestCase):
         self.assertEqual(seqs[0], exp1)
         self.assertEqual(seqs[1], exp2)
 
-        
+

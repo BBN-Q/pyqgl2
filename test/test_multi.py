@@ -242,4 +242,4 @@ class TestMulti(unittest.TestCase):
             else:
                 self.assertEqual(seqs[0], expected3)
                 self.assertEqual(seqs[1], expected2)
-                
+
