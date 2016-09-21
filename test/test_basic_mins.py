@@ -5,8 +5,7 @@ from math import pi
 from pyqgl2.main import compileFunction
 from QGL import *
 
-from .helpers import testable_sequence, discard_zero_Ids, flattenSeqs
-from pyqgl2.channelSetup import channel_setup
+from .helpers import testable_sequence, discard_zero_Ids, flattenSeqs, channel_setup
 
 class TestBasicMins(unittest.TestCase):
     def setUp(self):

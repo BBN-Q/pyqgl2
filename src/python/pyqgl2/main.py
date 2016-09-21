@@ -903,10 +903,13 @@ if __name__ == '__main__':
     import QGL
     if QGL.ChannelLibrary.channelLib and 'slaveTrig' in QGL.ChannelLibrary.channelLib:
         print("Using ChannelLibrary from config")
+    elif opts.verbose or opts.intermediate_output != '' or opts.debug_level < 3:
+        print("Using APS2ish 3 qubit test channel library")
+        # Hack. Create a basic channel library for testing
+        import test.helpers
+        test.helpers.channel_setup()
     else:
-        # Hack. Create a basic channel library
-        import pyqgl2.channelSetup
-        pyqgl2.channelSetup.channel_setup()
+        sys.exit("No valid ChannelLibrary found")
 
     resFunction = compileFunction(opts.filename, opts.main_name, opts.saveOutput,
                                   intermediate_output=opts.intermediate_output)

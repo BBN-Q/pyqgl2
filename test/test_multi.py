@@ -3,9 +3,9 @@ import unittest
 
 # Test functions in multi.py
 
-from .helpers import testable_sequence, discard_zero_Ids
+from .helpers import testable_sequence, discard_zero_Ids, channel_setup
 from pyqgl2.main import compileFunction
-from pyqgl2.channelSetup import channel_setup
+
 from QGL import *
 
 class TestMulti(unittest.TestCase):
