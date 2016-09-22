@@ -259,7 +259,15 @@ class AddSequential(ast.NodeTransformer):
             if new_refs:
                 node.qgl2_referenced_qbits = new_refs
 
-            if entering_concur:
+            for stmnt in node.body:
+                if not stmnt.qgl2_referenced_qbits:
+                    stmnt.qgl2_referenced_qbits = new_refs
+
+            # if we're entering a concur block and have
+            # more than one qbit to protect, then add a
+            # begin and end barrier
+            #
+            if entering_concur and len(self.referenced_qbits) > 0:
                 bid = BarrierIdentifier.next_bid()
 
                 beg_barrier = self.make_barrier_ast(
@@ -334,20 +342,22 @@ class AddSequential(ast.NodeTransformer):
             elif self.in_concur:
                 new_body.append(new_stmnt)
             else:
-                barrier_ast = self.make_barrier_ast(
-                        self.referenced_qbits, stmnt,
-                        name='seq_%d' % ind, bid=bid)
+                if len(self.referenced_qbits) > 1:
+                    barrier_ast = self.make_barrier_ast(
+                            self.referenced_qbits, stmnt,
+                            name='seq_%d' % ind, bid=bid)
+                    new_body.append(barrier_ast)
 
-                new_body.append(barrier_ast)
                 new_body.append(new_stmnt)
 
                 updated_qbit_refs = self.referenced_qbits
 
         if not (self.in_concur or self.is_with_container(new_stmnt)):
-            barrier_ast = self.make_barrier_ast(
-                    self.referenced_qbits, stmnt,
-                    name='eseq_%d' % len(body), bid=bid)
-            new_body.append(barrier_ast)
+            if len(self.referenced_qbits) > 1:
+                barrier_ast = self.make_barrier_ast(
+                        self.referenced_qbits, stmnt,
+                        name='eseq_%d' % len(body), bid=bid)
+                new_body.append(barrier_ast)
 
             updated_qbit_refs = self.referenced_qbits
 
