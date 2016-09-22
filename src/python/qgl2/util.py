@@ -26,16 +26,14 @@ from qgl2.qgl1 import Sync, Wait
 def init(q: qbit) -> pulse:
     """
     Sync() and then Wait()
-
     Annotated as returning a pulse for backwards compatibility.
     """
 
-    Sync()
-    Wait()
+    return
 
 def init_real(q):
+    # TODO: this should be moved elsewhere, so we're not
+    # import QGL modules into QGL2 directly
+
     from QGL.ControlFlow import Sync, Wait
-    return [
-        Sync(),
-        Wait()
-    ]
+    return [ Sync(), Wait() ]
