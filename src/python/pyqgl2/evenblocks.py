@@ -400,23 +400,17 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
     return '-1'
 # End getNextBarrierCtr
 
-# FIXME: This gets called a bunch. Can we speed it up?
 def barriersEqual(thisB, thatB):
     '''Return True iff 2 barrier dictionaries are effectively equal,
     i.e. same sequence and same counter.'''
-    if thisB is None and thatB is None:
-        return True
-    if thisB is None or thatB is None:
-        return False
-    if thisB == thatB:
-        return True
-    thisBCtr = thisB['counter']
-    thatBCtr = thatB['counter']
-    thisBSeq = thisB['seqIndex']
-    thatBSeq = thatB['seqIndex']
-    if thisBCtr == thatBCtr and thisBSeq == thatBSeq:
-        return True
-    return False
+    try:
+        return thisB['hash'] == thatB['hash']
+    except:
+        return thisB == thatB
+
+def barrierHash(barrier):
+    '''Compute a hash for comparing barriers quickly'''
+    return hash(str(barrier['counter']) + str(barrier['seqIndex']))
 
 def getBarrierChannels(barrierCtr):
     '''Return a list of Channel objects whose sequences have this barrier,
@@ -868,6 +862,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
 
         # Put a startBarrier in the front for this channel
         startBarrier['seqIndex'] = seqInd
+        startBarrier['hash'] = barrierHash(startBarrier)
         barriersBySeqByPos[seqInd][-1] = startBarrier
         barriersBySeqByCtr[seqInd]['-1'] = startBarrier
 
@@ -1002,6 +997,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                 else:
                     curBarrier['lengthSince'] = curLen + pulseLengths(elem)
                     curBarrier['lengthCalculated'] = False
+                curBarrier['hash'] = barrierHash(curBarrier)
                 # logger.debug("This barrier has Channels: %s, length: %s, counter: '%s', prevBarrier: '%s' at index %d", curBarrier['channels'], curBarrier['lengthSince'], curBarrier['counter'], curBarrier['prevBarrierCtr'], curBarrier['prevBarrierPos'])
                 logger.debug("Barrier dict: %s", curBarrier)
 
