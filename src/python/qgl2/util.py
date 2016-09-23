@@ -1,7 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 from qgl2.qgl2 import qbit, pulse, qgl2decl, qgl2stub
-from qgl2.qgl1 import Sync, Wait
 
 # init will demarcate the beginning of a list of
 # experiments. QGL1 compiler injects WAITs in beginning of
@@ -22,7 +21,7 @@ from qgl2.qgl1 import Sync, Wait
 # qubit. Later if it does real stuff for which we want QGL2 to do
 # error checking, etc, then make this a qgl2decl instead.
 
-@qgl2stub("qgl2.util", "init_real")
+@qgl2stub("qgl2.qgl1_util", "init_real")
 def init(q: qbit) -> pulse:
     """
     Sync() and then Wait()
@@ -30,10 +29,3 @@ def init(q: qbit) -> pulse:
     """
 
     return
-
-def init_real(q):
-    # TODO: this should be moved elsewhere, so we're not
-    # import QGL modules into QGL2 directly
-
-    from QGL.ControlFlow import Sync, Wait
-    return [ Sync(), Wait() ]
