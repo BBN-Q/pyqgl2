@@ -3,7 +3,8 @@ import unittest
 
 # Test functions in multi.py
 
-from .helpers import testable_sequence, discard_zero_Ids, channel_setup
+from .helpers import testable_sequence, discard_zero_Ids, \
+    channel_setup, assertPulseSequenceEqual
 from pyqgl2.main import compileFunction
 
 from QGL import *
@@ -46,11 +47,11 @@ class TestMulti(unittest.TestCase):
         seqs = testable_sequence(seqs)
         self.assertEqual(len(seqs), 2)
         if seqs[0][2] == Id(q1):
-            self.assertEqual(seqs[0], expectedseq1)
-            self.assertEqual(seqs[1], expectedseq2)
+            assertPulseSequenceEqual(self, seqs[0], expectedseq1)
+            assertPulseSequenceEqual(self, seqs[1], expectedseq2)
         else:
-            self.assertEqual(seqs[0], expectedseq2)
-            self.assertEqual(seqs[1], expectedseq1)
+            assertPulseSequenceEqual(self, seqs[0], expectedseq2)
+            assertPulseSequenceEqual(self, seqs[1], expectedseq1)
 
     def test_doSimple(self):
         q2 = QubitFactory('q2')
@@ -65,7 +66,7 @@ class TestMulti(unittest.TestCase):
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         self.assertEqual(len(seqs), 1)
-        self.assertEqual(seqs[0], expected)
+        assertPulseSequenceEqual(self, seqs[0], expected)
 
     def test_anotherMulti(self):
         q1 = QubitFactory('q1')
@@ -105,11 +106,11 @@ class TestMulti(unittest.TestCase):
         seqs = testable_sequence(seqs)
         self.assertEqual(len(seqs), 2)
         if seqs[0][2] == Id(q1):
-            self.assertEqual(seqs[0], expectedseq1)
-            self.assertEqual(seqs[1], expectedseq2)
+            assertPulseSequenceEqual(self, seqs[0], expectedseq1)
+            assertPulseSequenceEqual(self, seqs[1], expectedseq2)
         else:
-            self.assertEqual(seqs[0], expectedseq2)
-            self.assertEqual(seqs[1], expectedseq1)
+            assertPulseSequenceEqual(self, seqs[0], expectedseq2)
+            assertPulseSequenceEqual(self, seqs[1], expectedseq1)
 
     def test_anotherMulti2(self):
         q1 = QubitFactory('q1')
@@ -153,29 +154,29 @@ class TestMulti(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(len(seqs), 3)
         if seqs[0][0] == Id(q1):
-            self.assertEqual(seqs[0], expected1)
+            assertPulseSequenceEqual(self, seqs[0], expected1)
             if seqs[1][0] == Id(q2):
-                self.assertEqual(seqs[1], expected2)
-                self.assertEqual(seqs[2], expected3)
+                assertPulseSequenceEqual(self, seqs[1], expected2)
+                assertPulseSequenceEqual(self, seqs[2], expected3)
             else:
-                self.assertEqual(seqs[1], expected3)
-                self.assertEqual(seqs[2], expected2)
+                assertPulseSequenceEqual(self, seqs[1], expected3)
+                assertPulseSequenceEqual(self, seqs[2], expected2)
         elif seqs[1][0] == Id(q1):
-            self.assertEqual(seqs[1], expected1)
+            assertPulseSequenceEqual(self, seqs[1], expected1)
             if seqs[0][0] == Id(q2):
-                self.assertEqual(seqs[0], expected2)
-                self.assertEqual(seqs[2], expected3)
+                assertPulseSequenceEqual(self, seqs[0], expected2)
+                assertPulseSequenceEqual(self, seqs[2], expected3)
             else:
-                self.assertEqual(seqs[0], expected3)
-                self.assertEqual(seqs[2], expected2)
+                assertPulseSequenceEqual(self, seqs[0], expected3)
+                assertPulseSequenceEqual(self, seqs[2], expected2)
         else:
-            self.assertEqual(seqs[2], expected1)
+            assertPulseSequenceEqual(self, seqs[2], expected1)
             if seqs[0][0] == Id(q2):
-                self.assertEqual(seqs[0], expected2)
-                self.assertEqual(seqs[1], expected3)
+                assertPulseSequenceEqual(self, seqs[0], expected2)
+                assertPulseSequenceEqual(self, seqs[1], expected3)
             else:
-                self.assertEqual(seqs[0], expected3)
-                self.assertEqual(seqs[1], expected2)
+                assertPulseSequenceEqual(self, seqs[0], expected3)
+                assertPulseSequenceEqual(self, seqs[1], expected2)
 
     def test_anotherMulti3(self):
         q1 = QubitFactory('q1')
@@ -219,27 +220,27 @@ class TestMulti(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(len(seqs), 3)
         if seqs[0][0] == Id(q1, length=0.000002):
-            self.assertEqual(seqs[0], expected1)
+            assertPulseSequenceEqual(self, seqs[0], expected1)
             if seqs[1][0] == Id(q2, length=0.000002):
-                self.assertEqual(seqs[1], expected2)
-                self.assertEqual(seqs[2], expected3)
+                assertPulseSequenceEqual(self, seqs[1], expected2)
+                assertPulseSequenceEqual(self, seqs[2], expected3)
             else:
-                self.assertEqual(seqs[1], expected3)
-                self.assertEqual(seqs[2], expected2)
+                assertPulseSequenceEqual(self, seqs[1], expected3)
+                assertPulseSequenceEqual(self, seqs[2], expected2)
         elif seqs[1][0] == Id(q1, length=0.000002):
-            self.assertEqual(seqs[1], expected1)
+            assertPulseSequenceEqual(self, seqs[1], expected1)
             if seqs[0][0] == Id(q2, length=0.000002):
-                self.assertEqual(seqs[0], expected2)
-                self.assertEqual(seqs[2], expected3)
+                assertPulseSequenceEqual(self, seqs[0], expected2)
+                assertPulseSequenceEqual(self, seqs[2], expected3)
             else:
-                self.assertEqual(seqs[0], expected3)
-                self.assertEqual(seqs[2], expected2)
+                assertPulseSequenceEqual(self, seqs[0], expected3)
+                assertPulseSequenceEqual(self, seqs[2], expected2)
         else:
-            self.assertEqual(seqs[2], expected1)
+            assertPulseSequenceEqual(self, seqs[2], expected1)
             if seqs[0][0] == Id(q2, length=0.000002):
-                self.assertEqual(seqs[0], expected2)
-                self.assertEqual(seqs[1], expected3)
+                assertPulseSequenceEqual(self, seqs[0], expected2)
+                assertPulseSequenceEqual(self, seqs[1], expected3)
             else:
-                self.assertEqual(seqs[0], expected3)
-                self.assertEqual(seqs[1], expected2)
+                assertPulseSequenceEqual(self, seqs[0], expected3)
+                assertPulseSequenceEqual(self, seqs[1], expected2)
 

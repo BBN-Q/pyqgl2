@@ -5,7 +5,9 @@ from math import pi
 from pyqgl2.main import compileFunction
 from QGL import *
 
-from .helpers import testable_sequence, discard_zero_Ids, flattenSeqs, channel_setup
+from test.helpers import testable_sequence, discard_zero_Ids, \
+    flattenSeqs, channel_setup, assertPulseSequenceEqual
+import datetime
 
 class TestBasicMins(unittest.TestCase):
     def setUp(self):
@@ -51,7 +53,7 @@ class TestBasicMins(unittest.TestCase):
         seqs = testable_sequence(seqs)
         self.assertEqual(len(seqs), 1)
         self.assertEqual(len(seqs[0]), 5*21*2)
-        self.assertEquals(seqs[0][:len(expectedseq)], expectedseq)
+        assertPulseSequenceEqual(self, seqs[0][:len(expectedseq)], expectedseq)
 
     # CRMin
 
@@ -130,11 +132,11 @@ class TestBasicMins(unittest.TestCase):
         self.assertEqual(len(seqs), 2)
         self.maxDiff = None
         if seqs[0][2] == Id(controlQ):
-            self.assertEqual(seqs[0], expected_seq_q1)
-            self.assertEqual(seqs[1], expected_seq_q2)
+            assertPulseSequenceEqual(self, seqs[0], expected_seq_q1)
+            assertPulseSequenceEqual(self, seqs[1], expected_seq_q2)
         else:
-            self.assertEqual(seqs[1], expected_seq_q1)
-            self.assertEqual(seqs[0], expected_seq_q2)
+            assertPulseSequenceEqual(self, seqs[1], expected_seq_q1)
+            assertPulseSequenceEqual(self, seqs[0], expected_seq_q2)
 
     # FIXME: Update this when calibration added
     def test_EchoCRLen(self):
@@ -219,11 +221,11 @@ class TestBasicMins(unittest.TestCase):
         self.assertEqual(len(seqs), 2)
         self.maxDiff = None
         if seqs[0][2] == Id(controlQ):
-            self.assertEqual(seqs[0], expected_seq_q1)
-            self.assertEqual(seqs[1], expected_seq_q2)
+            assertPulseSequenceEqual(self, seqs[0], expected_seq_q1)
+            assertPulseSequenceEqual(self, seqs[1], expected_seq_q2)
         else:
-            self.assertEqual(seqs[1], expected_seq_q1)
-            self.assertEqual(seqs[0], expected_seq_q2)
+            assertPulseSequenceEqual(self, seqs[1], expected_seq_q1)
+            assertPulseSequenceEqual(self, seqs[0], expected_seq_q2)
 
     # FIXME: Update this when calibration added
     def test_EchoCRPhase(self):
@@ -329,11 +331,11 @@ class TestBasicMins(unittest.TestCase):
         self.assertEqual(len(seqs), 2)
         self.maxDiff = None
         if seqs[0][2] == Id(controlQ):
-            self.assertEqual(seqs[0], expected_seq_q1)
-            self.assertEqual(seqs[1], expected_seq_q2)
+            assertPulseSequenceEqual(self, seqs[0], expected_seq_q1)
+            assertPulseSequenceEqual(self, seqs[1], expected_seq_q2)
         else:
-            self.assertEqual(seqs[1], expected_seq_q1)
-            self.assertEqual(seqs[0], expected_seq_q2)
+            assertPulseSequenceEqual(self, seqs[1], expected_seq_q1)
+            assertPulseSequenceEqual(self, seqs[0], expected_seq_q2)
 
     ## DecouplingMin
 
@@ -362,7 +364,7 @@ class TestBasicMins(unittest.TestCase):
                                       "doHahnEcho")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        self.assertEqual(seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
     # FIXME: Update this when CPMG is fixed and when calibration works
     def test_CPMG(self):
@@ -404,7 +406,7 @@ class TestBasicMins(unittest.TestCase):
                                       "doCPMG")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        self.assertEqual(seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
     ## FlipFlopMin
     def test_FlipFlop(self):
@@ -450,7 +452,7 @@ class TestBasicMins(unittest.TestCase):
                                       "doFlipFlop")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        self.assertEqual(seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
     ## RB isn't ready yet
 
@@ -471,7 +473,7 @@ class TestBasicMins(unittest.TestCase):
                                       "doRabiAmp")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        self.assertEqual(seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
     # Fails due to import of tanh, etc. See RabiMin.py
     @unittest.expectedFailure
@@ -491,7 +493,7 @@ class TestBasicMins(unittest.TestCase):
                 MEAS(q1)
             ]
 
-        self.assertEqual(seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
     def test_RabiAmpPi(self):
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
@@ -521,8 +523,8 @@ class TestBasicMins(unittest.TestCase):
                 MEAS(q2)
             ]
 
-        self.assertEqual(seqs[0], expectedseq1)
-        self.assertEqual(seqs[1], expectedseq2)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq1)
+        assertPulseSequenceEqual(self, seqs[1], expectedseq2)
 
     def test_SingleShot(self):
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
@@ -542,7 +544,7 @@ class TestBasicMins(unittest.TestCase):
             MEAS(q1)
         ]
 
-        self.assertEqual(seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
     def test_PulsedSpec(self):
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
@@ -558,7 +560,7 @@ class TestBasicMins(unittest.TestCase):
             MEAS(q1)
         ]
 
-        self.assertEqual(seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
     # FIXME: Add Calibration
     def test_RabiAmp_NQubits(self):
@@ -614,11 +616,11 @@ class TestBasicMins(unittest.TestCase):
         self.assertEqual(len(seqs), 2)
         self.maxDiff = None
         if seqs[0][2] == Utheta(q1, amp=amps[0], phase=p):
-            self.assertEqual(seqs[0], expectedseq1)
-            self.assertEqual(seqs[1], expectedseq2)
+            assertPulseSequenceEqual(self, seqs[0], expectedseq1)
+            assertPulseSequenceEqual(self, seqs[1], expectedseq2)
         else:
-            self.assertEqual(seqs[1], expectedseq1)
-            self.assertEqual(seqs[0], expectedseq2)
+            assertPulseSequenceEqual(self, seqs[1], expectedseq1)
+            assertPulseSequenceEqual(self, seqs[0], expectedseq2)
 
     # Swap that does the Xs and Id as fast as possible
     # Note we don't understand the QGL1 function, so
@@ -681,11 +683,11 @@ class TestBasicMins(unittest.TestCase):
         self.assertEqual(len(seqs), 2)
         # self.maxDiff = None
         if seqs[0][2] == X(q):
-            self.assertEqual(seqs[0], expectedseq1)
-            self.assertEqual(seqs[1], expectedseq2)
+            assertPulseSequenceEqual(self, seqs[0], expectedseq1)
+            assertPulseSequenceEqual(self, seqs[1], expectedseq2)
         else:
-            self.assertEqual(seqs[1], expectedseq1)
-            self.assertEqual(seqs[0], expectedseq2)
+            assertPulseSequenceEqual(self, seqs[1], expectedseq1)
+            assertPulseSequenceEqual(self, seqs[0], expectedseq2)
 
     ## SPAMMin
 
@@ -737,7 +739,7 @@ class TestBasicMins(unittest.TestCase):
                                       "doSPAM")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        self.assertEqual(seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
     ## T1T2Min
 
@@ -763,7 +765,7 @@ class TestBasicMins(unittest.TestCase):
                                       "doInversionRecovery")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        self.assertEqual(seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
     # FIXME: Update this when calibration added
     def test_Ramsey(self):
@@ -795,5 +797,10 @@ class TestBasicMins(unittest.TestCase):
                                       "doRamsey")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        self.assertEqual(seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
+if __name__ == '__main__':
+    # To test everything in this file (say, using cProfile)
+#    unittest.main("test.test_basic_mins")
+    # To run just 1 test from this file
+    unittest.main("test.test_basic_mins", "TestBasicMins.test_SPAM")

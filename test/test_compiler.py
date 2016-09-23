@@ -5,7 +5,8 @@ from itertools import product
 from pyqgl2.main import compileFunction
 from QGL import *
 
-from test.helpers import testable_sequence, discard_zero_Ids, channel_setup
+from test.helpers import testable_sequence, discard_zero_Ids, \
+    channel_setup, assertPulseSequenceEqual
 
 class TestCompiler(unittest.TestCase):
     def setUp(self):
@@ -22,8 +23,8 @@ class TestCompiler(unittest.TestCase):
 
         expectedseq1, expectedseq2 = self.tomo_result()
 
-        self.assertEqual(seqs[0], expectedseq1)
-        self.assertEqual(seqs[1], expectedseq2)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq1)
+        assertPulseSequenceEqual(self, seqs[1], expectedseq2)
 
     def test_tomo_no_generators(self):
         resFunction = compileFunction("src/python/pyqgl2/test/tomo.py", "main_no_generators")
@@ -32,8 +33,8 @@ class TestCompiler(unittest.TestCase):
 
         expectedseq1, expectedseq2 = self.tomo_result()
 
-        self.assertEqual(seqs[0], expectedseq1)
-        self.assertEqual(seqs[1], expectedseq2)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq1)
+        assertPulseSequenceEqual(self, seqs[1], expectedseq2)
 
     def tomo_result(self):
         q1 = QubitFactory('q1')
