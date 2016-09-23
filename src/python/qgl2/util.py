@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qbit, pulse, qgl2decl
+from qgl2.qgl2 import qbit, pulse, qgl2decl, qgl2stub
 from qgl2.qgl1 import Sync, Wait
 
 # init will demarcate the beginning of a list of
@@ -17,7 +17,12 @@ from qgl2.qgl1 import Sync, Wait
 # There will be multiple ways to call init() and the programmer must choose.
 # init is the marker of a new sequence
 
-@qgl2decl
+# Here we make init be a stub that takes a qubit, so the QGL2 code
+# doesn't get confused that it contains things that don't take a
+# qubit. Later if it does real stuff for which we want QGL2 to do
+# error checking, etc, then make this a qgl2decl instead.
+
+@qgl2stub("qgl2.util", "init_real")
 def init(q: qbit) -> pulse:
     """
     Sync() and then Wait()
@@ -27,3 +32,10 @@ def init(q: qbit) -> pulse:
 
     Sync()
     Wait()
+
+def init_real(q):
+    from QGL.ControlFlow import Sync, Wait
+    return [
+        Sync(),
+        Wait()
+    ]
