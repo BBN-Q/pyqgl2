@@ -1236,7 +1236,9 @@ class Inliner(ast.NodeTransformer):
             funcdef.qgl2_scope_checked = True
 
             pyqgl2.scope.scope_check(
-                    funcdef, module_names=namespace.all_names)
+                    funcdef,
+                    module_names=namespace.all_names,
+                    global_names=namespace.native_globals)
 
         new_ptree = deepcopy(funcdef)
 
@@ -1962,7 +1964,8 @@ def inline_call(base_call, importer):
 
             loc_syms = namespace.all_names
             if not pyqgl2.scope.scope_check(
-                    func_ptree, module_names=loc_syms):
+                    func_ptree, module_names=loc_syms,
+                    global_names=namespace.native_globals):
                 return None
 
         inlined = create_inline_procedure(func_ptree, base_call)

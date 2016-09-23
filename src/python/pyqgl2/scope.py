@@ -70,7 +70,7 @@ import pyqgl2.inline
 from pyqgl2.ast_util import NodeError
 
 
-def scope_check(function_def, module_names=None):
+def scope_check(function_def, module_names=None, global_names=None):
     """
     Convenience function to create a CheckScoping instance and
     use it to check the scoping of variables within an ast.FunctionDef.
@@ -90,7 +90,8 @@ def scope_check(function_def, module_names=None):
     #
     assert isinstance(function_def, ast.FunctionDef)
 
-    checker = CheckScoping(module_names=module_names)
+    checker = CheckScoping(
+            module_names=module_names, global_names=global_names)
     checker.visit(function_def)
 
     return True
@@ -100,12 +101,13 @@ class CheckScoping(ast.NodeVisitor):
     """
     """
 
-    BUILTIN_SCOPE = -2
+    BUILTIN_SCOPE = -3
+    GLOBAL_SCOPE = -2
     MODULE_SCOPE = -1
     PARAM_SCOPE = 0
     LOCAL_SCOPE = 1
 
-    def __init__(self, module_names=None):
+    def __init__(self, module_names=None, global_names=None):
 
         # mapping from name to nesting level (the nesting level
         # is 1-based: formal parameters are at nesting level 0).
@@ -119,6 +121,10 @@ class CheckScoping(ast.NodeVisitor):
         #
         for name in builtins.__dict__:
             self.local_names[name] = CheckScoping.BUILTIN_SCOPE
+
+        if global_names:
+            for name in global_names:
+                self.local_names[name] = CheckScoping.GLOBAL_SCOPE
 
         if module_names:
             for name in module_names:
