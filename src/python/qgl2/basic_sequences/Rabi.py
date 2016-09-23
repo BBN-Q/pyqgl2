@@ -44,7 +44,7 @@ def RabiAmp(qubit, amps, phase=0, showPlot=False):
         "doRabiAmp",
         (qubit, amps, phase)
         )
-    seqs = resFunction(q=qubit)
+    seqs = resFunction()
     return seqs
 
     fileNames = qgl2_compile_to_hardware(seqs, "Rabi/Rabi")
@@ -78,7 +78,7 @@ def RabiWidth(qubit, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh, show
         "doRabiWidth"
         (qubit, widths, amp, phase, shapeFun)
         )
-    seqs = resFunction(q=qubit)
+    seqs = resFunction()
     return seqs
 
     fileNames = qgl2_compile_to_hardware(seqs, "Rabi/Rabi")

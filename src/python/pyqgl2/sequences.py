@@ -265,7 +265,7 @@ class SequenceExtractor(object):
 
         # allow QBIT parameters to be overridden
         #
-        preamble = 'def %s(**kwargs):\n' % func_name
+        preamble = 'def %s():\n' % func_name
         preamble += base_imports
         preamble += indent + found_imports
         preamble += '\n\n'
@@ -273,15 +273,8 @@ class SequenceExtractor(object):
         # FIXME: In below block, calls to ast2str are the slowest part
         # (78%) of calling get_sequence_function. Fixable?
 
-        for (sym_name, _use_name, node) in self.qbit_creates:
-            preamble += indent + 'if \'' + sym_name + '\' in kwargs:\n'
-            preamble += (2 * indent) + sym_name
-            preamble += ' = kwargs[\'%s\']\n' % sym_name
-            preamble += indent + 'else:\n'
-            preamble += (2 * indent) + ast2str(node).strip() + '\n'
-
-        for (sym_name, use_name, _node) in self.qbit_creates:
-            preamble += indent + '%s = %s\n' % (use_name, sym_name)
+        for (_sym_name, _use_name, node) in self.qbit_creates:
+            preamble += indent + ast2str(node).strip() + '\n'
 
         if setup:
             for setup_stmnt in setup:
