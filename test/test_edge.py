@@ -3,7 +3,8 @@ import unittest
 
 # Test functions in edge.py
 
-from .helpers import testable_sequence, discard_zero_Ids, channel_setup
+from .helpers import testable_sequence, discard_zero_Ids, \
+    channel_setup, assertPulseSequenceEqual
 from pyqgl2.main import compileFunction
 
 from QGL import *
@@ -45,11 +46,11 @@ class TestEdge(unittest.TestCase):
 #        self.maxDiff = None
         self.assertEqual(len(seqs), 2)
         if seqs[0][2] == X(q1):
-            self.assertEqual(seqs[0], expected1)
-            self.assertEqual(seqs[1], expected2)
+            assertPulseSequenceEqual(self, seqs[0], expected1)
+            assertPulseSequenceEqual(self, seqs[1], expected2)
         else:
-            self.assertEqual(seqs[0], expected2)
-            self.assertEqual(seqs[1], expected1)
+            assertPulseSequenceEqual(self, seqs[0], expected2)
+            assertPulseSequenceEqual(self, seqs[1], expected1)
 
     def test_edgeTest3(self):
         q1 = QubitFactory('q1')
@@ -85,11 +86,11 @@ class TestEdge(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(len(seqs), 2)
         if seqs[0][-1] == X(q2):
-            self.assertEqual(seqs[0], expected2)
-            self.assertEqual(seqs[1], expected1)
+            assertPulseSequenceEqual(self, seqs[0], expected2)
+            assertPulseSequenceEqual(self, seqs[1], expected1)
         else:
-            self.assertEqual(seqs[0], expected1)
-            self.assertEqual(seqs[1], expected2)
+            assertPulseSequenceEqual(self, seqs[0], expected1)
+            assertPulseSequenceEqual(self, seqs[1], expected2)
 
     # requires 2nd edge in opposite direction
     def test_edgeTest4(self):
@@ -133,11 +134,11 @@ class TestEdge(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(len(seqs), 2)
         if seqs[0][-1] == X(q1):
-            self.assertEqual(seqs[0], expected1)
-            self.assertEqual(seqs[1], expected2)
+            assertPulseSequenceEqual(self, seqs[0], expected1)
+            assertPulseSequenceEqual(self, seqs[1], expected2)
         else:
-            self.assertEqual(seqs[0], expected2)
-            self.assertEqual(seqs[1], expected1)
+            assertPulseSequenceEqual(self, seqs[0], expected2)
+            assertPulseSequenceEqual(self, seqs[1], expected1)
 
     def test_cnotcrTest(self):
         q1 = QubitFactory('q1')
@@ -159,7 +160,7 @@ class TestEdge(unittest.TestCase):
         seqs = testable_sequence(seqs)
         self.maxDiff = None
         self.assertEqual(len(seqs), 2)
-        self.assertEqual(seqs[0], exp1)
-        self.assertEqual(seqs[1], exp2)
+        assertPulseSequenceEqual(self, seqs[0], exp1)
+        assertPulseSequenceEqual(self, seqs[1], exp2)
 
 
