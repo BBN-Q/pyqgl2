@@ -4,27 +4,44 @@
 # These work around QGL2 constraints, such as only doing sequence generation and
 # not compilation, or not taking arguments.
 
-import QGL.PulseShapes
 from qgl2.qgl2 import qgl2decl, qbit, sequence, concur
 from qgl2.qgl1 import QubitFactory, Utheta, MEAS, X, Id
 from qgl2.util import init
-from qgl2.basic_sequences.helpers import create_cal_seqs
+# from qgl2.basic_sequences.helpers import create_cal_seqs
 import numpy as np
+
+# from QGL.PulseShapes import tanh
+
+# a local copy of QGL.PulsePrimitives, because pulling in
+# QGL/__init__.py causes QGL2 grief.
+#
+def local_tanh(amp=1, length=0, sigma=0, cutoff=2, samplingRate=1e9, **params):
+    '''
+    A rounded constant shape from the sum of two tanh shapes.
+    '''
+    numPts = np.round(length * samplingRate)
+    xPts = np.linspace(-length / 2, length / 2, numPts)
+    x1 = -length / 2 + cutoff * sigma
+    x2 = +length / 2 - cutoff * sigma
+    return amp * 0.5 * (np.tanh((xPts - x1) / sigma) + np.tanh(
+                (x2 - xPts) / sigma)).astype(np.complex)
+
 
 # 7/25/16: Currently fails
 @qgl2decl
 def doRabiWidth():
     # FIXME: No arguments
+
     q = QubitFactory("q1")
     widths = np.linspace(0, 5e-6, 11)
     amp = 1
     phase = 0
-    shapeFun = QGL.PulseShapes.tanh
+    shapeFun = local_tanh
     for l in widths:
         init(q)
         # FIXME: QGL2 loses the import needed for this QGL function
         Utheta(q, length=l, amp=amp, phase=phase,
-               shapeFun=QGL.PulseShapes.tanh)
+               shapeFun=shapeFun)
         # Doing it this way gives: KeyError: 'shapeFun___ass_004'
         # Utheta(q, length=l, amp=amp, phase=phase, shapeFun=shapeFun)
         MEAS(q)
@@ -135,7 +152,7 @@ def doSwap():
             init(mq)
             X(q)
             X(mq)
-            Id(mq, d)
+            Id(mq, length=d)
         with concur:
             MEAS(mq)
             MEAS(q)
