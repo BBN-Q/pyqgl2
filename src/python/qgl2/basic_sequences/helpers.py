@@ -12,7 +12,7 @@ from itertools import product
 #import operator
 
 from QGL.PulsePrimitives import Id, X, MEAS
-from QGL.ControlFlow import qwait
+# from QGL.ControlFlow import qwait
 
 @qgl2decl
 def create_cal_seqs(qubits: qbit_list, numRepeats, measChans: qbit_list):
