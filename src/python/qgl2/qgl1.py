@@ -88,13 +88,7 @@ def AC(qubit: qbit, cliffNum) -> pulse:
 def flat_top_gaussian(chan: qbit, riseFall, length, amp, phase=0) -> pulse:
     print('flat_top_gaussian')
 
-# QGL1 function that takes 2 qubits, creates edge
-@qgl2stub('qgl2.qgl1_util')
-def flat_top_gaussian_edge_impl(source, target, riseFall, length, amp,
-                                phase=0):
-    print('flat_top_gaussian_edge_impl')
-
-@qgl2stub('qgl2.qgl1', 'flat_top_gaussian_edge_impl')
+@qgl2stub('qgl2.qgl1_util', 'flat_top_gaussian_edge_impl')
 def flat_top_gaussian_edge(source: qbit, target: qbit, riseFall,
                            length, amp, phase=0) -> pulse:
     print('flat_top_gaussian_edge')
