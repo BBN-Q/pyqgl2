@@ -3,7 +3,7 @@
 # QGL2 clean versions for T1T2.py
 
 from qgl2.qgl2 import qgl2decl, qbit, sequence
-from qgl2.basic_sequences.helpers import create_cal_seqs
+# from qgl2.basic_sequences.helpers import create_cal_seqs
 from qgl2.util import init
 from qgl2.qgl1 import QubitFactory, X, Id, MEAS, U90, X90
 import numpy as np
@@ -18,7 +18,7 @@ def doInversionRecovery() -> sequence:
     for d in delays:
         init(q)
         X(q)
-        Id(q, d)
+        Id(q, length=d)
         MEAS(q)
 
     # Tack on calibration
@@ -41,7 +41,7 @@ def doRamsey() -> sequence:
     for d,phase in list(zip(pulseSpacings, phases)):
         init(q)
         X90(q)
-        Id(q, d)
+        Id(q, length=d)
         U90(q, phase=phase)
         MEAS(q)
 
