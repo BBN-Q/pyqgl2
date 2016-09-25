@@ -792,6 +792,7 @@ class EvalTransformer(object):
             # in the statements
             #
             names, _dotted_names, _sub_names = name_finder.find_names(stmnt)
+
             for name in names:
                 if name in local_variables:
                     new_values[name] = local_variables[name]
@@ -1264,7 +1265,7 @@ class EvalTransformer(object):
             return False, list()
 
         was_in_loop = self.in_loop
-        self.in_loop = True
+        self.in_loop = True # TODO: check: should be False?
 
         if is_classical:
             success, new_stmnts = self.do_if_classical(stmnt, test)
