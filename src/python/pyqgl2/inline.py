@@ -941,6 +941,7 @@ class NameRedirector(ast.NodeTransformer):
 
         value = self.values[name]
 
+
         if isinstance(value, int) or isinstance(value, float):
             redirection = ast.Num(n=value)
         elif isinstance(value, str):
@@ -1499,6 +1500,13 @@ class Inliner(ast.NodeTransformer):
                 (chk_assts, chk_checks, chk_call) = runtime_check
                 new_body += chk_assts
                 new_body += chk_checks
+
+                # if we added any checks, then count this as
+                # a change (even though it may be invisible,
+                # we don't want to throw away the side effects)
+                #
+                if len(chk_assts) or len(chk_checks):
+                    self.change_cnt += 1
 
                 # Do not append the checked call to the new body:
                 # we're going to try to inline it below.
