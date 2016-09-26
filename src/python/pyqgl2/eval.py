@@ -537,14 +537,32 @@ class SimpleEvaluator(object):
         runtime_check = inliner.add_runtime_checks(new_call_node)
         if runtime_check:
             (chk_assts, chk_checks, chk_call) = runtime_check
+
             checks = chk_assts + chk_checks
-            new_call_node = chk_call.value
+            final_call_node = chk_call.value
         else:
             checks = None
+            final_code_node = new_call_node
 
-        sketch_call = inline_call(new_call_node, self.importer)
+        sketch_call = inline_call(final_call_node, self.importer)
         if isinstance(sketch_call, list):
             new_call_with = sketch_call[0]
+
+            # This is gross, and needs extra explaining...
+            # The inlined function we just created is in terms
+            # of the checked call (so its actual parameters are the
+            # values that are created by the checks), but the
+            # the final with-infunc needs to be in terms of the
+            # original actuals, so that that scope checking is
+            # correct.  To reconcile this, we create a new
+            # withitems parameter for the with-infunc, using the
+            # new_call_node, and replace the with-infunc
+            # withitems with it.
+
+            new_ap_names = new_call_node.args[:]
+            new_ap_names.insert(
+                    0, new_call_with.items[0].context_expr.args[0])
+            new_call_with.items[0].context_expr.args = new_ap_names
 
             # if there are checks, then insert them into the body
             #
