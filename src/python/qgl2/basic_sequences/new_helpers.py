@@ -5,12 +5,9 @@
 
 from qgl2.qgl2 import qgl2decl, qbit_list, qbit, concur, pulse, sequence
 
-from qgl2.basic_sequences.helpers import create_cal_seqs
+# from qgl2.basic_sequences.helpers import create_cal_seqs
 
-#from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS
-from QGL.Compiler import compile_to_hardware
 from qgl2.qgl1 import Id, X, Y, X90, Y90, MEAS
-from QGL.PulseSequencePlotter import plot_pulse_files
 
 import copy
 import functools
@@ -24,6 +21,7 @@ def addMeasPulse(listOfSequencesOn1Qubit, q: qbit):
     '''Add a MEAS(q) to each sequence in the given list of sequences.'''
     return [sequence + [MEAS(q)] for sequence in listOfSequencesOn1Qubit]
 
+# Copied to CRMin.py
 @qgl2decl
 def measConcurrently(listNQubits: qbit_list) -> pulse:
     '''Concurrently measure each of the given qubits.'''
@@ -57,27 +55,7 @@ def repeatSequences(listOfSequences, repeat=2):
 
     For example, `[[a, 1], [b, 2]]` becomes `[[a, 1], [a, 1], [b, 2], [b, 2]]`.
     Note this could be a list of function names that then get executed.'''
-
-    # You must copy the element before repeating it. Otherwise strange things happen later
     return [copy.copy(sequence) for sequence in listOfSequences for i in range(repeat)]
-
-# No longer a qgl2decl function, and not annotated so later code doesn't complain
-#def compileAndPlot(listOfSequences: sequence, filePrefix, showPlot=False):
-def compileAndPlot(listOfSequences, filePrefix, showPlot=False, suffix=''):
-    """Compile the listOfSequences to hardware using the given filePrefix, 
-    print the filenames, and optionally plot the pulse files.
-
-    Maybe soon again but not now: 
-    Return a handle to the plot window; caller can hold it to prevent window destruction.
-    """
-    fileNames = compile_to_hardware(listOfSequences, filePrefix,
-                                    suffix, qgl2=True)
-    print(fileNames)
-
-    if showPlot:
-        plotWin = plot_pulse_files(fileNames)
-        # FIXME: QGL2 won't inline this if there is a return statement
-#        return plotWin
 
 # QGL1 style method
 # For QGL2, simply do create_cal_seqs((tupleOfQubits), numRepeats)
