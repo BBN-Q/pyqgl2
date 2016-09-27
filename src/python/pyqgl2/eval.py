@@ -766,6 +766,18 @@ class EvalTransformer(object):
         #
         self.allocated_qbits = set()
 
+    def get_state(self):
+        """
+        Save a reference to the top of the locals_stack in
+        EvalTransformer.PRECOMPUTED_VALUES for future use
+        (and return the reference)
+        """
+
+        local_variables = self.eval_state.locals_stack[-1]
+        EvalTransformer.PRECOMPUTED_VALUES = local_variables
+
+        return local_variables
+
     def print_state(self):
 
         print('EVS: PREAMBLE:')
@@ -1511,6 +1523,7 @@ class EvalTransformer(object):
                 # replace the names of variables in this statement with
                 # the single-assignment names
                 #
+
                 self.rewriter.rewrite(stmnt.value)
 
                 self.rewrite_assign(stmnt)
