@@ -75,7 +75,7 @@ from QGL.BlockLabel import BlockLabel
 from QGL.PulsePrimitives import Id
 from QGL.ChannelLibrary import QubitFactory
 
-from pyqgl2.quickcopy import quickcopy
+from copy import copy
 import logging
 
 logger = logging.getLogger('QGL.Compiler.qgl2')
@@ -321,9 +321,10 @@ def isReplaceableBarrier(barrier, seqs):
             return False
     return False
 
-def getNextBarrierCtr(seqs, seqInd, currCtr):
+def getNextBarrierCtr(seqs, seqInd, currCtr, positions):
     ''' Find the id (counter) of the next Barrier after currCtr on the given sequence
     that we could (still) replace. So skip barriers no longer in the sequence.
+    positions is sorted indices in sequence seqInd in barriersBySeqByPos.
     Return '-1' if there is none.
     '''
     # Walk to the next barrier past currCtr on sequence seqInd and return the counter of that barrier
@@ -339,7 +340,7 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
     if str(currCtr) == '-1':
         logger.debug("Looking for 1st barrier on sequence %d", seqInd)
 
-        for i in sorted(barriersBySeqByPos.get(seqInd, [])):
+        for i in positions:
             barrier = barriersBySeqByPos[seqInd][i]
             # Make sure that barrier is actually still in the sequence it claims to be in;
             # we might have already removed it
@@ -366,7 +367,7 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
     found = False
     try:
         currPos = currBarrier['seqPos']
-        for pos in sorted(barriersBySeqByPos[seqInd]):
+        for pos in positions:
             # Start looking at things after curBarrier
             if pos < currPos:
                 continue
@@ -943,7 +944,11 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                             chan = QubitFactory(chan)
                         chans.append(chan)
                     # Store the channels sorted alphabetically for later comparison
-                    curBarrier['channels'] = sorted(chans, key=lambda chan: repr(chan))
+                    # Only sort if we have more than 1 channel.
+                    if len(chans) > 1:
+                        curBarrier['channels'] = sorted(chans, key=lambda chan: repr(chan))
+                    else:
+                        curBarrier['channels'] = [chans[0]]
                     curBarrier['chanKey'] = frozenset(curBarrier['channels'])
                     curBarrier['counter'] = elem.value
                 elif isWaitSome(elem):
@@ -1017,8 +1022,10 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
 
                 # Store this barrier
                 barriersByCtr[curBarrier['counter']] = curBarrier
-                barriersBySeqByPos[seqInd][seqPos] = quickcopy(curBarrier)
-                barriersBySeqByCtr[seqInd][curBarrier['counter']] = quickcopy(curBarrier)
+                # We used to do a deepcopy here, but a regular shallow copy passes the unit tests.
+                # If this causes problems later, use pyqgl2.quickcopy.quickcopy
+                barriersBySeqByPos[seqInd][seqPos] = copy(curBarrier)
+                barriersBySeqByCtr[seqInd][curBarrier['counter']] = copy(curBarrier)
 
                 # Reset vars for next barrier block
                 prevBarrier = curBarrier
@@ -1299,14 +1306,20 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
     for seqInd in seqIdxToChannelMap.keys():
         currCtr = '-1'
         logger.debug("Handling Barriers on sequence %d", seqInd)
-        currCtr = getNextBarrierCtr(seqs, seqInd, currCtr)
+        positions = []
+        try:
+            positions = sorted(barriersBySeqByPos[seqInd])
+        except Exception as e:
+            logger.warning("Failed to get sorted list of indices: Got %s", e)
+
+        currCtr = getNextBarrierCtr(seqs, seqInd, currCtr, positions)
         while (currCtr != '-1'): # While there's another barrier
             logger.info("Replacing Barrier '%s' found on sequence %d", currCtr, seqInd)
             # replace that barrier, plus any other barriers (on other channels)
             # necessary to calculate the length of the Id pulse here
             seqs = replaceOneBarrier(currCtr, seqIdxToChannelMap, seqs, seqInd)
             # Move on to the next barrier
-            currCtr = getNextBarrierCtr(seqs, seqInd, currCtr)
+            currCtr = getNextBarrierCtr(seqs, seqInd, currCtr, positions)
     # When we get here, we ran out of barriers that turn into Id pulses to replace
     logger.debug("Done swapping non Wait Barriers\n")
   
