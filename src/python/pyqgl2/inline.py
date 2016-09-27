@@ -1795,7 +1795,8 @@ def add_runtime_call_check(call_ptree, func_ptree):
 
         new_name = tmp_names.create_tmp_name(orig_name=fp_name)
 
-        new_ast = expr2ast('%s = %s' % (new_name, ast2str(ap_node).strip()))
+        new_ast = expr2ast('%s = %s' %
+                        (new_name, ast2str(ap_node.value).strip()))
         pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
         tmp_assts.append(new_ast)
         kw_args.append((fp_name, new_name))
