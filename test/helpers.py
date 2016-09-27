@@ -14,12 +14,11 @@ from QGL.PatternUtils import flatten
 import collections
 from math import pi
 
-def channel_setup():
-    # TODO have this stash the current channel library, and unconditionally
-    # create the test configuration
-    if len(ChannelLibrary.channelLib.keys()) == 0:
-        create_channel_library()
-        ChannelLibrary.channelLib.write_to_file()
+def channel_setup(new=True):
+    # new indicates replace any existing library
+    # Otherwise if there is an existing library, use it
+    if not new and len(ChannelLibrary.channelLib.keys()) != 0:
+        create_channel_library(ChannelLibrary.channelLib.channelDict)
     else:
         create_channel_library(new=True)
 
