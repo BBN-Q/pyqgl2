@@ -274,7 +274,7 @@ def compileFunction(filename,
         local_context = quickcopy(toplevel_bindings)
     elif toplevel_bindings:
         NodeError.error_msg(None,
-            'Unrecognized type for toplevel_bindings')
+                'Unrecognized type for toplevel_bindings: {}'.format(type(toplevel_bindings)))
     else:
         local_context = None
     NodeError.halt_on_error()
@@ -369,6 +369,7 @@ def compileFunction(filename,
               file=intermediate_fout, flush=True)
 
     evaluator.replace_bindings(new_ptree7.body)
+    evaluator.get_state()
 
     # We're not going to print this, at least not for now,
     # although it's sometimes a useful pretty-printing
@@ -944,8 +945,10 @@ if __name__ == '__main__':
     else:
         sys.exit("No valid ChannelLibrary found")
 
-    resFunction = compileFunction(opts.filename, opts.main_name, opts.saveOutput,
-                                  intermediate_output=opts.intermediate_output)
+    resFunction = compileFunction(
+            opts.filename, opts.main_name,
+            toplevel_bindings=None, saveOutput=opts.saveOutput,
+            intermediate_output=opts.intermediate_output)
     if resFunction:
         # Now import the QGL1 things we need
         from QGL.PulseSequencePlotter import plot_pulse_files
