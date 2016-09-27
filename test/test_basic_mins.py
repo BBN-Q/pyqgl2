@@ -16,10 +16,7 @@ class TestBasicMins(unittest.TestCase):
     def tearDown(self):
         pass
 
-    # 9/14/16: This should stop failing once Dan merges his latest to
-    # master. For now, don't run as it fails hard
-    @unittest.expectedFailure
-    def xtest_AllXY(self):
+    def test_AllXY(self):
         q1 = QubitFactory('q1')
         expectedseq = []
         # Expect a single sequence 5 * 2 * 21 pulses long
@@ -491,8 +488,9 @@ class TestBasicMins(unittest.TestCase):
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
     # Fails due to import of tanh, etc. See RabiMin.py
-    @unittest.expectedFailure
     def test_RabiWidth(self):
+        from qgl2.basic_sequences.pulses import local_tanh
+
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiWidth")
         seqs = resFunction()
@@ -504,7 +502,7 @@ class TestBasicMins(unittest.TestCase):
             expectedseq += [
                 qsync(),
                 qwait(),
-                Utheta(q1, length=l, amp=1, phase=0, shapeFun=PulseShapes.tanh),
+                Utheta(q1, length=l, amp=1, phase=0, shapeFun=local_tanh),
                 MEAS(q1)
             ]
 
