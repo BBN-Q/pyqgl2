@@ -142,8 +142,9 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
     # To be called for each sequence that this barrier is on
     global barriersByCtr, barriersBySeqByPos, barriersBySeqByCtr
     logger.debug("markBarrierLength (seq %d) adding to barrier '%s' length: %s", seqIdx, barrierCtr, addLen)
+
     barrier = barriersByCtr.get(barrierCtr, None)
-    if barrier is not None:
+    try:
         if barrier['lengthCalculated']:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug("markBarrier (seq %d) found in barriersByCtr %s already calculated", seqIdx, barrierCtr)
@@ -159,43 +160,61 @@ def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
             barrier['lengthCalculated'] = True
             barriersByCtr[barrierCtr] = barrier
             logger.debug(" ... updated length: %s", barriersByCtr[barrierCtr]['lengthSince'])
-    else:
+    except:
         logger.warning("Barrier '%s' not in barriersByCtr", barrierCtr)
-    if seqIdx in barriersBySeqByPos:
-        for pos in barriersBySeqByPos[seqIdx]:
-            if barrierCtr == barriersBySeqByPos[seqIdx][pos]['counter']:
-                barrier = barriersBySeqByPos[seqIdx][pos]
-                if barrier['lengthCalculated']:
-                    if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug("markBarrier (seq %d) found in barriersBySeqByPos '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'seqPos': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['seqPos'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
-                else:
-                    barrier['lengthSince'] += addLen
-                    barrier['lengthCalculated'] = True
-                    barriersBySeqByPos[seqIdx][pos] = barrier
-                break
-    if seqIdx in barriersBySeqByCtr:
-        if barrierCtr in barriersBySeqByCtr[seqIdx]:
-            barrier = barriersBySeqByCtr[seqIdx][barrierCtr]
-            if barrier['lengthCalculated']:
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug("markBarrier (seq %d) found in barriersBySeqByCtr '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
-            else:
-                barrier['lengthSince'] += addLen
-                barrier['lengthCalculated'] = True
-                barriersBySeqByCtr[seqIdx][barrierCtr] = barrier
+
+    # Update barriersBySeqByCtr
+    pos = None
+    try:
+        barrier = barriersBySeqByCtr[seqIdx][barrierCtr]
+        pos = barrier['seqPos']
+        if barrier['lengthCalculated']:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("markBarrier (seq %d) found in barriersBySeqByCtr '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
+        else:
+            barrier['lengthSince'] += addLen
+            barrier['lengthCalculated'] = True
+            barriersBySeqByCtr[seqIdx][barrierCtr] = barrier
+    except:
+        logger.debug("markBarrier didn't find %s on seq %d", barrierCtr, seqIdx)
+
+    # barriersBySeqByPos
+    barrier = None
+    try:
+        barrier = barriersBySeqByPos[seqIdx][pos]
+    except:
+        try:
+            for pos in barriersBySeqByPos[seqIdx]:
+                if barrierCtr == barriersBySeqByPos[seqIdx][pos]['counter']:
+                    barrier = barriersBySeqByPos[seqIdx][pos]
+                    break
+        except:
+            logger.warning("Failed to find barrier %d or sequence %d in barriersBySeqByPos", pos, seqIdx)
+    try:
+        if barrier['lengthCalculated']:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("markBarrier (seq %d) found in barriersBySeqByPos '%s' already calculated: {'counter': '%s', 'type': '%s', 'seqIndex': %s, 'seqPos': %s, 'lengthSince': %s, 'prevBarrierCtr': '%s', 'lengthCalculated': %s}", seqIdx, barrierCtr, barrier['counter'], barrier['type'], barrier['seqIndex'], barrier['seqPos'], barrier['lengthSince'], barrier['prevBarrierCtr'], barrier['lengthCalculated'])
+        else:
+            barrier['lengthSince'] += addLen
+            barrier['lengthCalculated'] = True
+            barriersBySeqByPos[seqIdx][pos] = barrier
+    except:
+        # no barrier found
+        pass
 
 def getBarrierForSeqCtr(seqInd, currCtr):
     '''Get the barrier object for the currCtr Barrier
     ID for the sequence seqInd, or -1 if not found.'''
     global barriersBySeqByCtr
-    if currCtr is None:
-        logger.debug("getBarrierForSeq got None currCtr")
-        return -1
-    if not seqInd in barriersBySeqByCtr:
-        # FIXME: Error?
-        logger.warning("getBarrierForSeqCtr got seqInd %s not in barriersBySeqByCtr", seqInd)
-        return -1
-
+    try:
+        return barriersBySeqByCtr[seqInd].get(currCtr, -1)
+    except:
+        if currCtr is None:
+            logger.debug("getBarrierForSeq got None currCtr")
+        if not seqInd in barriersBySeqByCtr:
+            # FIXME: Error?
+            logger.warning("getBarrierForSeqCtr got seqInd %s not in barriersBySeqByCtr", seqInd)
+    return -1
     # For a wait, could look it up by the index
     # But the wait should be on the ByCtr list too
 #    if str(currCtr).startswith('with-'):
@@ -204,7 +223,6 @@ def getBarrierForSeqCtr(seqInd, currCtr):
 
 #    elif currCtr == -1:
 #        # start - should really be -1, but if the sequence has something, why not?
-    return barriersBySeqByCtr[seqInd].get(currCtr, -1)
 
 def getLengthBetweenBarriers(seqInd, currCtr, prevCtr='-1', iterCnt=0):
     '''For the given sequence, find the length between the given 2 barriers.
@@ -303,7 +321,6 @@ def isReplaceableBarrier(barrier, seqs):
             return False
     return False
 
-# FIXME: This gets called a bunch. Can we speed it up?
 def getNextBarrierCtr(seqs, seqInd, currCtr):
     ''' Find the id (counter) of the next Barrier after currCtr on the given sequence
     that we could (still) replace. So skip barriers no longer in the sequence.
@@ -317,84 +334,81 @@ def getNextBarrierCtr(seqs, seqInd, currCtr):
     # seqInd is the sequence index
     global barriersBySeqByPos, barriersBySeqByCtr
     logger.debug("Looking for next barrier to replace on sequence %d after '%s'", seqInd, currCtr)
-    # If this sequence has no barriers, done
-    if not seqInd in barriersBySeqByPos or len(barriersBySeqByPos[seqInd]) == 0:
-        logger.debug("getNextBarrierCtr found no barriers for sequence %d", seqInd)
-        return '-1'
-    if str(currCtr) != '-1' and currCtr not in barriersBySeqByCtr[seqInd].keys():
-        # Failed to find desired barrier on this channel
-        # FIXME: Raise exception?
-        logger.warning("getNextBarrierCtr failed to find barrier '%s' for sequence %d", currCtr, seqInd)
-        return '-1'
 
     # Handle case where there's no current - we're looking for the first
     if str(currCtr) == '-1':
         logger.debug("Looking for 1st barrier on sequence %d", seqInd)
-        if seqInd in barriersBySeqByPos and len(barriersBySeqByPos) > 0:
-            positions = list(barriersBySeqByPos[seqInd].keys())
-            positions.sort()
-            for i in positions:
-                barrier = barriersBySeqByPos[seqInd][i]
-                # Make sure that barrier is actually still in the sequence it claims to be in;
-                # we might have already removed it
-                if isReplaceableBarrier(barrier, seqs):
-                    # return this ctr
-                    if str(barrier) == '-1':
-                        return '-1'
-                    elif barrier['lengthCalculated']:
-                        logger.debug("... but this barrier length already calculated, continue")
-                        continue
-                    else:
-                        logger.debug("First replaceable barrier on sequence %d: %s\n", seqInd, barrier['counter'])
-                        return barrier['counter']
-                else:
-                    # logger.debug("%s not (no longer) replaceable", barrier)
-                    # keep looping
-                    continue
-            # If we get here, there are no replaceable barriers
-            logger.debug("No (more) replaceable barriers on sequence %d\n", seqInd)
-            return '-1'
-        else:
-            logger.info("Sequence %d has no barriers", seqInd)
-            return '-1'
 
-    # Find this barrier object
-    currBarrier = getBarrierForSeqCtr(seqInd, currCtr)
-    found = False
-    positions = list(barriersBySeqByPos[seqInd].keys())
-    positions.sort()
-    for pos in positions:
-        barrier = barriersBySeqByPos[seqInd][pos]
-        # logger.debug("getNextBarrier after '%s' on seq %d: looking at barrier '%s'", currCtr, seqInd, barrier['counter'])
-        if not found and barriersEqual(barrier, currBarrier):
-            # If we hadn't yet found the desired barrier but did now, say so
-            # logger.debug("found current")
-            found = True
-            continue
-        if found:
-            logger.debug("'%s' is barrier after '%s' on sequence %d", barrier['counter'], currCtr, seqInd)
-            # But if we had found it, then the next one we found is next
-            # NOW....
-            # Before blindly returning this barrier, see if it is actually still in the sequence
-
+        for i in sorted(barriersBySeqByPos.get(seqInd, [])):
+            barrier = barriersBySeqByPos[seqInd][i]
             # Make sure that barrier is actually still in the sequence it claims to be in;
             # we might have already removed it
             if isReplaceableBarrier(barrier, seqs):
                 # return this ctr
                 if str(barrier) == '-1':
-                    logger.debug("... returning it as next\n")
                     return '-1'
                 elif barrier['lengthCalculated']:
                     logger.debug("... but this barrier length already calculated, continue")
                     continue
                 else:
-                    logger.debug("... returning it as next\n")
+                    logger.debug("First replaceable barrier on sequence %d: %s\n", seqInd, barrier['counter'])
                     return barrier['counter']
             else:
-                # logger.debug("... but not (any longer) replaceable")
+                # logger.debug("%s not (no longer) replaceable", barrier)
                 # keep looping
                 continue
+        # If we get here, there are no replaceable barriers
+        logger.debug("No (more) replaceable barriers on sequence %d\n", seqInd)
+        return '-1'
 
+    # Find this barrier object in barriersBySeqByCtr or -1
+    currBarrier = getBarrierForSeqCtr(seqInd, currCtr)
+    found = False
+    try:
+        currPos = currBarrier['seqPos']
+        for pos in sorted(barriersBySeqByPos[seqInd]):
+            # Start looking at things after curBarrier
+            if pos < currPos:
+                continue
+
+            barrier = barriersBySeqByPos[seqInd][pos]
+            nextCtr = barrier['counter']
+            # logger.debug("getNextBarrier after '%s' on seq %d: looking at barrier '%s'", currCtr, seqInd, barrier['counter'])
+
+            # Could use barriersEqual but we know both use same seqInd and curr uses currCtr
+            if not found and nextCtr == currCtr:
+                # If we hadn't yet found the desired barrier but did now, say so
+                # logger.debug("found current")
+                if pos != currPos:
+                    logger.warning("Huh? Barrier ctrs are same (%s) but positions in sequence are diff (curr %d != pos %d)", nextCtr, currPos, pos)
+                found = True
+                continue
+            if found:
+                logger.debug("'%s' is barrier after '%s' on sequence %d", nextCtr, currCtr, seqInd)
+                # But if we had found it, then the next one we found is next
+                # NOW....
+                # Before blindly returning this barrier, see if it is actually still in the sequence
+
+                # Make sure that barrier is actually still in the sequence it claims to be in;
+                # we might have already removed it
+                if isReplaceableBarrier(barrier, seqs):
+                    # return this ctr
+                    if str(barrier) == '-1':
+                        logger.debug("... returning it as next\n")
+                        return '-1'
+                    elif barrier['lengthCalculated']:
+                        logger.debug("... but this barrier length already calculated, continue")
+                        continue
+                    else:
+                        logger.debug("... returning it as next\n")
+                        return nextCtr
+                else:
+                    # logger.debug("... but not (any longer) replaceable")
+                    # keep looping
+                    continue
+    except:
+        # EG currBarrier was -1
+        pass
     # We didn't find the desired barrier, or else didn't find a next
     logger.debug("getNextBarrierCtr failed to find a next (none left?) for sequence %d, after barrier '%s'\n", seqInd, currCtr)
     return '-1'
@@ -1252,17 +1266,16 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
 
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug("barriersBySeqByCtr: ")
-        for seqInd in sorted(barriersBySeqByCtr.keys()):
+        for seqInd in sorted(barriersBySeqByCtr):
             logger.debug(" Seq %d:", seqInd)
             for ctr in barriersBySeqByCtr[seqInd]:
                 logger.debug("  %s: %s", ctr, barriersBySeqByCtr[seqInd][ctr])
 
         logger.debug("barriersBySeqByPos: ")
-        for seqInd in sorted(barriersBySeqByPos.keys()):
+        for seqInd in sorted(barriersBySeqByPos):
             logger.debug(" Seq %d:", seqInd)
-            for pos in sorted(barriersBySeqByPos[seqInd].keys()):
+            for pos in sorted(barriersBySeqByPos[seqInd]):
                 logger.debug("  %s: %s", pos, barriersBySeqByPos[seqInd][pos])
-
         logger.debug("barriersByCtr: ")
         for ctr in barriersByCtr:
             logger.debug(" %s: %s", ctr, barriersByCtr[ctr])
@@ -1309,8 +1322,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
         # amount that our saved indices are off
         swapCnt = 0
         # loop over our previous stash of barriers on this sequence
-        positions = list(barriersBySeqByPos[seqInd].keys())
-        positions.sort()
+        positions = sorted(barriersBySeqByPos[seqInd])
         for barrierInd in positions:
             if barrierInd < 0:
                 # skip the fake start
@@ -1321,6 +1333,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
             bType = barrier.get('type', 'barrier')
             bChannels = getBarrierChannels(barrier['counter'])
             if bInd >= len(seq):
+                logger.debug("swapCnt: %d, seqLen: %d", swapCnt, len(seq))
                 raise Exception("Calculated index of barrier %s (%d, was originally %d) is past end of sequence %d" % (barrier['counter'], bInd, barrierInd, seqInd))
 
             # Make sure it's a barrier still
@@ -1335,7 +1348,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                     seqs[seqInd] = seq[:bInd] + [Sync(), WaitSome(bChannels)] + seq[bInd+1:]
             else:
                 # This is common / expected
-                logger.debug("Spot %d in sequence %d (channel %s) not (no longer) a barrier, but: %s", barrierInd, seqInd, seqIdxToChannelMap[seqInd], seq[barrierInd])
+                logger.debug("Spot %d (was %d) in sequence %d (channel %s) not (no longer) a barrier, but: %s", bInd, barrierInd, seqInd, seqIdxToChannelMap[seqInd], seq[bInd])
                 continue
         logger.debug("Swapped %d barriers on sequence %d\n", swapCnt, seqInd)
         # Now to next sequence
