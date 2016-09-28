@@ -336,7 +336,7 @@ class TestBasicMins(unittest.TestCase):
 
     ## DecouplingMin
 
-    # FIXME: Update this test when doHahnEcho is fixed
+    # FIXME: Update this test when calibration added
     def test_HahnEcho(self):
         q = QubitFactory('q1')
         steps = 11
@@ -348,14 +348,16 @@ class TestBasicMins(unittest.TestCase):
                 qsync(),
                 qwait(),
                 X90(q),
-                # FIXME: Id(q, pulseSpacings[k]),
+                Id(q, pulseSpacings[k]),
                 Y(q),
-                # FIXME: Id(q, pulseSpacings[k]),
-                # FIXME: use pi, len(pulseSpacings)
-                U90(q, phase=2*3.14159265*periods/steps*k),
+                Id(q, pulseSpacings[k]),
+                U90(q, phase=2*pi*periods/len(pulseSpacings)*k),
                 MEAS(q)
             ]
         # FIXME: no calibration yet
+
+        # Get rid of any 0 length Id pulses just added
+        discard_zero_Ids([expectedseq])
 
         resFunction = compileFunction("src/python/qgl2/basic_sequences/DecouplingMin.py",
                                       "doHahnEcho")
