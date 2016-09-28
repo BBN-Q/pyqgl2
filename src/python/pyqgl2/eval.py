@@ -1056,6 +1056,15 @@ class EvalTransformer(object):
                         ast2str(stmnt.iter).strip()))
             return False, None
 
+        # FIXME: Should loop_values here be an empty list instead of None?
+        # This can be a symptom of supply a list with value of None to iterate over,
+        # EG failing to handle if measChans is None: measChans = qubits
+        if loop_values is None:
+            DebugMsg.log("None loop values for %s" % ast2str(stmnt).strip())
+            NodeError.error_msg(stmnt.iter,
+                                ("Success evaluating but got None loop_values for %s" % ast2str(stmnt.iter).strip()))
+            return False, None
+
         tmp_iters = TempVarManager.create_temp_var_manager(
                 name_prefix='___iter')
         loop_iters_name = tmp_iters.create_tmp_name('for_iter')
