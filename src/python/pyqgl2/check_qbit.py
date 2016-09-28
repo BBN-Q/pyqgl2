@@ -661,8 +661,8 @@ class CheckType(NodeTransformerWithFname):
 
             # If we can't find the function definition, check to see
             # whether it's a builtin.  If we can't find it, or it's
-            # not declared to be QGL, then mutter a warning about it
-            # not being local, and then return.
+            # not declared to be QGL, then we can't check it.
+            # Return immediately.
             #
             # TODO the way we check whether a function is a builtin
             # is a non-portable hack.
