@@ -59,7 +59,7 @@ def edgeTest4() -> sequence:
 # edgeTest5 involves a stub that
 # is bad: creating and using another / different qubit
 # Here we have a stub whose implementation is in this same file
-@qgl2stub('pyqgl2.test.edge', 'MyPulseReal')
+@qgl2stub('test.code.edge', 'MyPulseReal')
 def MyPulse(source: qbit) -> qbit:
     pass
 

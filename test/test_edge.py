@@ -39,7 +39,7 @@ class TestEdge(unittest.TestCase):
         for el in echoCR(q1, q2):
             expected1 += [el]
             expected2 += [el]
-        resFunction = compileFunction("src/python/pyqgl2/test/edge.py",
+        resFunction = compileFunction("test/code/edge.py",
                                       "edgeTest")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -79,7 +79,7 @@ class TestEdge(unittest.TestCase):
         expected1 += [Id(q1, X(q2).length), Id(q1, Y(q2).length),
                       Id(q1, Id(q2).length), Id(q1, X(q2).length)]
 
-        resFunction = compileFunction("src/python/pyqgl2/test/edge.py",
+        resFunction = compileFunction("test/code/edge.py",
                                       "edgeTest3")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -127,7 +127,7 @@ class TestEdge(unittest.TestCase):
         expected2 += [Id(q2, X(q1).length), Id(q2, Y(q1).length),
                       Id(q2, Id(q1).length), Id(q2, X(q1).length)]
 
-        resFunction = compileFunction("src/python/pyqgl2/test/edge.py",
+        resFunction = compileFunction("test/code/edge.py",
                                       "edgeTest4")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -154,7 +154,7 @@ class TestEdge(unittest.TestCase):
         for el in CNOT_CR(q1, q2):
             exp1 += [el]
             exp2 += [el]
-        resFunction = compileFunction("src/python/pyqgl2/test/edge.py",
+        resFunction = compileFunction("test/code/edge.py",
                                       "cnotcrTest")
         seqs = resFunction()
         seqs = testable_sequence(seqs)

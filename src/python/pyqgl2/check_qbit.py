@@ -667,6 +667,11 @@ class CheckType(NodeTransformerWithFname):
             # TODO the way we check whether a function is a builtin
             # is a non-portable hack.
             #
+            # The warning about the function not being defined "locally"
+            # is annoying because it will occur for any function imported
+            # from a module in the system libraries, because we don't
+            # import these right now.  This needs a better approach.
+            #
             if not func_def:
                 """
                 # This error is no longer valid; it's not an error

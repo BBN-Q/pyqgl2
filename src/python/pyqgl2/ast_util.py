@@ -84,7 +84,7 @@ class NodeError(object):
         Reset the state of created/emitted messages completely,
         returning to the initial state.
 
-        Does not reset MAX_ERR_LEVEL, MUTE_ERR_LEVEL, or LAST_N.
+        Does not reset MUTE_ERR_LEVEL, or LAST_N.
         """
 
         NodeError.LAST_DIAG_MSG = ''
@@ -93,6 +93,7 @@ class NodeError(object):
         NodeError.LAST_FATAL_MSG = ''
         NodeError.ALL_PRINTED = set()
         NodeError.LAST_MSGS = list()
+        NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_NONE
 
     @staticmethod
     def error_detected():

@@ -9,7 +9,7 @@ from qgl2.qgl2 import qgl2decl, sequence, qbit, pulse
 from qgl2.qgl1 import QubitFactory, X90, Id, Y, U90, MEAS, X90
 from qgl2.control import *
 from qgl2.util import init
-from qgl2.basic_sequences.helpers import create_cal_seqs
+# from qgl2.basic_sequences.helpers import create_cal_seqs
 
 @qgl2decl
 def doHahnEcho() -> sequence:
@@ -24,31 +24,13 @@ def doHahnEcho() -> sequence:
         init(q)
         X90(q)
 
-        # FIXME: 9/12/16: the internal var that is the list of
-        # pulseSpacings is missing somehow, so we get:
-        # KeyError: 'pulseSpacings___ass_002'
-        # Id(q, pulseSpacings[k])
-
-        # FIXME 7/25/16: np.linspace doesn't get expanded by QGL2,
-        # and so we get an import error: NameError: name 'np' is not defined
-#        Id(q, np.linspace(0, 5e-6, steps)[k])
-        Id(q, 0)
-
+        # FIXME 9/28/16: Must name the length arg
+        Id(q, length=pulseSpacings[k])
         Y(q)
 
-        # FIXME: Same errors as above
-        # Id(q, pulseSpacings[k])
-#        Id(q, np.linspace(0, 5e-6, steps)[k])
-        Id(q, 0)
+        Id(q, length=pulseSpacings[k])
 
-        # FIXME 7/25/16: pi doesn't get imported
-        # EV RB sym absent [pi] in qgl2/basic_sequences/DecouplingMin.py
-        # NameError: name 'pi' is not defined
-
-        # FIXME: And len doesn't seem to work
-        # qgl2/basic_sequences/DecouplingMin.py:47:43: error: cannot find import info for [len]
-#        U90(q, phase=2*pi*periods/len(pulseSpacings)*k)
-        U90(q, phase=2*3.14159265*periods/steps*k)
+        U90(q, phase=2*pi*periods/len(pulseSpacings)*k)
 
         MEAS(q)
 
@@ -61,8 +43,8 @@ def doHahnEcho() -> sequence:
 def idPulseCPMG(q: qbit, pulseSpacing) -> pulse:
     # FIXME: q.pulseParams results in "name 'q' is not defined"
     qPulseLength = 4e-9
-#    Id(q, (pulseSpacing - q.pulseParams['length'])/2)
-    Id(q, (pulseSpacing - qPulseLength)/2)
+#    Id(q, length=(pulseSpacing - q.pulseParams['length'])/2)
+    Id(q, length=(pulseSpacing - qPulseLength)/2)
 
 @qgl2decl
 def doCPMG() -> sequence:

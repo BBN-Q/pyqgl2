@@ -1,14 +1,26 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, concur
+from qgl2.qgl2 import qgl2decl, concur, qbit_list
 from qgl2.util import init
 from qgl2.qgl1 import Id, flat_top_gaussian_edge, X, QubitFactory, \
     X90, echoCR
-from qgl2.basic_sequences.new_helpers import measConcurrently
-from qgl2.basic_sequences.helpers import create_cal_seqs
+from qgl2.qgl1 import MEAS
+# from qgl2.basic_sequences.helpers import create_cal_seqs
 
 import numpy as np
 from math import pi
+
+# Originally in qgl2.basic_sequences.new_helpers, but that
+# module contains a mix of QGL1 and QGL2, which confuses
+# the QGL2 preprocessor:
+#
+# from qgl2.basic_sequences.new_helpers import measConcurrently
+@qgl2decl
+def measConcurrently(listNQubits: qbit_list):
+    '''Concurrently measure each of the given qubits.'''
+    with concur:
+        for q in listNQubits:
+            MEAS(q)
 
 @qgl2decl
 def doPiRabi():

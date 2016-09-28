@@ -33,3 +33,6 @@ class QGL2(object):
     REPEAT = 'Qrepeat'
     FOR = 'Qfor'
     ITER = 'Qiter'
+
+    CHECK_FUNC = 'QGL2check'
+    CHECK_FUNC_VEC_ATTR = 'qgl2_check_vector'

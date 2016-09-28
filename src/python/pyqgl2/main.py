@@ -139,6 +139,11 @@ def compileFunction(filename,
                     saveOutput=False,
                     intermediate_output=None):
 
+    NodeError.reset()
+
+    print('\n\nCOMPILING [%s] main %s' %
+            (filename, main_name if main_name else '(default)'))
+
     # Use whether intermediate_output is None to decide
     # whether to call printout blocks at all
     # Old code set intermediate_output to /dev/null
@@ -234,12 +239,12 @@ def compileFunction(filename,
                   file=intermediate_fout, flush=True)
 
         type_check = CheckType(filename, importer=importer)
-        ptree1 = type_check.visit(ptree1)
+        # ptree1 = type_check.visit(ptree1)
         NodeError.halt_on_error()
-        if intermediate_output:
-            print(('CHECKED CODE (iteration %d):\n%s' %
-                   (iteration, pyqgl2.ast_util.ast2str(ptree1))),
-                  file=intermediate_fout, flush=True)
+        # if intermediate_output:
+        #     print(('CHECKED CODE (iteration %d):\n%s' %
+        #            (iteration, pyqgl2.ast_util.ast2str(ptree1))),
+        #           file=intermediate_fout, flush=True)
 
         if inliner.change_cnt == 0:
             NodeError.diag_msg(None,
@@ -269,7 +274,7 @@ def compileFunction(filename,
         local_context = quickcopy(toplevel_bindings)
     elif toplevel_bindings:
         NodeError.error_msg(None,
-            'Unrecognized type for toplevel_bindings')
+                'Unrecognized type for toplevel_bindings: {}'.format(type(toplevel_bindings)))
     else:
         local_context = None
     NodeError.halt_on_error()
@@ -315,8 +320,9 @@ def compileFunction(filename,
     new_ptree1 = ptree1
 
     # Make sure that functions that take qbits are getting qbits
-    sym_check = CheckSymtab(filename, type_check.func_defs, importer)
-    new_ptree5 = sym_check.visit(new_ptree1)
+    new_ptree5 = new_ptree1
+    # sym_check = CheckSymtab(filename, type_check.func_defs, importer)
+    # new_ptree5 = sym_check.visit(new_ptree1)
     NodeError.halt_on_error()
     if intermediate_output:
         print(('%s: SYMTAB CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree5))),
@@ -363,6 +369,7 @@ def compileFunction(filename,
               file=intermediate_fout, flush=True)
 
     evaluator.replace_bindings(new_ptree7.body)
+    evaluator.get_state()
 
     # We're not going to print this, at least not for now,
     # although it's sometimes a useful pretty-printing
@@ -938,8 +945,10 @@ if __name__ == '__main__':
     else:
         sys.exit("No valid ChannelLibrary found")
 
-    resFunction = compileFunction(opts.filename, opts.main_name, opts.saveOutput,
-                                  intermediate_output=opts.intermediate_output)
+    resFunction = compileFunction(
+            opts.filename, opts.main_name,
+            toplevel_bindings=None, saveOutput=opts.saveOutput,
+            intermediate_output=opts.intermediate_output)
     if resFunction:
         # Now import the QGL1 things we need
         from QGL.PulseSequencePlotter import plot_pulse_files

@@ -10,12 +10,15 @@ import pyqgl2.ast_util
 import pyqgl2.inline
 
 
-from pyqgl2.ast_util import NodeError, ast2str, copy_all_loc
+from pyqgl2.ast_util import NodeError, ast2str, expr2ast, copy_all_loc
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.importer import NameSpaces
+from pyqgl2.inline import inline_call
+from pyqgl2.inline import Inliner
 from pyqgl2.inline import NameFinder, NameRedirector, NameRewriter
 from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.inline import TempVarManager
+from pyqgl2.qgl2_check import QGL2check
 from pyqgl2.single import is_qbit_create
 from pyqgl2.quickcopy import quickcopy
 
@@ -272,7 +275,7 @@ class SimpleEvaluator(object):
                 local_variables=local_variables)
         if not success:
             NodeError.error_msg(node,
-                    'failed to evaluate [%s]' % ast2str(node).strip())
+                    'failed to evaluate test [%s]' % ast2str(node).strip())
             return False, None
         else:
             return True, val
@@ -290,7 +293,7 @@ class SimpleEvaluator(object):
                 local_variables=local_variables)
         if not success:
             NodeError.error_msg(node,
-                    'failed to evaluate [%s]' % ast2str(node).strip())
+                    'failed to evaluate iters [%s]' % ast2str(node).strip())
             return False, None
 
         # TODO: review whether this always works.
@@ -352,7 +355,8 @@ class SimpleEvaluator(object):
                 node.value, local_variables=local_variables)
         if not success:
             NodeError.error_msg(node,
-                    'failed to evaluate [%s]' % ast2str(node).strip())
+                    ('failed to evaluate assignment [%s]' %
+                        ast2str(node).strip()))
             return False, None
 
         # print('EV locals %s' % str(self.locals_stack[-1]))
@@ -384,6 +388,12 @@ class SimpleEvaluator(object):
         namespace = self.importer.path2namespace[target_ast.qgl_fname]
 
         local_variables = self.locals_stack[-1]
+
+        # TODO: MUST figure out why making a deep copy of the local
+        # variables seemed like a good idea.  It breaks references,
+        # so it's a little weird, but I might be breaking something
+        # else by NOT doing it.
+        #
         scratch_locals = quickcopy(local_variables)
 
         self.fake_assignment_worker(
@@ -462,9 +472,115 @@ class SimpleEvaluator(object):
     QGL2DECL = 2
     ERROR = -1
 
-    def do_call(self, call_node):
+    def expand_qgl2decl_call(self, call_node):
+
+        # If the function we're trying to call is the value of a
+        # local symbol, then we need to track down that value.
+        # If it turns out to be a qgl2stub, then turn the symbol
+        # back into that stub.  [NOTE: this needs to be fixed to
+        # work properly if the stub is not accessible in the current
+        # namespace, or has been aliased within this namespace!]
+        #
+        # We're not good at finding things generally, but we
+        # can try to find it in the local bindings.
+        #
+        if ((not isinstance(call_node.func, ast.Name)) and
+                (not isinstance(call_node.func, ast.Attribute))):
+            return None
+
+        # TODO: this probably isn't right for looking up Attributes
+        #
+        local_variables = self.locals_stack[-1]
+        if call_node.func.id not in local_variables:
+            return None
+
+        val = local_variables[call_node.func.id]
+
+        if (not hasattr(val, '__qgl2_wrapper__') or
+                (val.__qgl2_wrapper__ != 'qgl2decl')):
+            return None
+
+        func_name = val.__name__
+        namespace = self.importer.path2namespace[call_node.qgl_fname]
+
+        if func_name in namespace.local_defs:
+            func_def = namespace.local_defs[func_name]
+        elif func_name in namespace.from_as:
+            # TODO: check whether this commutes, or whether we
+            # need to chase down the reference if the import-from
+            # is for a symbol that in turn is an import-from...
+            # (but beware of loops!)
+            #
+            (from_func_name, from_func_fname) = namespace.from_as[func_name]
+            from_namespace = self.importer.path2namespace[from_func_fname]
+            func_def = from_namespace.local_defs[from_func_name]
+        else:
+            NodeError.error_msg(
+                    call_node, 'symbol [%s] is not defined' % func_name)
+            return None
+
+        if not isinstance(func_def, ast.FunctionDef):
+            NodeError.error_msg(
+                    call_node, 'symbol [%s] is not a function' % func_name)
+            return None
+
+        inliner = Inliner(self.importer)
+
+        # build a new call node with the same actuals, but the correct
+        # function name
+        #
+        new_call_node = ast.Call(
+                func=ast.Name(id=func_name),
+                args=call_node.args, keywords=call_node.keywords)
+        pyqgl2.ast_util.copy_all_loc(new_call_node, call_node, recurse=True)
+
+        runtime_check = inliner.add_runtime_checks(new_call_node)
+        if runtime_check:
+            (chk_assts, chk_checks, chk_call) = runtime_check
+
+            checks = chk_assts + chk_checks
+            final_call_node = chk_call.value
+        else:
+            checks = None
+            final_code_node = new_call_node
+
+        sketch_call = inline_call(final_call_node, self.importer)
+        if isinstance(sketch_call, list):
+            new_call_with = sketch_call[0]
+
+            # This is gross, and needs extra explaining...
+            # The inlined function we just created is in terms
+            # of the checked call (so its actual parameters are the
+            # values that are created by the checks), but the
+            # the final with-infunc needs to be in terms of the
+            # original actuals, so that that scope checking is
+            # correct.  To reconcile this, we create a new
+            # withitems parameter for the with-infunc, using the
+            # new_call_node, and replace the with-infunc
+            # withitems with it.
+
+            new_ap_names = new_call_node.args[:]
+            new_ap_names.insert(
+                    0, new_call_with.items[0].context_expr.args[0])
+            new_call_with.items[0].context_expr.args = new_ap_names
+
+            # if there are checks, then insert them into the body
+            #
+            if checks:
+                new_call_with.body = checks + new_call_with.body
+
+            # print('INLINED REF [\n%s\n]' % ast2str(new_call_with).strip())
+            return new_call_with
+        else:
+            # TODO: if we got this far and then failed, something
+            # terrible probably happened.  Come up with decent
+            # diagnostics
+            #
+            return None
+
+    def find_call_type(self, call_node):
         """
-        Pseudo-execute a call.
+        Find the type of a call.
 
         If it's a call to a stub function, then we don't do anything
         now, because we'll actually execute it later.  Return QGL2STUB.
@@ -569,24 +685,6 @@ class SimpleEvaluator(object):
             # print('EV IS QGL2DECL: passing through')
             return self.QGL2DECL
 
-        # otherwise, let's see if we can evaluate it.  We do this only
-        # for its side effects; we don't care what the value returned
-        # by the call is (or if there even is one).
-
-        """
-        namespace = self.importer.path2namespace[call_node.qgl_fname]
-        print('EV NS %s' % namespace)
-        local_variables = self.locals_stack[-1]
-        success = namespace.native_exec(call_node,
-                local_variables=local_variables)
-        if not success:
-            NodeError.error_msg(call_node,
-                    'failed to evaluate [%s]' % ast2str(call_node))
-            return False
-
-        print('EV locals %s' % str(self.locals_stack[-1]))
-        """
-
         return self.NONQGL2
 
 
@@ -668,6 +766,18 @@ class EvalTransformer(object):
         #
         self.allocated_qbits = set()
 
+    def get_state(self):
+        """
+        Save a reference to the top of the locals_stack in
+        EvalTransformer.PRECOMPUTED_VALUES for future use
+        (and return the reference)
+        """
+
+        local_variables = self.eval_state.locals_stack[-1]
+        EvalTransformer.PRECOMPUTED_VALUES = local_variables
+
+        return local_variables
+
     def print_state(self):
 
         print('EVS: PREAMBLE:')
@@ -711,7 +821,8 @@ class EvalTransformer(object):
             # sure that it contains all the values referenced
             # in the statements
             #
-            names, _dotted_names = name_finder.find_names(stmnt)
+            names, _dotted_names, _sub_names = name_finder.find_names(stmnt)
+
             for name in names:
                 if name in local_variables:
                     new_values[name] = local_variables[name]
@@ -827,20 +938,56 @@ class EvalTransformer(object):
         else:
             target = stmnt.target
 
-        target_var_names, dotted_var_names = name_finder.find_names(target)
+        (simple_names, dotted_names, sub_names) = name_finder.find_names(
+                target)
 
-        if dotted_var_names:
+        # TODO: handle this like we do for array subscripts
+        #
+        if dotted_names:
             NodeError.warning_msg(target,
                     ('assignment to attributes is unreliable in QGL2 %s' %
-                        str(list(dotted_var_names))))
+                        str(list(dotted_names))))
 
         tmp_targets = TempVarManager.create_temp_var_manager(
                 name_prefix='___ass')
 
-        for name in target_var_names:
+        for name in simple_names:
             new_name = tmp_targets.create_tmp_name(name)
-            # print('EV RA %s -> %s' % (name, new_name))
             self.rewriter.add_mapping(name, new_name)
+
+        # For each of the subscripted names, we need to make a copy
+        # of the object so that the new reference will work.
+        # For example, if the assignment is "a[1] = x" and we give
+        # "a" the new name "a__ass_001" then we need to copy
+        # "a" to "a__ass_001" (or else "a__ass_001[1] = x" isn't
+        # going to work).
+        #
+        local_variables = self.eval_state.locals_stack[-1]
+
+        for name in sub_names:
+            if name in self.rewriter.name2name:
+                use_name = self.rewriter.name2name[name]
+            else:
+                print('UNEXPECTED error: use name not in rewriter')
+                print('    use_name [%s]' % name)
+                use_name = name
+                # We're probably about to crash
+
+            new_name = tmp_targets.create_tmp_name(name)
+            self.rewriter.add_mapping(name, new_name)
+
+            if use_name not in local_variables:
+                print('UNEXPECTED error: use name not in local variables')
+                print('    use_name [%s]' % use_name)
+            else:
+                val = local_variables[use_name]
+
+                if isinstance(val, list):
+                    local_variables[new_name] = val[:]
+                elif isinstance(val, dict):
+                    local_variables[new_name] = dict.copy(val)
+                else:
+                    local_variables[new_name] = deepcopy(val)
 
         self.rewriter.rewrite(target)
 
@@ -909,6 +1056,15 @@ class EvalTransformer(object):
                         ast2str(stmnt.iter).strip()))
             return False, None
 
+        # FIXME: Should loop_values here be an empty list instead of None?
+        # This can be a symptom of supply a list with value of None to iterate over,
+        # EG failing to handle if measChans is None: measChans = qubits
+        if loop_values is None:
+            DebugMsg.log("None loop values for %s" % ast2str(stmnt).strip())
+            NodeError.error_msg(stmnt.iter,
+                                ("Success evaluating but got None loop_values for %s" % ast2str(stmnt.iter).strip()))
+            return False, None
+
         tmp_iters = TempVarManager.create_temp_var_manager(
                 name_prefix='___iter')
         loop_iters_name = tmp_iters.create_tmp_name('for_iter')
@@ -919,7 +1075,8 @@ class EvalTransformer(object):
         iters_list = list()
 
         targets = stmnt.target
-        loop_var_names, dotted_var_names = name_finder.find_names(targets)
+        loop_var_names, dotted_var_names, sub_var_names = name_finder.find_names(targets)
+        # print('DO FOR SUB %s' % str(sub_var_names))
         # print('EV X2 [%s][%s]' % (str(loop_var_names), dotted_var_names))
 
         # TODO: what should we do with dotted names?  We don't really
@@ -959,7 +1116,7 @@ class EvalTransformer(object):
             new_body = quickcopy(body_template)
             new_targets = quickcopy(targets_template)
 
-            loop_var_names, _ = name_finder.find_names(new_targets)
+            loop_var_names, _, _ = name_finder.find_names(new_targets)
             for name in loop_var_names:
                 new_name = tmp_targets.create_tmp_name(name)
                 # print('EV Fl loop var %s -> %s' % (name, new_name))
@@ -1147,7 +1304,7 @@ class EvalTransformer(object):
             return False, list()
 
         was_in_loop = self.in_loop
-        self.in_loop = True
+        self.in_loop = True # TODO: check: should be False?
 
         if is_classical:
             success, new_stmnts = self.do_if_classical(stmnt, test)
@@ -1177,6 +1334,7 @@ class EvalTransformer(object):
         """
 
         if (isinstance(test_expr, ast.Call) and
+                isinstance(test_expr.func, ast.Name) and
                 (test_expr.func.id == 'MEAS')):
             return False, False
         elif (isinstance(test_expr, ast.UnaryOp) and
@@ -1230,11 +1388,67 @@ class EvalTransformer(object):
         self.in_quantum_condition = was_in_quantum_condition
         return True, list([stmnt])
 
+    def call_checker(self, vec):
+        """
+        Called to do runtime type checking.
+
+        The runtime type checks are defined by tuples of the form
+        (var_name, type_name, fp_name, func, src, row, col) where
+
+        var_name: the name of the variable to check (see below
+            for how to find this in the current scope)
+
+        type_name: the name of the type this variable must be
+            (right now 'qbit' or 'classical')
+
+        fp_name: the name of the formal parameter that will be
+            bound to that var_name
+
+        func: the name of the function being called
+
+        src, row, col: the source file path, source row number,
+            and source column number
+
+        Note that the var_name may be the name of a temporary
+        variable, which may in turn have been overwritten as
+        part of a later transformation, like translation to
+        single static assignment (after the check was created)
+        so before looking for this name in the local scope,
+        it needs to be mapped (using the rewriter) to whatever
+        name it has in this context.
+        """
+
+        local_variables = self.eval_state.locals_stack[-1]
+
+        for check in vec:
+            (var_name, type_name, fp_name, func, src, row, col) = check
+
+            mapped_name = self.rewriter.get_mapping(var_name)
+            value = local_variables[mapped_name]
+
+            # QGL2check actually does the check and prints
+            # warning/error messages as needed, and sets the
+            # error level accordingly, so that the caller of
+            # this function can detect whether an error has
+            # been detected and act accordingly
+            #
+            QGL2check(value, type_name, fp_name, func, src, row, col)
+
     def do_body(self, body):
 
         new_body = list()
 
-        for stmnt_index in range(len(body)):
+        # We can't use an ordinary for loop over range(len(body))
+        # because sometimes we restart the iteration after rewriting
+        # elements of the body, and therefore the number of times
+        # we execute the loop may be larger than the number of elements
+        # in the body
+        #
+        last_index = len(body)
+        stmnt_index = 0
+
+        while stmnt_index < last_index:
+            # print('stmnt_index = %d' % stmnt_index)
 
             # TODO: if we've seen a "break" or "continue" but we're
             # not inside a nested statement that supports these,
@@ -1251,6 +1465,7 @@ class EvalTransformer(object):
                 break
 
             stmnt = body[stmnt_index]
+            stmnt_index += 1
 
             # deal with "op=" two-address bin-op assignments by rewriting
             # them as three-address statements.  We need this in order
@@ -1317,6 +1532,7 @@ class EvalTransformer(object):
                 # replace the names of variables in this statement with
                 # the single-assignment names
                 #
+
                 self.rewriter.rewrite(stmnt.value)
 
                 self.rewrite_assign(stmnt)
@@ -1335,34 +1551,56 @@ class EvalTransformer(object):
             elif (isinstance(stmnt, ast.Expr) and
                     isinstance(stmnt.value, ast.Call)):
 
+                # If this is a check function, then send it
+                # to the call_checker to be evaluated.
+                # (The stmnt itself is ignored; all the info
+                # is in the qgl2_check_vector attribute)
+                #
+                if hasattr(stmnt.value, 'qgl2_check_vector'):
+                    self.call_checker(stmnt.value.qgl2_check_vector)
+                    continue
+
                 self.rewriter.rewrite(stmnt)
+
+                # If it's a call to a reference to a qgl2decl, then
+                # we need to do just-in-time inlining.
+                #
+                # We create a new with-infunc and replace its body
+                # with the type checking for the call followed by
+                # the inlined version of the call, and then do a
+                # decrement the stmnt_index and continue to restart
+                # evaluation on the expansion
+                #
+                ref_call = self.eval_state.expand_qgl2decl_call(stmnt.value)
+                if ref_call:
+                    stmnt_index -= 1
+                    body[stmnt_index] = ref_call
+                    continue
 
                 # If it's a call, we need to figure out whether it's
                 # something we should leave alone, expand, or consider
                 # to be an error.
 
                 # XXX should we keep it, or get rid of it?
-                success = self.eval_state.do_call(stmnt.value)
-                if success == self.eval_state.ERROR:
+                call_type = self.eval_state.find_call_type(stmnt.value)
+                if call_type == self.eval_state.ERROR:
                     # Ooops.  Fail hard.
                     break
-                elif success == self.eval_state.QGL2DECL:
+                elif call_type == self.eval_state.QGL2DECL:
                     # We can't proceed, with the evaluation,
                     # but leave the stmnt in the new body,
                     # in the hope that we can expand it later.
                     #
+                    NodeError.error_msg(
+                            stmnt, 'internal failure: qgl2decl not inlined?')
                     new_body.append(stmnt)
-                    continue
-                elif success == self.eval_state.QGL2STUB:
+                elif call_type == self.eval_state.QGL2STUB:
                     # real success
                     new_body.append(stmnt)
-                elif success == self.eval_state.NONQGL2:
-                    # We don't know what to do...  punt.
+                elif call_type == self.eval_state.NONQGL2:
+                    # Do the statement for effect
+                    #
                     self.eval_state.eval_expr(stmnt)
-                    print('NSH %s' % ast2str(stmnt))
-                    NodeError.warning_msg(stmnt,
-                            ('not sure how to handle [%s]' %
-                                ast2str(stmnt).strip()))
                     continue
 
             elif isinstance(stmnt, ast.For):
@@ -1405,10 +1643,15 @@ class EvalTransformer(object):
                 # print('WITH %s' % ast.dump(stmnt))
 
                 new_with = quickcopy(stmnt)
+                # new_with = expr2ast('with True:\n    pass')
+                # pyqgl2.ast_util.copy_all_loc(new_with, stmnt, recurse=True)
+                # new_with.items = deepcopy(stmnt.items)
+
                 for item in new_with.items:
                     self.rewriter.rewrite(item)
 
                 new_with.body = self.do_body(new_with.body)
+                # new_with.body = self.do_body(stmnt.body)
 
                 new_body.append(new_with)
 

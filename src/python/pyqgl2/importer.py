@@ -222,7 +222,20 @@ class NameSpace(object):
     Manage the namespace for a single file
     """
 
-    def __init__(self, path):
+    def __init__(self, path, ptree=None):
+        """
+        path is the path to the Python source of the module
+
+        ptree is the AST node that caused the NameSpace to be
+        created (typically an import statement); it may be
+        omitted.  It is currently used only to help create
+        more meaningful diagnostic messages when something
+        fails
+        """
+
+        # for diagnostics
+        #
+        self.path = path
 
         # functions and variables defined locally
         #
@@ -274,12 +287,38 @@ class NameSpace(object):
         # make sure the __file__ is set properly
         # self.native_globals['__file__'] = path
 
+        self.native_load(ptree)
+
     def __repr__(self):
         return self.__str__()
 
     def __str__(self):
         return ('local %s from_as %s import_as %s' %
                 (str(self.local_defs), str(self.from_as), str(self.import_as)))
+
+    def native_load(self, node=None):
+        """
+        Exec the entire text of the file, so that the native_globals
+        will be properly initialized
+        """
+
+        try:
+            fin = open(self.path, 'r')
+            text = fin.read()
+            fin.close()
+        except BaseException as exc:
+            NodeError.error_msg(None,
+                    'read of [%s] failed: %s' % (self.path, str(exc)))
+            return False
+
+        try:
+            exec(text, self.native_globals)
+            return True
+        except BaseException as exc:
+            NodeError.error_msg(None,
+                    'import of [%s] failed: %s' % (self.path, str(exc)))
+            return False
+        return True
 
     def check_dups(self, name, def_type='unknown'):
         """
@@ -439,6 +478,19 @@ class NameSpace(object):
                     'in %s [%s] failed: %s' % (caller_fname, text, str(exc)))
             return False
 
+    def native_single(self, stmnt, local_variables=None):
+        """
+        Evaluate a single statement (such as an assignment statement)
+        for effect, in the context of (and modifying) the local_variables)
+
+        A wrapper around native_eval that permits assignment statements,
+        which are not permitted in expressions.
+        """
+
+        success, _val = self.native_eval(stmnt,
+                local_variables=local_variables, mode='single')
+        return success
+
     def native_exec(self, stmnt, local_variables=None):
 
         success, _val = self.native_eval(stmnt,
@@ -505,6 +557,9 @@ class NameSpace(object):
             if local_variables is None:
                 local_variables = dict()
 
+            # global_variables = dict.copy(self.native_globals)
+
+            # print('EXPR %s' % expr_str.strip())
             val = eval(final_expr, self.native_globals, local_variables)
             return True, val
         except BaseException as exc:
@@ -515,8 +570,8 @@ class NameSpace(object):
             #
             if isinstance(expr, ast.AST) and hasattr(expr, 'qgl_fname'):
                 NodeError.error_msg(expr,
-                        ('eval failure [%s]: %s' %
-                            (expr_str.strip(), str(exc))))
+                        ('ast eval failure [%s]: type %s %s' %
+                            (expr_str.strip(), str(type(exc)), str(exc))))
             else:
                 print('eval failure [%s]: %s' % (expr_str.strip(), str(exc)))
             return False, None
@@ -592,7 +647,11 @@ class NameSpaces(object):
         # a sentinel value, so we use self.qgl2main.  This is
         # bogus -- we should make a fake node for this purpose
         # FIXME
-        text = open(self.base_fname, 'r').read()
+
+        fin = open(self.base_fname, 'r')
+        text = fin.read()
+        fin.close()
+
         namespace = self.path2namespace[self.base_fname]
         namespace.native_import(text, self.qglmain)
 
@@ -661,7 +720,7 @@ class NameSpaces(object):
                 # If it's not in any of the lists for this namespace
                 # (not a local variable, not a local def, not something
                 # imported via from-as) then maybe it's a reference
-                # to a module element.  Bail out of this look to find
+                # to a module element.  Bail out of this loop to find
                 # out.
                 #
                 break
@@ -710,13 +769,21 @@ class NameSpaces(object):
         #
 
         try:
-            text = open(path, 'r').read()
-            return self.read_import_str(text, path)
+            fin = open(path, 'r')
+            text = fin.read()
+            fin.close()
+        except BaseException as exc:
+            NodeError.fatal_msg(
+                    None, 'cannot open [%s]: %s' % (path, str(exc)))
+            return None
 
+        try:
+            return self.read_import_str(text, path)
         except BaseException as exc:
             NodeError.fatal_msg(None,
-                    'cannot open [%s]: %s' % (path, str(exc)))
+                    'failed to import [%s]: %s %s' % (path, type(exc), exc))
             return None
+
 
     def read_import_str(self, text, path='<stdin>', module_name='__main__'):
 
@@ -747,15 +814,16 @@ class NameSpaces(object):
         # preprocessor always ignores these, without warning.
         #
         for node in ast.walk(ptree):
-            if (isinstance(node, ast.Import) or
-                    isinstance(node, ast.ImportFrom)):
-                if node.col_offset != 0:
-                    NodeError.warning_msg(node,
-                            'conditional/runtime import ignored by pyqgl2')
+            if ((isinstance(node, ast.Import) or
+                    isinstance(node, ast.ImportFrom)) and
+                    (node.col_offset != 0)):
+                NodeError.warning_msg(node,
+                        ('conditional/runtime import [%s] ignored by pyqgl2' %
+                            pyqgl2.ast_util.ast2str(node).strip()))
 
         # Populate the namespace
         #
-        namespace = NameSpace(path)
+        namespace = NameSpace(path, ptree=ptree)
         self.path2namespace[path] = namespace
 
         for stmnt in ptree.body:
@@ -1040,6 +1108,16 @@ class NameSpaces(object):
         package X.  We DO NOT support this feature yet.
 
         """
+
+        # setup the namespace for this module
+        # NOTE: this is incomplete: it only sets up the specific
+        # name, and may do so repeatedly.
+        # TODO: We should only do this once
+        # TODO: and we should import the entire namespace so that
+        # local functions can access local definitions and
+        # functions that are otherwise private
+        #
+        namespace.native_import(pyqgl2.ast_util.ast2str(stmnt), stmnt)
 
         namespace.add_from_as_stmnt(stmnt)
 

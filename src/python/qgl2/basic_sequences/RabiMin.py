@@ -4,29 +4,28 @@
 # These work around QGL2 constraints, such as only doing sequence generation and
 # not compilation, or not taking arguments.
 
-import QGL.PulseShapes
 from qgl2.qgl2 import qgl2decl, qbit, sequence, concur
 from qgl2.qgl1 import QubitFactory, Utheta, MEAS, X, Id
 from qgl2.util import init
-from qgl2.basic_sequences.helpers import create_cal_seqs
+
+import qgl2.basic_sequences.pulses
+
+# from qgl2.basic_sequences.helpers import create_cal_seqs
 import numpy as np
 
-# 7/25/16: Currently fails
 @qgl2decl
 def doRabiWidth():
     # FIXME: No arguments
+
     q = QubitFactory("q1")
     widths = np.linspace(0, 5e-6, 11)
     amp = 1
     phase = 0
-    shapeFun = QGL.PulseShapes.tanh
+    # FIXME: Note the local re-definition of tanh
+    shapeFun = qgl2.basic_sequences.pulses.local_tanh
     for l in widths:
         init(q)
-        # FIXME: QGL2 loses the import needed for this QGL function
-        Utheta(q, length=l, amp=amp, phase=phase,
-               shapeFun=QGL.PulseShapes.tanh)
-        # Doing it this way gives: KeyError: 'shapeFun___ass_004'
-        # Utheta(q, length=l, amp=amp, phase=phase, shapeFun=shapeFun)
+        Utheta(q, length=l, amp=amp, phase=phase, shapeFun=shapeFun)
         MEAS(q)
 
 # For use with pyqgl2.main
@@ -92,17 +91,14 @@ def doRabiAmp_NQubits():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     qubits = [q1, q2]
-#    measChans = None
+    measChans = None
     amps = np.linspace(0, 5e-6, 11)
     p = 0
     docals = False
     calRepeats = 2
 
-    # FIXME: Re-assigning measChans fails.
-    # Once it is assigned, you cannot re-assign it
-#    if not measChans:
-    measChans = qubits
-#    measChans = [q2, q1]
+    if not measChans:
+        measChans = qubits
 
     for a in amps:
         with concur:
@@ -135,7 +131,7 @@ def doSwap():
             init(mq)
             X(q)
             X(mq)
-            Id(mq, d)
+            Id(mq, length=d)
         with concur:
             MEAS(mq)
             MEAS(q)

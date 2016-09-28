@@ -20,7 +20,7 @@ class TestTopLevelBinding(unittest.TestCase):
 
         # dictionary input for toplevel_bindings
         resFunction = compileFunction(
-            "src/python/pyqgl2/test/toplevel_binding.py",
+            "test/code/toplevel_binding.py",
             "main1",
             {"amps": amps}
             )
@@ -36,7 +36,7 @@ class TestTopLevelBinding(unittest.TestCase):
 
         # tuple input for toplevel_bindings
         resFunction = compileFunction(
-            "src/python/pyqgl2/test/toplevel_binding.py",
+            "test/code/toplevel_binding.py",
             "main1",
             (amps,)
             )
@@ -52,7 +52,7 @@ class TestTopLevelBinding(unittest.TestCase):
 
         # tuple input for toplevel_bindings
         resFunction = compileFunction(
-            "src/python/pyqgl2/test/toplevel_binding.py",
+            "test/code/toplevel_binding.py",
             "main1",
             (amps,)
             )
@@ -68,7 +68,7 @@ class TestTopLevelBinding(unittest.TestCase):
 
         # tuple input for toplevel_bindings
         resFunction = compileFunction(
-            "src/python/pyqgl2/test/toplevel_binding.py",
+            "test/code/toplevel_binding.py",
             "main1",
             (amps,)
             )
@@ -77,7 +77,6 @@ class TestTopLevelBinding(unittest.TestCase):
 
         self.assertEqual(seqs[0], expectedseq)
 
-    @unittest.expectedFailure
     def test_main1_tuple_arange(self):
         q1 = QubitFactory('q1')
         amps = np.arange(5)
@@ -85,7 +84,7 @@ class TestTopLevelBinding(unittest.TestCase):
 
         # tuple input for toplevel_bindings
         resFunction = compileFunction(
-            "src/python/pyqgl2/test/toplevel_binding.py",
+            "test/code/toplevel_binding.py",
             "main1",
             (amps,)
             )
@@ -101,7 +100,7 @@ class TestTopLevelBinding(unittest.TestCase):
 
         # dictionary input for toplevel_bindings
         resFunction = compileFunction(
-            "src/python/pyqgl2/test/toplevel_binding.py",
+            "test/code/toplevel_binding.py",
             "main2",
             {"amps": amps, "phase": 0.5}
             )
@@ -117,7 +116,7 @@ class TestTopLevelBinding(unittest.TestCase):
 
         # tuple input for toplevel_bindings
         resFunction = compileFunction(
-            "src/python/pyqgl2/test/toplevel_binding.py",
+            "test/code/toplevel_binding.py",
             "main2",
             (amps, 0.5)
             )
@@ -134,7 +133,7 @@ class TestTopLevelBinding(unittest.TestCase):
 
         # tuple input for toplevel_bindings
         resFunction = compileFunction(
-            "src/python/pyqgl2/test/toplevel_binding.py",
+            "test/code/toplevel_binding.py",
             "main3",
             (q1, amps)
             )
@@ -143,7 +142,6 @@ class TestTopLevelBinding(unittest.TestCase):
 
         self.assertEqual(seqs[0], expectedseq)
 
-    @unittest.expectedFailure
     def test_main4(self):
         # add a function handle as an input
         q1 = QubitFactory('q1')
@@ -152,7 +150,7 @@ class TestTopLevelBinding(unittest.TestCase):
 
         # tuple input for toplevel_bindings
         resFunction = compileFunction(
-            "src/python/pyqgl2/test/toplevel_binding.py",
+            "test/code/toplevel_binding.py",
             "main4",
             (q1, amps, PulseShapes.tanh)
             )
