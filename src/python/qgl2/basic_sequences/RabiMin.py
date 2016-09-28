@@ -21,6 +21,7 @@ def doRabiWidth():
     widths = np.linspace(0, 5e-6, 11)
     amp = 1
     phase = 0
+    # FIXME: Note the local re-definition of tanh
     shapeFun = qgl2.basic_sequences.pulses.local_tanh
     for l in widths:
         init(q)
@@ -90,17 +91,14 @@ def doRabiAmp_NQubits():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     qubits = [q1, q2]
-#    measChans = None
+    measChans = None
     amps = np.linspace(0, 5e-6, 11)
     p = 0
     docals = False
     calRepeats = 2
 
-    # FIXME: Re-assigning measChans fails.
-    # Once it is assigned, you cannot re-assign it
-#    if not measChans:
-    measChans = qubits
-#    measChans = [q2, q1]
+    if not measChans:
+        measChans = qubits
 
     for a in amps:
         with concur:

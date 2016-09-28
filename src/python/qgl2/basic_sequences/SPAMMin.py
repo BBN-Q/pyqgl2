@@ -27,8 +27,6 @@ def spam_seqs(angle, q: qbit, maxSpamBlocks=10) -> sequence:
 def doSPAM() -> sequence:
     # FIXME: No args, including of angleSweep
     q = QubitFactory('q1')
-    # FIXME: Here, pi comes out undefined
-    pi = 3.141592653589793
     angleSweep = np.linspace(0, pi/2, 11)
     maxSpamBlocks=10
 
