@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qgl2main, sequence
+from qgl2.qgl2 import qgl2decl, qbit, qgl2main
 
 from QGL.PulsePrimitives import X, Id, MEAS, X90, U90
 from QGL.Compiler import compile_to_hardware
@@ -161,7 +161,7 @@ def Ramseyq1(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=
 # pulse spacings: 100ns to 10us step by 100ns
 # TPPIFreq: 1Mhz (arg is in hz)
 @qgl2decl
-def doRamsey() -> sequence:
+def doRamsey():
     q = QubitFactory('q1')
     TPPIFreq=1e6
     # FIXME: QGL2 doesn't deal well with the call to np.arange

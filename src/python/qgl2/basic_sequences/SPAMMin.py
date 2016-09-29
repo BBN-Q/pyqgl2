@@ -2,7 +2,7 @@
 
 # Cleaned up version of SPAM.py for QGL2
 
-from qgl2.qgl2 import qgl2decl, sequence, qbit
+from qgl2.qgl2 import qgl2decl, qbit
 from qgl2.control import *
 from qgl2.qgl1 import QubitFactory, Y90, X, U, X90, MEAS, Id
 from qgl2.util import init
@@ -10,7 +10,7 @@ from numpy import pi
 import numpy as np
 
 @qgl2decl
-def spam_seqs(angle, q: qbit, maxSpamBlocks=10) -> sequence:
+def spam_seqs(angle, q: qbit, maxSpamBlocks=10):
     for rep in range(maxSpamBlocks):
         init(q)
         Y90(q)
@@ -24,7 +24,7 @@ def spam_seqs(angle, q: qbit, maxSpamBlocks=10) -> sequence:
 
 #def doSPAM(angleSweep, maxSpamBlocks=10) -> sequence:
 @qgl2decl
-def doSPAM() -> sequence:
+def doSPAM():
     # FIXME: No args, including of angleSweep
     q = QubitFactory('q1')
     angleSweep = np.linspace(0, pi/2, 11)

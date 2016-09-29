@@ -2,7 +2,7 @@
 
 # See SPAMMin for cleaner QGL2 versions
 
-from qgl2.qgl2 import qgl2decl, qbit, qgl2main, pulse, sequence
+from qgl2.qgl2 import qgl2decl, qbit, qgl2main, pulse
 
 from QGL.PulsePrimitives import X, U, Y90, X90, MEAS, Id
 from QGL.Compiler import compile_to_hardware
@@ -15,7 +15,7 @@ from itertools import chain
 from numpy import pi
 
 @qgl2decl
-def spam_seqs(angle, qubit: qbit, maxSpamBlocks=10) -> sequence:
+def spam_seqs(angle, qubit: qbit, maxSpamBlocks=10):
     """ Helper function to create a list of sequences increasing SPAM blocks with a given angle. """
     #SPAMBlock = [X(qubit), U(qubit, phase=pi/2+angle), X(qubit), U(qubit, phase=pi/2+angle)]
     #return [[Y90(qubit)] + SPAMBlock*rep + [X90(qubit)] for rep in range(maxSpamBlocks)]

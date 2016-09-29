@@ -16,7 +16,7 @@ from functools import reduce
 import operator
 import os.path
 
-from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main, concur, sequence
+from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main, concur
 from qgl2.qgl1 import Utheta, MEAS, X, Id, QubitFactory
 import numpy as np
 

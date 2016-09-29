@@ -5,14 +5,14 @@
 from math import pi
 import numpy as np
 
-from qgl2.qgl2 import qgl2decl, sequence, qbit, pulse
+from qgl2.qgl2 import qgl2decl, qbit, pulse
 from qgl2.qgl1 import QubitFactory, X90, Id, Y, U90, MEAS, X90
 from qgl2.control import *
 from qgl2.util import init
 from qgl2.basic_sequences.helpers import create_cal_seqs
 
 @qgl2decl
-def doHahnEcho() -> sequence:
+def doHahnEcho():
     # FIXME: Can't do arguments yet
     q = QubitFactory('q1')
     steps = 11
@@ -43,7 +43,7 @@ def idPulseCPMG(q: qbit, pulseSpacing) -> pulse:
     Id(q, length=(pulseSpacing - qPulseLength)/2)
 
 @qgl2decl
-def doCPMG() -> sequence:
+def doCPMG():
     q = QubitFactory('q1')
 
     # FIXME: Can't have arguments; otherwise want these next 3 as args

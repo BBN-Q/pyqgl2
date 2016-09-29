@@ -1,8 +1,8 @@
-from qgl2.qgl2 import concur, qbit, qgl2decl, sequence, pulse, qgl2main
+from qgl2.qgl2 import concur, qbit, qgl2decl, pulse, qgl2main
 from qgl2.qgl1 import QubitFactory, X90, Y90
 
 @qgl2decl
-def func_a(a: qbit, b: qbit, c: qbit) -> sequence:
+def func_a(a: qbit, b: qbit, c: qbit):
 
     with concur:
         for q in [a, b, c]:
