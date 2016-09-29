@@ -1,3 +1,8 @@
+# Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
+'''
+Test the qgl1/basic_sequences
+'''
+import datetime
 import unittest
 import numpy as np
 from math import pi
@@ -6,8 +11,8 @@ from pyqgl2.main import compileFunction
 from QGL import *
 
 from test.helpers import testable_sequence, discard_zero_Ids, \
-    flattenSeqs, channel_setup, assertPulseSequenceEqual
-import datetime
+    flattenSeqs, channel_setup, assertPulseSequenceEqual, \
+    get_cal_seqs_1qubit, get_cal_seqs_2qubits
 
 class TestBasicMins(unittest.TestCase):
     def setUp(self):
@@ -55,7 +60,6 @@ class TestBasicMins(unittest.TestCase):
     # CRMin
 
     # PiRabi
-    # FIXME: Update this when calibration added
     def test_PiRabi(self):
         controlQ = QubitFactory('q1')
         targetQ = QubitFactory('q2')
@@ -65,8 +69,9 @@ class TestBasicMins(unittest.TestCase):
         riseFall=40e-9
         amp=1
         phase=0
+        calRepeats = 2
 
-        expected_seq_q1 = []
+        expected_seq_q1 = [] # control
         # Seq1
         for l in lengths:
             expected_seq_q1 += [
@@ -86,9 +91,8 @@ class TestBasicMins(unittest.TestCase):
                 X(controlQ),
                 MEAS(controlQ)
             ]
-        # calibration not included - doesn't work yet
 
-        expected_seq_q2 = []
+        expected_seq_q2 = [] # target
         # Seq1
         for l in lengths:
             expected_seq_q2 += [
@@ -108,7 +112,12 @@ class TestBasicMins(unittest.TestCase):
                 Id(targetQ, length=X(controlQ).length),
                 MEAS(targetQ)
             ]
-        # calibration not included - doesn't work yet
+
+        # Add calibration
+        cal_target, cal_control = get_cal_seqs_2qubits(targetQ, controlQ, calRepeats)
+        expected_seq_q1 += cal_control
+        expected_seq_q2 += cal_target
+        discard_zero_Ids([expected_seq_q1, expected_seq_q2])
 
         # To turn on verbose logging in compileFunction
 #        from pyqgl2.ast_util import NodeError
@@ -135,7 +144,6 @@ class TestBasicMins(unittest.TestCase):
             assertPulseSequenceEqual(self, seqs[1], expected_seq_q1)
             assertPulseSequenceEqual(self, seqs[0], expected_seq_q2)
 
-    # FIXME: Update this when calibration added
     def test_EchoCRLen(self):
         controlQ = QubitFactory('q1')
         targetQ = QubitFactory('q2')
@@ -169,7 +177,6 @@ class TestBasicMins(unittest.TestCase):
                 X(controlQ),
                 MEAS(controlQ)
             ]
-        # calibration not included - doesn't work yet
 
         expected_seq_q2 = []
         # Seq1
@@ -194,10 +201,15 @@ class TestBasicMins(unittest.TestCase):
                 Id(targetQ, length=X(controlQ).length),
                 MEAS(targetQ)
             ]
-        # calibration not included - doesn't work yet
 
         # Flatten the echos
         expected_seq_q1, expected_seq_q2 = flattenSeqs([expected_seq_q1, expected_seq_q2])
+
+        # Add calibration
+        cal_target, cal_control = get_cal_seqs_2qubits(targetQ, controlQ, calRepeats)
+        expected_seq_q1 += cal_control
+        expected_seq_q2 += cal_target
+        discard_zero_Ids([expected_seq_q1, expected_seq_q2])
 
         # To turn on verbose logging in compileFunction
 #        from pyqgl2.ast_util import NodeError
@@ -224,7 +236,6 @@ class TestBasicMins(unittest.TestCase):
             assertPulseSequenceEqual(self, seqs[1], expected_seq_q1)
             assertPulseSequenceEqual(self, seqs[0], expected_seq_q2)
 
-    # FIXME: Update this when calibration added
     def test_EchoCRPhase(self):
         controlQ = QubitFactory('q1')
         targetQ = QubitFactory('q2')
@@ -232,6 +243,7 @@ class TestBasicMins(unittest.TestCase):
         riseFall=40e-9
         amp=1
         length=100e-9
+        calRepeats=2
         expected_seq_q1 = []
 
         l1 = X90(targetQ).length - Id(controlQ).length
@@ -274,8 +286,6 @@ class TestBasicMins(unittest.TestCase):
                 MEAS(controlQ)
             ]
 
-        # calibration not included - doesn't work yet
-
         expected_seq_q2 = []
         # Seq1
         for p in phases:
@@ -301,7 +311,11 @@ class TestBasicMins(unittest.TestCase):
                 s2q2,
                 MEAS(targetQ)
             ]
-        # calibration not included - doesn't work yet
+
+        # Add calibration
+        cal_target, cal_control = get_cal_seqs_2qubits(targetQ, controlQ, calRepeats)
+        expected_seq_q1 += cal_control
+        expected_seq_q2 += cal_target
 
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expected_seq_q1, expected_seq_q2])
@@ -336,12 +350,12 @@ class TestBasicMins(unittest.TestCase):
 
     ## DecouplingMin
 
-    # FIXME: Update this test when calibration added
     def test_HahnEcho(self):
         q = QubitFactory('q1')
         steps = 11
         pulseSpacings = np.linspace(0, 5e-6, steps)
         periods = 0
+        calRepeats=2
         expectedseq = []
         for k in range(len(pulseSpacings)):
             expectedseq += [
@@ -354,7 +368,10 @@ class TestBasicMins(unittest.TestCase):
                 U90(q, phase=2*pi*periods/len(pulseSpacings)*k),
                 MEAS(q)
             ]
-        # FIXME: no calibration yet
+
+        # Add calibration
+        cal = get_cal_seqs_1qubit(q, calRepeats)
+        expectedseq += cal
 
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expectedseq])
@@ -365,13 +382,14 @@ class TestBasicMins(unittest.TestCase):
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
-    # FIXME: Update this when CPMG is fixed and when calibration works
+    # FIXME: Update this when CPMG is fixed
     def test_CPMG(self):
         q = QubitFactory('q1')
 
         # Create numPulses sequences
         numPulses = [0, 2, 4, 6]
         pulseSpacing = 500e-9
+        calRepeats = 2
 
         def addt180t(q, pulseSpacing, rep):
             t180t = []
@@ -399,7 +417,12 @@ class TestBasicMins(unittest.TestCase):
                 X90(q),
                 MEAS(q)
                 ]
-        # FIXME: No calibration yet
+
+        # Add calibration
+        cal = get_cal_seqs_1qubit(q, calRepeats)
+        expectedseq += cal
+        # Get rid of any 0 length Id pulses just added
+        discard_zero_Ids([expectedseq])
 
         resFunction = compileFunction("src/python/qgl2/basic_sequences/DecouplingMin.py",
                                       "doCPMG")
@@ -562,7 +585,6 @@ class TestBasicMins(unittest.TestCase):
 
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
-    # FIXME: Add Calibration
     def test_RabiAmp_NQubits(self):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
@@ -570,6 +592,8 @@ class TestBasicMins(unittest.TestCase):
         measChans = qubits
         amps = np.linspace(0, 5e-6, 11)
         p = 0
+        docals = False
+        calRepeats = 2
         expectedseq1 = []
         expectedseq2 = []
         for a in amps:
@@ -592,7 +616,12 @@ class TestBasicMins(unittest.TestCase):
             ]
             if q1l > q2l:
                 expectedseq2 += [Id(q2, q1l-q2l)]
-        # FIXME: No calibration yet
+
+        if docals:
+            # Add calibration
+            cal_q1, cal_q2 = get_cal_seqs_2qubits(q1, q2, calRepeats)
+            expectedseq1 += cal_q1
+            expectedseq2 += cal_q2
 
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expectedseq1, expectedseq2])
@@ -625,7 +654,6 @@ class TestBasicMins(unittest.TestCase):
     # Swap that does the Xs and Id as fast as possible
     # Note we don't understand the QGL1 function, so
     # this test isn't strictly necessary.
-    # FIXME: Update this when calibration added
     def test_Swap(self):
         q = QubitFactory('q1')
         mq = QubitFactory('q2')
@@ -658,7 +686,11 @@ class TestBasicMins(unittest.TestCase):
             expectedseq2 += [
                 MEAS(mq)
             ]
-        # FIXME: No calibration yet
+
+        # Add calibration
+        cal_q2, cal_q1 = get_cal_seqs_2qubits(mq, q, 2)
+        expectedseq1 += cal_q1
+        expectedseq2 += cal_q2
 
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expectedseq1, expectedseq2])
@@ -691,7 +723,6 @@ class TestBasicMins(unittest.TestCase):
 
     ## SPAMMin
 
-    # FIXME: Update this when calibration added
     def test_SPAM(self):
         q = QubitFactory('q1')
         angleSweep = np.linspace(0, pi/2, 11)
@@ -743,7 +774,6 @@ class TestBasicMins(unittest.TestCase):
 
     ## T1T2Min
 
-    # FIXME: Update this when calibration added
     def test_InversionRecovery(self):
         q = QubitFactory('q1')
         delays = np.linspace(0, 5e-6, 11)
@@ -757,7 +787,10 @@ class TestBasicMins(unittest.TestCase):
                 Id(q, d),
                 MEAS(q)
             ]
-        # FIXME: no calibration
+
+        # Add calibration
+        cal = get_cal_seqs_1qubit(q, calRepeats)
+        expectedseq += cal
 
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expectedseq])
@@ -767,7 +800,6 @@ class TestBasicMins(unittest.TestCase):
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
-    # FIXME: Update this when calibration added
     def test_Ramsey(self):
         q = QubitFactory('q1')
         pulseSpacings=np.arange(100e-9, 10e-6, 100e-9)
@@ -788,7 +820,9 @@ class TestBasicMins(unittest.TestCase):
                 U90(q, phase=phase),
                 MEAS(q)
             ]
-        # FIXME: no calibration
+        # Add calibration
+        cal = get_cal_seqs_1qubit(q, calRepeats)
+        expectedseq += cal
 
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expectedseq])
@@ -801,6 +835,11 @@ class TestBasicMins(unittest.TestCase):
 
 if __name__ == '__main__':
     # To test everything in this file (say, using cProfile)
-#    unittest.main("test.test_basic_mins")
+    unittest.main("test.test_basic_mins")
     # To run just 1 test from this file
-    unittest.main("test.test_basic_mins", "TestBasicMins.test_SPAM")
+    # Note that SPAM and FlipFlop and EchoCRPhase are the 3 slowest tests (in that order)
+#    unittest.main("test.test_basic_mins", "TestBasicMins.test_AllXY")
+#    unittest.main("test.test_basic_mins", "TestBasicMins.test_SPAM")
+#    unittest.main("test.test_basic_mins", "TestBasicMins.test_RabiWidth")
+#    unittest.main("test.test_basic_mins", "TestBasicMins.test_HahnEcho")
+#    unittest.main("test.test_basic_mins", "TestBasicMins.test_CPMG")
