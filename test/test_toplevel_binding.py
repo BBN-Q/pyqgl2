@@ -158,3 +158,21 @@ class TestTopLevelBinding(unittest.TestCase):
         seqs = testable_sequence(seqs)
 
         self.assertEqual(seqs[0], expectedseq)
+
+    def test_main5(self):
+        # qbit_list
+        q1 = QubitFactory('q1')
+        q2 = QubitFactory('q2')
+        qs = [q1, q2]
+        expectedseq = [X(q1), X(q2)]
+
+        # tuple input for toplevel_bindings
+        resFunction = compileFunction(
+            "test/code/toplevel_binding.py",
+            "main5",
+            (qs,)
+            )
+        seqs = resFunction()
+        seqs = testable_sequence(seqs)
+
+        self.assertEqual(seqs[0], expectedseq)

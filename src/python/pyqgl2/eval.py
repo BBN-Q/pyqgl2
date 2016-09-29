@@ -896,7 +896,6 @@ class EvalTransformer(object):
             if isinstance(v, Qubit):
                 # FIXME kludge assumption that label is sufficient description
                 stmnt = ast.parse("{0} = QubitFactory('{1}')".format(k, v.label))
-                stmnt.body[0].qgl_fname = orig_node.qgl_fname
                 copy_all_loc(stmnt.body[0], node, recurse=True)
                 qbit_preamble.append(stmnt.body[0])
         node.body = qbit_preamble + node.body

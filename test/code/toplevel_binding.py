@@ -23,3 +23,8 @@ def main3(q:qbit, amps):
 def main4(q:qbit, amps, shape):
     for a in amps:
         Xtheta(q, amp=a, shapeFun=shape)
+
+@qgl2decl
+def main5(qs:qbit_list):
+    for q in qs:
+        X(q)
