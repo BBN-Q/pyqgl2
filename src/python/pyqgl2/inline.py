@@ -3,12 +3,11 @@
 import ast
 import meta
 
-from copy import deepcopy
-
 from pyqgl2.ast_util import NodeError, expr2ast
 from pyqgl2.importer import NameSpaces
 from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
+from pyqgl2.quickcopy import quickcopy
 
 import pyqgl2.ast_util
 import pyqgl2.scope
@@ -204,7 +203,7 @@ class NameRewriter(ast.NodeTransformer):
         # care about things like whether the original code referenced
         # qbits, even if the inlined code does not
         #
-        new_ptree.qgl2_rewriter = deepcopy(self)
+        new_ptree.qgl2_rewriter = quickcopy(self)
 
         return new_ptree
 
@@ -493,13 +492,13 @@ def create_inline_procedure(func_ptree, call_ptree):
 
     tmp_names = TempVarManager.create_temp_var_manager()
 
-    func_ptree = deepcopy(func_ptree)
+    func_ptree = quickcopy(func_ptree)
 
     func_body = func_ptree.body
     formal_params = func_ptree.args.args
 
-    actual_params = deepcopy(call_ptree.args)
-    keyword_actual_params = deepcopy(call_ptree.keywords)
+    actual_params = quickcopy(call_ptree.args)
+    keyword_actual_params = quickcopy(call_ptree.keywords)
 
     setup_locals = list()
     new_func_body = list()
@@ -804,7 +803,7 @@ def create_inline_procedure(func_ptree, call_ptree):
     # I'm not sure whether we need to make a complete copy
     # of the original call_ptree, but it won't hurt
     #
-    orig_call_ptree = deepcopy(call_ptree)
+    orig_call_ptree = quickcopy(call_ptree)
 
     isFirst = True
     for stmnt in func_body:
@@ -1241,7 +1240,7 @@ class Inliner(ast.NodeTransformer):
                     module_names=namespace.all_names,
                     global_names=namespace.native_globals)
 
-        new_ptree = deepcopy(funcdef)
+        new_ptree = quickcopy(funcdef)
 
         while True:
             change_count = self.change_cnt
@@ -1413,7 +1412,7 @@ class Inliner(ast.NodeTransformer):
             for x in new_assignments:
                 print('NA %s' % pyqgl2.ast_util.ast2str(x).strip())
 
-            new_call = deepcopy(call_ptree)
+            new_call = quickcopy(call_ptree)
             new_call.args = new_args
             new_call.keywords = new_kwargs
             new_call = ast.Expr(value=new_call)
@@ -1943,7 +1942,7 @@ def inline_call(base_call, importer):
             # make a copy of the call, and then edit it to call
             # the new function.
             #
-            new_call = deepcopy(base_call)
+            new_call = quickcopy(base_call)
 
             # TODO: check what namespace the inlined function
             # lives in, and make sure that it gets put back
