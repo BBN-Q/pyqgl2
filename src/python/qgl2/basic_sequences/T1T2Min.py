@@ -3,7 +3,7 @@
 # QGL2 clean versions for T1T2.py
 
 from qgl2.qgl2 import qgl2decl, qbit, sequence
-# from qgl2.basic_sequences.helpers import create_cal_seqs
+from qgl2.basic_sequences.helpers import create_cal_seqs
 from qgl2.util import init
 from qgl2.qgl1 import QubitFactory, X, Id, MEAS, U90, X90
 import numpy as np
@@ -22,8 +22,7 @@ def doInversionRecovery() -> sequence:
         MEAS(q)
 
     # Tack on calibration
-    # FIXME: This doesn't yet work in QGL2
-#    create_cal_seqs((q,), calRepeats)
+    create_cal_seqs((q,), calRepeats)
 
 @qgl2decl
 def doRamsey() -> sequence:
@@ -46,5 +45,4 @@ def doRamsey() -> sequence:
         MEAS(q)
 
     # Tack on calibration
-    # FIXME: create_cal_seqs doesn't yet work in QGL2
-    # create_cal_seqs((q,), calRepeats)
+    create_cal_seqs((q,), calRepeats)

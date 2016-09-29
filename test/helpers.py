@@ -1,3 +1,4 @@
+# Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 '''
 Utilities for creating a basic channel configuration for testing.
 '''
@@ -10,6 +11,8 @@ from QGL import ChannelLibrary
 from QGL.Channels import Edge, Measurement
 from QGL.PulseSequencer import Pulse, CompositePulse
 from QGL.PatternUtils import flatten
+from QGL.PulsePrimitives import Id, X, MEAS
+from QGL.ControlFlow import qsync, qwait
 
 import collections
 from math import pi
@@ -285,3 +288,129 @@ def assertPulseSequenceEqual(test, seq1, seq2, msg=None):
     standardMsg = test._truncateMessage(standardMsg, diffMsg)
     msg = test._formatMessage(msg, standardMsg)
     test.fail(msg)
+
+def get_cal_seqs_1qubit(qubit, calRepeats=2):
+    '''
+    Note: return may include 0 length Id pulses.
+    EG:
+    qsync,
+    qwait
+    Id(q1)
+    MEAS(q1),
+    qsync,
+    qwait
+    Id(q1)
+    MEAS(q1),
+    qsync,
+    qwait
+    X(q1)
+    MEAS(q1),
+    qsync,
+    qwait
+    X(q1)
+    MEAS(q1)
+    '''
+    calSeq = []
+    for pulse in [Id, X]:
+        for _ in range(calRepeats):
+            calSeq += [
+                qsync(),
+                qwait(),
+                pulse(qubit),
+                MEAS(qubit)
+            ]
+    return calSeq
+
+def get_cal_seqs_2qubits(q1, q2, calRepeats=2):
+    '''
+    Note: return may include 0 length Id pulses.
+    EG
+    q1:
+    4x this block:
+    qsync
+    qwait
+    Id(q1)
+    <maybe an ID>
+    MEAS(q1)
+    <maybe an ID>
+
+    4x this block:
+    qsync
+    qwait
+    X(q1)
+    <maybe an ID>
+    MEAS(q1)
+    <maybe an ID>
+
+    q2:
+    2x:
+    qsync
+    qwait
+    Id(q2)
+    <maybe an ID>
+    MEAS(q2)
+    <maybe an ID>
+    qsync
+    qwait
+    Id(q2)
+    <maybe an ID>
+    MEAS(q2)
+    <maybe an ID>
+
+    qsync
+    qwait
+    X(q2)
+    <maybe an ID>
+    MEAS(q2)
+    <maybe an ID>
+    qsync
+    qwait
+    X(q2)
+    <maybe an ID>
+    MEAS(q2)
+    <maybe an ID>
+    '''
+
+    calSeq1 = []
+    calSeq2 = []
+    for pulseSet in [(Id, Id), (Id, X), (X, Id), (X, X)]:
+        for _ in range(calRepeats):
+            q1l = pulseSet[0](q1).length
+            q2l = pulseSet[1](q2).length
+            calSeq1 += [
+                qsync(),
+                qwait(),
+                pulseSet[0](q1)
+            ]
+            calSeq2 += [
+                qsync(),
+                qwait(),
+                pulseSet[1](q2)
+            ]
+            # Sync up after those pulses
+            if q2l > q1l:
+                calSeq1 += [
+                    Id(q1, length=q2l-q1l)
+                ]
+            if q1l > q2l:
+                calSeq2 += [
+                    Id(q2, length=q1l-q2l)
+                ]
+            calSeq1 += [
+                MEAS(q1)
+            ]
+            calSeq2 += [
+                MEAS(q2)
+            ]
+            # Sync up after the MEAS pulses
+            q1l = MEAS(q1).length
+            q2l = MEAS(q2).length
+            if q2l > q1l:
+                calSeq1 += [
+                    Id(q1, length=q2l-q1l)
+                ]
+            if q1l > q2l:
+                calSeq2 += [
+                    Id(q2, length=q1l-q2l)
+                ]
+    return calSeq1, calSeq2
