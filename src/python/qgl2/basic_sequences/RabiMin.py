@@ -10,7 +10,8 @@ from qgl2.util import init
 
 import qgl2.basic_sequences.pulses
 
-# from qgl2.basic_sequences.helpers import create_cal_seqs
+from qgl2.basic_sequences.helpers import create_cal_seqs
+
 import numpy as np
 
 @qgl2decl
@@ -112,7 +113,6 @@ def doRabiAmp_NQubits():
                     MEAS(measChans[ct])
 
     if docals:
-        # FIXME: This isn't working yet
         create_cal_seqs(qubits, calRepeats, measChans=measChans)
 
 # This version allows the Xs and Id pulse to be done in parallel,
@@ -136,6 +136,5 @@ def doSwap():
             MEAS(mq)
             MEAS(q)
 
-    # FIXME: This isn't working yet
-    # create_cal_seqs((mq, q), 2)
+    create_cal_seqs((mq, q), 2)
 

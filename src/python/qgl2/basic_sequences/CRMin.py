@@ -5,7 +5,7 @@ from qgl2.util import init
 from qgl2.qgl1 import Id, flat_top_gaussian_edge, X, QubitFactory, \
     X90, echoCR
 from qgl2.qgl1 import MEAS
-# from qgl2.basic_sequences.helpers import create_cal_seqs
+from qgl2.basic_sequences.helpers import create_cal_seqs
 
 import numpy as np
 from math import pi
@@ -53,9 +53,8 @@ def doPiRabi():
         X(controlQ)
         measConcurrently([targetQ, controlQ])
 
-    # FIXME: These don't work yet
     # Then do calRepeats calibration sequences
-#    create_cal_seqs([targetQ, controlQ], calRepeats)
+    create_cal_seqs([targetQ, controlQ], calRepeats)
 
 @qgl2decl
 def doEchoCRLen():
@@ -91,9 +90,8 @@ def doEchoCRLen():
         X(controlQ)
         measConcurrently([targetQ, controlQ])
     
-    # FIXME: This doesn't work yet
     # Then do calRepeats calibration sequences
-    # create_cal_seqs([targetQ, controlQ], calRepeats)
+    create_cal_seqs([targetQ, controlQ], calRepeats)
 
 @qgl2decl
 def doEchoCRPhase():
@@ -133,7 +131,6 @@ def doEchoCRPhase():
             X(controlQ)
         measConcurrently([targetQ, controlQ])
 
-    # FIXME: This doesn't work yet
     # Then do calRepeats calibration sequences
-    # create_cal_seqs([targetQ, controlQ], calRepeats)
+    create_cal_seqs([targetQ, controlQ], calRepeats)
     
