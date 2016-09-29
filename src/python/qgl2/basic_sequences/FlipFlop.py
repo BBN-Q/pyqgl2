@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qgl2main, pulse, sequence
+from qgl2.qgl2 import qgl2decl, qbit, qgl2main, pulse
 
 from QGL.PulsePrimitives import X90, X90m, Y90, Id, X, MEAS
 from QGL.Compiler import compile_to_hardware
@@ -89,7 +89,7 @@ def FlipFlopq1(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     compileAndPlot(seqs, 'FlipFlop/FlipFlop', showPlot)
 
 @qgl2decl
-def flipflop_seqs(dragScaling, maxNumFFs, qubit: qbit) -> sequence:
+def flipflop_seqs(dragScaling, maxNumFFs, qubit: qbit):
     """ Helper function to create a list of sequences with a specified drag parameter. """
     # FIXME: cause qubit is a placeholder, can't access pulseParams
     # qubit.pulseParams['dragScaling'] = dragScaling
@@ -104,7 +104,7 @@ def flipflop_seqs(dragScaling, maxNumFFs, qubit: qbit) -> sequence:
         MEAS(qubit) # FIXME: Need original dragScaling?
 
 @qgl2decl
-def FlipFlopMin() -> sequence:
+def FlipFlopMin():
     # FIXME: No args
     qubit = QubitFactory('q1')
     dragParamSweep = np.linspace(0, 5e-6, 11) # FIXME

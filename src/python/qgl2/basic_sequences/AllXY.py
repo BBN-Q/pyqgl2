@@ -2,7 +2,7 @@
 
 # See AllXYMin for simpler / newer attempts
 
-from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main, sequence
+from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main
 from qgl2.qgl1 import QubitFactory
 
 from qgl2.qgl1 import Id, X, Y, X90, Y90, MEAS
@@ -38,7 +38,7 @@ def AllXYq2(q: qbit, showPlot = False):
 
 # FIXME: Fails cause cannot loop over functions yet
 @qgl2decl
-def doAllXY() -> sequence:
+def doAllXY():
     q = QubitFactory(label="q1")
     # For each of the 21 pulse pairs
     for func in [IdId, XX, YY, XY, YX, X90Id, Y90Id,

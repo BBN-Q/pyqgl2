@@ -3,11 +3,11 @@
 # Test functions to test end-to-end handling of Barriers & multi qbit sequences
 
 from qgl2.qgl1 import QubitFactory, Id, X, MEAS, Y
-from qgl2.qgl2 import qgl2decl, sequence, concur, seq, qbit
+from qgl2.qgl2 import qgl2decl, concur, qbit
 from qgl2.util import init
 
 @qgl2decl
-def multiQbitTest2() -> sequence:
+def multiQbitTest2():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
 
@@ -19,25 +19,25 @@ def multiQbitTest2() -> sequence:
             MEAS(q)
 
 @qgl2decl
-def doSimple() -> sequence:
+def doSimple():
     q2 = QubitFactory('q2')
     simpleSingle2(q2)
 
 @qgl2decl
-def simpleSingle2(q: qbit) -> sequence:
+def simpleSingle2(q: qbit):
     init(q)
     X(q)
     MEAS(q)
 
 @qgl2decl
-def simpleSingle() -> sequence:
+def simpleSingle():
     q2 = QubitFactory('q2')
     init(q2)
     X(q2)
     MEAS(q2)
 
 @qgl2decl
-def anotherMulti() -> sequence:
+def anotherMulti():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     with concur:
@@ -51,7 +51,7 @@ def anotherMulti() -> sequence:
             Y(q)
 
 @qgl2decl
-def anotherMulti2() -> sequence:
+def anotherMulti2():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     q3 = QubitFactory('q3')
@@ -67,7 +67,7 @@ def anotherMulti2() -> sequence:
             Y(q)
 
 @qgl2decl
-def anotherMulti3() -> sequence:
+def anotherMulti3():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     q3 = QubitFactory('q3')

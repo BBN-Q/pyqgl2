@@ -3,11 +3,11 @@
 # Tests for end to end Edge handling, and handling stubs on >1 qubits
 
 from qgl2.qgl1 import QubitFactory, Id, X, MEAS, Y, echoCR, CNOT_CR
-from qgl2.qgl2 import qgl2decl, sequence, concur, seq, qbit, qgl2stub
+from qgl2.qgl2 import qgl2decl, concur, qbit, qgl2stub, pulse
 from qgl2.util import init
 
 @qgl2decl
-def edgeTest() -> sequence:
+def edgeTest():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     with concur:
@@ -20,13 +20,13 @@ def edgeTest() -> sequence:
 
 # Simplest possible test
 @qgl2decl
-def edgeTest2() -> sequence:
+def edgeTest2():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     echoCR(q1, q2)
 
 @qgl2decl
-def edgeTest3() -> sequence:
+def edgeTest3():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     with concur:
@@ -41,7 +41,7 @@ def edgeTest3() -> sequence:
 # Note you need a 2nd edge from q2 to q1 for edgeTest4,
 # which may not be realistic
 @qgl2decl
-def edgeTest4() -> sequence:
+def edgeTest4():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
 
@@ -60,7 +60,7 @@ def edgeTest4() -> sequence:
 # is bad: creating and using another / different qubit
 # Here we have a stub whose implementation is in this same file
 @qgl2stub('test.code.edge', 'MyPulseReal')
-def MyPulse(source: qbit) -> qbit:
+def MyPulse(source: qbit) -> pulse:
     pass
 
 # QGL1 function
@@ -71,7 +71,7 @@ def MyPulseReal(source):
     return X(q3)
 
 @qgl2decl
-def edgeTest5() -> sequence:
+def edgeTest5():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     with concur:
@@ -80,7 +80,7 @@ def edgeTest5() -> sequence:
             MyPulse(q)
 
 @qgl2decl
-def cnotcrTest() -> sequence:
+def cnotcrTest():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     with concur:

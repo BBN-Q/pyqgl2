@@ -1,6 +1,6 @@
 from qgl2.basic_sequences.helpers import create_cal_seqs
 from qgl2.qgl1 import Id, QubitFactory, MEAS
-from qgl2.qgl2 import qgl2decl, qgl2stub, qbit, pulse, sequence, qgl2main
+from qgl2.qgl2 import qgl2decl, qgl2stub, qbit, pulse, qgl2main
 
 def read_ac_lines(fname):
 
@@ -24,7 +24,7 @@ def AC(qubit: qbit, cliffNum) -> pulse:
     pass
 
 @qgl2decl
-def create_seqs(qubit: qbit, fileName) -> sequence:
+def create_seqs(qubit: qbit, fileName):
 
     lines = read_ac_lines(fileName)
 
