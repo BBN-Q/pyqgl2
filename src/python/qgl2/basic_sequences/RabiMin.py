@@ -92,28 +92,20 @@ def doRabiAmp_NQubits():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     qubits = [q1, q2]
-    measChans = None
     amps = np.linspace(0, 5e-6, 11)
     p = 0
     docals = False
     calRepeats = 2
 
-    if not measChans:
-        measChans = qubits
-
     for a in amps:
         with concur:
-            # FIXME: Can't handle enumerate generator
-            for ct, q in list(enumerate(qubits)):
+            for q in qubits:
                 init(q)
                 Utheta(q, amp=a, phase=p)
-                if measChans == qubits:
-                    MEAS(q)
-                else:
-                    MEAS(measChans[ct])
+                MEAS(q)
 
     if docals:
-        create_cal_seqs(qubits, calRepeats, measChans=measChans)
+        create_cal_seqs(qubits, calRepeats)
 
 # This version allows the Xs and Id pulse to be done in parallel,
 # as quick as possible. But we can't tell what the QGL1 method was
@@ -137,4 +129,3 @@ def doSwap():
             MEAS(q)
 
     create_cal_seqs((mq, q), 2)
-

@@ -87,7 +87,7 @@ def Resetq1_orig(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     # there are entries in FbSeq
     # Each sequence in the final result will start with one of these
     # calibration sequences
-    calSeqs = create_cal_seqs(qubits,1,measChans=measChans)
+    calSeqs = create_cal_seqs(measChans,1)
 
     # This next block creates something called FbSeq. This is like
     # calSeqs, except that for some qubits the "calibration sequence"
@@ -224,7 +224,7 @@ def Resetq1_orig(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     # If we're doing calibration too, add that at the very end
     # - another 2^numQubits * calRepeats sequences
     if docals:
-        seqs += create_cal_seqs(qubits, calRepeats, measChans=measChans)
+        seqs += create_cal_seqs(measChans, calRepeats)
 
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
@@ -440,7 +440,7 @@ def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     # If we're doing calibration too, add that at the very end
     # - another 2^numQubits * calRepeats sequences
     if docals:
-        create_cal_seqs(qubits, calRepeats, measChans=measChans)
+        create_cal_seqs(measChans, calRepeats)
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
@@ -514,7 +514,7 @@ def Resetq1(qubits: qbit_list, measDelay = 1e-6, signVec = None,
     # If we're doing calibration too, add that at the very end
     # - another 2^numQubits * calRepeats sequences
     if docals:
-        seqs += create_cal_seqs(qubits, calRepeats, measChans=measChans)
+        seqs += create_cal_seqs(measChans, calRepeats)
 
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
@@ -669,7 +669,7 @@ def main():
     # Set up 2 qbits, following model in QGL/test/test_Sequences
 
     # FIXME: Cannot use these in current QGL2 compiler, because
-    # a: QGL2 doesn't understand creating class instances, and 
+    # a: QGL2 doesn't understand creating class instances, and
     # b: QGL2 currently only understands the fake Qbits
 #    qg1 = LogicalMarkerChannel(label="q1-gate")
 #    q1 = Qubit(label='q1', gateChan=qg1)
