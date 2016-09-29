@@ -15,54 +15,34 @@ from qgl2.basic_sequences.helpers import create_cal_seqs
 import numpy as np
 
 @qgl2decl
-def doRabiWidth():
-    # FIXME: No arguments
-
-    q = QubitFactory("q1")
-    widths = np.linspace(0, 5e-6, 11)
-    amp = 1
-    phase = 0
+def doRabiWidth(q:qbit, widths):
     # FIXME: Note the local re-definition of tanh
     shapeFun = qgl2.basic_sequences.pulses.local_tanh
     for l in widths:
         init(q)
-        Utheta(q, length=l, amp=amp, phase=phase, shapeFun=shapeFun)
+        Utheta(q, length=l, amp=1, phase=0, shapeFun=shapeFun)
         MEAS(q)
 
-# For use with pyqgl2.main
-# Note hard coded amplitudes and phase
 @qgl2decl
-def doRabiAmp():
-    q = QubitFactory('q1')
-    steps = 11
-    amps = np.linspace(0, 1, steps)
-    phase = 0
-
+def doRabiAmp(q:qbit, amps, phase):
     for amp in amps:
         init(q)
         Utheta(q, amp=amp, phase=phase)
         MEAS(q)
 
-# FIXME: As above, want to pass in amps, phase, qbits
 @qgl2decl
-def doRabiAmpPi():
-    q1 = QubitFactory('q1')
-    q2 = QubitFactory('q2')
-    amps = np.linspace(0, 1, 11)
-    phase = 0
-
+def doRabiAmpPi(q1:qbit, q2:qbit, amps):
     for l in amps:
         with concur:
             init(q1)
             init(q2)
         X(q2)
-        Utheta(q1, amp=l, phase=phase)
+        Utheta(q1, amp=l, phase=0)
         X(q2)
         MEAS(q2)
 
 @qgl2decl
-def doSingleShot():
-    q = QubitFactory('q1')
+def doSingleShot(q:qbit):
     init(q)
     Id(q)
     MEAS(q)
@@ -71,11 +51,7 @@ def doSingleShot():
     MEAS(q)
 
 @qgl2decl
-def doPulsedSpec():
-    q = QubitFactory('q1')
-    # FIXME: Want a specOn arg but that currently doesn't work
-# qgl2/basic_sequences/RabiMin.py:80:7: error: eval failure [specOn]: name 'specOn' is not defined
-    specOn = True
+def doPulsedSpec(q:qbit, specOn):
     init(q)
     if specOn:
         X(q)
@@ -87,15 +63,12 @@ def doPulsedSpec():
 # be doing MEAS over the measChans. So something like below.
 
 @qgl2decl
-def doRabiAmp_NQubits():
-    # FIXME: Can't have args
+def doRabiAmp_NQubits(amps, docals, calRepeats):
+    # FIXME: want to pass q1 and q2 as a qbit_list arg
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
     qubits = [q1, q2]
-    amps = np.linspace(0, 5e-6, 11)
     p = 0
-    docals = False
-    calRepeats = 2
 
     for a in amps:
         with concur:
@@ -111,11 +84,7 @@ def doRabiAmp_NQubits():
 # as quick as possible. But we can't tell what the QGL1 method was
 # trying to do, so this may be meaningless.
 @qgl2decl
-def doSwap():
-    # FIXME: Args
-    q = QubitFactory('q1')
-    mq = QubitFactory('q2')
-    delays = np.linspace(0, 5e-6, 11)
+def doSwap(q:qbit, mq:qbit, delays):
 
     for d in delays:
         with concur:

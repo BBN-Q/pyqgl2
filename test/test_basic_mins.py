@@ -482,17 +482,21 @@ class TestBasicMins(unittest.TestCase):
 
     def test_RabiAmp(self):
         q1 = QubitFactory('q1')
+        amps = np.linspace(0, 1, 11)
+        phase = 0
+
         expectedseq = []
-        for amp in np.linspace(0, 1, 11):
+        for amp in amps:
             expectedseq += [
                 qsync(),
                 qwait(),
-                Utheta(q1, amp=amp),
+                Utheta(q1, amp=amp, phase=phase),
                 MEAS(q1)
             ]
 
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doRabiAmp")
+                                      "doRabiAmp",
+                                      (q1, amps, phase))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
@@ -500,15 +504,17 @@ class TestBasicMins(unittest.TestCase):
     # Fails due to import of tanh, etc. See RabiMin.py
     def test_RabiWidth(self):
         from qgl2.basic_sequences.pulses import local_tanh
+        q1 = QubitFactory('q1')
+        widths = np.linspace(0, 5e-6, 11)
 
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doRabiWidth")
+                                      "doRabiWidth",
+                                      (q1, widths))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        q1 = QubitFactory('q1')
         expectedseq = []
-        for l in np.linspace(0, 5e-6, 11):
+        for l in widths:
             expectedseq += [
                 qsync(),
                 qwait(),
@@ -519,16 +525,19 @@ class TestBasicMins(unittest.TestCase):
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
     def test_RabiAmpPi(self):
+        q1 = QubitFactory('q1')
+        q2 = QubitFactory('q2')
+        amps = np.linspace(0, 1, 11)
+
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doRabiAmpPi")
+                                      "doRabiAmpPi",
+                                      (q1, q2, amps))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        q1 = QubitFactory('q1')
-        q2 = QubitFactory('q2')
         expectedseq1 = []
         expectedseq2 = []
-        for amp in np.linspace(0, 1, 11):
+        for amp in amps:
             expectedseq1 += [
                 qsync(),
                 qwait(),
@@ -550,12 +559,13 @@ class TestBasicMins(unittest.TestCase):
         assertPulseSequenceEqual(self, seqs[1], expectedseq2)
 
     def test_SingleShot(self):
+        q1 = QubitFactory('q1')
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doSingleShot")
+                                      "doSingleShot",
+                                      (q1,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        q1 = QubitFactory('q1')
         expectedseq = [
             qsync(),
             qwait(),
@@ -570,12 +580,13 @@ class TestBasicMins(unittest.TestCase):
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
     def test_PulsedSpec(self):
+        q1 = QubitFactory('q1')
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doPulsedSpec")
+                                      "doPulsedSpec",
+                                      (q1, True))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        q1 = QubitFactory('q1')
         expectedseq = [
             qsync(),
             qwait(),
@@ -637,7 +648,8 @@ class TestBasicMins(unittest.TestCase):
         # set_log_level()
 
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doRabiAmp_NQubits")
+                                      "doRabiAmp_NQubits",
+                                      (amps, docals, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -707,7 +719,8 @@ class TestBasicMins(unittest.TestCase):
 
         # Add final True arg for debugging
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doSwap")
+                                      "doSwap",
+                                      (q, mq, delays))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
