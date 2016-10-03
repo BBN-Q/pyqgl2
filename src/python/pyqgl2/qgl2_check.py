@@ -3,6 +3,8 @@
 from pyqgl2.ast_util import NodeError
 from pyqgl2.inline import QubitPlaceholder
 
+import QGL.Channels
+
 def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
     """
     Runtime check of an actual parameter
@@ -26,7 +28,8 @@ def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
     assert isinstance(colno, int), 'colno must be a int'
 
     if required_type == 'qbit':
-        if not isinstance(value, QubitPlaceholder):
+        if ((not isinstance(value, QubitPlaceholder)) and
+                (not isinstance(value, QGL.Channels.Qubit))):
             print(('%s:%d:%d: error: ' +
                 'param [%s] of func [%s] must be qbit') %
                     (fname, lineno, colno, fp_name, fun_name))
