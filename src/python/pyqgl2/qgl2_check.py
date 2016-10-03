@@ -34,7 +34,9 @@ def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
             return False
 
     elif required_type == 'qbit_list':
-        if (not isinstance(value, list)) and (not isinstance(value, set)):
+        if ((not isinstance(value, list)) and
+                (not isinstance(value, set)) and
+                (not isinstance(value, tuple))):
             print(('%s:%d:%d: error: ' +
                 'param [%s] of func [%s] must be qbit_list') %
                     (fname, lineno, colno, fp_name, fun_name))
