@@ -104,6 +104,13 @@ class MarkReferencedQbits(ast.NodeVisitor):
 
         referenced_qbits = set()
 
+        # Some ancillary nodes related to assignment or name resolution
+        # cause issues later, and have no effect on qbit refs, so
+        # skip them.  Right now Load seems to be the only troublemaker
+        #
+        if isinstance(node, ast.Load):
+            return
+
         # If we've already run over this subtree, then we don't need
         # to examine it again.  (this assumes that any modifications
         # and reinvocations of this traversal happen at the root of
@@ -136,7 +143,7 @@ class MarkReferencedQbits(ast.NodeVisitor):
         node.qgl2_referenced_qbits = referenced_qbits
 
     @staticmethod
-    def marker(node, local_vars=None):
+    def marker(node, local_vars=None, force_recursion=False):
         """
         Helper function: creates a MarkReferencedQbits instance
         with the given local variables, the uses this instance to
@@ -145,7 +152,8 @@ class MarkReferencedQbits(ast.NodeVisitor):
         all qbits referenced by the root node
         """
 
-        marker_obj = MarkReferencedQbits(local_vars=local_vars) 
+        marker_obj = MarkReferencedQbits(
+                local_vars=local_vars, force_recursion=force_recursion)
         marker_obj.visit(node)
 
         return node.qgl2_referenced_qbits
@@ -496,7 +504,8 @@ class QbitGrouper2(ast.NodeTransformer):
         """
 
         all_qbits = MarkReferencedQbits.marker(
-                node, local_vars=self.local_vars)
+                node, local_vars=self.local_vars,
+                force_recursion=True)
 
         # print('REFERENCED: %s' % str(all_qbits))
 
@@ -517,7 +526,8 @@ class QbitGrouper2(ast.NodeTransformer):
 
         new_node = quickcopy(node)
 
-        all_qbits = MarkReferencedQbits.marker(node, local_vars=local_vars)
+        all_qbits = MarkReferencedQbits.marker(
+                node, local_vars=local_vars, force_recursion=True)
 
         # TODO: need to check that it's a FunctionDef
 
