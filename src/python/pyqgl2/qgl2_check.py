@@ -31,6 +31,23 @@ def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
                 'param [%s] of func [%s] must be qbit') %
                     (fname, lineno, colno, fp_name, fun_name))
             NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_ERROR
+            return False
+
+    elif required_type == 'qbit_list':
+        if (not isinstance(value, list)) and (not isinstance(value, set)):
+            print(('%s:%d:%d: error: ' +
+                'param [%s] of func [%s] must be qbit_list') %
+                    (fname, lineno, colno, fp_name, fun_name))
+            NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_ERROR
+            return False
+
+        for element in value:
+            if not isinstance(element, QubitPlaceholder):
+                print(('%s:%d:%d: error: ' +
+                    'each elem of param [%s] of func [%s] must be a qbit') %
+                        (fname, lineno, colno, fp_name, fun_name))
+                NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_ERROR
+                return False
 
     elif required_type == 'classical':
         if isinstance(value, QubitPlaceholder):
@@ -38,5 +55,6 @@ def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
                 'param [%s] of func [%s] must be classical') %
                     (fname, lineno, colno, fp_name, fun_name))
             NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_ERROR
+            return False
 
     return True
