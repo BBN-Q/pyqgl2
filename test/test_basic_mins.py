@@ -57,6 +57,44 @@ class TestBasicMins(unittest.TestCase):
         self.assertEqual(len(seqs[0]), 5*21*2)
         assertPulseSequenceEqual(self, seqs[0][:len(expectedseq)], expectedseq)
 
+    def test_AllXYq3(self):
+        q1 = QubitFactory('q1')
+        expectedseq = []
+        # Expect a single sequence 5 * 2 * 21 pulses long
+        # Expect it to start like this:
+        expectedseq += [
+            qsync(),
+            qwait(),
+            Id(q1),
+            Id(q1),
+            MEAS(q1),
+            qsync(),
+            qwait(),
+            Id(q1),
+            Id(q1),
+            MEAS(q1)
+            ]
+
+        # To turn on verbose logging in compileFunction
+        # from pyqgl2.ast_util import NodeError
+        # from pyqgl2.debugmsg import DebugMsg
+        # NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+        # DebugMsg.set_level(0)
+
+        # Can optionally supply saveOutput=True to save the qgl1.py
+        # file,
+        # and intermediate_output="path-to-output-file" to save
+        # intermediate products
+        resFunction = compileFunction(
+                "src/python/qgl2/basic_sequences/AllXYMin.py",
+                "AllXYq3")
+        seqs = resFunction()
+        seqs = testable_sequence(seqs)
+        self.assertEqual(len(seqs), 1)
+        self.assertEqual(len(seqs[0]), 5*21*2)
+        assertPulseSequenceEqual(self, seqs[0][:len(expectedseq)], expectedseq)
+
+
     # CRMin
 
     # PiRabi
@@ -842,6 +880,40 @@ class TestBasicMins(unittest.TestCase):
 
         resFunction = compileFunction("src/python/qgl2/basic_sequences/T1T2Min.py",
                                       "doRamsey")
+        seqs = resFunction()
+        seqs = testable_sequence(seqs)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq)
+
+    def test_Ramsey_nolist(self):
+        q = QubitFactory('q1')
+        pulseSpacings=np.arange(100e-9, 10e-6, 100e-9)
+        TPPIFreq=1e6 # 0
+        calRepeats = 2
+        expectedseq = []
+
+        # Create the phases for the TPPI
+        phases = 2*pi*TPPIFreq*pulseSpacings
+
+        # Create the basic Ramsey sequence
+        for d,phase in zip(pulseSpacings, phases):
+            expectedseq += [
+                qsync(),
+                qwait(),
+                X90(q),
+                Id(q, d),
+                U90(q, phase=phase),
+                MEAS(q)
+            ]
+        # Add calibration
+        cal = get_cal_seqs_1qubit(q, calRepeats)
+        expectedseq += cal
+
+        # Get rid of any 0 length Id pulses just added
+        discard_zero_Ids([expectedseq])
+
+        resFunction = compileFunction(
+                "src/python/qgl2/basic_sequences/T1T2Min.py",
+                "doRamsey_nolist")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)

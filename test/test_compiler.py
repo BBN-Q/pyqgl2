@@ -15,7 +15,6 @@ class TestCompiler(unittest.TestCase):
     def tearDown(self):
         pass
 
-    @unittest.expectedFailure
     def test_tomo(self):
         resFunction = compileFunction("test/code/tomo.py", "main")
         seqs = resFunction()
