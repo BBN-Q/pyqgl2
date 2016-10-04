@@ -3,6 +3,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 import ast
+import collections
 
 from ast import NodeTransformer
 
@@ -1065,6 +1066,11 @@ class EvalTransformer(object):
                                 ("Success evaluating but got None loop_values for %s" % ast2str(stmnt.iter).strip()))
             return False, None
 
+        if not isinstance(loop_values, collections.Iterable):
+            NodeError.error_msg(
+                    stmnt.iter, "iter expression is not iterable")
+            return False, None
+
         tmp_iters = TempVarManager.create_temp_var_manager(
                 name_prefix='___iter')
         loop_iters_name = tmp_iters.create_tmp_name('for_iter')
@@ -1103,7 +1109,14 @@ class EvalTransformer(object):
         body_template = stmnt.body
         targets_template = targets
 
-        for i in range(len(loop_values)):
+        loop_values = loop_values.__iter__()
+
+        i = 0
+        while True:
+            try:
+                loop_value = loop_values.__next__()
+            except StopIteration as exc:
+                break
 
             # placeholder node for the new Qiter
             #
@@ -1129,7 +1142,7 @@ class EvalTransformer(object):
 
             # Fake the assignment, to update the current variable bindings
             #
-            self.eval_state.fake_assignment(new_targets, loop_values[i])
+            self.eval_state.fake_assignment(new_targets, loop_value)
 
             # Insert a new statement for assigning the loop targets
             # from the loop variables array
@@ -1141,7 +1154,7 @@ class EvalTransformer(object):
                     assign_ast, stmnt.body[0], recurse=True)
 
             self.preamble_stmnts.append(assign_ast)
-            self.preamble_values.append(loop_values[i])
+            self.preamble_values.append(loop_value)
 
             # for x in new_body:
             #     print('EV FOR0 type %s' % str(type(x)))
@@ -1169,6 +1182,8 @@ class EvalTransformer(object):
             if self.seen_break:
                 self.seen_break = False
                 break
+
+            i += 1
 
         # for ns in self.preamble_stmnts:
         #     print('EVF pre %s' % ast2str(ns).strip())
