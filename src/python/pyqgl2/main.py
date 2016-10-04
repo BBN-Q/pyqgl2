@@ -171,7 +171,8 @@ def compileFunction(filename,
         filename = sys.argv[0] # Could use <stdin> instead
     else:
         try:
-            relPath = os.path.relpath(filename)
+            rel_path = os.path.relpath(filename)
+            filename = rel_path
         except Exception as e:
             # If that wasn't a good path, treat it as code
             NodeError.diag_msg(None, "Failed to make relpath from %s: %s" % (filename, e))
