@@ -6,8 +6,6 @@ from qgl2.util import init
 
 from itertools import product
 
-# FIXME: 2 generators in here get turned into lists to make this work
-
 @qgl2decl
 def create_cal_seqs(qubits: qbit_list, numRepeats):
     """
@@ -31,16 +29,14 @@ def create_cal_seqs(qubits: qbit_list, numRepeats):
     # Calibrate using Id and X pulses
     calSet = [Id, X]
 
-    # FIXME: product is a generator, and we don't handle those
-    # yet to iterate over, except by wrapping in a list
-    for pulseSet in list(product(calSet, repeat=len(qubits))):
+    for pulseSet in product(calSet, repeat=len(qubits)):
         # Repeat each calibration numRepeats times
         for _ in range(numRepeats):
             with concur:
                 for q in qubits:
                     init(q)
             with concur:
-                for pulse, qubit in list(zip(pulseSet, qubits)):
+                for pulse, qubit in zip(pulseSet, qubits):
                     pulse(qubit)
             with concur:
                 for q in qubits:
