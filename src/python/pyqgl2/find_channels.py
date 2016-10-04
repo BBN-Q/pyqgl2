@@ -65,9 +65,10 @@ def find_all_channels_worker(node, local_vars=None):
                 all_channels.add(subnode.id)
             elif subnode.id.startswith('EDGE_'):
                 all_channels.add(subnode.id)
-            elif ((subnode.id in local_vars) and
-                    (isinstance(local_vars[subnode.id], QubitPlaceholder))):
-                all_channels.add(local_vars[subnode.id].use_name)
+            elif subnode.id in local_vars:
+                print('SYM IN LOCAL_VARS %s' % subnode.id)
+                if isinstance(local_vars[subnode.id], QubitPlaceholder):
+                    all_channels.add(local_vars[subnode.id].use_name())
 
         # Look for references to inlined calls; dig out any
         # channels that might be hiding there despite being

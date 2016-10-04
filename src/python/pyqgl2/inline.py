@@ -14,6 +14,8 @@ import pyqgl2.scope
 
 from pyqgl2.ast_util import ast2str
 
+import QGL.Channels
+
 class BarrierIdentifier(object):
 
     NEXTNUM = 1
@@ -25,29 +27,59 @@ class BarrierIdentifier(object):
         return nextnum
 
 
-class QubitPlaceholder(object):
+class QubitPlaceholder(QGL.Channels.Qubit):
     """
-    Placeholder for a Qubit/Channel
+    Subclass of QGL.Channels.Qubit to add methods
+    used for QGL2 bookkeeping
 
-    It would be preferable to use the actual Qubit object
-    here, but that requires closer integration with QGL1
+    (QGL.Channels.Qubit is a subclasses of Atom,
+    which means that it cannot be modified in-place
+    and generally doesn't behave like an ordinary
+    Python class)
+
+    Instances should never be created directly;
+    use QubitPlaceholder.factory() to create
+    instances.
     """
 
     # mapping from label to reference
     KNOWN_QUBITS = dict()
 
-    def __init__(self, use_name):
-        self.use_name = use_name
+    def __init__(self, **kwargs):
+        super(QubitPlaceholder, self).__init__(**kwargs)
+
+    def use_name(self):
+        return 'QBIT_' + self.label
 
     @staticmethod
-    def factory(use_name, **kwargs):
+    def factory(node=None, **kwargs):
+
+        if 'label' not in kwargs:
+            NodeError.error_msg(node, 'Qubit must have a label')
+            return None
+
+        label = kwargs['label']
+        if not isinstance(label, str):
+            NodeError.error_msg(node, 'Qubit label must be a string')
+            return None
+
+        if not label:
+            NodeError.error_msg(node, 'Qubit label must be non-empty')
+            return None
+
+        use_name = 'QBIT_%s' % kwargs['label']
 
         mapping = QubitPlaceholder.KNOWN_QUBITS
-
         if use_name not in mapping:
-            mapping[use_name] = QubitPlaceholder(use_name, **kwargs)
-        return mapping[use_name]
 
+            # TODO: check that the kwargs haven't changed since
+            # the last Qubit was created with this label
+
+            new_qbit = QubitPlaceholder(**kwargs)
+
+            mapping[use_name] = new_qbit
+
+        return mapping[use_name]
 
 class TempVarManager(object):
     """
@@ -946,7 +978,7 @@ class NameRedirector(ast.NodeTransformer):
         elif isinstance(value, str):
             redirection = ast.Str(s=value)
         elif isinstance(value, QubitPlaceholder):
-            redirection = ast.Name(id=value.use_name, ctx=ast.Load())
+            redirection = ast.Name(id=value.use_name(), ctx=ast.Load())
             redirection.qgl_is_qbit = True
         else:
             redirection = ast.Subscript(

@@ -4,12 +4,10 @@
 
 import ast
 import collections
-
-from ast import NodeTransformer
+import re
 
 import pyqgl2.ast_util
 import pyqgl2.inline
-
 
 from pyqgl2.ast_util import NodeError, ast2str, expr2ast, copy_all_loc
 from pyqgl2.debugmsg import DebugMsg
@@ -24,6 +22,7 @@ from pyqgl2.single import is_qbit_create
 from pyqgl2.quickcopy import quickcopy
 
 from QGL import Qubit
+from QGL import QubitFactory
 
 def insert_keyword(kwargs, key, value):
 
@@ -1519,6 +1518,8 @@ class EvalTransformer(object):
                 continue
 
             elif isinstance(stmnt, ast.Assign):
+
+
                 # If the assignment is due to qbit creation
                 # then we have some housekeeping to do.
                 # We create a fake value (a QubitPlaceholder instance)
@@ -1534,7 +1535,12 @@ class EvalTransformer(object):
                     self.rewriter.rewrite(stmnt.value)
                     sym_name, use_name, _node = is_qbit_create(stmnt)
 
-                    qbit = QubitPlaceholder.factory(use_name)
+                    # is_qbit_create returns the "old" style use-name,
+                    # but what we need to pass to the Qubit creator
+                    # is the label, which is the suffix of the use-name.
+                    #
+                    label_name = re.sub('QBIT_', '', use_name)
+                    qbit = QubitPlaceholder.factory(stmnt, label=label_name)
 
                     self.allocated_qbits.add(use_name)
 

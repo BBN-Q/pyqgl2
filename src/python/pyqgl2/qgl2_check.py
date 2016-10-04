@@ -3,6 +3,8 @@
 from pyqgl2.ast_util import NodeError
 from pyqgl2.inline import QubitPlaceholder
 
+import QGL.Channels
+
 def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
     """
     Runtime check of an actual parameter
@@ -44,6 +46,10 @@ def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
             return False
 
         for element in value:
+            # this might be too persnickety, but right now
+            # we must have a QubitPlaceholder because we will
+            # require the use_name() method be present.
+            #
             if not isinstance(element, QubitPlaceholder):
                 print(('%s:%d:%d: error: ' +
                     'each elem of param [%s] of func [%s] must be a qbit') %

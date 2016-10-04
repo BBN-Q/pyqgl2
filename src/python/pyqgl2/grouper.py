@@ -6,7 +6,6 @@ Group nodes by the qbits they operate on
 
 import ast
 
-
 import pyqgl2.ast_util
 
 from pyqgl2.ast_qgl2 import is_with_label
@@ -45,9 +44,10 @@ def find_all_channels(node, local_vars=None):
                 all_channels.add(subnode.id)
             elif subnode.id.startswith('EDGE_'):
                 all_channels.add(subnode.id)
-            elif ((subnode.id in local_vars) and
-                    (isinstance(local_vars[subnode.id], QubitPlaceholder))):
-                all_channels.add(local_vars[subnode.id].use_name)
+            elif subnode.id in local_vars:
+                print('SYM IN LOCAL_VARS %s' % subnode.id)
+                if isinstance(local_vars[subnode.id], QubitPlaceholder):
+                    all_channels.add(local_vars[subnode.id].use_name())
 
         # Look for references to inlined calls; dig out any
         # channels that might be hiding there despite being
@@ -96,7 +96,7 @@ class MarkReferencedQbits(ast.NodeVisitor):
             referenced_qbits.add(node.id)
         elif ((node.id in self.local_vars) and
                 (isinstance(self.local_vars[node.id], QubitPlaceholder))):
-            referenced_qbits.add(self.local_vars[node.id].use_name)
+            referenced_qbits.add(self.local_vars[node.id].use_name())
 
         node.qgl2_referenced_qbits = referenced_qbits
 
@@ -206,8 +206,9 @@ class AddSequential(ast.NodeTransformer):
         # otherwise, put it in the candidate new body,
         #
         for stmnt in node.body:
-            if (isinstance(stmnt, ast.Assign) and
-                    stmnt.targets[0].qgl_is_qbit):
+            # if (isinstance(stmnt, ast.Assign) and
+            #         stmnt.targets[0].qgl_is_qbit):
+            if isinstance(stmnt, ast.Assign):
                 new_preamble.append(stmnt)
             elif not stmnt.qgl2_referenced_qbits:
                 new_preamble.append(stmnt)
@@ -539,8 +540,9 @@ class QbitGrouper2(ast.NodeTransformer):
         # to move qbit allocation outside qgl2main. TODO
         # 
         for stmnt in node.body:
-            if (isinstance(stmnt, ast.Assign) and
-                    stmnt.targets[0].qgl_is_qbit):
+            # if (isinstance(stmnt, ast.Assign) and
+            #         stmnt.targets[0].qgl_is_qbit):
+            if isinstance(stmnt, ast.Assign):
                 alloc_stmnts.append(stmnt)
             else:
                 body_stmnts.append(stmnt)
