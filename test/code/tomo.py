@@ -16,7 +16,6 @@ def init(*args):
 def tomo(f, q1:qbit, q2:qbit):
     # QGL2 can't yet handle a variable that is a list of functions
     fncs = [Id, X90, Y90, X]
-    # QGL2 can't yet handle this call to product() to produce the list of functions to call
     for prep in product(fncs, fncs):
         for meas in product(fncs, fncs):
             init(q1, q2)
@@ -33,7 +32,8 @@ def tomo(f, q1:qbit, q2:qbit):
 def tomo_no_generators(f, q1:qbit, q2:qbit):
     # QGL2 can't yet handle a variable that is a list of functions
     fncs = [Id, X90, Y90, X]
-    # QGL2 can't yet handle this call to product() to produce the list of functions to call
+    # QGL2 couldn't handle generators and needed to listify them
+    # (no longer true)
     for prep in list(product(fncs, fncs)):
         for meas in list(product(fncs, fncs)):
             with concur:
