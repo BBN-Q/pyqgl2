@@ -59,6 +59,10 @@ class QubitPlaceholder(QGL.Channels.Qubit):
             return None
 
         label = kwargs['label']
+        if not isinstance(label, str):
+            NodeError.error_msg(node, 'Qubit label must be a string')
+            return None
+
         if not label:
             NodeError.error_msg(node, 'Qubit label must be non-empty')
             return None
