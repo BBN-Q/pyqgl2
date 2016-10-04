@@ -16,7 +16,7 @@ Some current limitations of the QGL2 language
 * QGL2 does not have "real" qubits, so you cannot use their
   parameters, or look at the topology graph to find edges for
   example. This will change. See issue #76, 65
-* QGL2 main function cannot take arguments, specifical Qubits. See
+* QGL2 main function cannot take arguments, specifically Qubits. See
   issue #62.
 * There is no current good way to do control flow based on measurement
   results, particularly measurements from a different channel. This
@@ -36,10 +36,6 @@ Things to fix:
 * A Qubit() creation is only recognized if it is in an assignment. EG
   x = Qubit("alabel") works, but
   return Qubit("alabel") does not. Issue #75.
-* Constant or function references are missing their required imports
-  in output code. EG use of numpy.pi or a function reference to
-  QGL.PulseShapes.tanh. See Issue #58, #64
-* Cannot iterate over generators (like `product`). See issue #63.
 * Various ways to read & use file contents (like `with open`)
   fail. See issue #67, 68, 69.
 * QGL2 performance must be improved.

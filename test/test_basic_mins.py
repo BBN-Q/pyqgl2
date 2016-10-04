@@ -57,6 +57,7 @@ class TestBasicMins(unittest.TestCase):
         self.assertEqual(len(seqs[0]), 5*21*2)
         assertPulseSequenceEqual(self, seqs[0][:len(expectedseq)], expectedseq)
 
+    # Tests list of lists of function references, instead of sub-functions
     def test_AllXYq3(self):
         q1 = QubitFactory('q1')
         expectedseq = []
@@ -884,7 +885,8 @@ class TestBasicMins(unittest.TestCase):
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
-    def test_Ramsey_nolist(self):
+    def test_Ramsey_list(self):
+        # Test Ramsey putting the zip() call in a list()
         q = QubitFactory('q1')
         pulseSpacings=np.arange(100e-9, 10e-6, 100e-9)
         TPPIFreq=1e6 # 0
@@ -913,7 +915,7 @@ class TestBasicMins(unittest.TestCase):
 
         resFunction = compileFunction(
                 "src/python/qgl2/basic_sequences/T1T2Min.py",
-                "doRamsey_nolist")
+                "doRamsey_list")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)

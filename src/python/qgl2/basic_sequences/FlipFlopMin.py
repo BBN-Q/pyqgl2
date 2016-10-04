@@ -9,7 +9,7 @@ import numpy as np
 @qgl2decl
 def flipflop_seqs(dragParam, maxNumFFs, qubit: qbit):
     """ Helper function to create a list of sequences with a specified drag parameter. """
-    # FIXME: cause qubit is a placeholder, can't access pulseParams
+    # Since qubit is a placeholder, can't access pulseParams
     # So instead, supply the dragScaling as an explicit kwarg to all pulses
     # qubit.pulseParams['dragScaling'] = dragParam
     for rep in range(maxNumFFs):
@@ -20,7 +20,7 @@ def flipflop_seqs(dragParam, maxNumFFs, qubit: qbit):
             X90(qubit, dragScaling=dragParam)
             X90m(qubit, dragScaling=dragParam)
         Y90(qubit, dragScaling=dragParam)
-        MEAS(qubit) # FIXME: Need original dragScaling?
+        MEAS(qubit)
 
 @qgl2decl
 def doFlipFlop():
@@ -29,17 +29,17 @@ def doFlipFlop():
     dragParamSweep = np.linspace(0, 5e-6, 11) # FIXME
     maxNumFFs = 10
 
-    # FIXME: cause qubit is a placeholder, can't access pulseParams
+    # Since qubit is a placeholder, can't access pulseParams
     # originalScaling = qubit.pulseParams['dragScaling']
     for dragParam in dragParamSweep:
         init(qubit)
         Id(qubit)
-        MEAS(qubit) # FIXME: Need original dragScaling?
+        MEAS(qubit) # Using original dragScaling - correct?
 
         # FIXME: In original this was [[Id]] + flipflop - is this
         # right?
         flipflop_seqs(dragParam, maxNumFFs, qubit)
-    # FIXME: cause qubit is a placeholder, can't access pulseParams
+    # Since qubit is a placeholder, can't access pulseParams
     # qubit.pulseParams['dragScaling'] = originalScaling
 
     # Add a final pi for reference
