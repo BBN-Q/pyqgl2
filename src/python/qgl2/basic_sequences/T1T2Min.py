@@ -46,26 +46,3 @@ def doRamsey():
 
     # Tack on calibration
     create_cal_seqs((q,), calRepeats)
-
-@qgl2decl
-def doRamsey_nolist():
-    # FIXME: No args possible yet: TPPIFreq, pulseSpacings, calRepeats
-    q = QubitFactory('q1')
-    pulseSpacings=np.arange(100e-9, 10e-6, 100e-9)
-    TPPIFreq=1e6 # 0
-    calRepeats = 2
-
-    # Create the phases for the TPPI
-    phases = 2*pi*TPPIFreq*pulseSpacings
-
-    # Create the basic Ramsey sequence
-    # FIXME: QGL2 doesn't deal well with this call to zip: make it a list
-    for d,phase in zip(pulseSpacings, phases):
-        init(q)
-        X90(q)
-        Id(q, length=d)
-        U90(q, phase=phase)
-        MEAS(q)
-
-    # Tack on calibration
-    create_cal_seqs((q,), calRepeats)
