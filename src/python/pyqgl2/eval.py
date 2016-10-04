@@ -901,8 +901,16 @@ class EvalTransformer(object):
             elif hasattr(v, '__iter__') and all(isinstance(x, Qubit) for x in v):
                 # a uniform list of Qubits
                 # FIXME same kludge as above
-                qstrs = ", ".join("QubitFactory('{}')".format(x.label) for x in v)
-                stmnt = ast.parse("{0} = ({1},)".format(k, qstrs))
+                tmp_namer = TempVarManager.create_temp_var_manager(
+                        name_prefix='___preamble')
+                qstrs = ""
+                tmp_names = []
+                for elem in v:
+                    tmp_name = tmp_namer.create_tmp_name(elem.label)
+                    tmp_names.append(tmp_name)
+                    qstrs += "{0} = QubitFactory('{1}')\n".format(tmp_name, elem.label)
+                qstrs += "{0} = ({1})".format(k, ", ".join(tmp_names))
+                stmnt = ast.parse(qstrs)
                 copy_all_loc(stmnt.body[0], node, recurse=True)
                 qbit_preamble.append(stmnt.body[0])
         node.body = qbit_preamble + node.body
