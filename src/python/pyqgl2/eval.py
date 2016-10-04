@@ -1535,10 +1535,12 @@ class EvalTransformer(object):
                     self.rewriter.rewrite(stmnt.value)
                     sym_name, use_name, _node = is_qbit_create(stmnt)
 
-                    # qbit = QubitPlaceholder.factory(use_name)
+                    # is_qbit_create returns the "old" style use-name,
+                    # but what we need to pass to the Qubit creator
+                    # is the label, which is the suffix of the use-name.
+                    #
                     label_name = re.sub('QBIT_', '', use_name)
-                    # print('USE NAME %s LABEL %s' % (use_name, label_name))
-                    qbit = QubitFactory(label_name)
+                    qbit = QubitPlaceholder.factory(stmnt, label=label_name)
 
                     self.allocated_qbits.add(use_name)
 
