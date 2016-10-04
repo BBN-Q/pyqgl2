@@ -47,10 +47,7 @@ def find_all_channels(node, local_vars=None):
             elif subnode.id in local_vars:
                 print('SYM IN LOCAL_VARS %s' % subnode.id)
                 if isinstance(local_vars[subnode.id], QubitPlaceholder):
-                    all_channels.add(local_vars[subnode.id].use_name)
-                elif isinstance(local_vars[subnode.id], QGL.Channels.Qubit):
-                    print('ITS A QUBIT %s' % local_vars[subnode.id])
-                    all_channels.add(local_vars[subnode.id].use_name)
+                    all_channels.add(local_vars[subnode.id].use_name())
 
         # Look for references to inlined calls; dig out any
         # channels that might be hiding there despite being
@@ -99,7 +96,7 @@ class MarkReferencedQbits(ast.NodeVisitor):
             referenced_qbits.add(node.id)
         elif ((node.id in self.local_vars) and
                 (isinstance(self.local_vars[node.id], QubitPlaceholder))):
-            referenced_qbits.add(self.local_vars[node.id].use_name)
+            referenced_qbits.add(self.local_vars[node.id].use_name())
 
         node.qgl2_referenced_qbits = referenced_qbits
 
