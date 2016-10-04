@@ -846,6 +846,40 @@ class TestBasicMins(unittest.TestCase):
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
+    def test_Ramsey_nolist(self):
+        q = QubitFactory('q1')
+        pulseSpacings=np.arange(100e-9, 10e-6, 100e-9)
+        TPPIFreq=1e6 # 0
+        calRepeats = 2
+        expectedseq = []
+
+        # Create the phases for the TPPI
+        phases = 2*pi*TPPIFreq*pulseSpacings
+
+        # Create the basic Ramsey sequence
+        for d,phase in zip(pulseSpacings, phases):
+            expectedseq += [
+                qsync(),
+                qwait(),
+                X90(q),
+                Id(q, d),
+                U90(q, phase=phase),
+                MEAS(q)
+            ]
+        # Add calibration
+        cal = get_cal_seqs_1qubit(q, calRepeats)
+        expectedseq += cal
+
+        # Get rid of any 0 length Id pulses just added
+        discard_zero_Ids([expectedseq])
+
+        resFunction = compileFunction(
+                "src/python/qgl2/basic_sequences/T1T2Min.py",
+                "doRamsey_nolist")
+        seqs = resFunction()
+        seqs = testable_sequence(seqs)
+        assertPulseSequenceEqual(self, seqs[0], expectedseq)
+
 if __name__ == '__main__':
     # To test everything in this file (say, using cProfile)
     unittest.main("test.test_basic_mins")
