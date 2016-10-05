@@ -164,7 +164,8 @@ class TestTopLevelBinding(unittest.TestCase):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         qs = [q1, q2]
-        expectedseq = [X(q1), X(q2)]
+        expectedseq1 = [X(q1), Id(q1)]
+        expectedseq2 = [Id(q2), X(q2)]
 
         # tuple input for toplevel_bindings
         resFunction = compileFunction(
@@ -175,4 +176,5 @@ class TestTopLevelBinding(unittest.TestCase):
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        self.assertEqual(seqs[0], expectedseq)
+        self.assertEqual(seqs[0], expectedseq1)
+        self.assertEqual(seqs[1], expectedseq2)
