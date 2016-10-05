@@ -15,6 +15,7 @@ import pyqgl2.scope
 from pyqgl2.ast_util import ast2str
 
 import QGL.Channels
+from QGL.ChannelLibrary import QubitFactory
 
 class BarrierIdentifier(object):
 
@@ -67,7 +68,7 @@ class QubitPlaceholder(QGL.Channels.Qubit):
             NodeError.error_msg(node, 'Qubit label must be non-empty')
             return None
 
-        use_name = 'QBIT_%s' % kwargs['label']
+        use_name = 'QBIT_' + label
 
         mapping = QubitPlaceholder.KNOWN_QUBITS
         if use_name not in mapping:
@@ -75,7 +76,11 @@ class QubitPlaceholder(QGL.Channels.Qubit):
             # TODO: check that the kwargs haven't changed since
             # the last Qubit was created with this label
 
-            new_qbit = QubitPlaceholder(**kwargs)
+            new_qbit = QubitFactory(**kwargs)
+
+            # coerce to this subclass of Qubit, so that use_name works
+            #
+            new_qbit.__class__ = QubitPlaceholder
 
             mapping[use_name] = new_qbit
 
