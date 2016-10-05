@@ -911,8 +911,9 @@ class EvalTransformer(object):
                     qstrs += "{0} = QubitFactory('{1}')\n".format(tmp_name, elem.label)
                 qstrs += "{0} = ({1})".format(k, ", ".join(tmp_names))
                 stmnt = ast.parse(qstrs)
-                copy_all_loc(stmnt.body[0], node, recurse=True)
-                qbit_preamble.append(stmnt.body[0])
+                for s in stmnt.body:
+                    copy_all_loc(s, node, recurse=True)
+                qbit_preamble += stmnt.body
         node.body = qbit_preamble + node.body
         node.body = self.do_body(node.body)
 
