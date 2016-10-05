@@ -1680,9 +1680,13 @@ class EvalTransformer(object):
                     self.rewriter.rewrite(item)
 
                 new_with.body = self.do_body(new_with.body)
-                # new_with.body = self.do_body(stmnt.body)
 
-                new_body.append(new_with)
+                # Don't add the new with statement unless there's
+                # something in the body (note: we assume that "pass"
+                # statements are already culled out of the body
+                #
+                if len(new_with.body) > 0:
+                    new_body.append(new_with)
 
             # For "break" and "continue" statements, mark the conditions
             # and then abandon the processing of the rest of the body
