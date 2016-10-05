@@ -137,9 +137,17 @@ def finalize_map(mapping, channels, new=False):
         channels[name].physChan = channels[value]
 
     if new:
+        # FIXME: Temp debug stuff here!!
+        print("Creating new channelLib")
+        if ChannelLibrary.channelLib:
+            if "q1" in ChannelLibrary.channelLib.channelDict:
+                q = ChannelLibrary.channelLib.channelDict["q1"]
+                print("Had existing library with q1: %s, length=%s" % (q, q.pulseParams['length']))
         ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
     ChannelLibrary.channelLib.channelDict = channels
     ChannelLibrary.channelLib.build_connectivity_graph()
+    q = ChannelLibrary.channelLib.channelDict["q1"]
+    print("New library has q1: %s, length=%s" % (q, q.pulseParams['length']))
 
 def discard_zero_Ids(seqs):
     # assume seqs has a structure like [[entry0, entry1, ..., entryN]]

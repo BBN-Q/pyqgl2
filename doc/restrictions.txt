@@ -13,9 +13,9 @@ Some current limitations of the QGL2 language
 * QGL2 programs should import the QGL2 stubs of QGL1 functions. EG:
   from qgl2.qgl2 import qgl2decl, qbit, sequence, concur
   from qgl2.basic_sequences.qgl2_plumbing import init
-* QGL2 does not have "real" qubits, so you cannot use their
-  parameters, or look at the topology graph to find edges for
-  example. This will change. See issue #76, 65
+* QGL2 uses read-only qubits, so you can read their
+  parameters, but cannot edit them. Note also that the full QGL
+  ChannelLibrary is not generally available. See issue #76.
 * QGL2 main function cannot take arguments, specifically Qubits. See
   issue #62.
 * There is no current good way to do control flow based on measurement

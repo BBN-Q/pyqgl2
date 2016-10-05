@@ -421,7 +421,6 @@ class TestBasicMins(unittest.TestCase):
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
-    # FIXME: Update this when CPMG is fixed
     def test_CPMG(self):
         q = QubitFactory('q1')
 
@@ -429,18 +428,18 @@ class TestBasicMins(unittest.TestCase):
         numPulses = [0, 2, 4, 6]
         pulseSpacing = 500e-9
         calRepeats = 2
+        # FIXME: Temp basic stuff here:
+        print("q1 pulseLength: %s" % str(q.pulseParams['length']))
+        print("pulseSpacing - pulseLength: %s" % str(pulseSpacing-q.pulseParams['length']))
+        print("That diff / 2: %s" % str((pulseSpacing - q.pulseParams['length'])/2))
 
         def addt180t(q, pulseSpacing, rep):
             t180t = []
             for _ in range(rep):
                 t180t += [
-                    # FIXME: This doesn't work yet
-#                Id(q, (pulseSpacing - q.pulseParams['length'])/2),
-                    Id(q, (pulseSpacing - 4e-9)/2),
+                    Id(q, (pulseSpacing - q.pulseParams['length'])/2),
                     Y(q),
-                    # FIXME: This doesn't work yet
-#                Id(q, (pulseSpacing - q.pulseParams['length'])/2),
-                    Id(q, (pulseSpacing - 4e-9)/2)
+                    Id(q, (pulseSpacing - q.pulseParams['length'])/2)
                 ]
             return t180t
 
