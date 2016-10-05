@@ -389,17 +389,10 @@ class SimpleEvaluator(object):
 
         local_variables = self.locals_stack[-1]
 
-        # TODO: MUST figure out why making a deep copy of the local
-        # variables seemed like a good idea.  It breaks references,
-        # so it's a little weird, but I might be breaking something
-        # else by NOT doing it.
-        #
-        scratch_locals = quickcopy(local_variables)
+        # TODO: we used to copy local_variables here. Why?
 
         self.fake_assignment_worker(
-                target_ast, values, scratch_locals, namespace)
-
-        self.locals_stack[-1] = scratch_locals
+                target_ast, values, local_variables, namespace)
 
     def fake_assignment_worker(self,
             target_ast, values, scratch_locals, namespace):
