@@ -50,14 +50,6 @@ def doCPMG():
     pulseSpacing = 500e-9
     calRepeats = 2
 
-    # FIXME: Debug stuff - temporary
-    print("In doCPMG")
-    print("q1 pulseLength: %s" % str(q.pulseParams['length']))
-    print("pulseSpacing - pulseLength: %s" % str(pulseSpacing-q.pulseParams['length']))
-    print("That diff / 2: %s" % str((pulseSpacing - q.pulseParams['length'])/2))
-    print("That was doCPMG")
-    # FIXME: End of debug stuff
-
     for rep in numPulses:
         init(q)
         X90(q)

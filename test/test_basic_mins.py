@@ -428,10 +428,6 @@ class TestBasicMins(unittest.TestCase):
         numPulses = [0, 2, 4, 6]
         pulseSpacing = 500e-9
         calRepeats = 2
-        # FIXME: Temp basic stuff here:
-        print("q1 pulseLength: %s" % str(q.pulseParams['length']))
-        print("pulseSpacing - pulseLength: %s" % str(pulseSpacing-q.pulseParams['length']))
-        print("That diff / 2: %s" % str((pulseSpacing - q.pulseParams['length'])/2))
 
         def addt180t(q, pulseSpacing, rep):
             t180t = []
