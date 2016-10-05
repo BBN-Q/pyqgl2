@@ -37,10 +37,7 @@ def doHahnEcho():
 # qgl2 functions cannot be nested; otherwise this goes inside CPMG
 @qgl2decl
 def idPulseCPMG(q: qbit, pulseSpacing) -> pulse:
-    # FIXME: q.pulseParams results in "name 'q' is not defined"
-    qPulseLength = 4e-9
-#    Id(q, length=(pulseSpacing - q.pulseParams['length'])/2)
-    Id(q, length=(pulseSpacing - qPulseLength)/2)
+    Id(q, length=(pulseSpacing - q.pulseParams['length'])/2)
 
 @qgl2decl
 def doCPMG():
