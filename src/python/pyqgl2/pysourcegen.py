@@ -275,7 +275,13 @@ class ExprSourceGen(Visitor):
         self.print("{0}={1:node}", node.arg, node.value)
 
     def visitStr(self, node):
-        self.print(repr(node.s))
+        s = repr(node.s)
+        # If the string has any format codes in it, they must be escaped
+        # before passed to format() for processing
+        #
+        s = s.replace('{', '{{')
+        s = s.replace('}', '}}')
+        self.print(s)
 
     def visitMod(self, node):
         self.print('%')
