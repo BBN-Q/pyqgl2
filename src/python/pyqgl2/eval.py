@@ -1116,17 +1116,8 @@ class EvalTransformer(object):
         body_template = stmnt.body
         targets_template = targets
 
-        loop_values = loop_values.__iter__()
-
-        i = 0
-        while True:
-            try:
-                loop_value = loop_values.__next__()
-            except StopIteration as exc:
-                break
-
+        for loop_value in loop_values:
             # placeholder node for the new Qiter
-            #
             iter_root = ast.With(
                     items=list([ast.withitem(
                         context_expr=ast.Name(id='Qiter', ctx=ast.Load()),
@@ -1144,27 +1135,9 @@ class EvalTransformer(object):
 
             self.rewriter.rewrite(new_targets)
 
-            # targets_template = new_targets
-            # body_template = new_body
-
             # Fake the assignment, to update the current variable bindings
             #
             self.eval_state.fake_assignment(new_targets, loop_value)
-
-            # Insert a new statement for assigning the loop targets
-            # from the loop variables array
-
-            assign_txt = '%s = %s[%d]' % (
-                    ast2str(new_targets), loop_iters_name, i)
-            assign_ast = ast.parse(assign_txt, mode='exec').body[0]
-            pyqgl2.ast_util.copy_all_loc(
-                    assign_ast, stmnt.body[0], recurse=True)
-
-            self.preamble_stmnts.append(assign_ast)
-            self.preamble_values.append(loop_value)
-
-            # for x in new_body:
-            #     print('EV FOR0 type %s' % str(type(x)))
 
             # and now recurse, to expand this copy of the body
             #
@@ -1189,8 +1162,6 @@ class EvalTransformer(object):
             if self.seen_break:
                 self.seen_break = False
                 break
-
-            i += 1
 
         # for ns in self.preamble_stmnts:
         #     print('EVF pre %s' % ast2str(ns).strip())
