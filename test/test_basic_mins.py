@@ -683,7 +683,7 @@ class TestBasicMins(unittest.TestCase):
 
         resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiAmp_NQubits",
-                                      (amps, docals, calRepeats))
+                                      (qubits, amps, docals, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 

@@ -4,7 +4,7 @@
 # These work around QGL2 constraints, such as only doing sequence generation and
 # not compilation, or not taking arguments.
 
-from qgl2.qgl2 import qgl2decl, qbit, concur
+from qgl2.qgl2 import qgl2decl, qbit, qbit_list, concur
 from qgl2.qgl1 import QubitFactory, Utheta, MEAS, X, Id
 from qgl2.util import init
 
@@ -59,15 +59,8 @@ def doPulsedSpec(q:qbit, specOn):
         Id(q)
     MEAS(q)
 
-# Rabi_Amp_NQubits in QGL1 has a bug; it should
-# be doing MEAS over the measChans. So something like below.
-
 @qgl2decl
-def doRabiAmp_NQubits(amps, docals, calRepeats):
-    # FIXME: want to pass q1 and q2 as a qbit_list arg
-    q1 = QubitFactory('q1')
-    q2 = QubitFactory('q2')
-    qubits = [q1, q2]
+def doRabiAmp_NQubits(qubits:qbit_list, amps, docals, calRepeats):
     p = 0
 
     for a in amps:
