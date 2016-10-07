@@ -1460,8 +1460,6 @@ class EvalTransformer(object):
             stmnt = body[stmnt_index]
             stmnt_index += 1
 
-            self.rewriter.rewrite(stmnt)
-
             # deal with "op=" two-address bin-op assignments by rewriting
             # them as three-address statements.  We need this in order
             # to correctly convert to static single assignment format.
@@ -1474,8 +1472,8 @@ class EvalTransformer(object):
                 new_stmnt = ast.Assign(targets=[stmnt.target],
                         value=new_right)
 
-                print('WAS (%s) NOW (%s)' %
-                        (ast2str(stmnt), ast2str(new_stmnt)))
+                # print('WAS (%s) NOW (%s)' %
+                #         (ast2str(stmnt), ast2str(new_stmnt)))
 
                 pyqgl2.ast_util.copy_all_loc(new_stmnt, stmnt, recurse=True)
 
