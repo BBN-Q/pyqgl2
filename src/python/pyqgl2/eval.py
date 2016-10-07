@@ -1460,6 +1460,8 @@ class EvalTransformer(object):
             stmnt = body[stmnt_index]
             stmnt_index += 1
 
+            self.rewriter.rewrite(stmnt)
+
             # deal with "op=" two-address bin-op assignments by rewriting
             # them as three-address statements.  We need this in order
             # to correctly convert to static single assignment format.
