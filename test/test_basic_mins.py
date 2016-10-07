@@ -842,23 +842,24 @@ class TestBasicMins(unittest.TestCase):
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expectedseq])
         resFunction = compileFunction("src/python/qgl2/basic_sequences/T1T2Min.py",
-                                      "doInversionRecovery")
+                                      "doInversionRecovery",
+                                      (q, delays, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
 
     def test_Ramsey(self):
         q = QubitFactory('q1')
-        pulseSpacings=np.arange(100e-9, 10e-6, 100e-9)
-        TPPIFreq=1e6 # 0
+        delays = np.arange(100e-9, 10e-6, 100e-9)
+        TPPIFreq = 1e6
         calRepeats = 2
         expectedseq = []
 
         # Create the phases for the TPPI
-        phases = 2*pi*TPPIFreq*pulseSpacings
+        phases = 2*pi*TPPIFreq*delays
 
         # Create the basic Ramsey sequence
-        for d,phase in zip(pulseSpacings, phases):
+        for d,phase in zip(delays, phases):
             expectedseq += [
                 qsync(),
                 qwait(),
@@ -875,42 +876,8 @@ class TestBasicMins(unittest.TestCase):
         discard_zero_Ids([expectedseq])
 
         resFunction = compileFunction("src/python/qgl2/basic_sequences/T1T2Min.py",
-                                      "doRamsey")
-        seqs = resFunction()
-        seqs = testable_sequence(seqs)
-        assertPulseSequenceEqual(self, seqs[0], expectedseq)
-
-    def test_Ramsey_list(self):
-        # Test Ramsey putting the zip() call in a list()
-        q = QubitFactory('q1')
-        pulseSpacings=np.arange(100e-9, 10e-6, 100e-9)
-        TPPIFreq=1e6 # 0
-        calRepeats = 2
-        expectedseq = []
-
-        # Create the phases for the TPPI
-        phases = 2*pi*TPPIFreq*pulseSpacings
-
-        # Create the basic Ramsey sequence
-        for d,phase in zip(pulseSpacings, phases):
-            expectedseq += [
-                qsync(),
-                qwait(),
-                X90(q),
-                Id(q, d),
-                U90(q, phase=phase),
-                MEAS(q)
-            ]
-        # Add calibration
-        cal = get_cal_seqs_1qubit(q, calRepeats)
-        expectedseq += cal
-
-        # Get rid of any 0 length Id pulses just added
-        discard_zero_Ids([expectedseq])
-
-        resFunction = compileFunction(
-                "src/python/qgl2/basic_sequences/T1T2Min.py",
-                "doRamsey_list")
+                                      "doRamsey",
+                                      (q, delays, TPPIFreq, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)

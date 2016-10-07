@@ -10,11 +10,7 @@ import numpy as np
 from numpy import pi
 
 @qgl2decl
-def doInversionRecovery():
-    # FIXME: No args possible yet
-    q = QubitFactory('q1')
-    delays = np.linspace(0, 5e-6, 11)
-    calRepeats = 2
+def doInversionRecovery(q:qbit, delays, calRepeats):
     for d in delays:
         init(q)
         X(q)
@@ -25,18 +21,12 @@ def doInversionRecovery():
     create_cal_seqs((q,), calRepeats)
 
 @qgl2decl
-def doRamsey():
-    # FIXME: No args possible yet: TPPIFreq, pulseSpacings, calRepeats
-    q = QubitFactory('q1')
-    pulseSpacings=np.arange(100e-9, 10e-6, 100e-9)
-    TPPIFreq=1e6 # 0
-    calRepeats = 2
-
+def doRamsey(q:qbit, delays, TPPIFreq, calRepeats):
     # Create the phases for the TPPI
-    phases = 2*pi*TPPIFreq*pulseSpacings
+    phases = 2*pi*TPPIFreq*delays
 
     # Create the basic Ramsey sequence
-    for d,phase in zip(pulseSpacings, phases):
+    for d,phase in zip(delays, phases):
         init(q)
         X90(q)
         Id(q, length=d)
@@ -45,28 +35,3 @@ def doRamsey():
 
     # Tack on calibration
     create_cal_seqs((q,), calRepeats)
-
-@qgl2decl
-def doRamsey_list():
-    # FIXME: No args possible yet: TPPIFreq, pulseSpacings, calRepeats
-    q = QubitFactory('q1')
-    pulseSpacings=np.arange(100e-9, 10e-6, 100e-9)
-    TPPIFreq=1e6 # 0
-    calRepeats = 2
-
-    # Create the phases for the TPPI
-    phases = 2*pi*TPPIFreq*pulseSpacings
-
-    # Create the basic Ramsey sequence
-    # Previously QGL2 didn't deal well with this call to zip: make it a list
-    for d,phase in list(zip(pulseSpacings, phases)):
-        init(q)
-        X90(q)
-        Id(q, length=d)
-        U90(q, phase=phase)
-        MEAS(q)
-
-    # Tack on calibration
-    create_cal_seqs((q,), calRepeats)
-
-
