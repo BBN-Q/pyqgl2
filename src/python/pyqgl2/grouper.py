@@ -495,7 +495,18 @@ class QbitGrouper2(object):
     @staticmethod
     def group(node, local_vars=None):
 
+        # We want to make a copy of params of the root node,
+        # but we DO NOT need to recurse through the body of
+        # the node (and this is potentially a time-sink).
+        # So we grab a reference to the node body, reassign
+        # the node body to the empty list, make a copy of
+        # the node recursively, and then put the original
+        # body back.
+        #
+        orig_body = node.body
+        node.body = list()
         new_node = quickcopy(node)
+        node.body = orig_body
 
         all_qbits = MarkReferencedQbits.marker(
                 node, local_vars=local_vars, force_recursion=True)
@@ -519,8 +530,21 @@ class QbitGrouper2(object):
 
         new_groups = list()
 
-        for qbit in sorted(all_qbits):
-            scratch_body = quickcopy(body_stmnts)
+        qbits = sorted(all_qbits)
+
+        for i in range(len(qbits)):
+            qbit = qbits[i]
+
+            # An optimization: we need to make a copy of body_stmnts
+            # so we can modify it, but for the last iteration, we can
+            # cannibalize it and use the input list as our scratch_body.
+            # In the (common) case that there's only one qbit, this
+            # has a large effect on performance.
+            #
+            if i == (len(qbits) - 1):
+                scratch_body = body_stmnts
+            else:
+                scratch_body = quickcopy(body_stmnts)
 
             pruned_body = QbitPruner(set([qbit])).prune_body(scratch_body)
             if not pruned_body:
@@ -538,7 +562,8 @@ class QbitGrouper2(object):
                 [qbit], with_group,
                 name='group_marker', bid=bid)
             if DebugMsg.ACTIVE_LEVEL < 3:
-                print("For qbit %s, inserting group_marker: %s" % (qbit, ast2str(beg_barrier)))
+                print("For qbit %s, inserting group_marker: %s" %
+                        (qbit, ast2str(beg_barrier)))
 
             with_group.body = [beg_barrier] + pruned_body
 
