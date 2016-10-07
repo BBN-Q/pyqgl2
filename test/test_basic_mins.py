@@ -814,7 +814,8 @@ class TestBasicMins(unittest.TestCase):
             MEAS(q)
         ]
         resFunction = compileFunction("src/python/qgl2/basic_sequences/SPAMMin.py",
-                                      "doSPAM")
+                                      "doSPAM",
+                                      (q, angleSweep, maxSpamBlocks))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
