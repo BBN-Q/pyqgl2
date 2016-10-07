@@ -481,8 +481,18 @@ class QbitPruner(ast.NodeTransformer):
         return new_body
 
 
-class QbitGrouper2(ast.NodeTransformer):
+class QbitGrouper2(object):
     """
+    Given a FunctionDef ptree, rewrite it so that all the
+    assignments are in the preamble, and then create a
+    "with-grouped" statemnt with a body consisting of "with-seq"
+    statements, one per qbit, for the statements that will be
+    executed on that qbit.
+
+    Each "with-seq" is prefixed with a special Barrier that
+    identifies the sequence as the start of a group for a
+    specific qbit (this info is used later, to compile the
+    sequences to hardware)
     """
 
     def __init__(self, local_vars=None):
@@ -492,40 +502,21 @@ class QbitGrouper2(ast.NodeTransformer):
 
         self.local_vars = local_vars
 
-    def visit_FunctionDef(self, node):
-        """
-        The grouper should only be used on a function def,
-        and there shouldn't be any nested functions, so this
-        should effectively be the top-level call.
-
-        Note that the initial qbit creation/assignment is
-        treated as a special case: these statements are
-        purely classical bookkeeping, even though they look
-        like quantum operations, and are left alone.
-        """
-
-        all_qbits = MarkReferencedQbits.marker(
-                node, local_vars=self.local_vars,
-                force_recursion=True)
-
-        # print('REFERENCED: %s' % str(all_qbits))
-
-        qbit_seqs = list()
-
-        for qbit in all_qbits:
-            scratch = quickcopy(node)
-
-            pruned = QbitPruner(set([qbit])).visit(scratch)
-            if pruned:
-                qbit_seqs.append(pruned)
-
-        # for seq in qbit_seqs:
-        #     print('XX:\n%s' % ast2str(seq))
-
     @staticmethod
     def group(node, local_vars=None):
 
+        # We want to make a copy of params of the root node,
+        # but we DO NOT need to recurse through the body of
+        # the node (and this is potentially a time-sink).
+        # So we grab a reference to the node body, reassign
+        # the node body to the empty list, make a copy of
+        # the node recursively, and then put the original
+        # body back.
+        #
+        orig_body = node.body
+        node.body = list()
         new_node = quickcopy(node)
+        node.body = orig_body
 
         all_qbits = MarkReferencedQbits.marker(
                 node, local_vars=local_vars, force_recursion=True)
@@ -549,8 +540,21 @@ class QbitGrouper2(ast.NodeTransformer):
 
         new_groups = list()
 
-        for qbit in sorted(all_qbits):
-            scratch_body = quickcopy(body_stmnts)
+        qbits = sorted(all_qbits)
+
+        for i in range(len(qbits)):
+            qbit = qbits[i]
+
+            # An optimization: we need to make a copy of body_stmnts
+            # so we can modify it, but for the last iteration, we can
+            # cannibalize it and use the input list as our scratch_body.
+            # In the (common) case that there's only one qbit, this
+            # has a large effect on performance.
+            #
+            if i == (len(qbits) - 1):
+                scratch_body = body_stmnts
+            else:
+                scratch_body = quickcopy(body_stmnts)
 
             pruned_body = QbitPruner(set([qbit])).prune_body(scratch_body)
             if not pruned_body:
@@ -568,7 +572,8 @@ class QbitGrouper2(ast.NodeTransformer):
                 [qbit], with_group,
                 name='group_marker', bid=bid)
             if DebugMsg.ACTIVE_LEVEL < 3:
-                print("For qbit %s, inserting group_marker: %s" % (qbit, ast2str(beg_barrier)))
+                print("For qbit %s, inserting group_marker: %s" %
+                        (qbit, ast2str(beg_barrier)))
 
             with_group.body = [beg_barrier] + pruned_body
 
