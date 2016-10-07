@@ -58,3 +58,14 @@ def t4():
 
     X(q1) # need to do something
 
+@qgl2decl
+def t5():
+    """
+    Like t3, but the function call does nothing
+    """
+
+    q1 = QubitFactory(label='q1')
+    q2 = QubitFactory(label='q2')
+
+    # don't do anything at all
+
