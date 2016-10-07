@@ -158,14 +158,32 @@ class NameRewriter(ast.NodeTransformer):
         a reference to a different name, if possible.
         """
 
-        # If we can absorb this name into a constant, do so.
-        # Otherwise, see if the name has been remapped to a
-        # local temp, and use that name.
+        # Note: we update older references to point to
+        # newer references, so that subsequent traversals are
+        # faster.  This will help speed up long loops where
+        # the same symbols appear multiple times.
+        # For example, if we find a chain like W -> X -> Y -> Z
+        # we'll change the mapping for W and X to point to Z so
+        # the next time we need to lookup W or X, it's faster.
 
-        if node.id in self.name2const:
-            node = self.name2const[node.id]
-        elif node.id in self.name2name:
-            node.id = self.name2name[node.id]
+        start_id = node.id
+
+        while (node.id in self.name2const) or (node.id in self.name2name):
+            # If we can absorb this name into a constant, do so.
+            # Otherwise, see if the name has been remapped to a
+            # local temp, and use that name.
+
+            if node.id in self.name2const:
+                node = self.name2const[node.id]
+
+                # re-point to current tail
+                self.name2const[start_id] = node
+                break
+            elif node.id in self.name2name:
+                node.id = self.name2name[node.id]
+
+                # re-point to next element in chain
+                self.name2name[start_id] = node.id
 
         return node
 
