@@ -1472,8 +1472,8 @@ class EvalTransformer(object):
                 new_stmnt = ast.Assign(targets=[stmnt.target],
                         value=new_right)
 
-                print('WAS (%s) NOW (%s)' %
-                        (ast2str(stmnt), ast2str(new_stmnt)))
+                # print('WAS (%s) NOW (%s)' %
+                #         (ast2str(stmnt), ast2str(new_stmnt)))
 
                 pyqgl2.ast_util.copy_all_loc(new_stmnt, stmnt, recurse=True)
 
