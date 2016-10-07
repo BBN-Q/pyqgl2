@@ -481,7 +481,7 @@ class QbitPruner(ast.NodeTransformer):
         return new_body
 
 
-class QbitGrouper2(ast.NodeTransformer):
+class QbitGrouper2(object):
     """
     """
 
@@ -491,36 +491,6 @@ class QbitGrouper2(ast.NodeTransformer):
             local_vars = dict()
 
         self.local_vars = local_vars
-
-    def visit_FunctionDef(self, node):
-        """
-        The grouper should only be used on a function def,
-        and there shouldn't be any nested functions, so this
-        should effectively be the top-level call.
-
-        Note that the initial qbit creation/assignment is
-        treated as a special case: these statements are
-        purely classical bookkeeping, even though they look
-        like quantum operations, and are left alone.
-        """
-
-        all_qbits = MarkReferencedQbits.marker(
-                node, local_vars=self.local_vars,
-                force_recursion=True)
-
-        # print('REFERENCED: %s' % str(all_qbits))
-
-        qbit_seqs = list()
-
-        for qbit in all_qbits:
-            scratch = quickcopy(node)
-
-            pruned = QbitPruner(set([qbit])).visit(scratch)
-            if pruned:
-                qbit_seqs.append(pruned)
-
-        # for seq in qbit_seqs:
-        #     print('XX:\n%s' % ast2str(seq))
 
     @staticmethod
     def group(node, local_vars=None):
