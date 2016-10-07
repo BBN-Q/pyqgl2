@@ -23,24 +23,20 @@ def flipflop_seqs(dragParam, maxNumFFs, qubit: qbit):
         MEAS(qubit)
 
 @qgl2decl
-def doFlipFlop():
-    # FIXME: No args
-    qubit = QubitFactory('q1')
-    dragParamSweep = np.linspace(0, 5e-6, 11) # FIXME
-    maxNumFFs = 10
+def doFlipFlop(qubit:qbit, dragParamSweep, maxNumFFs):
 
     # QGL2 qubits are read only, so can't modify qubit.pulseParams[dragScaling],
     # So no need to save this off and reset afterwards
     for dragParam in dragParamSweep:
+        # Id sequence for reference
         init(qubit)
         Id(qubit)
-        MEAS(qubit) # Using original dragScaling - correct?
+        MEAS(qubit)
 
-        # FIXME: In original this was [[Id]] + flipflop - is this
-        # right?
+        # then a flip flop sequence for a particular DRAG parameter
         flipflop_seqs(dragParam, maxNumFFs, qubit)
 
-    # Add a final pi for reference
+    # Final pi for reference
     init(qubit)
     X(qubit)
     MEAS(qubit)

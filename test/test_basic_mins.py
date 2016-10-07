@@ -505,7 +505,8 @@ class TestBasicMins(unittest.TestCase):
             MEAS(qubit)
         ]
         resFunction = compileFunction("src/python/qgl2/basic_sequences/FlipFlopMin.py",
-                                      "doFlipFlop")
+                                      "doFlipFlop",
+                                      (qubit, dragParamSweep, maxNumFFs))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
