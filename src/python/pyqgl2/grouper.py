@@ -483,6 +483,16 @@ class QbitPruner(ast.NodeTransformer):
 
 class QbitGrouper2(object):
     """
+    Given a FunctionDef ptree, rewrite it so that all the
+    assignments are in the preamble, and then create a
+    "with-grouped" statemnt with a body consisting of "with-seq"
+    statements, one per qbit, for the statements that will be
+    executed on that qbit.
+
+    Each "with-seq" is prefixed with a special Barrier that
+    identifies the sequence as the start of a group for a
+    specific qbit (this info is used later, to compile the
+    sequences to hardware)
     """
 
     def __init__(self, local_vars=None):
