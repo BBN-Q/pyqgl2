@@ -933,11 +933,16 @@ if __name__ == '__main__':
             opts.filename, opts.main_name,
             toplevel_bindings=None, saveOutput=opts.saveOutput,
             intermediate_output=opts.intermediate_output)
-    if resFunction:
+    if not resFunction:
+        # If there aren't any Qubit operations, then we're
+        # done.  The program may have been executed for
+        # non-quantum effects.
+        #
+        print('the program contains no Qubit operations?')
+    else:
         # Now import the QGL1 things we need
         from QGL.PulseSequencePlotter import plot_pulse_files
         from QGL.ChannelLibrary import QubitFactory
-        import os
 
         # Now execute the returned function, which should produce a list of sequences
         sequences = resFunction()
@@ -956,8 +961,6 @@ if __name__ == '__main__':
         print(fileNames)
         if opts.showplot:
             plot_pulse_files(fileNames)
-    else:
-        # Didn't produce a function
-        pass
+
     if opts.verbose:
         print("Memory usage: {} MB".format(process.memory_info().rss // (1 << 20)))

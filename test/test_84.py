@@ -67,16 +67,10 @@ class Test84(unittest.TestCase):
         assertPulseSequenceEqual(self, seqs[0], expected_seq)
         # print('\n'.join([str(x) for x in seqs[0]]))
 
-    @unittest.expectedFailure
     def test_84_5(self):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         resFunction = compileFunction('test/code/bugs/84.py', 't5')
-        seqs = resFunction()
-        seqs = testable_sequence(seqs)
-
-        expected_seq = [ X(q1) ]
-
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
-        # print('\n'.join([str(x) for x in seqs[0]]))
+        if resFunction:
+            self.fail('Empty program should have produced a function')
 

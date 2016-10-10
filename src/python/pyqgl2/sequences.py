@@ -223,7 +223,7 @@ class SequenceExtractor(object):
 
         # print("Seqs: %s" % self.sequences)
         if not self.sequences:
-            NodeError.error_msg(node, "No per qbit sequences found")
+            NodeError.warning_msg(node, "No per Qubit operations discovered")
             return False
         # FIXME: Is this a requirement?
         # if not self.qbit_creates:
@@ -351,6 +351,6 @@ def get_sequence_function(node, func_name, importer,
 
         return scratch_scope[func_name]
     else:
-        NodeError.fatal_msg(
-                node, 'find_sequences failed')
+        NodeError.warning_msg(
+                node, 'no per-Qubit sequences discovered')
         return None
