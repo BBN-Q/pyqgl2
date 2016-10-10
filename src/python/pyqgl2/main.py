@@ -161,26 +161,17 @@ def compileFunction(filename,
     # Process imports in the input file, and find the main.
     # If there's no main, then bail out right away.
 
-    # The 'filename' could really be the source for the function
-    code = None
-    # Detect that ths is code, not a filename
-    # FIXME: Is there a better way to do this?
-    if ("qgl2decl" in filename or "qgl2main" in filename) and "def " in filename:
-        NodeError.diag_msg(None, "Treating filename as code")
-        code = filename
-        filename = sys.argv[0] # Could use <stdin> instead
-    else:
-        try:
-            rel_path = os.path.relpath(filename)
-            filename = rel_path
-        except Exception as e:
-            # If that wasn't a good path, treat it as code
-            NodeError.diag_msg(None, "Failed to make relpath from %s: %s" % (filename, e))
-            code = filename
-            filename = sys.argv[0] # Could use <stdin> instead
-#            filename = "<stdin>"
+    try:
+        rel_path = os.path.relpath(filename)
+        filename = rel_path
+    except Exception as e:
+        # If that wasn't a good path, give up immediately
+        NodeError.error_msg(
+                None, "Failed to make relpath from %s: %s" % (filename, e))
 
-    importer = NameSpaces(filename, main_name, code)
+    NodeError.halt_on_error()
+
+    importer = NameSpaces(filename, main_name)
     if not importer.qglmain:
         NodeError.fatal_msg(None, 'no qglmain function found')
 
@@ -307,12 +298,8 @@ def compileFunction(filename,
         print(('EVALUATOR + REBINDINGS:\n%s' % pyqgl2.ast_util.ast2str(ptree1)),
               file=intermediate_fout, flush=True)
 
-    # If we got raw code, then we may have no source file to use
-    if not filename or filename == '<stdin>':
-        text = '<stdin>'
-    else:
-        base_namespace = importer.path2namespace[filename]
-        text = base_namespace.pretty_print()
+    base_namespace = importer.path2namespace[filename]
+    text = base_namespace.pretty_print()
 
     if intermediate_output:
         print(('EXPANDED NAMESPACE:\n%s' % text),
@@ -420,12 +407,8 @@ def compileFunction(filename,
             fname = "qgl1Main"
 
     # Get the QGL1 function that produces the proper sequences
-    # But if we started with raw code, we may have no filename
-    filen = filename
-    if not filename or filename == '<stdin>':
-        filen = "myprogram.py"
     qgl1_main = get_sequence_function(new_ptree8, fname,
-            importer, intermediate_fout, saveOutput, filen,
+            importer, intermediate_fout, saveOutput, filename,
             setup=evaluator.setup())
     NodeError.halt_on_error()
     return qgl1_main
