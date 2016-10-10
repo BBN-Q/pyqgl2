@@ -97,8 +97,8 @@ def t4():
     q1 = QubitFactory(label='q1')
 
     l1 = list()
-    l1.append('a')
 
+    l1.append('a')
     for _ in l1:
         X(q1)
 
@@ -108,6 +108,29 @@ def t4():
 
     l1.append('c')
     l1.append('d')
+    for _ in l1:
+        Z(q1)
 
+@qgl2decl
+def t5():
+    """
+    Expected: [X(q1), Y(q1), Y(q1), Z(q1), Z(q1), Z(q1), Z(q1)]
+
+    Like t4, but uses operators that work properly right now.
+    """
+
+    q1 = QubitFactory(label='q1')
+
+    l1 = list()
+
+    l1 += ['a']
+    for _ in l1:
+        X(q1)
+
+    l1 += ['b']
+    for _ in l1:
+        Y(q1)
+
+    l1 += ['c', 'd']
     for _ in l1:
         Z(q1)

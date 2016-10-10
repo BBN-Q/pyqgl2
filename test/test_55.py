@@ -80,3 +80,21 @@ class Test55(unittest.TestCase):
         # print('\n'.join([str(x) for x in seqs[0]]))
         assertPulseSequenceEqual(self, seqs[0], expected_seq)
 
+    def test_55_5(self):
+        """
+        Test of list/len()
+
+        Like test_55_4, but only uses operators that work right now.
+        """
+
+        q1 = QubitFactory('q1')
+
+        resFunction = compileFunction('test/code/bugs/55.py', 't5')
+        seqs = resFunction()
+        seqs = testable_sequence(seqs)
+
+        expected_seq = [ X(q1), Y(q1), Y(q1), Z(q1), Z(q1), Z(q1), Z(q1) ]
+
+        # print('\n'.join([str(x) for x in seqs[0]]))
+        assertPulseSequenceEqual(self, seqs[0], expected_seq)
+
