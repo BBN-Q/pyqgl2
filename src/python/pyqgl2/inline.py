@@ -232,7 +232,23 @@ class NameRewriter(ast.NodeTransformer):
         self.name2name[old_name] = new_name
 
     def get_mapping(self, name):
-        return self.name2name[name]
+        start_name = name
+
+        while (name in self.name2const) or (name in self.name2name):
+            # If we can absorb this name into a constant, do so.
+            # Otherwise, see if the name has been remapped to a
+            # local temp, and use that name.
+
+            if name in self.name2const:
+                name = self.name2const[name].id
+                break
+            elif name in self.name2name:
+                name = self.name2name[name]
+
+                # re-point to next element in chain
+                self.name2name[start_name] = name
+
+        return name
 
     def rewrite(self, ptree, mapping=None, constants=None):
         """
@@ -1802,13 +1818,18 @@ def add_runtime_call_check(call_ptree, func_ptree):
         params_seen.add(fp_name)
 
         ap_node = call_ptree.args[arg_index]
-        new_name = tmp_names.create_tmp_name(orig_name=fp_name)
-        new_ast = expr2ast(
-                '%s = %s' % (new_name, ast2str(ap_node).strip()))
-        pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
-        tmp_assts.append(new_ast)
+        if isinstance(ap_node, ast.Name):
+            # If the ap is already a name, then we can use it as-is.
+            new_name = ap_node.id
+            pos_args.append(ap_node)
+        else:
+            new_name = tmp_names.create_tmp_name(orig_name=fp_name)
+            new_ast = expr2ast(
+                    '%s = %s' % (new_name, ast2str(ap_node).strip()))
+            pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
+            tmp_assts.append(new_ast)
 
-        pos_args.append(new_ast.targets[0])
+            pos_args.append(new_ast.targets[0])
 
         anno = func_ptree.args.args[arg_index].annotation
         if anno:
@@ -1829,6 +1850,9 @@ def add_runtime_call_check(call_ptree, func_ptree):
     for arg_index in range(len(call_ptree.keywords)):
         ap_node = call_ptree.keywords[arg_index]
         fp_name = ap_node.arg
+
+        # TODO: add the same short-cut as we use for positional
+        # parameters for aps that are already names
 
         # NOTE: this test isn't always exercised right now,
         # because the AST parser currently fails when it tries
