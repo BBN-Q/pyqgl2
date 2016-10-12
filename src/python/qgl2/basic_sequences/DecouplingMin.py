@@ -12,13 +12,7 @@ from qgl2.util import init
 from qgl2.basic_sequences.helpers import create_cal_seqs
 
 @qgl2decl
-def doHahnEcho():
-    # FIXME: Can't do arguments yet
-    q = QubitFactory('q1')
-    steps = 11
-    pulseSpacings = np.linspace(0, 5e-6, steps)
-    periods = 0
-    calRepeats = 2
+def doHahnEcho(q:qbit, pulseSpacings, periods, calRepeats):
 
     for k in range(len(pulseSpacings)):
         init(q)
@@ -33,31 +27,18 @@ def doHahnEcho():
 
     create_cal_seqs((q,), calRepeats)
 
-
-# qgl2 functions cannot be nested; otherwise this goes inside CPMG
 @qgl2decl
-def idPulseCPMG(q: qbit, pulseSpacing) -> pulse:
-    Id(q, length=(pulseSpacing - q.pulseParams['length'])/2)
-
-@qgl2decl
-def doCPMG():
-    q = QubitFactory('q1')
-
-    # FIXME: Can't have arguments; otherwise want these next 3 as args
-
-    # Create numPulses sequences
-    numPulses = [0, 2, 4, 6]
-    pulseSpacing = 500e-9
-    calRepeats = 2
+def doCPMG(q:qbit, numPulses, pulseSpacing, calRepeats):
+    delay = (pulseSpacing - q.pulseParams['length']) / 2
 
     for rep in numPulses:
         init(q)
         X90(q)
         # Repeat the t-180-t block rep times
         for _ in range(rep):
-            idPulseCPMG(q, pulseSpacing)
+            Id(q, length=delay)
             Y(q)
-            idPulseCPMG(q, pulseSpacing)
+            Id(q, length=delay)
         X90(q)
         MEAS(q)
 

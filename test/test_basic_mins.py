@@ -436,7 +436,8 @@ class TestBasicMins(unittest.TestCase):
         discard_zero_Ids([expectedseq])
 
         resFunction = compileFunction("src/python/qgl2/basic_sequences/DecouplingMin.py",
-                                      "doHahnEcho")
+                                      "doHahnEcho",
+                                      (q, pulseSpacings, periods, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
@@ -479,7 +480,8 @@ class TestBasicMins(unittest.TestCase):
         discard_zero_Ids([expectedseq])
 
         resFunction = compileFunction("src/python/qgl2/basic_sequences/DecouplingMin.py",
-                                      "doCPMG")
+                                      "doCPMG",
+                                      (q, numPulses, pulseSpacing, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs[0], expectedseq)
