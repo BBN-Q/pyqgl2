@@ -50,7 +50,8 @@ class TestBasicMins(unittest.TestCase):
         # and intermediate_output="path-to-output-file" to save
         # intermediate products
         resFunction = compileFunction("src/python/qgl2/basic_sequences/AllXYMin.py",
-                                      "doAllXY")
+                                      "doAllXY",
+                                      (q1,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         self.assertEqual(len(seqs), 1)
@@ -58,7 +59,7 @@ class TestBasicMins(unittest.TestCase):
         assertPulseSequenceEqual(self, seqs[0][:len(expectedseq)], expectedseq)
 
     # Tests list of lists of function references, instead of sub-functions
-    def test_AllXYq3(self):
+    def test_AllXY_alt1(self):
         q1 = QubitFactory('q1')
         expectedseq = []
         # Expect a single sequence 5 * 2 * 21 pulses long
@@ -76,19 +77,38 @@ class TestBasicMins(unittest.TestCase):
             MEAS(q1)
             ]
 
-        # To turn on verbose logging in compileFunction
-        # from pyqgl2.ast_util import NodeError
-        # from pyqgl2.debugmsg import DebugMsg
-        # NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
-        # DebugMsg.set_level(0)
-
-        # Can optionally supply saveOutput=True to save the qgl1.py
-        # file,
-        # and intermediate_output="path-to-output-file" to save
-        # intermediate products
         resFunction = compileFunction(
-                "src/python/qgl2/basic_sequences/AllXYMin.py",
-                "AllXYq3")
+                "test/code/AllXY_alt.py",
+                "doAllXY",
+                (q1,))
+        seqs = resFunction()
+        seqs = testable_sequence(seqs)
+        self.assertEqual(len(seqs), 1)
+        self.assertEqual(len(seqs[0]), 5*21*2)
+        assertPulseSequenceEqual(self, seqs[0][:len(expectedseq)], expectedseq)
+
+    def test_AllXY_alt2(self):
+        q1 = QubitFactory('q1')
+        expectedseq = []
+        # Expect a single sequence 5 * 2 * 21 pulses long
+        # Expect it to start like this:
+        expectedseq += [
+            qsync(),
+            qwait(),
+            Id(q1),
+            Id(q1),
+            MEAS(q1),
+            qsync(),
+            qwait(),
+            Id(q1),
+            Id(q1),
+            MEAS(q1)
+            ]
+
+        resFunction = compileFunction(
+                "test/code/AllXY_alt.py",
+                "doAllXY2",
+                (q1,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         self.assertEqual(len(seqs), 1)
