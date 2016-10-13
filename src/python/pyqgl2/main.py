@@ -927,7 +927,8 @@ if __name__ == '__main__':
         import test.helpers
         test.helpers.channel_setup()
     else:
-        sys.exit("No valid ChannelLibrary found")
+        print('No valid ChannelLibrary found')
+        sys.exit(1)
 
     resFunction = compileFunction(
             opts.filename, opts.main_name,
