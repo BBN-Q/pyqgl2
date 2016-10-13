@@ -71,6 +71,10 @@ def parse_args(argv):
             default='',
             help='input filename')
 
+    parser.add_argument('-C',
+            dest='create_channels', default=False, action='store_true',
+            help='create default channels, if not are provided')
+
     parser.add_argument('-D', '--debug-level',
             dest='debug_level', type=int, metavar='LEVEL',
             default=DebugMsg.NONE,
@@ -919,9 +923,11 @@ if __name__ == '__main__':
         print("Memory usage: {} MB".format(process.memory_info().rss // (1 << 20)))
 
     import QGL
-    if QGL.ChannelLibrary.channelLib and 'slaveTrig' in QGL.ChannelLibrary.channelLib:
+    if (QGL.ChannelLibrary.channelLib and
+            ('slaveTrig' in QGL.ChannelLibrary.channelLib)):
         print("Using ChannelLibrary from config")
-    elif opts.verbose or opts.intermediate_output != '' or opts.debug_level < 3:
+    elif (opts.create_channels or opts.verbose or
+            opts.intermediate_output != '' or opts.debug_level < 3):
         print("Using APS2ish 3 qubit test channel library")
         # Hack. Create a basic channel library for testing
         import test.helpers
