@@ -82,15 +82,15 @@ def main():
     And the order of CNOTs is up-left-right-down
     """
 
-    q0 = QubitFactory('0')
-    q1 = QubitFactory('1')
-    q2 = QubitFactory('2')
-    q3 = QubitFactory('3')
-    q4 = QubitFactory('4')
-    q5 = QubitFactory('5')
-    q6 = QubitFactory('6')
-    q7 = QubitFactory('7')
-    q8 = QubitFactory('8')
+    q0 = QubitFactory(label='q0')
+    q1 = QubitFactory(label='q1')
+    q2 = QubitFactory(label='q2')
+    q3 = QubitFactory(label='q3')
+    q4 = QubitFactory(label='q4')
+    q5 = QubitFactory(label='q5')
+    q6 = QubitFactory(label='q6')
+    q7 = QubitFactory(label='q7')
+    q8 = QubitFactory(label='q8')
 
     all_qbits = [q0, q1, q2, q3, q4, q5, q6, q7, q8]
 
