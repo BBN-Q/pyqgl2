@@ -6,15 +6,6 @@
 # The annotations are defined in here
 from qgl2.qgl2 import qbit, pulse, qgl2stub, sequence, qbit_list, control
 
-# Start with functions that are used by the BasicSequences
-#from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS, flat_top_gaussian, echoCR, U90, X90m, AC, Utheta, U
-#from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
-#from QGL.ControlFlow import qwait, qif, Wait
-#from QGL.ChannelLibrary import EdgeFactory
-#from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
-
-#from QGL.PulsePrimitives import Id, X, Y, X90, Y90, MEAS, flat_top_gaussian, echoCR, U90, X90m, AC, Utheta, U
-
 # Many uses of Id supply a delay. That's the length: an int or float
 # FIXME: Do we need to include that explicitly?
 @qgl2stub('QGL.PulsePrimitives')
