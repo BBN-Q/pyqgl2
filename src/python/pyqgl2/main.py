@@ -823,7 +823,8 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     c2h once per sequence, specifically asking that the slaveTrigger be added only for the single
     channel that actually shares an AWG with the slaveTrigger,
     and ensuring Edges are only compiled once.
-    Return is a list of filenames.'''
+    Return is a list of filenames, or None if compilation failed'''
+
     from QGL.Compiler import compile_to_hardware
     from QGL.PatternUtils import flatten
     from QGL.PulseSequencer import Pulse, CompositePulse
@@ -845,12 +846,21 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     # Try to replace Barrier commands with Id pulses where possible, else with Sync/Wait
     seqs = replaceBarriers(seqs, seqIdxToChannelMap)
 
+    errors = 0
+
     # Assign AWGs
     awgToSeqIdxMap = dict() # awg to int sequence index
     for seq in seqIdxToChannelMap:
         awg = getAWG(seqIdxToChannelMap[seq])
-        awgToSeqIdxMap[awg] = seq
-        logger.debug("Sequence %d is on AWG %s", seq, awg)
+        if not awg:
+            print("Error: AWG not found for %s" % seqIdxToChannelMap[seq])
+            errors += 1
+        else:
+            awgToSeqIdxMap[awg] = seq
+            logger.debug("Sequence %d is on AWG %s", seq, awg)
+
+    if errors:
+        return None
 
     # Build a per sequence list of the edges that share an AWG with that sequence (Qubit),
     # falling back to picking the sequence matching the source of the edge
