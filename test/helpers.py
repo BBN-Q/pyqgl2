@@ -93,7 +93,7 @@ def create_channel_library(channels=dict(), new=False):
         channelName = name + '-12'
         channel = PhysicalQuadratureChannel(label=channelName)
         channel.samplingRate = 1.2e9
-        channel.AWG = name
+        channel.instrument = name
         channel.translator = 'APS2Pattern'
         channels[channelName] = channel
 
@@ -101,7 +101,7 @@ def create_channel_library(channels=dict(), new=False):
             channelName = "{0}-12m{1}".format(name,m)
             channel = PhysicalMarkerChannel(label=channelName)
             channel.samplingRate = 1.2e9
-            channel.AWG = name
+            channel.instrument = name
             channel.translator = 'APS2Pattern'
             channels[channelName] = channel
 
