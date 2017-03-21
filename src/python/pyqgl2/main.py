@@ -175,6 +175,7 @@ def compileFunction(filename,
 
     NodeError.halt_on_error()
 
+    print('%s: CALLING IMPORTER' % datetime.now())
     importer = NameSpaces(filename, main_name)
     if not importer.qglmain:
         NodeError.fatal_msg(None, 'no qglmain function found')
@@ -220,6 +221,7 @@ def compileFunction(filename,
     # enough to look like it's "probably" divergent.
     #
 
+    print('%s: CALLING INLINER' % datetime.now())
     MAX_ITERS = 20
     for iteration in range(MAX_ITERS):
 
@@ -303,9 +305,9 @@ def compileFunction(filename,
               file=intermediate_fout, flush=True)
 
     base_namespace = importer.path2namespace[filename]
-    text = base_namespace.pretty_print()
 
     if intermediate_output:
+        text = base_namespace.pretty_print()
         print(('EXPANDED NAMESPACE:\n%s' % text),
               file=intermediate_fout, flush=True)
 
@@ -320,10 +322,12 @@ def compileFunction(filename,
         print(('%s: SYMTAB CODE:\n%s' % (datetime.now(), pyqgl2.ast_util.ast2str(new_ptree5))),
               file=intermediate_fout, flush=True)
 
+    print('%s: MARKING REFERENCED QUBITS' % datetime.now())
     MarkReferencedQbits.marker(new_ptree5,
             local_vars=evaluator.eval_state.locals_stack[-1])
 
     seq = AddSequential()
+    print('%s: CALLING AddSequential' % datetime.now())
     new_ptree5 = seq.visit(new_ptree5)
     NodeError.halt_on_error()
     if intermediate_output:
@@ -334,6 +338,7 @@ def compileFunction(filename,
     # and with-group blocks
     #
     grouper = QbitGrouper2()
+    print('%s: CALLING GROUPER' % datetime.now())
     new_ptree6 = grouper.group(new_ptree5,
             local_vars=evaluator.eval_state.locals_stack[-1])
     NodeError.halt_on_error()
@@ -354,6 +359,7 @@ def compileFunction(filename,
 
     # Try to flatten out repeat, range, ifs
     flattener = Flattener()
+    print('%s: CALLING FLATTENER' % datetime.now())
     new_ptree7 = flattener.visit(new_ptree6)
     NodeError.halt_on_error()
     if intermediate_output:
@@ -394,6 +400,7 @@ def compileFunction(filename,
               file=intermediate_fout, flush=True)
 
     sync = SynchronizeBlocks(new_ptree7)
+    print('%s: CALLING SYNCHRONIZER' % datetime.now())
     new_ptree8 = sync.visit(quickcopy(new_ptree7))
     NodeError.halt_on_error()
     if intermediate_output:
@@ -411,6 +418,7 @@ def compileFunction(filename,
             fname = "qgl1Main"
 
     # Get the QGL1 function that produces the proper sequences
+    print('%s: GENERATING QGL1 SEQUENCE FUNCTION' % datetime.now())
     qgl1_main = get_sequence_function(new_ptree8, fname,
             importer, intermediate_fout, saveOutput, filename,
             setup=evaluator.setup())
