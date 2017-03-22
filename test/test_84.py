@@ -28,8 +28,8 @@ class Test84(unittest.TestCase):
 
         expected_seq = [ X(q1) ]
 
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
-        # print('\n'.join([str(x) for x in seqs[0]]))
+        # print('\n'.join([str(x) for x in seqs]))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
 
     def test_84_2(self):
         q1 = QubitFactory('q1')
@@ -40,8 +40,8 @@ class Test84(unittest.TestCase):
 
         expected_seq = [ X(q1) ]
 
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
-        print('\n'.join([str(x) for x in seqs[0]]))
+        # print('\n'.join([str(x) for x in seqs]))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
 
     def test_84_3(self):
         q1 = QubitFactory('q1')
@@ -52,8 +52,8 @@ class Test84(unittest.TestCase):
 
         expected_seq = [ X(q1) ]
 
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
-        print('\n'.join([str(x) for x in seqs[0]]))
+        # print('\n'.join([str(x) for x in seqs]))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
 
     def test_84_4(self):
         q1 = QubitFactory('q1')
@@ -64,8 +64,8 @@ class Test84(unittest.TestCase):
 
         expected_seq = [ X(q1) ]
 
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
-        # print('\n'.join([str(x) for x in seqs[0]]))
+        # print('\n'.join([str(x) for x in seqs]))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
 
     def test_84_5(self):
         q1 = QubitFactory('q1')
@@ -73,4 +73,3 @@ class Test84(unittest.TestCase):
         resFunction = compile_function('test/code/bugs/84.py', 't5')
         if resFunction:
             self.fail('Empty program should have produced a function')
-

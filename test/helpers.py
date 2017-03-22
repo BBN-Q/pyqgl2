@@ -155,7 +155,6 @@ def discard_zero_Ids(seqs):
 # Things like echoCR create lists of pulses that need to be flattened
 # before calling compile_to_hardware
 def flattenSeqs(seq):
-    nseq = []
     hasList = False
     for el in seq:
         if isinstance(el, collections.Iterable) and not isinstance(el, (str, Pulse, CompositePulse)) :
@@ -165,10 +164,9 @@ def flattenSeqs(seq):
         newS = []
         for el in flatten(seq):
             newS.append(el)
-        nseq.append(newS)
+        return newS
     else:
-        nseq.append(seq)
-    return nseq
+        return seq
 
 def testable_sequence(seqs):
     '''

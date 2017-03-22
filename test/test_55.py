@@ -32,8 +32,8 @@ class Test55(unittest.TestCase):
 
         expected_seq = [ X(q1), X(q1) ]
 
-        # print('\n'.join([str(x) for x in seqs[0]]))
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
+        # print('\n'.join([str(x) for x in seqs))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
 
     def test_55_2(self):
         q1 = QubitFactory('q1')
@@ -44,8 +44,8 @@ class Test55(unittest.TestCase):
 
         expected_seq = [ X(q1), X(q1), X(q1), X(q1) ]
 
-        # print('\n'.join([str(x) for x in seqs[0]]))
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
+        # print('\n'.join([str(x) for x in seqs]))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
 
     def test_55_3(self):
         q1 = QubitFactory('q1')
@@ -56,8 +56,8 @@ class Test55(unittest.TestCase):
 
         expected_seq = [ X(q1), X(q1), X(q1) ]
 
-        # print('\n'.join([str(x) for x in seqs[0]]))
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
+        # print('\n'.join([str(x) for x in seqs]))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
 
 
     @unittest.expectedFailure
@@ -77,8 +77,8 @@ class Test55(unittest.TestCase):
 
         expected_seq = [ X(q1), Y(q1), Y(q1), Z(q1), Z(q1), Z(q1), Z(q1) ]
 
-        # print('\n'.join([str(x) for x in seqs[0]]))
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
+        # print('\n'.join([str(x) for x in seqs))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
 
     def test_55_5(self):
         """
@@ -95,6 +95,5 @@ class Test55(unittest.TestCase):
 
         expected_seq = [ X(q1), Y(q1), Y(q1), Z(q1), Z(q1), Z(q1), Z(q1) ]
 
-        # print('\n'.join([str(x) for x in seqs[0]]))
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
-
+        # print('\n'.join([str(x) for x in seqs]))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
