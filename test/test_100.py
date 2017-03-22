@@ -28,8 +28,8 @@ class Test100(unittest.TestCase):
 
         expected_seq = [ X(q1) ] * 3
 
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
-        # print('\n'.join([str(x) for x in seqs[0]]))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
+        # print('\n'.join([str(x) for x in seqs]))
 
     def test_100_2(self):
         q1 = QubitFactory('q1')
@@ -39,8 +39,8 @@ class Test100(unittest.TestCase):
 
         expected_seq = [ X(q1) ] * 3
 
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
-        # print('\n'.join([str(x) for x in seqs[0]]))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
+        # print('\n'.join([str(x) for x in seqs]))
 
     def test_100_3(self):
         q1 = QubitFactory('q1')
@@ -50,6 +50,5 @@ class Test100(unittest.TestCase):
 
         expected_seq = [ X(q1) ] * 4
 
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
-        # print('\n'.join([str(x) for x in seqs[0]]))
-
+        assertPulseSequenceEqual(self, seqs, expected_seq)
+        # print('\n'.join([str(x) for x in seqs]))

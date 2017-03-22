@@ -27,8 +27,8 @@ class Test90(unittest.TestCase):
         seqs = testable_sequence(seqs)
 
         expected_seq = [ X(q1) ]
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
-        # print('\n'.join([str(x) for x in seqs[0]]))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
+        # print('\n'.join([str(x) for x in seqs]))
 
     def test_90_2(self):
         q1 = QubitFactory('q1')
@@ -37,8 +37,8 @@ class Test90(unittest.TestCase):
         seqs = testable_sequence(seqs)
 
         expected_seq = [ X(q1) ]
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
-        # print('\n'.join([str(x) for x in seqs[0]]))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
+        # print('\n'.join([str(x) for x in seqs]))
 
     def test_90_3(self):
         q1 = QubitFactory('q1')
@@ -47,8 +47,8 @@ class Test90(unittest.TestCase):
         seqs = testable_sequence(seqs)
 
         expected_seq = [ X(q1) ]
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
-        # print('\n'.join([str(x) for x in seqs[0]]))
+        assertPulseSequenceEqual(self, seqs, expected_seq)
+        # print('\n'.join([str(x) for x in seqs]))
 
     def test_90_4(self):
         q1 = QubitFactory('q1')
@@ -58,6 +58,5 @@ class Test90(unittest.TestCase):
 
         expected_seq = [ X(q1) ] * 3
         expected_seq += [ Y(q1) ] * 2
-        assertPulseSequenceEqual(self, seqs[0], expected_seq)
-        # print('\n'.join([str(x) for x in seqs[0]]))
-
+        assertPulseSequenceEqual(self, seqs, expected_seq)
+        # print('\n'.join([str(x) for x in seqs]))
