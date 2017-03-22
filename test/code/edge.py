@@ -10,28 +10,18 @@ from qgl2.util import init
 def edgeTest():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
-    with concur:
-        for q in [q1, q2]:
-            init(q)
-    with concur:
-        for q in [q1, q2]:
-            X(q)
-    echoCR(q1, q2)
-
-# Simplest possible test
-@qgl2decl
-def edgeTest2():
-    q1 = QubitFactory('q1')
-    q2 = QubitFactory('q2')
+    for q in [q1, q2]:
+        init(q)
+    for q in [q1, q2]:
+        X(q)
     echoCR(q1, q2)
 
 @qgl2decl
 def edgeTest3():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
-    with concur:
-        for q in [q1, q2]:
-            init(q)
+    for q in [q1, q2]:
+        init(q)
     echoCR(q1, q2)
     X(q2)
     Y(q2)
@@ -45,9 +35,8 @@ def edgeTest4():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
 
-    with concur:
-        for q in [q1, q2]:
-            init(q)
+    for q in [q1, q2]:
+        init(q)
     echoCR(q1, q2)
     echoCR(q2, q1)
     echoCR(q1, q2)
@@ -56,34 +45,10 @@ def edgeTest4():
     Id(q1)
     X(q1)
 
-# edgeTest5 involves a stub that
-# is bad: creating and using another / different qubit
-# Here we have a stub whose implementation is in this same file
-@qgl2stub('test.code.edge', 'MyPulseReal')
-def MyPulse(source: qbit) -> pulse:
-    pass
-
-# QGL1 function
-def MyPulseReal(source):
-    from QGL.PulsePrimitives import X
-    from QGL.ChannelLibrary import QubitFactory
-    q3 = QubitFactory('q3')
-    return X(q3)
-
-@qgl2decl
-def edgeTest5():
-    q1 = QubitFactory('q1')
-    q2 = QubitFactory('q2')
-    with concur:
-        for q in [q1, q2]:
-            init(q)
-            MyPulse(q)
-
 @qgl2decl
 def cnotcrTest():
     q1 = QubitFactory('q1')
     q2 = QubitFactory('q2')
-    with concur:
-        for q in [q1, q2]:
-            init(q)
+    for q in [q1, q2]:
+        init(q)
     CNOT_CR(q1, q2)

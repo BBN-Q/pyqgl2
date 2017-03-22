@@ -154,32 +154,30 @@ def discard_zero_Ids(seqs):
 
 # Things like echoCR create lists of pulses that need to be flattened
 # before calling compile_to_hardware
-def flattenSeqs(seqs):
-    nseqs = []
-    for seq in seqs:
-        hasList = False
-        for el in seq:
-            if isinstance(el, collections.Iterable) and not isinstance(el, (str, Pulse, CompositePulse)) :
-                hasList = True
-                break
-        if hasList:
-            newS = []
-            for el in flatten(seq):
-                newS.append(el)
-            nseqs.append(newS)
-        else:
-            nseqs.append(seq)
-    return nseqs
+def flattenSeqs(seq):
+    nseq = []
+    hasList = False
+    for el in seq:
+        if isinstance(el, collections.Iterable) and not isinstance(el, (str, Pulse, CompositePulse)) :
+            hasList = True
+            break
+    if hasList:
+        newS = []
+        for el in flatten(seq):
+            newS.append(el)
+        nseq.append(newS)
+    else:
+        nseq.append(seq)
+    return nseq
 
 def testable_sequence(seqs):
     '''
     Transform a QGL2 result function output into something more easily testable,
-    by replacing barriers and discarding zero length Id's and
-    flattening pulse lists.
+    by discarding zero length Id's and flattening pulse lists.
     '''
-    seqIdxToChannelMap, _ = mapQubitsToSequences(seqs)
-    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
-    discard_zero_Ids(seqs)
+    # seqIdxToChannelMap, _ = mapQubitsToSequences(seqs)
+    # seqs = replaceBarriers(seqs, seqIdxToChannelMap)
+    # discard_zero_Ids(seqs)
     seqs = flattenSeqs(seqs)
     return seqs
 
