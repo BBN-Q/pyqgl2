@@ -23,6 +23,5 @@ def qft(qs:qbit_list):
         hadamard(qs[i])
         for j in range(i+1, len(qs)):
             CZ_k(qs[i], qs[j], j-i)
-    with concur:
-        for q in qs:
-            MEAS(q)
+    for q in qs:
+        MEAS(q)
