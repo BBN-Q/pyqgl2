@@ -137,7 +137,7 @@ def parse_args(argv):
     return options
 
 
-def compileFunction(filename,
+def compile_function(filename,
                     main_name=None,
                     toplevel_bindings=None,
                     saveOutput=False,
@@ -954,7 +954,7 @@ if __name__ == '__main__':
         print('No valid ChannelLibrary found')
         sys.exit(1)
 
-    resFunction = compileFunction(
+    resFunction = compile_function(
             opts.filename, opts.main_name,
             toplevel_bindings=None, saveOutput=opts.saveOutput,
             intermediate_output=opts.intermediate_output)

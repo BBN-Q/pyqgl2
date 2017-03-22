@@ -4,7 +4,7 @@ import unittest
 
 # Test functions in multi.py
 
-from pyqgl2.main import compileFunction
+from pyqgl2.main import compile_function
 from test.helpers import channel_setup, testable_sequence
 
 from test.helpers import testable_sequence, discard_zero_Ids, \
@@ -25,7 +25,7 @@ class TestQFT(unittest.TestCase):
         q2 = QubitFactory('q2')
         qs = [q1, q2]
 
-        resFunction = compileFunction('test/code/qft.py', 'qft', (qs,))
+        resFunction = compile_function('test/code/qft.py', 'qft', (qs,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 

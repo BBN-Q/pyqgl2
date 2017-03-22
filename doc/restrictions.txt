@@ -41,7 +41,7 @@ Things to fix:
 * QGL2 performance must be improved.
 * QGL2 does not currently use repeat blocks, in part to avoid repeat
   blocks that contain a barrier. Issue #74
-* Provide way to give arguments to `compileFunction` as arguments to
+* Provide way to give arguments to `compile_function` as arguments to
   the function being compiled. Issue #50.
 
 Other to do items for QGL2:

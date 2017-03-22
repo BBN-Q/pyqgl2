@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from itertools import product
 
-from pyqgl2.main import compileFunction
+from pyqgl2.main import compile_function
 from QGL import *
 
 from test.helpers import testable_sequence, discard_zero_Ids, \
@@ -16,7 +16,7 @@ class TestCompiler(unittest.TestCase):
         pass
 
     def test_tomo(self):
-        resFunction = compileFunction("test/code/tomo.py", "main")
+        resFunction = compile_function("test/code/tomo.py", "main")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -26,7 +26,7 @@ class TestCompiler(unittest.TestCase):
         assertPulseSequenceEqual(self, seqs[1], expectedseq2)
 
     def test_tomo_no_generators(self):
-        resFunction = compileFunction("test/code/tomo.py", "main_no_generators")
+        resFunction = compile_function("test/code/tomo.py", "main_no_generators")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 

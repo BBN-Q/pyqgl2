@@ -4,7 +4,7 @@ import unittest
 
 # Test functions in multi.py
 
-from pyqgl2.main import compileFunction
+from pyqgl2.main import compile_function
 from test.helpers import channel_setup, testable_sequence
 
 from test.helpers import testable_sequence, discard_zero_Ids, \
@@ -22,7 +22,7 @@ class Test90(unittest.TestCase):
 
     def test_90_1(self):
         q1 = QubitFactory('q1')
-        resFunction = compileFunction('test/code/bugs/90.py', 't1')
+        resFunction = compile_function('test/code/bugs/90.py', 't1')
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -32,7 +32,7 @@ class Test90(unittest.TestCase):
 
     def test_90_2(self):
         q1 = QubitFactory('q1')
-        resFunction = compileFunction('test/code/bugs/90.py', 't2')
+        resFunction = compile_function('test/code/bugs/90.py', 't2')
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -42,7 +42,7 @@ class Test90(unittest.TestCase):
 
     def test_90_3(self):
         q1 = QubitFactory('q1')
-        resFunction = compileFunction('test/code/bugs/90.py', 't3')
+        resFunction = compile_function('test/code/bugs/90.py', 't3')
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -52,7 +52,7 @@ class Test90(unittest.TestCase):
 
     def test_90_4(self):
         q1 = QubitFactory('q1')
-        resFunction = compileFunction('test/code/bugs/90.py', 't4')
+        resFunction = compile_function('test/code/bugs/90.py', 't4')
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 

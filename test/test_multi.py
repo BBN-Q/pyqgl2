@@ -5,7 +5,7 @@ import unittest
 
 from .helpers import testable_sequence, discard_zero_Ids, \
     channel_setup, assertPulseSequenceEqual
-from pyqgl2.main import compileFunction
+from pyqgl2.main import compile_function
 
 from QGL import *
 
@@ -41,7 +41,7 @@ class TestMulti(unittest.TestCase):
         elif q2l > q1l:
             expectedseq1 += [Id(q1, q2l-q1l)]
 
-        resFunction = compileFunction("test/code/multi.py",
+        resFunction = compile_function("test/code/multi.py",
                                       "multiQbitTest2")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -61,7 +61,7 @@ class TestMulti(unittest.TestCase):
             X(q2),
             MEAS(q2)
         ]
-        resFunction = compileFunction("test/code/multi.py",
+        resFunction = compile_function("test/code/multi.py",
                                       "doSimple")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -100,7 +100,7 @@ class TestMulti(unittest.TestCase):
         elif q2l > q1l:
             expectedseq2 += [Id(q1, q2l - q1l)]
 
-        resFunction = compileFunction("test/code/multi.py",
+        resFunction = compile_function("test/code/multi.py",
                                       "anotherMulti")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -147,7 +147,7 @@ class TestMulti(unittest.TestCase):
         elif q3l > q1l:
             expected1 += [Id(q1, q3l - q1l)]
         expected2 += [Id(q2, max(q1l, q3l))]
-        resFunction = compileFunction("test/code/multi.py",
+        resFunction = compile_function("test/code/multi.py",
                                       "anotherMulti2")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -213,7 +213,7 @@ class TestMulti(unittest.TestCase):
         elif q3l > q1l:
             expected1 += [Id(q1, q3l - q1l)]
         expected2 += [Id(q2, max(q1l, q3l))]
-        resFunction = compileFunction("test/code/multi.py",
+        resFunction = compile_function("test/code/multi.py",
                                       "anotherMulti3")
         seqs = resFunction()
         seqs = testable_sequence(seqs)

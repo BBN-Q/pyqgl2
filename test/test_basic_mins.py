@@ -7,7 +7,7 @@ import unittest
 import numpy as np
 from math import pi
 
-from pyqgl2.main import compileFunction
+from pyqgl2.main import compile_function
 from QGL import *
 
 from test.helpers import testable_sequence, discard_zero_Ids, \
@@ -39,7 +39,7 @@ class TestBasicMins(unittest.TestCase):
             MEAS(q1)
             ]
 
-        # To turn on verbose logging in compileFunction
+        # To turn on verbose logging in compile_function
         # from pyqgl2.ast_util import NodeError
         # from pyqgl2.debugmsg import DebugMsg
         # NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
@@ -49,7 +49,7 @@ class TestBasicMins(unittest.TestCase):
         # file,
         # and intermediate_output="path-to-output-file" to save
         # intermediate products
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/AllXYMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/AllXYMin.py",
                                       "doAllXY",
                                       (q1,))
         seqs = resFunction()
@@ -77,7 +77,7 @@ class TestBasicMins(unittest.TestCase):
             MEAS(q1)
             ]
 
-        resFunction = compileFunction(
+        resFunction = compile_function(
                 "test/code/AllXY_alt.py",
                 "doAllXY",
                 (q1,))
@@ -105,7 +105,7 @@ class TestBasicMins(unittest.TestCase):
             MEAS(q1)
             ]
 
-        resFunction = compileFunction(
+        resFunction = compile_function(
                 "test/code/AllXY_alt.py",
                 "doAllXY2",
                 (q1,))
@@ -178,7 +178,7 @@ class TestBasicMins(unittest.TestCase):
         expected_seq_q2 += cal_target
         discard_zero_Ids([expected_seq_q1, expected_seq_q2])
 
-        # To turn on verbose logging in compileFunction
+        # To turn on verbose logging in compile_function
 #        from pyqgl2.ast_util import NodeError
 #        from pyqgl2.debugmsg import DebugMsg
 #        NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
@@ -188,7 +188,7 @@ class TestBasicMins(unittest.TestCase):
         # file,
         # and intermediate_output="path-to-output-file" to save
         # intermediate products
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/CRMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/CRMin.py",
                                       "doPiRabi")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -270,7 +270,7 @@ class TestBasicMins(unittest.TestCase):
         expected_seq_q2 += cal_target
         discard_zero_Ids([expected_seq_q1, expected_seq_q2])
 
-        # To turn on verbose logging in compileFunction
+        # To turn on verbose logging in compile_function
 #        from pyqgl2.ast_util import NodeError
 #        from pyqgl2.debugmsg import DebugMsg
 #        NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
@@ -280,7 +280,7 @@ class TestBasicMins(unittest.TestCase):
         # file,
         # and intermediate_output="path-to-output-file" to save
         # intermediate products
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/CRMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/CRMin.py",
                                       "doEchoCRLen")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -382,7 +382,7 @@ class TestBasicMins(unittest.TestCase):
         # Flatten the echos
         expected_seq_q1, expected_seq_q2 = flattenSeqs([expected_seq_q1, expected_seq_q2])
 
-        # To turn on verbose logging in compileFunction
+        # To turn on verbose logging in compile_function
 #        from pyqgl2.ast_util import NodeError
 #        from pyqgl2.debugmsg import DebugMsg
 #        NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
@@ -392,7 +392,7 @@ class TestBasicMins(unittest.TestCase):
         # file,
         # and intermediate_output="path-to-output-file" to save
         # intermediate products
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/CRMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/CRMin.py",
                                       "doEchoCRPhase")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -435,7 +435,7 @@ class TestBasicMins(unittest.TestCase):
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expectedseq])
 
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/DecouplingMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/DecouplingMin.py",
                                       "doHahnEcho",
                                       (q, pulseSpacings, periods, calRepeats))
         seqs = resFunction()
@@ -479,7 +479,7 @@ class TestBasicMins(unittest.TestCase):
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expectedseq])
 
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/DecouplingMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/DecouplingMin.py",
                                       "doCPMG",
                                       (q, numPulses, pulseSpacing, calRepeats))
         seqs = resFunction()
@@ -526,7 +526,7 @@ class TestBasicMins(unittest.TestCase):
             X(qubit),
             MEAS(qubit)
         ]
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/FlipFlopMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/FlipFlopMin.py",
                                       "doFlipFlop",
                                       (qubit, dragParamSweep, maxNumFFs))
         seqs = resFunction()
@@ -551,7 +551,7 @@ class TestBasicMins(unittest.TestCase):
                 MEAS(q1)
             ]
 
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiAmp",
                                       (q1, amps, phase))
         seqs = resFunction()
@@ -564,7 +564,7 @@ class TestBasicMins(unittest.TestCase):
         q1 = QubitFactory('q1')
         widths = np.linspace(0, 5e-6, 11)
 
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiWidth",
                                       (q1, widths))
         seqs = resFunction()
@@ -586,7 +586,7 @@ class TestBasicMins(unittest.TestCase):
         q2 = QubitFactory('q2')
         amps = np.linspace(0, 1, 11)
 
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiAmpPi",
                                       (q1, q2, amps))
         seqs = resFunction()
@@ -617,7 +617,7 @@ class TestBasicMins(unittest.TestCase):
 
     def test_SingleShot(self):
         q1 = QubitFactory('q1')
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doSingleShot",
                                       (q1,))
         seqs = resFunction()
@@ -638,7 +638,7 @@ class TestBasicMins(unittest.TestCase):
 
     def test_PulsedSpec(self):
         q1 = QubitFactory('q1')
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doPulsedSpec",
                                       (q1, True))
         seqs = resFunction()
@@ -704,7 +704,7 @@ class TestBasicMins(unittest.TestCase):
         # # Could specify other levels, loggers
         # set_log_level()
 
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiAmp_NQubits",
                                       (qubits, amps, docals, calRepeats))
         seqs = resFunction()
@@ -775,7 +775,7 @@ class TestBasicMins(unittest.TestCase):
         # set_log_level()
 
         # Add final True arg for debugging
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/RabiMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doSwap",
                                       (q, mq, delays))
         seqs = resFunction()
@@ -836,7 +836,7 @@ class TestBasicMins(unittest.TestCase):
             X(q),
             MEAS(q)
         ]
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/SPAMMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/SPAMMin.py",
                                       "doSPAM",
                                       (q, angleSweep, maxSpamBlocks))
         seqs = resFunction()
@@ -865,7 +865,7 @@ class TestBasicMins(unittest.TestCase):
 
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expectedseq])
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/T1T2Min.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/T1T2Min.py",
                                       "doInversionRecovery",
                                       (q, delays, calRepeats))
         seqs = resFunction()
@@ -899,7 +899,7 @@ class TestBasicMins(unittest.TestCase):
         # Get rid of any 0 length Id pulses just added
         discard_zero_Ids([expectedseq])
 
-        resFunction = compileFunction("src/python/qgl2/basic_sequences/T1T2Min.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/T1T2Min.py",
                                       "doRamsey",
                                       (q, delays, TPPIFreq, calRepeats))
         seqs = resFunction()

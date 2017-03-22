@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from pyqgl2.main import compileFunction
+from pyqgl2.main import compile_function
 from QGL import *
 
 from .helpers import channel_setup, testable_sequence
@@ -19,7 +19,7 @@ class TestTopLevelBinding(unittest.TestCase):
         expectedseq = [Xtheta(q1, amp=a) for a in amps]
 
         # dictionary input for toplevel_bindings
-        resFunction = compileFunction(
+        resFunction = compile_function(
             "test/code/toplevel_binding.py",
             "main1",
             {"amps": amps}
@@ -35,7 +35,7 @@ class TestTopLevelBinding(unittest.TestCase):
         expectedseq = [Xtheta(q1, amp=a) for a in amps]
 
         # tuple input for toplevel_bindings
-        resFunction = compileFunction(
+        resFunction = compile_function(
             "test/code/toplevel_binding.py",
             "main1",
             (amps,)
@@ -51,7 +51,7 @@ class TestTopLevelBinding(unittest.TestCase):
         expectedseq = [Xtheta(q1, amp=a) for a in amps]
 
         # tuple input for toplevel_bindings
-        resFunction = compileFunction(
+        resFunction = compile_function(
             "test/code/toplevel_binding.py",
             "main1",
             (amps,)
@@ -67,7 +67,7 @@ class TestTopLevelBinding(unittest.TestCase):
         expectedseq = [Xtheta(q1, amp=a) for a in amps]
 
         # tuple input for toplevel_bindings
-        resFunction = compileFunction(
+        resFunction = compile_function(
             "test/code/toplevel_binding.py",
             "main1",
             (amps,)
@@ -83,7 +83,7 @@ class TestTopLevelBinding(unittest.TestCase):
         expectedseq = [Xtheta(q1, amp=a) for a in amps]
 
         # tuple input for toplevel_bindings
-        resFunction = compileFunction(
+        resFunction = compile_function(
             "test/code/toplevel_binding.py",
             "main1",
             (amps,)
@@ -99,7 +99,7 @@ class TestTopLevelBinding(unittest.TestCase):
         expectedseq = [Utheta(q1, amp=a, phase=0.5) for a in amps]
 
         # dictionary input for toplevel_bindings
-        resFunction = compileFunction(
+        resFunction = compile_function(
             "test/code/toplevel_binding.py",
             "main2",
             {"amps": amps, "phase": 0.5}
@@ -115,7 +115,7 @@ class TestTopLevelBinding(unittest.TestCase):
         expectedseq = [Utheta(q1, amp=a, phase=0.5) for a in amps]
 
         # tuple input for toplevel_bindings
-        resFunction = compileFunction(
+        resFunction = compile_function(
             "test/code/toplevel_binding.py",
             "main2",
             (amps, 0.5)
@@ -132,7 +132,7 @@ class TestTopLevelBinding(unittest.TestCase):
         expectedseq = [Xtheta(q1, amp=a) for a in amps]
 
         # tuple input for toplevel_bindings
-        resFunction = compileFunction(
+        resFunction = compile_function(
             "test/code/toplevel_binding.py",
             "main3",
             (q1, amps)
@@ -149,7 +149,7 @@ class TestTopLevelBinding(unittest.TestCase):
         expectedseq = [Xtheta(q1, amp=a, shapeFun=PulseShapes.tanh) for a in amps]
 
         # tuple input for toplevel_bindings
-        resFunction = compileFunction(
+        resFunction = compile_function(
             "test/code/toplevel_binding.py",
             "main4",
             (q1, amps, PulseShapes.tanh)
@@ -168,7 +168,7 @@ class TestTopLevelBinding(unittest.TestCase):
         expectedseq2 = [Id(q2), X(q2)]
 
         # tuple input for toplevel_bindings
-        resFunction = compileFunction(
+        resFunction = compile_function(
             "test/code/toplevel_binding.py",
             "main5",
             (qs,)
