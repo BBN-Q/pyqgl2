@@ -412,7 +412,8 @@ def compile_function(filename,
     # Get the QGL1 function that produces the proper sequences
     print('%s: GENERATING QGL1 SEQUENCE FUNCTION' % datetime.now())
     qgl1_main = get_sequence_function(new_ptree8, fname,
-            importer, intermediate_fout, saveOutput, filename)
+            importer, intermediate_fout, saveOutput, filename,
+            setup=evaluator.setup())
     NodeError.halt_on_error()
     return qgl1_main
 
