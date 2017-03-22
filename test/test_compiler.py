@@ -18,20 +18,18 @@ class TestCompiler(unittest.TestCase):
     def test_tomo(self):
         resFunction = compile_function("test/code/tomo.py", "main")
         seqs = resFunction()
-        # seqs = testable_sequence(seqs)
 
         expectedseq = self.tomo_result()
 
-        assertPulseSequenceEqual(self, seq, expectedseq)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     def test_tomo_no_generators(self):
         resFunction = compile_function("test/code/tomo.py", "main_no_generators")
         seqs = resFunction()
-        # seqs = testable_sequence(seqs)
 
         expectedseq = self.tomo_result()
 
-        assertPulseSequenceEqual(self, seqs, expectedseq1)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     def tomo_result(self):
         q1 = QubitFactory('q1')
@@ -42,13 +40,13 @@ class TestCompiler(unittest.TestCase):
         for (p1, p2) in product(fncs, fncs):
             for (m1, m2) in product(fncs, fncs):
                 expectedseq += [
-                    p1(q1)
-                    p2(q2)
-                    X90(q1)
-                    Y90(q2)
-                    m1(q1)
-                    m2(q2)
-                    MEAS(q1)
+                    p1(q1),
+                    p2(q2),
+                    X90(q1),
+                    Y90(q2),
+                    m1(q1),
+                    m2(q2),
+                    MEAS(q1),
                     MEAS(q2)
                 ]
         return expectedseq
