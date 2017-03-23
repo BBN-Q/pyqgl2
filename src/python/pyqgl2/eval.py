@@ -1203,11 +1203,14 @@ class EvalTransformer(object):
 
     def do_quantum_while(self, stmnt):
 
-        was_in_quantum_condition = self.in_quantum_condition
-        self.in_quantum_condition = True
-        stmnt.body = self.do_body(stmnt.body)
-        self.in_quantum_condition = was_in_quantum_condition
-        return True, list([stmnt])
+        # was_in_quantum_condition = self.in_quantum_condition
+        # self.in_quantum_condition = True
+        # stmnt.body = self.do_body(stmnt.body)
+        # self.in_quantum_condition = was_in_quantum_condition
+        # return True, list([stmnt])
+        NodeError.error_msg(stmnt,
+            'QGL2 does not support while loops with run-time values')
+        return False, list()
 
     def do_if(self, stmnt):
         """
@@ -1329,7 +1332,8 @@ class EvalTransformer(object):
         return True, expanded_body
 
     def do_if_quantum(self, stmnt):
-
+        # NOTE "quantum" condition is a misnomer. This ought to be called
+        # a "runtime" condition.
         was_in_quantum_condition = self.in_quantum_condition
         self.in_quantum_condition = True
 
@@ -1467,7 +1471,7 @@ class EvalTransformer(object):
                 # FIXME this only handles a limited set of all
                 # the ways qbits might be created.  It would be
                 # better to actually invoke the QubitFactory here,
-                # although that would break any other things.
+                # although that would break many other things.
                 #
                 if is_qbit_create(stmnt):
                     self.rewriter.rewrite(stmnt.value)
@@ -1627,20 +1631,26 @@ class EvalTransformer(object):
             # predicate.  If we can reach here as the result of a quantum
             # predicate, then we need to keep going.
             #
+            # I don't agree with this logic. I think you need you handle
+            # both cases the same way. --Blake
             elif isinstance(stmnt, ast.Break):
-                if self.in_quantum_condition:
-                    self.rewriter.rewrite(stmnt)
-                    new_body.append(stmnt)
-                else:
-                    self.seen_break = True
-                    break
+                # if self.in_quantum_condition:
+                #     self.rewriter.rewrite(stmnt)
+                #     new_body.append(stmnt)
+                # else:
+                #     self.seen_break = True
+                #     break
+                self.seen_break = True
+                break
             elif isinstance(stmnt, ast.Continue):
-                if not self.in_quantum_condition:
-                    self.rewriter.rewrite(stmnt)
-                    new_body.append(stmnt)
-                else:
-                    self.seen_continue = True
-                    break
+                # if not self.in_quantum_condition:
+                #     self.rewriter.rewrite(stmnt)
+                #     new_body.append(stmnt)
+                # else:
+                #     self.seen_continue = True
+                #     break
+                self.seen_continue = True
+                break
 
             elif isinstance(stmnt, ast.AugAssign):
                 DebugMsg.log(
