@@ -13,6 +13,7 @@ from QGL.PulseSequencer import Pulse, CompositePulse
 from QGL.PatternUtils import flatten
 from QGL.PulsePrimitives import Id, X, MEAS
 from QGL.ControlFlow import qsync, qwait
+from qgl2.qgl1control import Barrier
 
 import collections
 from math import pi
@@ -319,94 +320,24 @@ def get_cal_seqs_1qubit(qubit, calRepeats=2):
 
 def get_cal_seqs_2qubits(q1, q2, calRepeats=2):
     '''
-    Note: return may include 0 length Id pulses.
-    EG
-    q1:
-    4x this block:
-    qsync
-    qwait
-    Id(q1)
-    <maybe an ID>
-    MEAS(q1)
-    <maybe an ID>
-
-    4x this block:
-    qsync
-    qwait
-    X(q1)
-    <maybe an ID>
-    MEAS(q1)
-    <maybe an ID>
-
-    q2:
-    2x:
-    qsync
-    qwait
-    Id(q2)
-    <maybe an ID>
-    MEAS(q2)
-    <maybe an ID>
-    qsync
-    qwait
-    Id(q2)
-    <maybe an ID>
-    MEAS(q2)
-    <maybe an ID>
-
-    qsync
-    qwait
-    X(q2)
-    <maybe an ID>
-    MEAS(q2)
-    <maybe an ID>
-    qsync
-    qwait
-    X(q2)
-    <maybe an ID>
-    MEAS(q2)
-    <maybe an ID>
+    Prepare all computational 2-qubit basis states and measure them.
     '''
 
-    calSeq1 = []
-    calSeq2 = []
+    calseq = []
     for pulseSet in [(Id, Id), (Id, X), (X, Id), (X, X)]:
         for _ in range(calRepeats):
             q1l = pulseSet[0](q1).length
             q2l = pulseSet[1](q2).length
-            calSeq1 += [
+            calseq += [
                 qsync(),
                 qwait(),
-                pulseSet[0](q1)
-            ]
-            calSeq2 += [
                 qsync(),
                 qwait(),
-                pulseSet[1](q2)
-            ]
-            # Sync up after those pulses
-            if q2l > q1l:
-                calSeq1 += [
-                    Id(q1, length=q2l-q1l)
-                ]
-            if q1l > q2l:
-                calSeq2 += [
-                    Id(q2, length=q1l-q2l)
-                ]
-            calSeq1 += [
-                MEAS(q1)
-            ]
-            calSeq2 += [
+                pulseSet[0](q1),
+                pulseSet[1](q2),
+                Barrier("", [q1, q2]),
+                MEAS(q1),
                 MEAS(q2)
             ]
-            # Sync up after the MEAS pulses
-            q1l = MEAS(q1).length
-            q2l = MEAS(q2).length
-            if q2l > q1l:
-                calSeq1 += [
-                    Id(q1, length=q2l-q1l)
-                ]
-            if q1l > q2l:
-                calSeq2 += [
-                    Id(q2, length=q1l-q2l)
-                ]
-    return calSeq1, calSeq2
+
+    return calseq

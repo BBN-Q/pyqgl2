@@ -1,7 +1,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 from qgl2.qgl2 import qgl2decl, qbit_list, concur
-from qgl2.qgl1 import Id, X, MEAS
+from qgl2.qgl1 import Id, X, MEAS, Barrier
 from qgl2.util import init
 
 from itertools import product
@@ -32,12 +32,10 @@ def create_cal_seqs(qubits: qbit_list, numRepeats):
     for pulseSet in product(calSet, repeat=len(qubits)):
         # Repeat each calibration numRepeats times
         for _ in range(numRepeats):
-            with concur:
-                for q in qubits:
-                    init(q)
-            with concur:
-                for pulse, qubit in zip(pulseSet, qubits):
-                    pulse(qubit)
-            with concur:
-                for q in qubits:
-                    MEAS(q)
+            for q in qubits:
+                init(q)
+            for pulse, qubit in zip(pulseSet, qubits):
+                pulse(qubit)
+            Barrier("", qubits)
+            for q in qubits:
+                MEAS(q)
