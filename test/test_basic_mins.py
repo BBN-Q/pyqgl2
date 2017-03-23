@@ -9,6 +9,7 @@ from math import pi
 
 from pyqgl2.main import compile_function
 from QGL import *
+from qgl2.qgl1control import Barrier
 
 from test.helpers import testable_sequence, discard_zero_Ids, \
     flattenSeqs, channel_setup, assertPulseSequenceEqual, \
@@ -54,9 +55,9 @@ class TestBasicMins(unittest.TestCase):
                                       (q1,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        self.assertEqual(len(seqs), 1)
-        self.assertEqual(len(seqs[0]), 5*21*2)
-        assertPulseSequenceEqual(self, seqs[0][:len(expectedseq)], expectedseq)
+
+        self.assertEqual(len(seqs), 5*21*2)
+        assertPulseSequenceEqual(self, seqs[:len(expectedseq)], expectedseq)
 
     # Tests list of lists of function references, instead of sub-functions
     def test_AllXY_alt1(self):
@@ -83,9 +84,9 @@ class TestBasicMins(unittest.TestCase):
                 (q1,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        self.assertEqual(len(seqs), 1)
-        self.assertEqual(len(seqs[0]), 5*21*2)
-        assertPulseSequenceEqual(self, seqs[0][:len(expectedseq)], expectedseq)
+
+        self.assertEqual(len(seqs), 5*21*2)
+        assertPulseSequenceEqual(self, seqs[:len(expectedseq)], expectedseq)
 
     def test_AllXY_alt2(self):
         q1 = QubitFactory('q1')
@@ -111,9 +112,9 @@ class TestBasicMins(unittest.TestCase):
                 (q1,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        self.assertEqual(len(seqs), 1)
-        self.assertEqual(len(seqs[0]), 5*21*2)
-        assertPulseSequenceEqual(self, seqs[0][:len(expectedseq)], expectedseq)
+
+        self.assertEqual(len(seqs), 5*21*2)
+        assertPulseSequenceEqual(self, seqs[:len(expectedseq)], expectedseq)
 
 
     # CRMin
@@ -130,78 +131,47 @@ class TestBasicMins(unittest.TestCase):
         phase=0
         calRepeats = 2
 
-        expected_seq_q1 = [] # control
+        expected_seq = []
         # Seq1
         for l in lengths:
-            expected_seq_q1 += [
+            expected_seq += [
+                qsync(),
+                qwait(),
                 qsync(),
                 qwait(),
                 Id(controlQ),
                 flat_top_gaussian(edge, riseFall, length=l, amp=amp, phase=phase),
+                Barrier("", (targetQ, controlQ)),
+                MEAS(targetQ),
                 MEAS(controlQ)
             ]
         # Seq2
         for l in lengths:
-            expected_seq_q1 += [
+            expected_seq += [
+                qsync(),
+                qwait(),
                 qsync(),
                 qwait(),
                 X(controlQ),
                 flat_top_gaussian(edge, riseFall, length=l, amp=amp, phase=phase),
                 X(controlQ),
+                Barrier("", (targetQ, controlQ)),
+                MEAS(targetQ),
                 MEAS(controlQ)
-            ]
-
-        expected_seq_q2 = [] # target
-        # Seq1
-        for l in lengths:
-            expected_seq_q2 += [
-                qsync(),
-                qwait(),
-                Id(targetQ, length=Id(controlQ).length),
-                flat_top_gaussian(edge, riseFall, length=l, amp=amp, phase=phase),
-                MEAS(targetQ)
-            ]
-        # Seq2
-        for l in lengths:
-            expected_seq_q2 += [
-                qsync(),
-                qwait(),
-                Id(targetQ, length=X(controlQ).length),
-                flat_top_gaussian(edge, riseFall, length=l, amp=amp, phase=phase),
-                Id(targetQ, length=X(controlQ).length),
-                MEAS(targetQ)
             ]
 
         # Add calibration
-        cal_target, cal_control = get_cal_seqs_2qubits(targetQ, controlQ, calRepeats)
-        expected_seq_q1 += cal_control
-        expected_seq_q2 += cal_target
-        discard_zero_Ids([expected_seq_q1, expected_seq_q2])
+        calseq = get_cal_seqs_2qubits(targetQ, controlQ, calRepeats)
+        expected_seq += calseq
+        expected_seq = testable_sequence(expected_seq)
 
-        # To turn on verbose logging in compile_function
-#        from pyqgl2.ast_util import NodeError
-#        from pyqgl2.debugmsg import DebugMsg
-#        NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
-#        DebugMsg.set_level(0)
-
-        # Can optionally supply saveOutput=True to save the qgl1.py
-        # file,
-        # and intermediate_output="path-to-output-file" to save
-        # intermediate products
         resFunction = compile_function("src/python/qgl2/basic_sequences/CRMin.py",
                                       "doPiRabi")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        # Need to map right seq to right expected seq
-        self.assertEqual(len(seqs), 2)
         self.maxDiff = None
-        if seqs[0][2] == Id(controlQ):
-            assertPulseSequenceEqual(self, seqs[0], expected_seq_q1)
-            assertPulseSequenceEqual(self, seqs[1], expected_seq_q2)
-        else:
-            assertPulseSequenceEqual(self, seqs[1], expected_seq_q1)
-            assertPulseSequenceEqual(self, seqs[0], expected_seq_q2)
+        assertPulseSequenceEqual(self, seqs, expected_seq)
 
     def test_EchoCRLen(self):
         controlQ = QubitFactory('q1')
@@ -213,87 +183,48 @@ class TestBasicMins(unittest.TestCase):
         phase=0
         calRepeats=2
 
-        expected_seq_q1 = []
+        expected_seq = []
         # Seq1
         for l in lengths:
-            expected_seq_q1 += [
+            expected_seq += [
+                qsync(),
+                qwait(),
                 qsync(),
                 qwait(),
                 Id(controlQ),
                 echoCR(controlQ, targetQ, length=l, phase=phase,
                        riseFall=riseFall),
                 Id(controlQ),
+                Barrier("", (targetQ, controlQ)),
+                MEAS(targetQ),
                 MEAS(controlQ)
             ]
         # Seq2
         for l in lengths:
-            expected_seq_q1 += [
+            expected_seq += [
                 qsync(),
                 qwait(),
                 X(controlQ),
                 echoCR(controlQ, targetQ, length=l, phase=phase,
                        riseFall=riseFall),
                 X(controlQ),
+                Barrier("", (targetQ, controlQ)),
+                MEAS(targetQ),
                 MEAS(controlQ)
             ]
-
-        expected_seq_q2 = []
-        # Seq1
-        for l in lengths:
-            expected_seq_q2 += [
-                qsync(),
-                qwait(),
-                Id(targetQ, length=Id(controlQ).length),
-                echoCR(controlQ, targetQ, length=l, phase=phase,
-                       riseFall=riseFall),
-                Id(targetQ, length=Id(controlQ).length),
-                MEAS(targetQ)
-            ]
-        # Seq2
-        for l in lengths:
-            expected_seq_q2 += [
-                qsync(),
-                qwait(),
-                Id(targetQ, length=X(controlQ).length),
-                echoCR(controlQ, targetQ, length=l, phase=phase,
-                       riseFall=riseFall),
-                Id(targetQ, length=X(controlQ).length),
-                MEAS(targetQ)
-            ]
-
-        # Flatten the echos
-        expected_seq_q1, expected_seq_q2 = flattenSeqs([expected_seq_q1, expected_seq_q2])
 
         # Add calibration
-        cal_target, cal_control = get_cal_seqs_2qubits(targetQ, controlQ, calRepeats)
-        expected_seq_q1 += cal_control
-        expected_seq_q2 += cal_target
-        discard_zero_Ids([expected_seq_q1, expected_seq_q2])
+        cal_seqs = get_cal_seqs_2qubits(targetQ, controlQ, calRepeats)
+        expected_seq += cal_seqs
+        expected_seq = testable_sequence(expected_seq)
 
-        # To turn on verbose logging in compile_function
-#        from pyqgl2.ast_util import NodeError
-#        from pyqgl2.debugmsg import DebugMsg
-#        NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
-#        DebugMsg.set_level(0)
-
-        # Can optionally supply saveOutput=True to save the qgl1.py
-        # file,
-        # and intermediate_output="path-to-output-file" to save
-        # intermediate products
         resFunction = compile_function("src/python/qgl2/basic_sequences/CRMin.py",
                                       "doEchoCRLen")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        # Need to map right seq to right expected seq
-        self.assertEqual(len(seqs), 2)
         self.maxDiff = None
-        if seqs[0][2] == Id(controlQ):
-            assertPulseSequenceEqual(self, seqs[0], expected_seq_q1)
-            assertPulseSequenceEqual(self, seqs[1], expected_seq_q2)
-        else:
-            assertPulseSequenceEqual(self, seqs[1], expected_seq_q1)
-            assertPulseSequenceEqual(self, seqs[0], expected_seq_q2)
+        assertPulseSequenceEqual(self, seqs, expected_seq)
 
     def test_EchoCRPhase(self):
         controlQ = QubitFactory('q1')
@@ -303,109 +234,54 @@ class TestBasicMins(unittest.TestCase):
         amp=1
         length=100e-9
         calRepeats=2
-        expected_seq_q1 = []
+        expected_seq = []
 
-        l1 = X90(targetQ).length - Id(controlQ).length
-        if l1 > 0:
-            s1q1 = Id(controlQ, length=l1)
-            s1q2 = Id(targetQ, length=0)
-        else:
-            s1q1 = Id(controlQ, length=0)
-            s1q2 = Id(targetQ, length=l1)
         # Seq1
         for p in phases:
-            expected_seq_q1 += [
+            expected_seq += [
+                qsync(),
+                qwait(),
                 qsync(),
                 qwait(),
                 Id(controlQ),
                 echoCR(controlQ, targetQ, length=length, phase=p,
                        riseFall=riseFall),
+                X90(targetQ),
                 Id(controlQ),
-                s1q1,
+                Barrier("", (targetQ, controlQ)),
+                MEAS(targetQ),
                 MEAS(controlQ)
             ]
 
-        l2 = X90(targetQ).length - X(controlQ).length
-        if l2 > 0:
-            s2q1 = Id(controlQ, length=l2)
-            s2q2 = Id(targetQ, length=0)
-        else:
-            s2q1 = Id(controlQ, length=0)
-            s2q2 = Id(targetQ, length=l2)
         # Seq2
         for p in phases:
-            expected_seq_q1 += [
+            expected_seq += [
+                qsync(),
+                qwait(),
                 qsync(),
                 qwait(),
                 X(controlQ),
                 echoCR(controlQ, targetQ, length=length, phase=p,
                        riseFall=riseFall),
+                X90(targetQ),
                 X(controlQ),
-                s2q1,
+                Barrier("", (targetQ, controlQ)),
+                MEAS(targetQ),
                 MEAS(controlQ)
-            ]
-
-        expected_seq_q2 = []
-        # Seq1
-        for p in phases:
-            expected_seq_q2 += [
-                qsync(),
-                qwait(),
-                Id(targetQ, length=Id(controlQ).length),
-                echoCR(controlQ, targetQ, length=length, phase=p,
-                       riseFall=riseFall),
-                X90(targetQ),
-                s1q2,
-                MEAS(targetQ)
-            ]
-        # Seq2
-        for p in phases:
-            expected_seq_q2 += [
-                qsync(),
-                qwait(),
-                Id(targetQ, length=X(controlQ).length),
-                echoCR(controlQ, targetQ, length=length, phase=p,
-                       riseFall=riseFall),
-                X90(targetQ),
-                s2q2,
-                MEAS(targetQ)
             ]
 
         # Add calibration
-        cal_target, cal_control = get_cal_seqs_2qubits(targetQ, controlQ, calRepeats)
-        expected_seq_q1 += cal_control
-        expected_seq_q2 += cal_target
+        cal_seqs = get_cal_seqs_2qubits(targetQ, controlQ, calRepeats)
+        expected_seq += cal_seqs
+        expected_seq = testable_sequence(expected_seq)
 
-        # Get rid of any 0 length Id pulses just added
-        discard_zero_Ids([expected_seq_q1, expected_seq_q2])
-
-        # Flatten the echos
-        expected_seq_q1, expected_seq_q2 = flattenSeqs([expected_seq_q1, expected_seq_q2])
-
-        # To turn on verbose logging in compile_function
-#        from pyqgl2.ast_util import NodeError
-#        from pyqgl2.debugmsg import DebugMsg
-#        NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
-#        DebugMsg.set_level(0)
-
-        # Can optionally supply saveOutput=True to save the qgl1.py
-        # file,
-        # and intermediate_output="path-to-output-file" to save
-        # intermediate products
         resFunction = compile_function("src/python/qgl2/basic_sequences/CRMin.py",
                                       "doEchoCRPhase")
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        # Need to map right seq to right expected seq
-        self.assertEqual(len(seqs), 2)
         self.maxDiff = None
-        if seqs[0][2] == Id(controlQ):
-            assertPulseSequenceEqual(self, seqs[0], expected_seq_q1)
-            assertPulseSequenceEqual(self, seqs[1], expected_seq_q2)
-        else:
-            assertPulseSequenceEqual(self, seqs[1], expected_seq_q1)
-            assertPulseSequenceEqual(self, seqs[0], expected_seq_q2)
+        assertPulseSequenceEqual(self, seqs, expected_seq)
 
     ## DecouplingMin
 
