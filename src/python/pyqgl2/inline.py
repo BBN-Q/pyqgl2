@@ -899,7 +899,7 @@ def create_inline_procedure(func_ptree, call_ptree):
         if not isinstance(new_stmnt, ast.Expr):
             new_stmnt.qgl2_orig_call = orig_call_ptree
 
-    inlined = setup_locals + setup_checks + func_body
+    inlined = setup_locals + setup_checks + new_func_body
 
     return inlined
 

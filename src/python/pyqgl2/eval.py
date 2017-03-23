@@ -528,7 +528,11 @@ class SimpleEvaluator(object):
 
         sketch_call = inline_call(final_call_node, self.importer)
         if isinstance(sketch_call, list):
-            new_call_with = sketch_call[0]
+            # BRJ: commenting this out because I don't know how to deal
+            # with this now that I have removed "with infunc(...)" notations.
+            # is this a reason that we need to keep such annotations?
+
+            # new_call_with = sketch_call[0]
 
             # This is gross, and needs extra explaining...
             # The inlined function we just created is in terms
@@ -541,18 +545,20 @@ class SimpleEvaluator(object):
             # new_call_node, and replace the with-infunc
             # withitems with it.
 
-            new_ap_names = new_call_node.args[:]
-            new_ap_names.insert(
-                    0, new_call_with.items[0].context_expr.args[0])
-            new_call_with.items[0].context_expr.args = new_ap_names
+            # new_ap_names = new_call_node.args[:]
+            # new_ap_names.insert(
+            #         0, new_call_with.items[0].context_expr.args[0])
+            # new_call_with.items[0].context_expr.args = new_ap_names
 
             # if there are checks, then insert them into the body
             #
             if checks:
-                new_call_with.body = checks + new_call_with.body
+                # new_call_with.body = checks + new_call_with.body
+                new_call = checks + sketch_call
 
             # print('INLINED REF [\n%s\n]' % ast2str(new_call_with).strip())
-            return new_call_with
+            # return new_call_with
+            return new_call
         else:
             # TODO: if we got this far and then failed, something
             # terrible probably happened.  Come up with decent
@@ -1526,8 +1532,11 @@ class EvalTransformer(object):
                 #
                 ref_call = self.eval_state.expand_qgl2decl_call(stmnt.value)
                 if ref_call:
+                    # inject the inlined code into the body
+                    body = body[:stmnt_index-1] + ref_call + body[stmnt_index:]
+                    last_index += len(ref_call) - 1
                     stmnt_index -= 1
-                    body[stmnt_index] = ref_call
+                    # body[stmnt_index] = ref_call
                     continue
 
                 # If it's a call, we need to figure out whether it's
