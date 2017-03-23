@@ -4,27 +4,24 @@ from qgl2.qgl1 import QubitFactory, X, Y, Z, Y90, X90
 @qgl2decl
 def syndrome_cycle(qbits, role_def):
 
-    with concur:
-        for q in qbits:
-            if role_def[q].is_x():
-                Hadamard(q)
+    for q in qbits:
+        if role_def[q].is_x():
+            Hadamard(q)
 
     for direction in range(4):
-        with concur:
-            for q in qbits:
-                role = role_def[q]
-                neighbor = role.neighbors[direction]
-
-                if neighbor:
-                    if role.is_x():
-                        CNOT(q, neighbor)
-                    elif role.is_z():
-                        CNOT(neighbor, q)
-
-    with concur:
         for q in qbits:
-            if role_def[q].is_x():
-                Hadamard(q)
+            role = role_def[q]
+            neighbor = role.neighbors[direction]
+
+            if neighbor:
+                if role.is_x():
+                    CNOT(q, neighbor)
+                elif role.is_z():
+                    CNOT(neighbor, q)
+
+    for q in qbits:
+        if role_def[q].is_x():
+            Hadamard(q)
 
 @qgl2decl
 def Hadamard(q: qbit):
@@ -35,11 +32,10 @@ def Hadamard(q: qbit):
 #
 @qgl2decl
 def CNOT(q1: qbit, q2: qbit):
-    with concur:
-        # this is bogus, but we assign waveforms to make
-        # the output human-readable
-        Z(q1)
-        Y90(q2)
+    # this is bogus, but we assign waveforms to make
+    # the output human-readable
+    Z(q1)
+    Y90(q2)
 
 class SyndromeRole(object):
     """
