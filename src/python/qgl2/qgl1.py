@@ -4,7 +4,7 @@
 # how to handle these functions
 
 # The annotations are defined in here
-from qgl2.qgl2 import qbit, pulse, qgl2stub, sequence, qbit_list, control
+from qgl2.qgl2 import qbit, pulse, qgl2stub, qgl2meas, sequence, qbit_list, control
 
 # Many uses of Id supply a delay. That's the length: an int or float
 # FIXME: Do we need to include that explicitly?
@@ -92,7 +92,7 @@ def echoCR(controlQ: qbit, targetQ: qbit, amp=1, phase=0, length=200e-9, riseFal
 # Calls include: qubit, 2 qubits, qbit list. But so far
 # our qgl2 uses are just with a single qbit
 #def MEAS(*args: qbit_list, **kwargs) -> pulse:
-@qgl2stub('QGL.PulsePrimitives')
+@qgl2meas('QGL.PulsePrimitives')
 def MEAS(q: qbit, *args, **kwargs) -> pulse:
     print('MEAS')
 

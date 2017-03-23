@@ -452,6 +452,7 @@ class SimpleEvaluator(object):
     NONQGL2 = 0
     QGL2STUB = 1
     QGL2DECL = 2
+    QGL2MEAS = 3
     ERROR = -1
 
     def expand_qgl2decl_call(self, call_node):
@@ -621,6 +622,12 @@ class SimpleEvaluator(object):
                     call_node.qgl_implicit_import = (
                             val.__name__, val.__qgl_implicit_import__, None)
                     return self.QGL2STUB
+                elif val.__qgl2_wrapper__ == 'qgl2meas':
+                    # do the same name re-writing as with qgl2stubs
+                    call_node.func = ast.Name(id=val.__name__)
+                    call_node.qgl_implicit_import = (
+                            val.__name__, val.__qgl_implicit_import__, None)
+                    return self.QGL2MEAS
                 else:
                     NodeError.error_msg(
                             call_node,
@@ -1562,6 +1569,10 @@ class EvalTransformer(object):
                     new_body.append(stmnt)
                 elif call_type == self.eval_state.QGL2STUB:
                     # real success
+                    new_body.append(stmnt)
+                elif call_type == self.eval_state.QGL2MEAS:
+                    # A measurement where the user does not want to store
+                    # the return value. Just schedule the control part.
                     new_body.append(stmnt)
                 elif call_type == self.eval_state.NONQGL2:
                     # Do the statement for effect

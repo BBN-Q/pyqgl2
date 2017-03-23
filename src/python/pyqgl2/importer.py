@@ -993,6 +993,7 @@ class NameSpaces(object):
         other_decorator = False
         qglstub = False # A stub for a QGL1 function; check args but do not inline
         qglstub_import = False
+        qglmeas = False # A QGL measurement
 
         if node.decorator_list:
             for dec in node.decorator_list:
@@ -1015,6 +1016,13 @@ class NameSpaces(object):
                     qglfunc = True
                     qglstub = True
                     qglstub_import = self.find_stub_import(dec, node.name)
+                elif (isinstance(dec, ast.Call) and
+                        isinstance(dec.func, ast.Name) and
+                        dec.func.id == QGL2.QMEAS):
+                    qglfunc = True
+                    qglstub = True
+                    qglmeas = True
+                    qglstub_import = self.find_stub_import(dec, node.name)
 
                 elif isinstance(dec, ast.Name) and (dec.id == QGL2.QDECL):
                     qglfunc = True
@@ -1031,6 +1039,7 @@ class NameSpaces(object):
         node.qgl_func = qglfunc
         # A stub for a QGL1 function; check args but do not inline
         node.qgl_stub = qglstub
+        node.qgl_meas = qglmeas
         node.qgl_main = qglmain
         node.qgl_stub_import = qglstub_import
 
