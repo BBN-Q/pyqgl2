@@ -166,26 +166,20 @@ def ComparisonInstruction(mask, operator) -> control:
 # Note that these Cmp functions don't really need to be stubs,
 # they can be run as is. But making them stubs ensures
 # the imports work out.
-# mask is an int, used by the APS2 like so:
-# (op << 8) | (mask & 0xff)
-# Where op is an int for the comparator, as in:
-# EQUAL       = 0x0
-# NOTEQUAL    = 0x1
-# GREATERTHAN = 0x2
-# LESSTHAN    = 0x3
+# operand is expected to be an integer
 
 @qgl2stub('QGL.ControlFlow')
-def CmpEq(mask) -> control:
-    return ComparisonInstruction(mask, '==')
+def CmpEq(operand) -> control:
+    return ComparisonInstruction(operand, '==')
 @qgl2stub('QGL.ControlFlow')
-def CmpNeq(mask) -> control:
-    return ComparisonInstruction(mask, "!=")
+def CmpNeq(operand) -> control:
+    return ComparisonInstruction(operand, "!=")
 @qgl2stub('QGL.ControlFlow')
-def CmpLt(mask) -> control:
-    return ComparisonInstruction(mask, "<")
+def CmpLt(operand) -> control:
+    return ComparisonInstruction(operand, "<")
 @qgl2stub('QGL.ControlFlow')
-def CmpGt(mask) -> control:
-    return ComparisonInstruction(mask, ">")
+def CmpGt(operand) -> control:
+    return ComparisonInstruction(operand, ">")
 
 #from QGL.ChannelLibrary import EdgeFactory
 @qgl2stub('QGL.ChannelLibrary')
@@ -196,22 +190,6 @@ def EdgeFactory(source: qbit, target: qbit) -> qbit:
 @qgl2stub('QGL.ChannelLibrary')
 def QubitFactory(label, **kwargs) -> qbit:
     print('QubitFactory')
-
-#from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
-@qgl2stub('QGL.Cliffords')
-def inverse_clifford(cMat):
-    # It's all classical I think?
-    print('inverse_clifford')
-
-@qgl2stub('QGL.Cliffords')
-def clifford_mat(c, numQubits) -> pulse:
-    # Is that the right return type?
-    print('clifford_mat')
-
-@qgl2stub('QGL.Cliffords')
-def clifford_seq(c, q1: qbit, q2: qbit = None) -> sequence:
-    # Is that the right return type?
-    print('clifford_seq')
 
 # Functions used by qgl2 compiler from ControlFlow
 
