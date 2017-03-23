@@ -47,7 +47,7 @@ def doPiRabi():
         meas_all([targetQ, controlQ])
 
     # Then do calRepeats calibration sequences
-    create_cal_seqs([targetQ, controlQ], calRepeats)
+    create_cal_seqs((targetQ, controlQ), calRepeats)
 
 @qgl2decl
 def doEchoCRLen():
@@ -84,7 +84,7 @@ def doEchoCRLen():
         meas_all([targetQ, controlQ])
 
     # Then do calRepeats calibration sequences
-    create_cal_seqs([targetQ, controlQ], calRepeats)
+    create_cal_seqs((targetQ, controlQ), calRepeats)
 
 @qgl2decl
 def doEchoCRPhase():
@@ -123,4 +123,4 @@ def doEchoCRPhase():
         meas_all([targetQ, controlQ])
 
     # Then do calRepeats calibration sequences
-    create_cal_seqs([targetQ, controlQ], calRepeats)
+    create_cal_seqs((targetQ, controlQ), calRepeats)

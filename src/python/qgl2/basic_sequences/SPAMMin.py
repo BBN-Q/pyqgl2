@@ -3,7 +3,6 @@
 # Cleaned up version of SPAM.py for QGL2
 
 from qgl2.qgl2 import qgl2decl, qbit
-from qgl2.control import *
 from qgl2.qgl1 import QubitFactory, Y90, X, U, X90, MEAS, Id
 from qgl2.util import init
 from numpy import pi

@@ -204,6 +204,8 @@ class TestBasicMins(unittest.TestCase):
             expected_seq += [
                 qsync(),
                 qwait(),
+                qsync(),
+                qwait(),
                 X(controlQ),
                 echoCR(controlQ, targetQ, length=l, phase=phase,
                        riseFall=riseFall),
@@ -308,15 +310,14 @@ class TestBasicMins(unittest.TestCase):
         cal = get_cal_seqs_1qubit(q, calRepeats)
         expectedseq += cal
 
-        # Get rid of any 0 length Id pulses just added
-        discard_zero_Ids([expectedseq])
+        expectedseq = testable_sequence(expectedseq)
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/DecouplingMin.py",
                                       "doHahnEcho",
                                       (q, pulseSpacings, periods, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        assertPulseSequenceEqual(self, seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     def test_CPMG(self):
         q = QubitFactory('q1')
@@ -347,20 +348,20 @@ class TestBasicMins(unittest.TestCase):
             expectedseq += [
                 X90(q),
                 MEAS(q)
-                ]
+            ]
 
         # Add calibration
         cal = get_cal_seqs_1qubit(q, calRepeats)
         expectedseq += cal
-        # Get rid of any 0 length Id pulses just added
-        discard_zero_Ids([expectedseq])
+
+        expectedseq = testable_sequence(expectedseq)
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/DecouplingMin.py",
                                       "doCPMG",
                                       (q, numPulses, pulseSpacing, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        assertPulseSequenceEqual(self, seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     ## FlipFlopMin
     def test_FlipFlop(self):
@@ -407,7 +408,7 @@ class TestBasicMins(unittest.TestCase):
                                       (qubit, dragParamSweep, maxNumFFs))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        assertPulseSequenceEqual(self, seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     ## RB isn't ready yet
 
@@ -432,7 +433,7 @@ class TestBasicMins(unittest.TestCase):
                                       (q1, amps, phase))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        assertPulseSequenceEqual(self, seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     # Fails due to import of tanh, etc. See RabiMin.py
     def test_RabiWidth(self):
@@ -455,7 +456,7 @@ class TestBasicMins(unittest.TestCase):
                 MEAS(q1)
             ]
 
-        assertPulseSequenceEqual(self, seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     def test_RabiAmpPi(self):
         q1 = QubitFactory('q1')
@@ -468,28 +469,20 @@ class TestBasicMins(unittest.TestCase):
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        expectedseq1 = []
-        expectedseq2 = []
+        expectedseq = []
         for amp in amps:
-            expectedseq1 += [
+            expectedseq += [
                 qsync(),
                 qwait(),
-                Id(q1, length=X(q2).length), # fills space of X(q2)
-                Utheta(q1, amp=amp, phase=0),
-                Id(q1, length=X(q2).length), # fills space of X(q2)
-                Id(q1, length=MEAS(q2).length) # fills space of MEAS(q2)
-            ]
-            expectedseq2 += [
                 qsync(),
                 qwait(),
                 X(q2),
-                Id(q2, length=X(q1).length), # fills space of Utheta(q1)
+                Utheta(q1, amp=amp, phase=0),
                 X(q2),
                 MEAS(q2)
             ]
 
-        assertPulseSequenceEqual(self, seqs[0], expectedseq1)
-        assertPulseSequenceEqual(self, seqs[1], expectedseq2)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     def test_SingleShot(self):
         q1 = QubitFactory('q1')
@@ -510,7 +503,7 @@ class TestBasicMins(unittest.TestCase):
             MEAS(q1)
         ]
 
-        assertPulseSequenceEqual(self, seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     def test_PulsedSpec(self):
         q1 = QubitFactory('q1')
@@ -527,58 +520,37 @@ class TestBasicMins(unittest.TestCase):
             MEAS(q1)
         ]
 
-        assertPulseSequenceEqual(self, seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     def test_RabiAmp_NQubits(self):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         qubits = [q1, q2]
-        measChans = qubits
         amps = np.linspace(0, 5e-6, 11)
         p = 0
         docals = False
         calRepeats = 2
-        expectedseq1 = []
-        expectedseq2 = []
+        expectedseq = []
+
         for a in amps:
-            q1l = Utheta(q1, amp=a, phase=p).length + MEAS(measChans[0]).length
-            q2l = Utheta(q2, amp=a, phase=p).length + MEAS(measChans[1]).length
-            expectedseq1 += [
+            expectedseq += [
+                qsync(),
+                qwait(),
                 qsync(),
                 qwait(),
                 Utheta(q1, amp=a, phase=p),
-                MEAS(measChans[0]) # Hard code the list is 2 long
-            ]
-            if q2l > q1l:
-                expectedseq1 += [Id(q1, q2l-q1l)]
-
-            expectedseq2 += [
-                qsync(),
-                qwait(),
                 Utheta(q2, amp=a, phase=p),
-                MEAS(measChans[1]) # Hard code the list is 2 long
+                Barrier("", (q1, q2)),
+                MEAS(q1),
+                MEAS(q2)
             ]
-            if q1l > q2l:
-                expectedseq2 += [Id(q2, q1l-q2l)]
 
         if docals:
             # Add calibration
-            cal_q1, cal_q2 = get_cal_seqs_2qubits(q1, q2, calRepeats)
-            expectedseq1 += cal_q1
-            expectedseq2 += cal_q2
+            cal_seqs = get_cal_seqs_2qubits(q1, q2, calRepeats)
+            expectedseq += cal_seqs
 
-        # Get rid of any 0 length Id pulses just added
-        discard_zero_Ids([expectedseq1, expectedseq2])
-
-        # from pyqgl2.ast_util import NodeError
-        # from pyqgl2.debugmsg import DebugMsg
-        # NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
-        # DebugMsg.set_level(0)
-        # import logging
-        # from QGL.Compiler import set_log_level
-        # # Note this acts on QGL.Compiler at DEBUG by default
-        # # Could specify other levels, loggers
-        # set_log_level()
+        expectedseq = testable_sequence(expectedseq)
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiAmp_NQubits",
@@ -586,86 +558,40 @@ class TestBasicMins(unittest.TestCase):
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        # Need to map right seq to right expected seq
-        self.assertEqual(len(seqs), 2)
-        self.maxDiff = None
-        if seqs[0][2] == Utheta(q1, amp=amps[0], phase=p):
-            assertPulseSequenceEqual(self, seqs[0], expectedseq1)
-            assertPulseSequenceEqual(self, seqs[1], expectedseq2)
-        else:
-            assertPulseSequenceEqual(self, seqs[1], expectedseq1)
-            assertPulseSequenceEqual(self, seqs[0], expectedseq2)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
-    # Swap that does the Xs and Id as fast as possible
-    # Note we don't understand the QGL1 function, so
-    # this test isn't strictly necessary.
     def test_Swap(self):
         q = QubitFactory('q1')
         mq = QubitFactory('q2')
         delays = np.linspace(0, 5e-6, 11)
-        expectedseq1 = []
-        expectedseq2 = []
+        expectedseq = []
         for d in delays:
-            x1l = X(q).length
-            x2l = X(mq).length
-            expectedseq1 += [
+            expectedseq += [
                 qsync(),
                 qwait(),
-                X(q)]
-            # Pause for mq if necessary
-            if x2l+d > x1l:
-                expectedseq1 += [Id(q, x2l+d-x1l)]
-            expectedseq1 += [
-                MEAS(q)
-            ]
-
-            expectedseq2 += [
                 qsync(),
                 qwait(),
+                X(q),
                 X(mq),
-                Id(mq, d)
-            ]
-            # Pause for q if necessary
-            if x1l > x2l+d:
-                expectedseq2 += [Id(mq, x1l-x2l-d)]
-            expectedseq2 += [
+                Id(mq, length=d),
+                Barrier("", (q, mq)),
+                MEAS(q),
                 MEAS(mq)
             ]
 
         # Add calibration
-        cal_q2, cal_q1 = get_cal_seqs_2qubits(mq, q, 2)
-        expectedseq1 += cal_q1
-        expectedseq2 += cal_q2
+        cal_seqs = get_cal_seqs_2qubits(mq, q, 2)
+        expectedseq += cal_seqs
 
-        # Get rid of any 0 length Id pulses just added
-        discard_zero_Ids([expectedseq1, expectedseq2])
+        expectedseq = testable_sequence(expectedseq)
 
-        # from pyqgl2.ast_util import NodeError
-        # from pyqgl2.debugmsg import DebugMsg
-        # NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
-        # DebugMsg.set_level(0)
-        # import logging
-        # from QGL.Compiler import set_log_level
-        # # Note this acts on QGL.Compiler at DEBUG by default
-        # # Could specify other levels, loggers
-        # set_log_level()
-
-        # Add final True arg for debugging
         resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doSwap",
                                       (q, mq, delays))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        # Need to map right seq to right expected seq
-        self.assertEqual(len(seqs), 2)
-        # self.maxDiff = None
-        if seqs[0][2] == X(q):
-            assertPulseSequenceEqual(self, seqs[0], expectedseq1)
-            assertPulseSequenceEqual(self, seqs[1], expectedseq2)
-        else:
-            assertPulseSequenceEqual(self, seqs[1], expectedseq1)
-            assertPulseSequenceEqual(self, seqs[0], expectedseq2)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     ## SPAMMin
 
@@ -717,7 +643,7 @@ class TestBasicMins(unittest.TestCase):
                                       (q, angleSweep, maxSpamBlocks))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        assertPulseSequenceEqual(self, seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     ## T1T2Min
 
@@ -739,14 +665,14 @@ class TestBasicMins(unittest.TestCase):
         cal = get_cal_seqs_1qubit(q, calRepeats)
         expectedseq += cal
 
-        # Get rid of any 0 length Id pulses just added
-        discard_zero_Ids([expectedseq])
+        expectedseq = testable_sequence(expectedseq)
+
         resFunction = compile_function("src/python/qgl2/basic_sequences/T1T2Min.py",
                                       "doInversionRecovery",
                                       (q, delays, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        assertPulseSequenceEqual(self, seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     def test_Ramsey(self):
         q = QubitFactory('q1')
@@ -772,23 +698,17 @@ class TestBasicMins(unittest.TestCase):
         cal = get_cal_seqs_1qubit(q, calRepeats)
         expectedseq += cal
 
-        # Get rid of any 0 length Id pulses just added
-        discard_zero_Ids([expectedseq])
+        expectedseq = testable_sequence(expectedseq)
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/T1T2Min.py",
                                       "doRamsey",
                                       (q, delays, TPPIFreq, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
-        assertPulseSequenceEqual(self, seqs[0], expectedseq)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
 if __name__ == '__main__':
     # To test everything in this file (say, using cProfile)
     unittest.main("test.test_basic_mins")
-    # To run just 1 test from this file
-    # Note that SPAM and FlipFlop and EchoCRPhase are the 3 slowest tests (in that order)
-#    unittest.main("test.test_basic_mins", "TestBasicMins.test_AllXY")
-#    unittest.main("test.test_basic_mins", "TestBasicMins.test_SPAM")
-#    unittest.main("test.test_basic_mins", "TestBasicMins.test_RabiWidth")
-#    unittest.main("test.test_basic_mins", "TestBasicMins.test_HahnEcho")
-#    unittest.main("test.test_basic_mins", "TestBasicMins.test_CPMG")
+    # To run just 1 test from this file, try something like:
+    # unittest.main("test.test_basic_mins", "TestBasicMins.test_AllXY")
