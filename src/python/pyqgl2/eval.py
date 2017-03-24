@@ -1319,12 +1319,12 @@ class EvalTransformer(object):
                 isinstance(test_expr.operand, ast.Name) and
                 test_expr.operand.id in self.runtime_variables):
             return False, False
-        elif isinstance(test_expr, ast.BinOp):
+        elif isinstance(test_expr, ast.Compare):
             if (isinstance(test_expr.left, ast.Name) and
                 test_expr.left.id in self.runtime_variables):
                 return False, False
-            if (isinstance(test_expr.right, ast.Name) and
-                test_expr.right.id in self.runtime_variables):
+            if (isinstance(test_expr.comparators[0], ast.Name) and
+                test_expr.comparators[0].id in self.runtime_variables):
                 return False, False
 
         # If this fails, it should print out a useful

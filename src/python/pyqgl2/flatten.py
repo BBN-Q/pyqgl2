@@ -147,13 +147,24 @@ class Flattener(ast.NodeTransformer):
         goto_ast = expr2ast(goto_str)
         return goto_ast
 
-    def make_cgoto_call(self, label, node, mask):
+    def make_cgoto_call(self, label, node, cmp_operator, mask):
         """
         Create a conditional goto call
         """
 
         load_ast = expr2ast('LoadCmp()')
-        cmp_ast = expr2ast('CmpEq(%s)' % str(mask))
+        if isinstance(cmp_operator, ast.Eq):
+            cmp_ast = expr2ast('CmpEq(%s)' % str(mask))
+        elif isinstance(cmp_operator, ast.NotEq):
+            cmp_ast = expr2ast('CmpNeq(%s)' % str(mask))
+        elif isinstance(cmp_operator, ast.Gt):
+            cmp_ast = expr2ast('CmpGt(%s)' % str(mask))
+        elif isinstance(cmp_operator, ast.Lt):
+            cmp_ast = expr2ast('CmpLt(%s)' % str(mask))
+        else:
+            NodeError.error_msg(node,
+                'Unallowed comparison operator [%s]' % ast2str(node))
+            return None
         label_ast = expr2ast('Goto(BlockLabel(\'%s\'))' % label)
 
         pyqgl2.ast_util.copy_all_loc(load_ast, node, recurse=True)
@@ -562,11 +573,17 @@ class Flattener(ast.NodeTransformer):
 
         if (isinstance(node.test, ast.Name) or
                 isinstance(node.test, ast.Call)):
-            # FIXME non-zero should be "true"
-            mask = 1
+            mask = 0
+            cmp_operator = ast.NotEq()
         elif (isinstance(node.test, ast.UnaryOp) and
                 isinstance(node.test.op, ast.Not)):
             mask = 0
+            cmp_operator = ast.Eq()
+        elif isinstance(node.test, ast.Compare):
+            # FIXME the value can be on either side of the comparison
+            # this assumes that it is on the right
+            mask = node.test.comparators[0].n
+            cmp_operator = node.test.ops[0]
         else:
             NodeError.error_msg(node.test,
                     'unhandled test expression [%s]' % ast2str(node.test))
@@ -576,9 +593,9 @@ class Flattener(ast.NodeTransformer):
                 'if_else', 'if_end')
 
         if node.orelse:
-            cond_ast = self.make_cgoto_call(else_label, node.test, mask)
+            cond_ast = self.make_cgoto_call(else_label, node.test, cmp_operator, mask)
         else:
-            cond_ast = self.make_cgoto_call(end_label, node.test, mask)
+            cond_ast = self.make_cgoto_call(end_label, node.test, cmp_operator, mask)
 
         # cond_ast is actually a list of AST nodes
         new_body = cond_ast
