@@ -12,7 +12,8 @@ from QGL.Channels import Edge, Measurement
 from QGL.PulseSequencer import Pulse, CompositePulse
 from QGL.PatternUtils import flatten
 from QGL.PulsePrimitives import Id, X, MEAS
-from QGL.ControlFlow import qsync, qwait
+from QGL.ControlFlow import qsync, qwait, ControlInstruction
+from QGL.BlockLabel import BlockLabel
 from qgl2.qgl1control import Barrier
 
 import collections
@@ -342,3 +343,22 @@ def get_cal_seqs_2qubits(q1, q2, calRepeats=2):
             ]
 
     return calseq
+
+def match_labels(seq1, seq2):
+    '''
+    Returns a copy of seq1 which replaces BlockLabels in seq1 with
+    corresponding BlockLabels in seq2
+    '''
+    new_seq = []
+    label_map = {}
+    for s1, s2 in zip(seq1, seq2):
+        if (isinstance(s1, BlockLabel) and isinstance(s2, BlockLabel)):
+            new_seq.append(s2)
+            label_map[s1] = s2
+        else:
+            new_seq.append(s1)
+
+    for entry in new_seq:
+        if isinstance(entry, ControlInstruction) and entry.target:
+            entry.target = label_map[entry.target]
+    return new_seq
