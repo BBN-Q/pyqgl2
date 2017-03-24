@@ -899,15 +899,7 @@ def create_inline_procedure(func_ptree, call_ptree):
         if not isinstance(new_stmnt, ast.Expr):
             new_stmnt.qgl2_orig_call = orig_call_ptree
 
-    with_infunc = expr2ast(
-            ('with infunc(\'%s\', %s): pass' %
-                (func_ptree.name, qbit_aparams_txt)))
-
-    # print('WITH INFUNC %s' % ast.dump(with_infunc))
-    pyqgl2.ast_util.copy_all_loc(with_infunc, func_body[0], recurse=True)
-    with_infunc.body = new_func_body
-
-    inlined = setup_locals + setup_checks + [with_infunc]
+    inlined = setup_locals + setup_checks + new_func_body
 
     return inlined
 

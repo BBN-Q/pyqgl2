@@ -33,9 +33,8 @@ def doRabiAmp(q:qbit, amps, phase):
 @qgl2decl
 def doRabiAmpPi(q1:qbit, q2:qbit, amps):
     for l in amps:
-        with concur:
-            init(q1)
-            init(q2)
+        init(q1)
+        init(q2)
         X(q2)
         Utheta(q1, amp=l, phase=0)
         X(q2)
@@ -64,30 +63,28 @@ def doRabiAmp_NQubits(qubits:qbit_list, amps, docals, calRepeats):
     p = 0
 
     for a in amps:
-        with concur:
-            for q in qubits:
-                init(q)
-                Utheta(q, amp=a, phase=p)
-                MEAS(q)
+        for q in qubits:
+            init(q)
+        for q in qubits:
+            Utheta(q, amp=a, phase=p)
+        Barrier("", qubits)
+        for q in qubits:
+            MEAS(q)
 
     if docals:
         create_cal_seqs(qubits, calRepeats)
 
-# This version allows the Xs and Id pulse to be done in parallel,
-# as quick as possible. But we can't tell what the QGL1 method was
-# trying to do, so this may be meaningless.
 @qgl2decl
 def doSwap(q:qbit, mq:qbit, delays):
 
     for d in delays:
-        with concur:
-            init(q)
-            init(mq)
-            X(q)
-            X(mq)
-            Id(mq, length=d)
-        with concur:
-            MEAS(mq)
-            MEAS(q)
+        init(q)
+        init(mq)
+        X(q)
+        X(mq)
+        Id(mq, length=d)
+        Barrier("", (q, mq))
+        MEAS(q)
+        MEAS(mq)
 
     create_cal_seqs((mq, q), 2)

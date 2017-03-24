@@ -9,7 +9,7 @@ import unittest
 from .helpers import testable_sequence, channel_setup
 from .helpers import assertPulseSequenceEqual
 
-from pyqgl2.main import compileFunction
+from pyqgl2.main import compile_function
 
 from QGL import *
 
@@ -26,7 +26,7 @@ class TestMulti(unittest.TestCase):
         accepts the simple syndrome code
         """
 
-        resFunction = compileFunction('test/code/syndrome/syndrome.py', 'main')
+        resFunction = compile_function('test/code/syndrome/syndrome.py', 'main')
         self.assertTrue(resFunction)
 
 
@@ -37,10 +37,10 @@ class TestMulti(unittest.TestCase):
 
         TODO: currently fails with an error in compile_to_hardware,
         because we don't have all the qbits in our channel library,
-        so all we do is compileFunction and look at the sequences
+        so all we do is compile_function and look at the sequences
         """
 
-        resFunction = compileFunction('test/code/syndrome/syndrome.py', 'main')
+        resFunction = compile_function('test/code/syndrome/syndrome.py', 'main')
         self.assertTrue(resFunction)
 
         seqs = resFunction()

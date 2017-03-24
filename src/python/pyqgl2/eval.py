@@ -251,17 +251,6 @@ class SimpleEvaluator(object):
 
         return context
 
-    def update_node(self, node):
-        """
-        Update a node by replacing its variable references with the
-        values bound to those variables in the current context
-
-        Returns the new, potentially modified node
-        """
-
-        NodeError.error_msg(node, 'update_node not implemented yet')
-        return node
-
     def do_test(self, node):
         """
         Evaluate an test expression, to see if it can be determined
@@ -539,7 +528,11 @@ class SimpleEvaluator(object):
 
         sketch_call = inline_call(final_call_node, self.importer)
         if isinstance(sketch_call, list):
-            new_call_with = sketch_call[0]
+            # BRJ: commenting this out because I don't know how to deal
+            # with this now that I have removed "with infunc(...)" notations.
+            # is this a reason that we need to keep such annotations?
+
+            # new_call_with = sketch_call[0]
 
             # This is gross, and needs extra explaining...
             # The inlined function we just created is in terms
@@ -552,18 +545,20 @@ class SimpleEvaluator(object):
             # new_call_node, and replace the with-infunc
             # withitems with it.
 
-            new_ap_names = new_call_node.args[:]
-            new_ap_names.insert(
-                    0, new_call_with.items[0].context_expr.args[0])
-            new_call_with.items[0].context_expr.args = new_ap_names
+            # new_ap_names = new_call_node.args[:]
+            # new_ap_names.insert(
+            #         0, new_call_with.items[0].context_expr.args[0])
+            # new_call_with.items[0].context_expr.args = new_ap_names
 
             # if there are checks, then insert them into the body
             #
             if checks:
-                new_call_with.body = checks + new_call_with.body
+                # new_call_with.body = checks + new_call_with.body
+                new_call = checks + sketch_call
 
             # print('INLINED REF [\n%s\n]' % ast2str(new_call_with).strip())
-            return new_call_with
+            # return new_call_with
+            return new_call
         else:
             # TODO: if we got this far and then failed, something
             # terrible probably happened.  Come up with decent
@@ -1040,15 +1035,6 @@ class EvalTransformer(object):
         be done here, but it might be better done in the flattener.
         """
 
-        # placeholder root node for the new Qfor
-        #
-        root = ast.With(
-                items=list([ast.withitem(
-                    context_expr=ast.Name(id='Qfor', ctx=ast.Load()),
-                    optional_vars=None)]),
-                body=list())
-        pyqgl2.ast_util.copy_all_loc(root, stmnt, recurse=True)
-
         name_finder = NameFinder()
 
         # TODO: sanity checking
@@ -1117,12 +1103,6 @@ class EvalTransformer(object):
         targets_template = targets
 
         for loop_value in loop_values:
-            # placeholder node for the new Qiter
-            iter_root = ast.With(
-                    items=list([ast.withitem(
-                        context_expr=ast.Name(id='Qiter', ctx=ast.Load()),
-                        optional_vars=None)]),
-                    body=list())
 
             new_body = quickcopy(body_template)
             new_targets = quickcopy(targets_template)
@@ -1142,16 +1122,7 @@ class EvalTransformer(object):
             # and now recurse, to expand this copy of the body
             #
             new_body = self.do_body(new_body)
-
-            if len(new_body) > 0:
-                pyqgl2.ast_util.copy_all_loc(
-                        iter_root, new_body[0], recurse=True)
-                iter_root.body = new_body
-                iters_list.append(iter_root)
-            else:
-                # print('EV FOR3 no additions')
-                pass
-
+            iters_list.extend(new_body)
 
             # if we've seen a "continue", then continue, but if we've
             # seen a "break", then we need to break out of this loop.
@@ -1168,19 +1139,7 @@ class EvalTransformer(object):
         # for ns in iters_list:
         #     print('EVF run %s' % ast2str(ns).strip())
 
-        # If we reduced the loop to nothing, then return an empty list.
-        # Otherwise attach the iters_list to the root and return a
-        # list containing the root.
-        #
-        if len(iters_list) == 0:
-            return True, list()
-        else:
-            # TODO: this is where we can do an analysis on each
-            # Qiter element, looking for repeated elements, and
-            # changing it in into a Qrepeat.
-            #
-            root.body = iters_list
-            return True, list([root])
+        return True, iters_list
 
     def do_while(self, stmnt):
         """
@@ -1573,8 +1532,11 @@ class EvalTransformer(object):
                 #
                 ref_call = self.eval_state.expand_qgl2decl_call(stmnt.value)
                 if ref_call:
+                    # inject the inlined code into the body
+                    body = body[:stmnt_index-1] + ref_call + body[stmnt_index:]
+                    last_index += len(ref_call) - 1
                     stmnt_index -= 1
-                    body[stmnt_index] = ref_call
+                    # body[stmnt_index] = ref_call
                     continue
 
                 # If it's a call, we need to figure out whether it's

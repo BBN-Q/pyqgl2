@@ -34,7 +34,10 @@ class SequenceExtractor(object):
 
         self.qbits = set()  # from find_all_channels
         self.qbit_creates = list() # of sym_name, use_name, node tuples
-        self.sequences = dict() # From channel to list of pulses
+        self.sequences = {
+            'AWG': [],
+            'controller': []
+        }
 
         # the imports we need to make in order to satisfy the stubs
         #
@@ -175,60 +178,20 @@ class SequenceExtractor(object):
             if assignment:
                 self.qbit_creates.append(assignment)
                 continue
-            elif is_with_label(stmnt, 'grouped'):
-                # print("Found concur at line %d: %s" % (lineNo+1,stmnt))
-                for s in stmnt.body:
-                    if is_seq(s):
-                        chan_name = '_'.join(sorted(s.qgl_chan_list))
 
-                        # print("Found with seq for qbits %s: %s" % (s.qgl_chan_list, ast2str(s)))
-                        #print("With seq next at line %d: %s" % (lineNo+1,s))
-                        if chan_name not in self.sequences:
-                            self.sequences[chan_name] = list()
-                        thisSeq = self.sequences[chan_name]
-                        # print("Append body %s" % s.body)
-                        # for s2 in s.body:
-                        #     print(ast2str(s2))
-                        thisSeq += s.body
-                        #print("lineNo now %d" % lineNo)
-                    else:
-                        NodeError.error_msg(s, "Not seq next at line %d: %s" % (lineNo+1,s))
             elif isinstance(stmnt, ast.Expr):
-                if len(self.qbits) == 1:
-                    # print("Append expr %s to sequence for %s" % (ast2str(stmnt), self.qbits))
-                    if len(self.sequences) == 0:
-                        self.sequences[list(self.qbits)[0]] = list()
-                    self.sequences[list(self.qbits)[0]].append(stmnt)
-                else:
-                    chan_list = list(find_all_channels(stmnt))
-                    if len(chan_list) != 1:
-                        NodeError.error_msg(stmnt,
-                                            'orphan expression %s' % ast.dump(stmnt))
-                    if len(self.sequences) == 0 or str(chan_list) not in self.sequences:
-                        self.sequences[str(chan_list)] = list()
-                    thisSeq = self.sequences[str(chan_list)]
-                    thisSeq.append(stmnt)
-                    # print("Added %s to seq for %s" % (ast2str(stmnt), chan_list))
-                    # print("Have sequences: %s" % (self.sequences.keys()))
+                # TODO separate statements into 'AWG' vs 'controller' statements
+                self.sequences['AWG'].append(stmnt)
+
             else:
-                chan_list = list(find_all_channels(stmnt))
-                if len(chan_list) != 1:
-                    NodeError.error_msg(stmnt,
-                                        'orphan statement %s' % ast.dump(stmnt))
-                if len(self.sequences) == 0 or str(chan_list) not in self.sequences:
-                    self.sequences[str(chan_list)] = list()
-                thisSeq = self.sequences[str(chan_list)]
-                thisSeq.append(stmnt)
-                # print("Added %s to seq for %s" % (ast2str(stmnt), chan_list))
+                NodeError.error_msg(stmnt,
+                                    'orphan statement %s' % ast.dump(stmnt))
 
         # print("Seqs: %s" % self.sequences)
-        if not self.sequences:
-            NodeError.warning_msg(node, "No per Qubit operations discovered")
+        if not self.sequences['AWG']:
+            NodeError.warning_msg(node, "No qubit operations discovered")
             return False
-        # FIXME: Is this a requirement?
-        # if not self.qbit_creates:
-        #     NodeError.error_msg(node, "No qbit creation statements found")
-        #     return False
+
         return True
 
     def emit_function(self, func_name='qgl1_main', setup=None):
@@ -280,39 +243,18 @@ class SequenceExtractor(object):
             for setup_stmnt in setup:
                 preamble += indent + ('%s\n' % ast2str(setup_stmnt).strip())
 
-        seqs_def = indent + 'seqs = list()\n'
-        seqs_str = ''
-        seq_strs = list()
+        seq = self.sequences['AWG']
 
-        for chan_name in sorted(self.sequences.keys()):
-            seq = self.sequences[chan_name]
+        sequence = [ast2str(item).strip() for item in seq]
 
-            #print("Looking at seq %s" % seq)
-            sequence = [ast2str(item).strip() for item in seq]
-            #print ("It is %s" % sequence)
-            # TODO: check that this is always OK.
-            #
-            # HACK ALERT: this might not always be the right thing to do
-            # but right now extraneous calls to Sync at the start of
-            # program appear to cause a problem, and they don't serve
-            # any known purpose, so skip them.
-            #
-            while sequence[0] == 'Sync()':
-                sequence = sequence[1:]
+        # TODO there must be a more elegant way to indent this properly
+        seq_str = indent + 'seq = [\n' + 2 * indent
+        seq_str += (',\n' + 2 * indent).join(sequence)
+        seq_str += '\n' + indent + ']\n'
 
-            # TODO there must be a more elegant way to indent this properly
-            seq_str = indent + ('seq_%s = [\n' % chan_name) + 2 * indent
-            seq_str += (',\n' + 2 * indent).join(sequence)
-            seq_str += '\n' + indent + ']\n'
-            seq_str += indent + 'seqs += [seq_%s]\n' % chan_name
-            seq_strs.append(seq_str)
+        postamble = indent + 'return seq\n'
 
-        for seq_str in seq_strs:
-            seqs_str += seq_str
-
-        postamble = indent + 'return seqs\n'
-
-        res =  preamble + seqs_def + seqs_str + postamble
+        res =  preamble + seq_str + postamble
         return res
 
 def get_sequence_function(node, func_name, importer,

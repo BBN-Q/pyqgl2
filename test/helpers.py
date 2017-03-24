@@ -13,6 +13,7 @@ from QGL.PulseSequencer import Pulse, CompositePulse
 from QGL.PatternUtils import flatten
 from QGL.PulsePrimitives import Id, X, MEAS
 from QGL.ControlFlow import qsync, qwait
+from qgl2.qgl1control import Barrier
 
 import collections
 from math import pi
@@ -154,32 +155,28 @@ def discard_zero_Ids(seqs):
 
 # Things like echoCR create lists of pulses that need to be flattened
 # before calling compile_to_hardware
-def flattenSeqs(seqs):
-    nseqs = []
-    for seq in seqs:
-        hasList = False
-        for el in seq:
-            if isinstance(el, collections.Iterable) and not isinstance(el, (str, Pulse, CompositePulse)) :
-                hasList = True
-                break
-        if hasList:
-            newS = []
-            for el in flatten(seq):
-                newS.append(el)
-            nseqs.append(newS)
-        else:
-            nseqs.append(seq)
-    return nseqs
+def flattenSeqs(seq):
+    hasList = False
+    for el in seq:
+        if isinstance(el, collections.Iterable) and not isinstance(el, (str, Pulse, CompositePulse)) :
+            hasList = True
+            break
+    if hasList:
+        newS = []
+        for el in flatten(seq):
+            newS.append(el)
+        return newS
+    else:
+        return seq
 
 def testable_sequence(seqs):
     '''
     Transform a QGL2 result function output into something more easily testable,
-    by replacing barriers and discarding zero length Id's and
-    flattening pulse lists.
+    by discarding zero length Id's and flattening pulse lists.
     '''
-    seqIdxToChannelMap, _ = mapQubitsToSequences(seqs)
-    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
-    discard_zero_Ids(seqs)
+    # seqIdxToChannelMap, _ = mapQubitsToSequences(seqs)
+    # seqs = replaceBarriers(seqs, seqIdxToChannelMap)
+    # discard_zero_Ids(seqs)
     seqs = flattenSeqs(seqs)
     return seqs
 
@@ -317,100 +314,31 @@ def get_cal_seqs_1qubit(qubit, calRepeats=2):
                 qsync(),
                 qwait(),
                 pulse(qubit),
+                Barrier("", (qubit,)),
                 MEAS(qubit)
             ]
     return calSeq
 
 def get_cal_seqs_2qubits(q1, q2, calRepeats=2):
     '''
-    Note: return may include 0 length Id pulses.
-    EG
-    q1:
-    4x this block:
-    qsync
-    qwait
-    Id(q1)
-    <maybe an ID>
-    MEAS(q1)
-    <maybe an ID>
-
-    4x this block:
-    qsync
-    qwait
-    X(q1)
-    <maybe an ID>
-    MEAS(q1)
-    <maybe an ID>
-
-    q2:
-    2x:
-    qsync
-    qwait
-    Id(q2)
-    <maybe an ID>
-    MEAS(q2)
-    <maybe an ID>
-    qsync
-    qwait
-    Id(q2)
-    <maybe an ID>
-    MEAS(q2)
-    <maybe an ID>
-
-    qsync
-    qwait
-    X(q2)
-    <maybe an ID>
-    MEAS(q2)
-    <maybe an ID>
-    qsync
-    qwait
-    X(q2)
-    <maybe an ID>
-    MEAS(q2)
-    <maybe an ID>
+    Prepare all computational 2-qubit basis states and measure them.
     '''
 
-    calSeq1 = []
-    calSeq2 = []
+    calseq = []
     for pulseSet in [(Id, Id), (Id, X), (X, Id), (X, X)]:
         for _ in range(calRepeats):
             q1l = pulseSet[0](q1).length
             q2l = pulseSet[1](q2).length
-            calSeq1 += [
+            calseq += [
                 qsync(),
                 qwait(),
-                pulseSet[0](q1)
-            ]
-            calSeq2 += [
                 qsync(),
                 qwait(),
-                pulseSet[1](q2)
-            ]
-            # Sync up after those pulses
-            if q2l > q1l:
-                calSeq1 += [
-                    Id(q1, length=q2l-q1l)
-                ]
-            if q1l > q2l:
-                calSeq2 += [
-                    Id(q2, length=q1l-q2l)
-                ]
-            calSeq1 += [
-                MEAS(q1)
-            ]
-            calSeq2 += [
+                pulseSet[0](q1),
+                pulseSet[1](q2),
+                Barrier("", (q1, q2)),
+                MEAS(q1),
                 MEAS(q2)
             ]
-            # Sync up after the MEAS pulses
-            q1l = MEAS(q1).length
-            q2l = MEAS(q2).length
-            if q2l > q1l:
-                calSeq1 += [
-                    Id(q1, length=q2l-q1l)
-                ]
-            if q1l > q2l:
-                calSeq2 += [
-                    Id(q2, length=q1l-q2l)
-                ]
-    return calSeq1, calSeq2
+
+    return calseq

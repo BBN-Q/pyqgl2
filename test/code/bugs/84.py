@@ -68,4 +68,3 @@ def t5():
     q2 = QubitFactory(label='q2')
 
     # don't do anything at all
-

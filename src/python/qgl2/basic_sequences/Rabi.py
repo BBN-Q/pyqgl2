@@ -10,7 +10,7 @@ from QGL.PulseSequencePlotter import plot_pulse_files
 from qgl2.basic_sequences.helpers import create_cal_seqs
 from qgl2.basic_sequences.new_helpers import compileAndPlot
 from qgl2.util import init
-from pyqgl2.main import compileFunction
+from pyqgl2.main import compile_function
 
 from functools import reduce
 import operator
@@ -39,7 +39,7 @@ def RabiAmp(qubit, amps, phase=0, showPlot=False):
     phase : phase of the pulse (radians)
     showPlot : whether to plot (boolean)
     """
-    resFunction = compileFunction(
+    resFunction = compile_function(
         os.path.relpath(__file__),
         "doRabiAmp",
         (qubit, amps, phase)
@@ -73,7 +73,7 @@ def RabiWidth(qubit, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh, show
     showPlot : whether to plot (boolean)
     """
 
-    resFunction = compileFunction(
+    resFunction = compile_function(
         os.path.relpath(__file__),
         "doRabiWidth"
         (qubit, widths, amp, phase, shapeFun)
@@ -119,7 +119,7 @@ def RabiAmp_NQubitsq1(qubits, amps, phase=0, showPlot=False,
     if measChans is None:
         measChans = qubits
 
-    resFunction = compileFunction(
+    resFunction = compile_function(
         os.path.relpath(__file__),
         "doRabiWidth",
         (qubits, amps, phase, measChans, docals, calRepeats)
@@ -154,7 +154,7 @@ def RabiAmpPi(qubit: qbit, mqubit: qbit, amps, phase=0, showPlot=False):
     phase : phase of the pulse (radians)
     showPlot : whether to plot (boolean)
     """
-    resFunction = compileFunction(
+    resFunction = compile_function(
         os.path.relpath(__file__),
         "doRabiAmpPi",
         (qubit, mqubit, amps, phase)
@@ -183,7 +183,7 @@ def SingleShot(qubit: qbit, showPlot=False):
     """
     2-segment sequence with qubit prepared in |0> and |1>, useful for single-shot fidelity measurements and kernel calibration
     """
-    resFunction = compileFunction(
+    resFunction = compile_function(
         os.path.relpath(__file__),
         "doSingleShot",
         (qubit,)
@@ -209,7 +209,7 @@ def PulsedSpec(qubit, specOn=True, showPlot=False):
     """
     Measurement preceded by a qubit pulse if specOn = True
     """
-    resFunction = compileFunction(
+    resFunction = compile_function(
         os.path.relpath(__file__),
         "doSingleShot",
         (qubit,)
@@ -257,7 +257,7 @@ def Swap(qubit, mqubit, delays, showPlot=False):
     phase : phase of the pulse (radians)
     showPlot : whether to plot (boolean)
     """
-    resFunction = compileFunction(
+    resFunction = compile_function(
         os.path.relpath(__file__),
         "doSwap",
         (qubit,)

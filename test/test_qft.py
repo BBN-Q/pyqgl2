@@ -4,7 +4,7 @@ import unittest
 
 # Test functions in multi.py
 
-from pyqgl2.main import compileFunction
+from pyqgl2.main import compile_function
 from test.helpers import channel_setup, testable_sequence
 
 from test.helpers import testable_sequence, discard_zero_Ids, \
@@ -25,22 +25,24 @@ class TestQFT(unittest.TestCase):
         q2 = QubitFactory('q2')
         qs = [q1, q2]
 
-        resFunction = compileFunction('test/code/qft.py', 'qft', (qs,))
+        resFunction = compile_function('test/code/qft.py', 'qft', (qs,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        # expected_seq = H(q1) + CZ_k(q1, q2, pi) + H(q2) + [MEAS(q1)*MEAS(q2)]
-        expected_seq0 = H(q1) + \
-                        CNOT_CR(q1, q2) + CNOT_CR(q1, q2) + \
-                        [Id(q1, length=60e-9)] + \
-                        [MEAS(q1)]
-        expected_seq1 = [Id(q2, length=60e-9)] + \
-                        [Ztheta(q2, pi/2)] + CNOT_CR(q1, q2) + [Ztheta(q2, -pi/2)] + CNOT_CR(q1, q2) + \
-                        H(q2) + \
-                        [MEAS(q2)]
+        # expected_seq = [H(q1), CZ_k(q1, q2, pi), H(q2), MEAS(q1), MEAS(q2)]
+        expected_seq = [
+            H(q1),
+            Ztheta(q2, pi/2),
+            CNOT_CR(q1, q2),
+            Ztheta(q2, -pi/2),
+            CNOT_CR(q1, q2),
+            H(q2),
+            MEAS(q1),
+            MEAS(q2)
+        ]
+        expected_seq = testable_sequence(expected_seq)
 
-        assertPulseSequenceEqual(self, seqs[0], expected_seq0)
-        assertPulseSequenceEqual(self, seqs[1], expected_seq1)
+        assertPulseSequenceEqual(self, seqs, expected_seq)
 
 def H(q):
     return [Y90(q), X(q)]

@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from itertools import product
 
-from pyqgl2.main import compileFunction
+from pyqgl2.main import compile_function
 from QGL import *
 
 from test.helpers import testable_sequence, discard_zero_Ids, \
@@ -16,44 +16,37 @@ class TestCompiler(unittest.TestCase):
         pass
 
     def test_tomo(self):
-        resFunction = compileFunction("test/code/tomo.py", "main")
+        resFunction = compile_function("test/code/tomo.py", "main")
         seqs = resFunction()
-        seqs = testable_sequence(seqs)
 
-        expectedseq1, expectedseq2 = self.tomo_result()
+        expectedseq = self.tomo_result()
 
-        assertPulseSequenceEqual(self, seqs[0], expectedseq1)
-        assertPulseSequenceEqual(self, seqs[1], expectedseq2)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     def test_tomo_no_generators(self):
-        resFunction = compileFunction("test/code/tomo.py", "main_no_generators")
+        resFunction = compile_function("test/code/tomo.py", "main_no_generators")
         seqs = resFunction()
-        seqs = testable_sequence(seqs)
 
-        expectedseq1, expectedseq2 = self.tomo_result()
+        expectedseq = self.tomo_result()
 
-        assertPulseSequenceEqual(self, seqs[0], expectedseq1)
-        assertPulseSequenceEqual(self, seqs[1], expectedseq2)
+        assertPulseSequenceEqual(self, seqs, expectedseq)
 
     def tomo_result(self):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         fncs = [Id, X90, Y90, X]
 
-        expectedseq1 = []
-        expectedseq2 = []
+        expectedseq = []
         for (p1, p2) in product(fncs, fncs):
             for (m1, m2) in product(fncs, fncs):
-                expectedseq1 += [
+                expectedseq += [
                     p1(q1),
-                    X90(q1),
-                    m1(q1),
-                    MEAS(q1)
-                ]
-                expectedseq2 += [
                     p2(q2),
+                    X90(q1),
                     Y90(q2),
+                    m1(q1),
                     m2(q2),
+                    MEAS(q1),
                     MEAS(q2)
                 ]
-        return expectedseq1, expectedseq2
+        return expectedseq
