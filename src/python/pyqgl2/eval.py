@@ -602,7 +602,8 @@ class SimpleEvaluator(object):
             return self.ERROR
 
         local_variables = self.locals_stack[-1]
-        if call_node.func.id in local_variables:
+        if (isinstance(call_node.func, ast.Name) and
+                call_node.func.id in local_variables):
             # print('found locally %s' % call_node.func.id)
             val = local_variables[call_node.func.id]
 
@@ -666,10 +667,13 @@ class SimpleEvaluator(object):
             if funcname in __builtins__:
                 return self.NONQGL2
             else:
-                NodeError.error_msg(call_node,
-                        ('no function definition found for [%s]' %
-                            ast.dump(call_node.func)))
-                return self.ERROR
+                return self.NONQGL2
+                # TODO can't I just assume that if we can't find it,
+                # then it can't be a QGL2 function?
+                # NodeError.error_msg(call_node,
+                #         ('no function definition found for [%s]' %
+                #             ast.dump(call_node.func)))
+                # return self.ERROR
 
         # if it's a stub, then leave it alone.
         if pyqgl2.inline.is_qgl2_meas(func_ast):
