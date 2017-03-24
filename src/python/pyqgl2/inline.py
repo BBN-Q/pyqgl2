@@ -295,6 +295,12 @@ def is_qgl2_stub(node):
     '''
     return (hasattr(node, 'qgl_stub') and node.qgl_stub)
 
+def is_qgl2_meas(node):
+    '''
+    Return True if the node has been marked as a QGL2 measurement.
+    '''
+    return (hasattr(node, 'qgl_meas') and node.qgl_meas)
+
 def check_call_parameters(call_ptree):
     """
     If the function uses *args and/or **kwargs, then punt on inlining.

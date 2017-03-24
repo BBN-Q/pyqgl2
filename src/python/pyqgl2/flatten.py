@@ -152,13 +152,15 @@ class Flattener(ast.NodeTransformer):
         Create a conditional goto call
         """
 
+        load_ast = expr2ast('LoadCmp()')
         cmp_ast = expr2ast('CmpEq(%s)' % str(mask))
         label_ast = expr2ast('Goto(BlockLabel(\'%s\'))' % label)
 
+        pyqgl2.ast_util.copy_all_loc(load_ast, node, recurse=True)
         pyqgl2.ast_util.copy_all_loc(cmp_ast, node, recurse=True)
         pyqgl2.ast_util.copy_all_loc(label_ast, node, recurse=True)
 
-        return list([cmp_ast, label_ast])
+        return list([load_ast, cmp_ast, label_ast])
 
     def make_label_call(self, label):
 
@@ -293,10 +295,11 @@ class Flattener(ast.NodeTransformer):
         """
 
         new_body = self.if_flattener(node)
-        dbg_if = ast.If(test=ast.NameConstant(value=True),
-                body=new_body, orelse=list())
-
-        return dbg_if
+        return new_body
+        # dbg_if = ast.If(test=ast.NameConstant(value=True),
+        #         body=new_body, orelse=list())
+        #
+        # return dbg_if
 
     def with_flattener(self, node):
         """
@@ -548,24 +551,26 @@ class Flattener(ast.NodeTransformer):
         expressions that represent the flattened sequence
         """
 
-        # make sure that the test is a qbit measurement.
+        # make sure that the test involves runtime values.
         # This is the only kind of test that should survive
         # to this point; classical test would have already
         # been executed.
-        #
-        # We can only handle "MEAS(x)" and "not MEAS(x)"
-        # as quantum conditionals right now.
+        # FIXME add this check
+        # Also, if the test contains a call, we should
+        # move the evaluation of that call to a expression before
+        # the comparison
 
-        if isinstance(node.test, ast.Call) and node.test.func.id == 'MEAS':
+        if (isinstance(node.test, ast.Name) or
+                isinstance(node.test, ast.Call)):
+            # FIXME non-zero should be "true"
             mask = 1
         elif (isinstance(node.test, ast.UnaryOp) and
-                isinstance(node.test.op, ast.Not) and
-                isinstance(node.test.operand, ast.Call) and
-                (node.test.operand.func.id == 'MEAS')):
+                isinstance(node.test.op, ast.Not)):
             mask = 0
         else:
             NodeError.error_msg(node.test,
-                    'unhandled test express [%s]' % ast2str(node.test))
+                    'unhandled test expression [%s]' % ast2str(node.test))
+            return node
 
         else_label, end_label = LabelManager.allocate_labels(
                 'if_else', 'if_end')
