@@ -589,32 +589,28 @@ class Flattener(ast.NodeTransformer):
                     'unhandled test expression [%s]' % ast2str(node.test))
             return node
 
-        else_label, end_label = LabelManager.allocate_labels(
-                'if_else', 'if_end')
+        if_label, end_label = LabelManager.allocate_labels(
+                'if', 'if_end')
 
-        if node.orelse:
-            cond_ast = self.make_cgoto_call(else_label, node.test, cmp_operator, mask)
-        else:
-            cond_ast = self.make_cgoto_call(end_label, node.test, cmp_operator, mask)
+        cond_ast = self.make_cgoto_call(if_label, node.test, cmp_operator, mask)
 
         # cond_ast is actually a list of AST nodes
         new_body = cond_ast
 
         end_goto_ast = self.make_ugoto_call(end_label)
-        else_ast = self.make_label_call(else_label)
+        if_ast = self.make_label_call(if_label)
         end_label_ast = self.make_label_call(end_label)
 
         pyqgl2.ast_util.copy_all_loc(end_goto_ast, node, recurse=True)
-        pyqgl2.ast_util.copy_all_loc(else_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(if_ast, node, recurse=True)
         pyqgl2.ast_util.copy_all_loc(end_label_ast, node, recurse=True)
 
-        new_body += self.flatten_body(node.body)
-
         if node.orelse:
-            new_body.append(end_goto_ast)
-            new_body.append(else_ast)
             new_body += self.flatten_body(node.orelse)
 
+        new_body.append(end_goto_ast)
+        new_body.append(if_ast)
+        new_body += self.flatten_body(node.body)
         new_body.append(end_label_ast)
 
         return new_body
