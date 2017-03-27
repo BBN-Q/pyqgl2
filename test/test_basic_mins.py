@@ -25,15 +25,13 @@ class TestBasicMins(unittest.TestCase):
     def test_AllXY(self):
         q1 = QubitFactory('q1')
         expectedseq = []
-        # Expect a single sequence 5 * 2 * 21 pulses long
+        # Expect a single sequence 4 * 2 * 21 pulses long
         # Expect it to start like this:
         expectedseq += [
-            qsync(),
             qwait(),
             Id(q1),
             Id(q1),
             MEAS(q1),
-            qsync(),
             qwait(),
             Id(q1),
             Id(q1),
@@ -56,22 +54,20 @@ class TestBasicMins(unittest.TestCase):
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        self.assertEqual(len(seqs), 5*21*2)
+        self.assertEqual(len(seqs), 4*21*2)
         assertPulseSequenceEqual(self, seqs[:len(expectedseq)], expectedseq)
 
     # Tests list of lists of function references, instead of sub-functions
     def test_AllXY_alt1(self):
         q1 = QubitFactory('q1')
         expectedseq = []
-        # Expect a single sequence 5 * 2 * 21 pulses long
+        # Expect a single sequence 4 * 2 * 21 pulses long
         # Expect it to start like this:
         expectedseq += [
-            qsync(),
             qwait(),
             Id(q1),
             Id(q1),
             MEAS(q1),
-            qsync(),
             qwait(),
             Id(q1),
             Id(q1),
@@ -85,21 +81,19 @@ class TestBasicMins(unittest.TestCase):
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        self.assertEqual(len(seqs), 5*21*2)
+        self.assertEqual(len(seqs), 4*21*2)
         assertPulseSequenceEqual(self, seqs[:len(expectedseq)], expectedseq)
 
     def test_AllXY_alt2(self):
         q1 = QubitFactory('q1')
         expectedseq = []
-        # Expect a single sequence 5 * 2 * 21 pulses long
+        # Expect a single sequence 4 * 2 * 21 pulses long
         # Expect it to start like this:
         expectedseq += [
-            qsync(),
             qwait(),
             Id(q1),
             Id(q1),
             MEAS(q1),
-            qsync(),
             qwait(),
             Id(q1),
             Id(q1),
@@ -113,7 +107,7 @@ class TestBasicMins(unittest.TestCase):
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        self.assertEqual(len(seqs), 5*21*2)
+        self.assertEqual(len(seqs), 4*21*2)
         assertPulseSequenceEqual(self, seqs[:len(expectedseq)], expectedseq)
 
 
@@ -135,9 +129,7 @@ class TestBasicMins(unittest.TestCase):
         # Seq1
         for l in lengths:
             expected_seq += [
-                qsync(),
                 qwait(),
-                qsync(),
                 qwait(),
                 Id(controlQ),
                 flat_top_gaussian(edge, riseFall, length=l, amp=amp, phase=phase),
@@ -148,9 +140,7 @@ class TestBasicMins(unittest.TestCase):
         # Seq2
         for l in lengths:
             expected_seq += [
-                qsync(),
                 qwait(),
-                qsync(),
                 qwait(),
                 X(controlQ),
                 flat_top_gaussian(edge, riseFall, length=l, amp=amp, phase=phase),
@@ -187,9 +177,7 @@ class TestBasicMins(unittest.TestCase):
         # Seq1
         for l in lengths:
             expected_seq += [
-                qsync(),
                 qwait(),
-                qsync(),
                 qwait(),
                 Id(controlQ),
                 echoCR(controlQ, targetQ, length=l, phase=phase,
@@ -202,9 +190,7 @@ class TestBasicMins(unittest.TestCase):
         # Seq2
         for l in lengths:
             expected_seq += [
-                qsync(),
                 qwait(),
-                qsync(),
                 qwait(),
                 X(controlQ),
                 echoCR(controlQ, targetQ, length=l, phase=phase,
@@ -241,9 +227,7 @@ class TestBasicMins(unittest.TestCase):
         # Seq1
         for p in phases:
             expected_seq += [
-                qsync(),
                 qwait(),
-                qsync(),
                 qwait(),
                 Id(controlQ),
                 echoCR(controlQ, targetQ, length=length, phase=p,
@@ -258,9 +242,7 @@ class TestBasicMins(unittest.TestCase):
         # Seq2
         for p in phases:
             expected_seq += [
-                qsync(),
                 qwait(),
-                qsync(),
                 qwait(),
                 X(controlQ),
                 echoCR(controlQ, targetQ, length=length, phase=p,
@@ -296,7 +278,6 @@ class TestBasicMins(unittest.TestCase):
         expectedseq = []
         for k in range(len(pulseSpacings)):
             expectedseq += [
-                qsync(),
                 qwait(),
                 X90(q),
                 Id(q, pulseSpacings[k]),
@@ -340,7 +321,6 @@ class TestBasicMins(unittest.TestCase):
         expectedseq = []
         for rep in numPulses:
             expectedseq += [
-                qsync(),
                 qwait(),
                 X90(q)
             ]
@@ -373,7 +353,6 @@ class TestBasicMins(unittest.TestCase):
             ffs = []
             for rep in range(maxNumFFs):
                 ffs += [
-                    qsync(),
                     qwait(),
                     X90(qubit, dragScaling=dragParam)
                 ]
@@ -391,14 +370,12 @@ class TestBasicMins(unittest.TestCase):
         expectedseq = []
         for dragParam in dragParamSweep:
             expectedseq += [
-                qsync(),
                 qwait(),
                 Id(qubit),
                 MEAS(qubit)
             ]
             expectedseq += addFFSeqs(dragParam, maxNumFFs, qubit)
         expectedseq += [
-            qsync(),
             qwait(),
             X(qubit),
             MEAS(qubit)
@@ -422,7 +399,6 @@ class TestBasicMins(unittest.TestCase):
         expectedseq = []
         for amp in amps:
             expectedseq += [
-                qsync(),
                 qwait(),
                 Utheta(q1, amp=amp, phase=phase),
                 MEAS(q1)
@@ -450,7 +426,6 @@ class TestBasicMins(unittest.TestCase):
         expectedseq = []
         for l in widths:
             expectedseq += [
-                qsync(),
                 qwait(),
                 Utheta(q1, length=l, amp=1, phase=0, shapeFun=local_tanh),
                 MEAS(q1)
@@ -472,9 +447,7 @@ class TestBasicMins(unittest.TestCase):
         expectedseq = []
         for amp in amps:
             expectedseq += [
-                qsync(),
                 qwait(),
-                qsync(),
                 qwait(),
                 X(q2),
                 Utheta(q1, amp=amp, phase=0),
@@ -493,11 +466,9 @@ class TestBasicMins(unittest.TestCase):
         seqs = testable_sequence(seqs)
 
         expectedseq = [
-            qsync(),
             qwait(),
             Id(q1),
             MEAS(q1),
-            qsync(),
             qwait(),
             X(q1),
             MEAS(q1)
@@ -514,7 +485,6 @@ class TestBasicMins(unittest.TestCase):
         seqs = testable_sequence(seqs)
 
         expectedseq = [
-            qsync(),
             qwait(),
             X(q1),
             MEAS(q1)
@@ -534,9 +504,7 @@ class TestBasicMins(unittest.TestCase):
 
         for a in amps:
             expectedseq += [
-                qsync(),
                 qwait(),
-                qsync(),
                 qwait(),
                 Utheta(q1, amp=a, phase=p),
                 Utheta(q2, amp=a, phase=p),
@@ -567,9 +535,7 @@ class TestBasicMins(unittest.TestCase):
         expectedseq = []
         for d in delays:
             expectedseq += [
-                qsync(),
                 qwait(),
-                qsync(),
                 qwait(),
                 X(q),
                 X(mq),
@@ -605,7 +571,6 @@ class TestBasicMins(unittest.TestCase):
             thisseq = []
             for rep in range(maxSpamBlocks):
                 thisseq += [
-                    qsync(),
                     qwait(),
                     Y90(q)
                 ]
@@ -626,14 +591,12 @@ class TestBasicMins(unittest.TestCase):
 
         for angle in angleSweep:
             expectedseq += [
-                qsync(),
                 qwait(),
                 Id(q),
                 MEAS(q)
             ]
             expectedseq += spam_seqs(angle, q, maxSpamBlocks)
         expectedseq += [
-            qsync(),
             qwait(),
             X(q),
             MEAS(q)
@@ -654,7 +617,6 @@ class TestBasicMins(unittest.TestCase):
         expectedseq = []
         for d in delays:
             expectedseq += [
-                qsync(),
                 qwait(),
                 X(q),
                 Id(q, d),
@@ -687,7 +649,6 @@ class TestBasicMins(unittest.TestCase):
         # Create the basic Ramsey sequence
         for d,phase in zip(delays, phases):
             expectedseq += [
-                qsync(),
                 qwait(),
                 X90(q),
                 Id(q, d),

@@ -291,19 +291,15 @@ def get_cal_seqs_1qubit(qubit, calRepeats=2):
     '''
     Note: return may include 0 length Id pulses.
     EG:
-    qsync,
     qwait
     Id(q1)
     MEAS(q1),
-    qsync,
     qwait
     Id(q1)
     MEAS(q1),
-    qsync,
     qwait
     X(q1)
     MEAS(q1),
-    qsync,
     qwait
     X(q1)
     MEAS(q1)
@@ -312,7 +308,6 @@ def get_cal_seqs_1qubit(qubit, calRepeats=2):
     for pulse in [Id, X]:
         for _ in range(calRepeats):
             calSeq += [
-                qsync(),
                 qwait(),
                 pulse(qubit),
                 Barrier("", (qubit,)),
@@ -331,9 +326,7 @@ def get_cal_seqs_2qubits(q1, q2, calRepeats=2):
             q1l = pulseSet[0](q1).length
             q2l = pulseSet[1](q2).length
             calseq += [
-                qsync(),
                 qwait(),
-                qsync(),
                 qwait(),
                 pulseSet[0](q1),
                 pulseSet[1](q2),
