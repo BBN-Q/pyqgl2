@@ -88,7 +88,7 @@ class TestEdge(unittest.TestCase):
         expected = [
             qwait(),
             qwait(),
-            CNOT_CR(q1, q2)
+            CNOT(q1, q2)
         ]
         expected = testable_sequence(expected)
 

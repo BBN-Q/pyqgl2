@@ -2,7 +2,7 @@
 
 # Tests for end to end Edge handling, and handling stubs on >1 qubits
 
-from qgl2.qgl1 import QubitFactory, Id, X, MEAS, Y, echoCR, CNOT_CR
+from qgl2.qgl1 import QubitFactory, Id, X, MEAS, Y, echoCR, CNOT
 from qgl2.qgl2 import qgl2decl, concur, qbit, qgl2stub, pulse
 from qgl2.util import init
 
@@ -51,4 +51,4 @@ def cnotcrTest():
     q2 = QubitFactory('q2')
     for q in [q1, q2]:
         init(q)
-    CNOT_CR(q1, q2)
+    CNOT(q1, q2)

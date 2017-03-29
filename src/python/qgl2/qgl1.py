@@ -219,6 +219,5 @@ def BlockLabel(label):
     pass
 
 @qgl2stub('QGL.PulsePrimitives')
-def CNOT_CR(controlQ: qbit, targetQ: qbit, **kwargs) -> sequence:
-    # return is a list of pulses that must be flattened
-    pass
+def CNOT(controlQ: qbit, targetQ: qbit, **kwargs) -> sequence:
+    print('CNOT')
