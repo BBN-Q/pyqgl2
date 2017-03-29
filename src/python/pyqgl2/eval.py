@@ -840,6 +840,9 @@ class EvalTransformer(object):
                     if name in self.allocated_qbits:
                         # print('EV RB qbit [%s]' % name)
                         pass
+                    elif name in self.runtime_variables:
+                        # print('EV RB runtime variable [%s]' % name)
+                        pass
                     elif self.eval_state.importer.resolve_sym(
                             stmnt.qgl_fname, name):
                         # print('EV RB func [%s]' % name)
