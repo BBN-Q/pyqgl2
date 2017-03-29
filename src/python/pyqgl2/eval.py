@@ -1530,6 +1530,7 @@ class EvalTransformer(object):
                     local_variables = self.eval_state.locals_stack[-1]
                     local_variables[sym_name] = qbit
                     # print('EV: QBIT CREATE %s' % ast.dump(stmnt))
+                    stmnt.qgl2_type = 'qbit'
                     new_body.append(stmnt)
                     continue
 
@@ -1538,10 +1539,8 @@ class EvalTransformer(object):
                 # TODO handle generic computations on runtime values
                 if self.is_measurement(stmnt.value):
                     self.change_cnt += 1
-                    # schedule the measurement pulse(s)
-                    new_stmnt = ast.Expr(value=stmnt.value)
-                    pyqgl2.ast_util.copy_all_loc(new_stmnt, stmnt, recurse=True)
-                    new_body.append(new_stmnt)
+                    stmnt.qgl2_type = 'measurement'
+                    new_body.append(stmnt)
                     # track the return value as a runtime variable
                     if len(stmnt.targets) > 1:
                         NodeError.error_msg(stmnt,

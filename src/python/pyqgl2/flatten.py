@@ -312,6 +312,25 @@ class Flattener(ast.NodeTransformer):
         #
         # return dbg_if
 
+    def visit_Assign(self, node):
+        """
+        Flatten an assignment. The only assignments we should see
+        are Qubits, measurements, and runtime computations. If we see a
+        measurement, we need to schedule the pulse (the RHS). A runtime
+        computation is passed through as an opaque STORE command.
+        """
+        if not isinstance(node.value, ast.Call):
+            NodeError.error_msg(node,
+                "Unexpected assignment [%s]" % ast2str(node))
+        if hasattr(node, 'qgl2_type'):
+            if node.qgl2_type == 'qbit':
+                return node
+            elif node.qgl2_type == 'measurement':
+                new_node = ast.Expr(value=node.value)
+                pyqgl2.ast_util.copy_all_loc(new_node, node, recurse=True)
+                return new_node
+        return node
+
     def with_flattener(self, node):
         """
         For "embedded" with statements, below the top-level
