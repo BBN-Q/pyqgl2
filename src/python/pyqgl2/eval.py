@@ -1683,29 +1683,19 @@ class EvalTransformer(object):
                     new_body.append(new_with)
 
             # For "break" and "continue" statements, mark the conditions
-            # and then abandon the processing of the rest of the body
-            # iff we're executing this as the result of a classical
-            # predicate.  If we can reach here as the result of a quantum
-            # predicate, then we need to keep going.
-            #
-            # I don't agree with this logic. I think you need you handle
-            # both cases the same way. --Blake
+            # and then abandon the processing of the rest of the body.
+
             elif isinstance(stmnt, ast.Break):
-                # if self.in_quantum_condition:
-                #     self.rewriter.rewrite(stmnt)
-                #     new_body.append(stmnt)
-                # else:
-                #     self.seen_break = True
-                #     break
+                if self.in_quantum_condition:
+                    NodeError.error_msg(stmnt,
+                        'break is not allowed inside runtime conditions')
                 self.seen_break = True
                 break
+
             elif isinstance(stmnt, ast.Continue):
-                # if not self.in_quantum_condition:
-                #     self.rewriter.rewrite(stmnt)
-                #     new_body.append(stmnt)
-                # else:
-                #     self.seen_continue = True
-                #     break
+                if self.in_quantum_condition:
+                    NodeError.error_msg(stmnt,
+                        'continue is not allowed inside runtime conditions')
                 self.seen_continue = True
                 break
 

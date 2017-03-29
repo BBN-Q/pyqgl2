@@ -48,3 +48,13 @@ class TestEvalTransformer(unittest.TestCase):
         ]
 
         assertPulseSequenceEqual(self, seqs, expectedseq)
+
+    def test_runtime_break(self):
+        with self.assertRaises(SystemExit):
+            resFunction = compile_function("test/code/loops.py",
+                                           "runtime_break")
+
+    def test_runtime_continue(self):
+        with self.assertRaises(SystemExit):
+            resFunction = compile_function("test/code/loops.py",
+                                           "runtime_continue")
