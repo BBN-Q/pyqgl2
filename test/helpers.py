@@ -3,9 +3,6 @@
 Utilities for creating a basic channel configuration for testing.
 '''
 
-from pyqgl2.main import mapQubitsToSequences
-from pyqgl2.evenblocks import replaceBarriers
-
 from QGL.ChannelLibrary import EdgeFactory, MeasFactory, QubitFactory
 from QGL import ChannelLibrary
 from QGL.Channels import Edge, Measurement
@@ -172,12 +169,9 @@ def flattenSeqs(seq):
 
 def testable_sequence(seqs):
     '''
-    Transform a QGL2 result function output into something more easily testable,
-    by discarding zero length Id's and flattening pulse lists.
+    Transform a QGL2 result function output into something more easily testable
+    by flattening pulse lists.
     '''
-    # seqIdxToChannelMap, _ = mapQubitsToSequences(seqs)
-    # seqs = replaceBarriers(seqs, seqIdxToChannelMap)
-    # discard_zero_Ids(seqs)
     seqs = flattenSeqs(seqs)
     return seqs
 
