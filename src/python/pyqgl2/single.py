@@ -301,4 +301,3 @@ def single_sequence(node, func_name, importer, setup=None):
         NodeError.fatal_msg(
                 node, 'find_sequence failed: not a single sequence')
         return None
-

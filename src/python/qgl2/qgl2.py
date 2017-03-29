@@ -54,7 +54,7 @@ class Concur(SimpleWithObject):
             stmnt2
 
     The purpose of the "concur()" is to mark these statements as
-    things to execute concurrently. 
+    things to execute concurrently.
 
     The "with Concur()" currently has no effect if executed outside
     of a qgl2 context.  If the statements don't have any side
@@ -152,6 +152,24 @@ def qgl2stub(import_path=None, origName=None):
 
     return deco
 
+def qgl2meas(import_path=None):
+    '''
+    Mark a function as a stub for a QGL1 measurement. These differ from
+    qgl2stub's because measurements return run-time values.
+
+    import_path gives the name of the module containing the definition of
+    the measurement.
+    '''
+    def deco(function):
+        @wraps(function)
+        def wrapper(*f_args, **f_kwargs):
+            return function(*f_args, **f_kwargs)
+        wrapper.__qgl2_wrapper__ = 'qgl2meas'
+        wrapper.__qgl2_implicit_import = import_path
+        return wrapper
+
+    return deco
+
 # Symbols used for method signature annotation.  Their value has
 # no meaning; they're only assigned a value so that Python considers
 # them to be valid symbols.
@@ -167,4 +185,3 @@ control = True
 
 concur = Concur()
 seq = Seq()
-

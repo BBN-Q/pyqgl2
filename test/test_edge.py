@@ -3,7 +3,7 @@ import unittest
 
 # Test functions in edge.py
 
-from .helpers import testable_sequence, discard_zero_Ids, \
+from .helpers import testable_sequence, \
     channel_setup, assertPulseSequenceEqual
 from pyqgl2.main import compile_function
 
@@ -21,9 +21,7 @@ class TestEdge(unittest.TestCase):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         expected = [
-            qsync(),
             qwait(),
-            qsync(),
             qwait(),
             X(q1),
             X(q2),
@@ -42,9 +40,7 @@ class TestEdge(unittest.TestCase):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         expected = [
-            qsync(),
             qwait(),
-            qsync(),
             qwait(),
             echoCR(q1, q2),
             X(q2),
@@ -67,9 +63,7 @@ class TestEdge(unittest.TestCase):
         q2 = QubitFactory('q2')
 
         expected = [
-            qsync(),
             qwait(),
-            qsync(),
             qwait(),
             echoCR(q1, q2),
             echoCR(q2, q1),
@@ -92,11 +86,9 @@ class TestEdge(unittest.TestCase):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         expected = [
-            qsync(),
             qwait(),
-            qsync(),
             qwait(),
-            CNOT_CR(q1, q2)
+            CNOT(q1, q2)
         ]
         expected = testable_sequence(expected)
 

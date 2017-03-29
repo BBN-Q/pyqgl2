@@ -2,6 +2,7 @@
 
 import ast
 import meta
+import numpy as np
 
 from pyqgl2.ast_util import NodeError, expr2ast
 from pyqgl2.importer import NameSpaces
@@ -294,6 +295,12 @@ def is_qgl2_stub(node):
     stub for a QGL1 function, else False.
     '''
     return (hasattr(node, 'qgl_stub') and node.qgl_stub)
+
+def is_qgl2_meas(node):
+    '''
+    Return True if the node has been marked as a QGL2 measurement.
+    '''
+    return (hasattr(node, 'qgl_meas') and node.qgl_meas)
 
 def check_call_parameters(call_ptree):
     """
@@ -1003,8 +1010,14 @@ class NameRedirector(ast.NodeTransformer):
 
         value = self.values[name]
 
-
-        if isinstance(value, int) or isinstance(value, float):
+        numpy_scalar_types = (
+            np.int8, np.int16, np.int32, np.int64,
+            np.uint8, np.uint16, np.uint32, np.uint64,
+            np.float16, np.float32, np.float64,
+            np.complex64, np.complex128
+        )
+        if (isinstance(value, int) or isinstance(value, float) or
+                isinstance(value, numpy_scalar_types)):
             redirection = ast.Num(n=value)
         elif isinstance(value, str):
             redirection = ast.Str(s=value)

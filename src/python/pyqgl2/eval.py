@@ -452,6 +452,7 @@ class SimpleEvaluator(object):
     NONQGL2 = 0
     QGL2STUB = 1
     QGL2DECL = 2
+    QGL2MEAS = 3
     ERROR = -1
 
     def expand_qgl2decl_call(self, call_node):
@@ -601,7 +602,8 @@ class SimpleEvaluator(object):
             return self.ERROR
 
         local_variables = self.locals_stack[-1]
-        if call_node.func.id in local_variables:
+        if (isinstance(call_node.func, ast.Name) and
+                call_node.func.id in local_variables):
             # print('found locally %s' % call_node.func.id)
             val = local_variables[call_node.func.id]
 
@@ -621,6 +623,12 @@ class SimpleEvaluator(object):
                     call_node.qgl_implicit_import = (
                             val.__name__, val.__qgl_implicit_import__, None)
                     return self.QGL2STUB
+                elif val.__qgl2_wrapper__ == 'qgl2meas':
+                    # do the same name re-writing as with qgl2stubs
+                    call_node.func = ast.Name(id=val.__name__)
+                    call_node.qgl_implicit_import = (
+                            val.__name__, val.__qgl_implicit_import__, None)
+                    return self.QGL2MEAS
                 else:
                     NodeError.error_msg(
                             call_node,
@@ -659,13 +667,18 @@ class SimpleEvaluator(object):
             if funcname in __builtins__:
                 return self.NONQGL2
             else:
-                NodeError.error_msg(call_node,
-                        ('no function definition found for [%s]' %
-                            ast.dump(call_node.func)))
-                return self.ERROR
+                return self.NONQGL2
+                # TODO can't I just assume that if we can't find it,
+                # then it can't be a QGL2 function?
+                # NodeError.error_msg(call_node,
+                #         ('no function definition found for [%s]' %
+                #             ast.dump(call_node.func)))
+                # return self.ERROR
 
         # if it's a stub, then leave it alone.
-        if pyqgl2.inline.is_qgl2_stub(func_ast):
+        if pyqgl2.inline.is_qgl2_meas(func_ast):
+            return self.QGL2MEAS
+        elif pyqgl2.inline.is_qgl2_stub(func_ast):
             # print('EV IS QGL2STUB: passing through')
             # print('EV STUB %s' % ast.dump(call_node))
             return self.QGL2STUB
@@ -753,6 +766,11 @@ class EvalTransformer(object):
         # allocated
         #
         self.allocated_qbits = set()
+
+        # run-time variables, which store the results of measurements
+        # or computations on other run-time values
+        # use a list because measurements are ordered
+        self.runtime_variables = list()
 
     def get_state(self):
         """
@@ -1203,11 +1221,14 @@ class EvalTransformer(object):
 
     def do_quantum_while(self, stmnt):
 
-        was_in_quantum_condition = self.in_quantum_condition
-        self.in_quantum_condition = True
-        stmnt.body = self.do_body(stmnt.body)
-        self.in_quantum_condition = was_in_quantum_condition
-        return True, list([stmnt])
+        # was_in_quantum_condition = self.in_quantum_condition
+        # self.in_quantum_condition = True
+        # stmnt.body = self.do_body(stmnt.body)
+        # self.in_quantum_condition = was_in_quantum_condition
+        # return True, list([stmnt])
+        NodeError.error_msg(stmnt,
+            'QGL2 does not support while loops with run-time values')
+        return False, list()
 
     def do_if(self, stmnt):
         """
@@ -1268,7 +1289,8 @@ class EvalTransformer(object):
 
     def is_classical_test(self, test_expr):
         """
-        Test whether a test expression is classical or quantum
+        Test whether a test expression is known at compile-time (classical)
+        or run-time (quantum).
 
         Return (is_classical, value), where is_classical is True if
         the expression is purely classical, False otherwise, and
@@ -1285,22 +1307,43 @@ class EvalTransformer(object):
         incur a second set of side effects.
         """
 
-        if (isinstance(test_expr, ast.Call) and
-                isinstance(test_expr.func, ast.Name) and
-                (test_expr.func.id == 'MEAS')):
+        # examine the variables in test_expr and return False
+        # if any of those variables are run-time values
+        # TODO there ought to be a recursive way to do this that
+        # will be correct for a larger class of expressions
+        if (isinstance(test_expr, ast.Name) and
+                test_expr.id in self.runtime_variables):
             return False, False
+        elif isinstance(test_expr, ast.Call):
+            for arg in test_expr.args:
+                if arg.id in self.runtime_variables:
+                    return False, False
         elif (isinstance(test_expr, ast.UnaryOp) and
                 isinstance(test_expr.op, ast.Not) and
-                isinstance(test_expr.operand, ast.Call) and
-                (test_expr.operand.func.id == 'MEAS')):
+                isinstance(test_expr.operand, ast.Name) and
+                test_expr.operand.id in self.runtime_variables):
             return False, False
+        elif isinstance(test_expr, ast.Compare):
+            if (isinstance(test_expr.left, ast.Name) and
+                test_expr.left.id in self.runtime_variables):
+                return False, False
+            if (isinstance(test_expr.comparators[0], ast.Name) and
+                test_expr.comparators[0].id in self.runtime_variables):
+                return False, False
 
         # If this fails, it should print out a useful
         # error message and it should set the error detection
         # bit, so that when the caller sees that that this
-        # has failed, it can do react accordingly.
+        # has failed, it can react accordingly.
         #
         return self.eval_state.do_test(test_expr)
+
+    def is_measurement(self, stmnt):
+        if (isinstance(stmnt, ast.Call) and
+                self.eval_state.find_call_type(stmnt) == self.eval_state.QGL2MEAS):
+            return True
+        else:
+            return False
 
     def do_if_classical(self, stmnt, test):
 
@@ -1329,7 +1372,8 @@ class EvalTransformer(object):
         return True, expanded_body
 
     def do_if_quantum(self, stmnt):
-
+        # NOTE "quantum" condition is a misnomer. This ought to be called
+        # a "runtime" condition.
         was_in_quantum_condition = self.in_quantum_condition
         self.in_quantum_condition = True
 
@@ -1456,8 +1500,6 @@ class EvalTransformer(object):
                 continue
 
             elif isinstance(stmnt, ast.Assign):
-
-
                 # If the assignment is due to qbit creation
                 # then we have some housekeeping to do.
                 # We create a fake value (a QubitPlaceholder instance)
@@ -1467,7 +1509,7 @@ class EvalTransformer(object):
                 # FIXME this only handles a limited set of all
                 # the ways qbits might be created.  It would be
                 # better to actually invoke the QubitFactory here,
-                # although that would break any other things.
+                # although that would break many other things.
                 #
                 if is_qbit_create(stmnt):
                     self.rewriter.rewrite(stmnt.value)
@@ -1488,9 +1530,24 @@ class EvalTransformer(object):
                     new_body.append(stmnt)
                     continue
 
+                # look for measurement assignments and update
+                # self.runtime_variables
+                # TODO handle generic computations on runtime values
+                if self.is_measurement(stmnt.value):
+                    self.change_cnt += 1
+                    # schedule the measurement pulse(s)
+                    new_stmnt = ast.Expr(value=stmnt.value)
+                    pyqgl2.ast_util.copy_all_loc(new_stmnt, stmnt, recurse=True)
+                    new_body.append(new_stmnt)
+                    # track the return value as a runtime variable
+                    if len(stmnt.targets) > 1:
+                        NodeError.error_msg(stmnt,
+                            'Cannot handle multiple targets in measurement assignment [%s]' % ast2str(stmnt))
+                    self.runtime_variables.append(stmnt.targets[0].id)
+                    continue
+
                 # replace the names of variables in this statement with
                 # the single-assignment names
-                #
 
                 self.rewriter.rewrite(stmnt.value)
 
@@ -1559,6 +1616,10 @@ class EvalTransformer(object):
                 elif call_type == self.eval_state.QGL2STUB:
                     # real success
                     new_body.append(stmnt)
+                elif call_type == self.eval_state.QGL2MEAS:
+                    # A measurement where the user does not want to store
+                    # the return value. Just schedule the control part.
+                    new_body.append(stmnt)
                 elif call_type == self.eval_state.NONQGL2:
                     # Do the statement for effect
                     #
@@ -1622,25 +1683,21 @@ class EvalTransformer(object):
                     new_body.append(new_with)
 
             # For "break" and "continue" statements, mark the conditions
-            # and then abandon the processing of the rest of the body
-            # iff we're executing this as the result of a classical
-            # predicate.  If we can reach here as the result of a quantum
-            # predicate, then we need to keep going.
-            #
+            # and then abandon the processing of the rest of the body.
+
             elif isinstance(stmnt, ast.Break):
                 if self.in_quantum_condition:
-                    self.rewriter.rewrite(stmnt)
-                    new_body.append(stmnt)
-                else:
-                    self.seen_break = True
-                    break
+                    NodeError.error_msg(stmnt,
+                        'break is not allowed inside runtime conditions')
+                self.seen_break = True
+                break
+
             elif isinstance(stmnt, ast.Continue):
-                if not self.in_quantum_condition:
-                    self.rewriter.rewrite(stmnt)
-                    new_body.append(stmnt)
-                else:
-                    self.seen_continue = True
-                    break
+                if self.in_quantum_condition:
+                    NodeError.error_msg(stmnt,
+                        'continue is not allowed inside runtime conditions')
+                self.seen_continue = True
+                break
 
             elif isinstance(stmnt, ast.AugAssign):
                 DebugMsg.log(

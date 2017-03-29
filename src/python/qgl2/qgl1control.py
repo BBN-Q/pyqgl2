@@ -25,20 +25,3 @@ class Barrier(ControlInstruction):
         base = super(Barrier, self).__str__()
         base += " on Channels: %s" % str(self.chanlist)
         return base
-
-# FIXME: This is not supported by the hardware yet
-# This is a Wait that should only wait for the channels
-# listed in chanlist (not all channels, as in Wait)
-class WaitSome(ControlInstruction):
-    # chanlist is a list of Channel instances
-    def __init__(self, chanlist):
-        # Until HW really supports waitsome, use wait so things compile better
-        super(WaitSome, self).__init__("WAIT")
-#      super(WaitSome, self).__init__("WAITSOME")
-        # The channels to wait on
-        self.chanlist = chanlist
-
-    def __str__(self):
-        base = super(WaitSome, self).__str__()
-        base += " on Channels: %s" % str(self.chanlist)
-        return base

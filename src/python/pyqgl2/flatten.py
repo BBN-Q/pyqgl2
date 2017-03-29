@@ -147,18 +147,31 @@ class Flattener(ast.NodeTransformer):
         goto_ast = expr2ast(goto_str)
         return goto_ast
 
-    def make_cgoto_call(self, label, node, mask):
+    def make_cgoto_call(self, label, node, cmp_operator, mask):
         """
         Create a conditional goto call
         """
 
-        cmp_ast = expr2ast('CmpEq(%s)' % str(mask))
+        load_ast = expr2ast('LoadCmp()')
+        if isinstance(cmp_operator, ast.Eq):
+            cmp_ast = expr2ast('CmpEq(%s)' % str(mask))
+        elif isinstance(cmp_operator, ast.NotEq):
+            cmp_ast = expr2ast('CmpNeq(%s)' % str(mask))
+        elif isinstance(cmp_operator, ast.Gt):
+            cmp_ast = expr2ast('CmpGt(%s)' % str(mask))
+        elif isinstance(cmp_operator, ast.Lt):
+            cmp_ast = expr2ast('CmpLt(%s)' % str(mask))
+        else:
+            NodeError.error_msg(node,
+                'Unallowed comparison operator [%s]' % ast2str(node))
+            return None
         label_ast = expr2ast('Goto(BlockLabel(\'%s\'))' % label)
 
+        pyqgl2.ast_util.copy_all_loc(load_ast, node, recurse=True)
         pyqgl2.ast_util.copy_all_loc(cmp_ast, node, recurse=True)
         pyqgl2.ast_util.copy_all_loc(label_ast, node, recurse=True)
 
-        return list([cmp_ast, label_ast])
+        return list([load_ast, cmp_ast, label_ast])
 
     def make_label_call(self, label):
 
@@ -293,10 +306,11 @@ class Flattener(ast.NodeTransformer):
         """
 
         new_body = self.if_flattener(node)
-        dbg_if = ast.If(test=ast.NameConstant(value=True),
-                body=new_body, orelse=list())
-
-        return dbg_if
+        return new_body
+        # dbg_if = ast.If(test=ast.NameConstant(value=True),
+        #         body=new_body, orelse=list())
+        #
+        # return dbg_if
 
     def with_flattener(self, node):
         """
@@ -548,51 +562,55 @@ class Flattener(ast.NodeTransformer):
         expressions that represent the flattened sequence
         """
 
-        # make sure that the test is a qbit measurement.
+        # make sure that the test involves runtime values.
         # This is the only kind of test that should survive
         # to this point; classical test would have already
         # been executed.
-        #
-        # We can only handle "MEAS(x)" and "not MEAS(x)"
-        # as quantum conditionals right now.
+        # FIXME add this check
+        # Also, if the test contains a call, we should
+        # move the evaluation of that call to a expression before
+        # the comparison
 
-        if isinstance(node.test, ast.Call) and node.test.func.id == 'MEAS':
-            mask = 1
-        elif (isinstance(node.test, ast.UnaryOp) and
-                isinstance(node.test.op, ast.Not) and
-                isinstance(node.test.operand, ast.Call) and
-                (node.test.operand.func.id == 'MEAS')):
+        if (isinstance(node.test, ast.Name) or
+                isinstance(node.test, ast.Call)):
             mask = 0
+            cmp_operator = ast.NotEq()
+        elif (isinstance(node.test, ast.UnaryOp) and
+                isinstance(node.test.op, ast.Not)):
+            mask = 0
+            cmp_operator = ast.Eq()
+        elif isinstance(node.test, ast.Compare):
+            # FIXME the value can be on either side of the comparison
+            # this assumes that it is on the right
+            mask = node.test.comparators[0].n
+            cmp_operator = node.test.ops[0]
         else:
             NodeError.error_msg(node.test,
-                    'unhandled test express [%s]' % ast2str(node.test))
+                    'unhandled test expression [%s]' % ast2str(node.test))
+            return node
 
-        else_label, end_label = LabelManager.allocate_labels(
-                'if_else', 'if_end')
+        if_label, end_label = LabelManager.allocate_labels(
+                'if', 'if_end')
 
-        if node.orelse:
-            cond_ast = self.make_cgoto_call(else_label, node.test, mask)
-        else:
-            cond_ast = self.make_cgoto_call(end_label, node.test, mask)
+        cond_ast = self.make_cgoto_call(if_label, node.test, cmp_operator, mask)
 
         # cond_ast is actually a list of AST nodes
         new_body = cond_ast
 
         end_goto_ast = self.make_ugoto_call(end_label)
-        else_ast = self.make_label_call(else_label)
+        if_ast = self.make_label_call(if_label)
         end_label_ast = self.make_label_call(end_label)
 
         pyqgl2.ast_util.copy_all_loc(end_goto_ast, node, recurse=True)
-        pyqgl2.ast_util.copy_all_loc(else_ast, node, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(if_ast, node, recurse=True)
         pyqgl2.ast_util.copy_all_loc(end_label_ast, node, recurse=True)
 
-        new_body += self.flatten_body(node.body)
-
         if node.orelse:
-            new_body.append(end_goto_ast)
-            new_body.append(else_ast)
             new_body += self.flatten_body(node.orelse)
 
+        new_body.append(end_goto_ast)
+        new_body.append(if_ast)
+        new_body += self.flatten_body(node.body)
         new_body.append(end_label_ast)
 
         return new_body

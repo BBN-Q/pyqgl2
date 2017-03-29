@@ -3,16 +3,14 @@
 Utilities for creating a basic channel configuration for testing.
 '''
 
-from pyqgl2.main import mapQubitsToSequences
-from pyqgl2.evenblocks import replaceBarriers
-
 from QGL.ChannelLibrary import EdgeFactory, MeasFactory, QubitFactory
 from QGL import ChannelLibrary
 from QGL.Channels import Edge, Measurement
 from QGL.PulseSequencer import Pulse, CompositePulse
 from QGL.PatternUtils import flatten
 from QGL.PulsePrimitives import Id, X, MEAS
-from QGL.ControlFlow import qsync, qwait
+from QGL.ControlFlow import qsync, qwait, ControlInstruction
+from QGL.BlockLabel import BlockLabel
 from qgl2.qgl1control import Barrier
 
 import collections
@@ -171,12 +169,9 @@ def flattenSeqs(seq):
 
 def testable_sequence(seqs):
     '''
-    Transform a QGL2 result function output into something more easily testable,
-    by discarding zero length Id's and flattening pulse lists.
+    Transform a QGL2 result function output into something more easily testable
+    by flattening pulse lists.
     '''
-    # seqIdxToChannelMap, _ = mapQubitsToSequences(seqs)
-    # seqs = replaceBarriers(seqs, seqIdxToChannelMap)
-    # discard_zero_Ids(seqs)
     seqs = flattenSeqs(seqs)
     return seqs
 
@@ -290,19 +285,15 @@ def get_cal_seqs_1qubit(qubit, calRepeats=2):
     '''
     Note: return may include 0 length Id pulses.
     EG:
-    qsync,
     qwait
     Id(q1)
     MEAS(q1),
-    qsync,
     qwait
     Id(q1)
     MEAS(q1),
-    qsync,
     qwait
     X(q1)
     MEAS(q1),
-    qsync,
     qwait
     X(q1)
     MEAS(q1)
@@ -311,7 +302,6 @@ def get_cal_seqs_1qubit(qubit, calRepeats=2):
     for pulse in [Id, X]:
         for _ in range(calRepeats):
             calSeq += [
-                qsync(),
                 qwait(),
                 pulse(qubit),
                 Barrier("", (qubit,)),
@@ -330,9 +320,7 @@ def get_cal_seqs_2qubits(q1, q2, calRepeats=2):
             q1l = pulseSet[0](q1).length
             q2l = pulseSet[1](q2).length
             calseq += [
-                qsync(),
                 qwait(),
-                qsync(),
                 qwait(),
                 pulseSet[0](q1),
                 pulseSet[1](q2),
@@ -342,3 +330,22 @@ def get_cal_seqs_2qubits(q1, q2, calRepeats=2):
             ]
 
     return calseq
+
+def match_labels(seq1, seq2):
+    '''
+    Returns a copy of seq1 which replaces BlockLabels in seq1 with
+    corresponding BlockLabels in seq2
+    '''
+    new_seq = []
+    label_map = {}
+    for s1, s2 in zip(seq1, seq2):
+        if (isinstance(s1, BlockLabel) and isinstance(s2, BlockLabel)):
+            new_seq.append(s2)
+            label_map[s1] = s2
+        else:
+            new_seq.append(s1)
+
+    for entry in new_seq:
+        if isinstance(entry, ControlInstruction) and entry.target:
+            entry.target = label_map[entry.target]
+    return new_seq

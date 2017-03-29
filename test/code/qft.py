@@ -1,6 +1,6 @@
 from qgl2.qgl2 import concur, qgl2decl, qgl2main
 from qgl2.qgl2 import classical, pulse, qbit, qbit_list
-from qgl2.qgl1 import QubitFactory, Id, X90, Y90, X, Y, Ztheta, MEAS, CNOT_CR
+from qgl2.qgl1 import QubitFactory, Id, X90, Y90, X, Y, Ztheta, MEAS, CNOT
 
 from math import pi
 
@@ -13,9 +13,9 @@ def hadamard(q:qbit):
 def CZ_k(c:qbit, t:qbit, k):
     theta = 2 * pi / 2**k
     Ztheta(t, angle=theta/2)
-    CNOT_CR(c, t)
+    CNOT(c, t)
     Ztheta(t, angle=-theta/2)
-    CNOT_CR(c, t)
+    CNOT(c, t)
 
 @qgl2decl
 def qft(qs:qbit_list):

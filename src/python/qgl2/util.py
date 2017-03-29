@@ -24,7 +24,7 @@ from qgl2.qgl2 import qbit, pulse, qgl2decl, qgl2stub
 @qgl2stub("qgl2.qgl1_util", "init_real")
 def init(q: qbit) -> pulse:
     """
-    Sync() and then Wait()
+    Wait()
     Annotated as returning a pulse for backwards compatibility.
     """
 

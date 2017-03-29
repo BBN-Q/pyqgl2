@@ -15,6 +15,7 @@ class QGL2(object):
     QDECL = 'qgl2decl'
     # A stub for a QGL1 function: It's QGL2 but don't inline it
     QSTUB = 'qgl2stub'
+    QMEAS = 'qgl2meas'
 
     QMODULE = 'qgl2'
 

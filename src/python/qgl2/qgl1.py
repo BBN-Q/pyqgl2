@@ -4,7 +4,7 @@
 # how to handle these functions
 
 # The annotations are defined in here
-from qgl2.qgl2 import qbit, pulse, qgl2stub, sequence, qbit_list, control
+from qgl2.qgl2 import qbit, pulse, qgl2stub, qgl2meas, sequence, qbit_list, control
 
 # Many uses of Id supply a delay. That's the length: an int or float
 # FIXME: Do we need to include that explicitly?
@@ -92,7 +92,7 @@ def echoCR(controlQ: qbit, targetQ: qbit, amp=1, phase=0, length=200e-9, riseFal
 # Calls include: qubit, 2 qubits, qbit list. But so far
 # our qgl2 uses are just with a single qbit
 #def MEAS(*args: qbit_list, **kwargs) -> pulse:
-@qgl2stub('QGL.PulsePrimitives')
+@qgl2meas('QGL.PulsePrimitives')
 def MEAS(q: qbit, *args, **kwargs) -> pulse:
     print('MEAS')
 
@@ -138,11 +138,6 @@ def qwait(kind="TRIG") -> control:
 def Wait() -> control:
     print('Wait')
 
-# This function doesn't exist, but this is a notional wait on specific channels
-@qgl2stub('qgl2.qgl1control')
-def WaitSome(channelList) -> control:
-    print('WaitSome(%s)' % channelList)
-
 @qgl2stub('QGL.ControlFlow')
 def Sync() -> control:
     print('Sync')
@@ -166,26 +161,20 @@ def ComparisonInstruction(mask, operator) -> control:
 # Note that these Cmp functions don't really need to be stubs,
 # they can be run as is. But making them stubs ensures
 # the imports work out.
-# mask is an int, used by the APS2 like so:
-# (op << 8) | (mask & 0xff)
-# Where op is an int for the comparator, as in:
-# EQUAL       = 0x0
-# NOTEQUAL    = 0x1
-# GREATERTHAN = 0x2
-# LESSTHAN    = 0x3
+# operand is expected to be an integer
 
 @qgl2stub('QGL.ControlFlow')
-def CmpEq(mask) -> control:
-    return ComparisonInstruction(mask, '==')
+def CmpEq(operand) -> control:
+    return ComparisonInstruction(operand, '==')
 @qgl2stub('QGL.ControlFlow')
-def CmpNeq(mask) -> control:
-    return ComparisonInstruction(mask, "!=")
+def CmpNeq(operand) -> control:
+    return ComparisonInstruction(operand, "!=")
 @qgl2stub('QGL.ControlFlow')
-def CmpLt(mask) -> control:
-    return ComparisonInstruction(mask, "<")
+def CmpLt(operand) -> control:
+    return ComparisonInstruction(operand, "<")
 @qgl2stub('QGL.ControlFlow')
-def CmpGt(mask) -> control:
-    return ComparisonInstruction(mask, ">")
+def CmpGt(operand) -> control:
+    return ComparisonInstruction(operand, ">")
 
 #from QGL.ChannelLibrary import EdgeFactory
 @qgl2stub('QGL.ChannelLibrary')
@@ -196,22 +185,6 @@ def EdgeFactory(source: qbit, target: qbit) -> qbit:
 @qgl2stub('QGL.ChannelLibrary')
 def QubitFactory(label, **kwargs) -> qbit:
     print('QubitFactory')
-
-#from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
-@qgl2stub('QGL.Cliffords')
-def inverse_clifford(cMat):
-    # It's all classical I think?
-    print('inverse_clifford')
-
-@qgl2stub('QGL.Cliffords')
-def clifford_mat(c, numQubits) -> pulse:
-    # Is that the right return type?
-    print('clifford_mat')
-
-@qgl2stub('QGL.Cliffords')
-def clifford_seq(c, q1: qbit, q2: qbit = None) -> sequence:
-    # Is that the right return type?
-    print('clifford_seq')
 
 # Functions used by qgl2 compiler from ControlFlow
 
@@ -246,6 +219,5 @@ def BlockLabel(label):
     pass
 
 @qgl2stub('QGL.PulsePrimitives')
-def CNOT_CR(controlQ: qbit, targetQ: qbit, **kwargs) -> sequence:
-    # return is a list of pulses that must be flattened
-    pass
+def CNOT(controlQ: qbit, targetQ: qbit, **kwargs) -> sequence:
+    print('CNOT')

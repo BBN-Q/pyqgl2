@@ -7,8 +7,7 @@ import unittest
 from pyqgl2.main import compile_function
 from test.helpers import channel_setup, testable_sequence
 
-from test.helpers import testable_sequence, discard_zero_Ids, \
-    flattenSeqs, channel_setup, assertPulseSequenceEqual, \
+from test.helpers import assertPulseSequenceEqual, \
     get_cal_seqs_1qubit, get_cal_seqs_2qubits
 
 from QGL import *
@@ -33,9 +32,9 @@ class TestQFT(unittest.TestCase):
         expected_seq = [
             H(q1),
             Ztheta(q2, pi/2),
-            CNOT_CR(q1, q2),
+            CNOT(q1, q2),
             Ztheta(q2, -pi/2),
-            CNOT_CR(q1, q2),
+            CNOT(q1, q2),
             H(q2),
             MEAS(q1),
             MEAS(q2)
