@@ -688,6 +688,28 @@ class SimpleEvaluator(object):
 
         return self.NONQGL2
 
+class MarkRuntimeVars(ast.NodeVisitor):
+    """
+    A NodeVisitor that examines a ptree to find the set of referenced
+    runtime variables that it contains.
+    """
+
+    def __init__(self, runtime_vars=dict()):
+
+        self.runtime_vars = runtime_vars
+        self.referenced_vars = set()
+
+    def visit_Name(self, node):
+
+        if node.id in self.runtime_vars:
+            self.referenced_vars.add(node.id)
+
+    @staticmethod
+    def mark(node, runtime_vars=None):
+        marker = MarkRuntimeVars(runtime_vars=runtime_vars)
+        marker.visit(node)
+
+        return marker.referenced_vars
 
 class EvalTransformer(object):
     """
@@ -1348,6 +1370,10 @@ class EvalTransformer(object):
         else:
             return False
 
+    def is_runtime_call(self, stmnt):
+        runtime_vars = MarkRuntimeVars.mark(stmnt, runtime_vars=self.runtime_variables)
+        return (len(runtime_vars) > 0 and isinstance(stmnt, ast.Call))
+
     def do_if_classical(self, stmnt, test):
 
         # Even though we don't know whether we're going
@@ -1545,6 +1571,17 @@ class EvalTransformer(object):
                     if len(stmnt.targets) > 1:
                         NodeError.error_msg(stmnt,
                             'Cannot handle multiple targets in measurement assignment [%s]' % ast2str(stmnt))
+                    self.runtime_variables.append(stmnt.targets[0].id)
+                    continue
+
+                if self.is_runtime_call(stmnt.value):
+                    self.change_cnt +=1
+                    stmnt.qgl2_type = 'runtime_call'
+                    new_body.append(stmnt)
+                    # track the return value as a runtime variable
+                    if len(stmnt.targets) > 1:
+                        NodeError.error_msg(stmnt,
+                            'Cannot handle multiple targets in runtime call assignment [%s]' % ast2str(stmnt))
                     self.runtime_variables.append(stmnt.targets[0].id)
                     continue
 

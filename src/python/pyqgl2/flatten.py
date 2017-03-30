@@ -327,8 +327,22 @@ class Flattener(ast.NodeTransformer):
                 return node
             elif node.qgl2_type == 'measurement':
                 new_node = ast.Expr(value=node.value)
+                pyqgl2.ast_util.copy_all_loc(new_node, node)
+                return new_node
+            elif node.qgl2_type == 'runtime_call':
+                # put the runtime_call in a STORE command
+                new_node = expr2ast('Store()')
+                # first argument is the STORE destination
+                # TODO we want to re-write the target as an address
+                target_str = ast2str(node.targets[0]).strip()
+                new_node.value.args.append(ast.Str(s=target_str))
+                # second argument is the str() representation
+                # of the runtime call
+                call_str = ast2str(node.value).strip()
+                new_node.value.args.append(ast.Str(s=call_str))
                 pyqgl2.ast_util.copy_all_loc(new_node, node, recurse=True)
                 return new_node
+
         return node
 
     def with_flattener(self, node):

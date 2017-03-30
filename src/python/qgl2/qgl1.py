@@ -88,6 +88,11 @@ def flat_top_gaussian_edge(source: qbit, target: qbit, riseFall,
 def echoCR(controlQ: qbit, targetQ: qbit, amp=1, phase=0, length=200e-9, riseFall=20e-9, lastPi=True) -> sequence:
     print('echoCR')
 
+
+@qgl2stub('QGL.PulsePrimitives')
+def CNOT(controlQ: qbit, targetQ: qbit, **kwargs) -> sequence:
+    print('CNOT')
+
 # FIXME: QGL2 can't handle *args
 # Calls include: qubit, 2 qubits, qbit list. But so far
 # our qgl2 uses are just with a single qbit
@@ -101,8 +106,6 @@ def MEAS(q: qbit, *args, **kwargs) -> pulse:
 def U(qubit: qbit, phase=0, **kwargs) -> pulse:
     print('U')
 
-#from QGL.Channels import Qubit, Edge, LogicalMarkerChannel
-# Edge used in test mains
 # Note that this is really a class
 #def Edge(**kwargs) -> qbit:
 @qgl2stub('QGL.Channels')
@@ -117,17 +120,21 @@ def Edge(label, source: qbit, target: qbit, gateChan, **kwargs) -> qbit:
 def Qubit(label=None, gateChan=None, **kwargs) -> qbit:
     print('Qubit')
 
+@qgl2stub('QGL.ChannelLibrary')
+def EdgeFactory(source: qbit, target: qbit) -> qbit:
+    # Is that the right return?
+    print('EdgeFactory')
+
+@qgl2stub('QGL.ChannelLibrary')
+def QubitFactory(label, **kwargs) -> qbit:
+    print('QubitFactory')
+
 # This is used just in testing mains
 # Note that this is really a class
 #def LogicalMarkerChannel(**kwargs) -> qbit:
 @qgl2stub('QGL.Channels')
 def LogicalMarkerChannel(label, **kwargs) -> qbit:
     print('LogicalMarkerChannel')
-
-#from QGL.ControlFlow import qwait, qif, Wait, Sync
-@qgl2stub('QGL.ControlFlow')
-def qif(mask, ifSeq: sequence, elseSeq: sequence = None) -> control:
-    print('qif')
 
 @qgl2stub('QGL.ControlFlow')
 def qwait(kind="TRIG") -> control:
@@ -149,6 +156,10 @@ def Barrier(ctr, chanlist) -> control:
     # chanlist is list of channels that are waiting here
     # chanlist must be enough to produce some later wait on specific channels
     print('Barrier(%s, %s)' % (ctr, chanlist))
+
+@qgl2stub('QGL.ControlFlow')
+def Store(dest, source) -> control:
+    print('STORE %s -> %s' % (source, dest))
 
 @qgl2stub('QGL.ControlFlow')
 def LoadCmp() -> control:
@@ -175,16 +186,6 @@ def CmpLt(operand) -> control:
 @qgl2stub('QGL.ControlFlow')
 def CmpGt(operand) -> control:
     return ComparisonInstruction(operand, ">")
-
-#from QGL.ChannelLibrary import EdgeFactory
-@qgl2stub('QGL.ChannelLibrary')
-def EdgeFactory(source: qbit, target: qbit) -> qbit:
-    # Is that the right return?
-    print('EdgeFactory')
-
-@qgl2stub('QGL.ChannelLibrary')
-def QubitFactory(label, **kwargs) -> qbit:
-    print('QubitFactory')
 
 # Functions used by qgl2 compiler from ControlFlow
 
@@ -217,7 +218,3 @@ def Repeat(target) -> control:
 def BlockLabel(label):
     # label is a string, output is a BlockLabel
     pass
-
-@qgl2stub('QGL.PulsePrimitives')
-def CNOT(controlQ: qbit, targetQ: qbit, **kwargs) -> sequence:
-    print('CNOT')

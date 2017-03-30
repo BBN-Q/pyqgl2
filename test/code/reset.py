@@ -1,10 +1,11 @@
 from qgl2.qgl2 import concur, qgl2decl, qgl2main
 from qgl2.qgl2 import classical, pulse, qbit, qbit_list
-from qgl2.qgl1 import QubitFactory, Id, X90, Y90, X, Y, MEAS
+from qgl2.qgl1 import QubitFactory, Id, X90, Y90, X, Y, Z, MEAS
 
 # FIXME these are inserted by the flattener, the user shouldn't have to
 # import them manually
-from qgl2.qgl1 import LoadCmp, CmpEq, CmpNeq, CmpGt, CmpLt, Goto, BlockLabel
+from qgl2.qgl1 import LoadCmp, CmpEq, CmpNeq, CmpGt, CmpLt, Goto
+from qgl2.qgl1 import BlockLabel, Store
 
 @qgl2decl
 def reset1():
@@ -54,3 +55,14 @@ def reset5():
     if m == 1:
         X(q)
     X90(q)
+
+@qgl2decl
+def runtime1():
+    q = QubitFactory('q1')
+    m1 = MEAS(q)
+    m2 = MEAS(q)
+    r = my_operator(m1, m2)
+    if r == 1:
+        X(q)
+    else:
+        Z(q)
