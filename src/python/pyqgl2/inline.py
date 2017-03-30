@@ -18,17 +18,6 @@ from pyqgl2.ast_util import ast2str
 import QGL.Channels
 from QGL.ChannelLibrary import QubitFactory
 
-class BarrierIdentifier(object):
-
-    NEXTNUM = 1
-
-    @staticmethod
-    def next_bid():
-        nextnum = BarrierIdentifier.NEXTNUM
-        BarrierIdentifier.NEXTNUM += 1
-        return nextnum
-
-
 class QubitPlaceholder(QGL.Channels.Qubit):
     """
     Subclass of QGL.Channels.Qubit to add methods

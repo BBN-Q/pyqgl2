@@ -13,7 +13,6 @@ from pyqgl2.ast_qgl2 import is_concur, is_infunc
 from pyqgl2.ast_util import ast2str, expr2ast
 from pyqgl2.ast_util import copy_all_loc
 from pyqgl2.ast_util import NodeError
-from pyqgl2.inline import BarrierIdentifier
 from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.quickcopy import quickcopy
@@ -61,6 +60,16 @@ def find_all_channels(node, local_vars=None):
             all_channels.update(orig_chan)
 
     return all_channels
+
+class BarrierIdentifier(object):
+
+    NEXTNUM = 1
+
+    @staticmethod
+    def next_bid():
+        nextnum = BarrierIdentifier.NEXTNUM
+        BarrierIdentifier.NEXTNUM += 1
+        return nextnum
 
 class MarkReferencedQbits(ast.NodeVisitor):
     """
@@ -165,7 +174,7 @@ class AddSequential(ast.NodeTransformer):
     and not inside a with-concur.
     statements.
 
-    By default, statements that are not directly within a 
+    By default, statements that are not directly within a
     with-concur block are treated as sequential.  For example,
     if a function is invoked inside a with-concur block,
     the statements of that function are not "directly" within
@@ -529,7 +538,7 @@ class QbitGrouper2(object):
         # Divide between qbit allocation and ordinary
         # statements.  This is ugly: it would be better
         # to move qbit allocation outside qgl2main. TODO
-        # 
+        #
         for stmnt in node.body:
             # if (isinstance(stmnt, ast.Assign) and
             #         stmnt.targets[0].qgl_is_qbit):
@@ -591,4 +600,3 @@ class QbitGrouper2(object):
         new_node.body = alloc_stmnts + list([with_grouped])
 
         return new_node
-
