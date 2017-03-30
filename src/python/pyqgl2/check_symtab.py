@@ -7,7 +7,6 @@ import pyqgl2.importer as importer
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.ast_util import NodeVisitorWithFname
-from pyqgl2.builtin_decl import QGL2Functions
 from pyqgl2.importer import collapse_name
 
 class CheckSymtab(NodeTransformerWithFname):
@@ -82,32 +81,6 @@ class CheckSymtab(NodeTransformerWithFname):
             self.diag_msg(node, 'no definition for %s()' % func_name)
             return node
 
-        """
-        if func_name in QGL2Functions.UNI_WAVEFORMS:
-            if len(node.args) < 1:
-                self.error_msg(node,
-                        '%s requires a qbit parameter' % func_name)
-                return node
-
-            first_arg = node.args[0]
-            self.check_arg(node, first_arg, 'first')
-
-            self.gen_waveform(func_name, node.args, node.keywords)
-
-        elif func_name in QGL2Functions.BI_OPS:
-            if len(node.args) < 2:
-                self.error_msg(node,
-                        '%s requires two qbit parameters' % func_name)
-                return node
-
-            arg1 = node.args[0]
-            arg2 = node.args[1]
-
-            self.check_arg(node, arg1, 'first')
-            self.check_arg(node, arg2, 'second')
-
-        elif func_name in self.func_defs:
-        """
         if func_name in self.func_defs:
             (fparams, func_def) = self.func_defs[func_name]
 
@@ -172,5 +145,3 @@ class CheckSymtab(NodeTransformerWithFname):
         else:
             print('generating waveform %s' % signature)
             self.waveforms[signature] = 1 # BOGUS
-
-
