@@ -1654,10 +1654,12 @@ class EvalTransformer(object):
                     new_body.append(stmnt)
                 elif call_type == self.eval_state.QGL2STUB:
                     # real success
+                    stmnt.qgl2_type = 'stub'
                     new_body.append(stmnt)
                 elif call_type == self.eval_state.QGL2MEAS:
                     # A measurement where the user does not want to store
                     # the return value. Just schedule the control part.
+                    stmnt.qgl2_type = 'measurement'
                     new_body.append(stmnt)
                 elif call_type == self.eval_state.NONQGL2:
                     # Do the statement for effect
