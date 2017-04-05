@@ -147,19 +147,19 @@ class Flattener(ast.NodeTransformer):
         goto_ast = expr2ast(goto_str)
         return goto_ast
 
-    def make_cgoto_call(self, label, node, cmp_operator, mask):
+    def make_cgoto_call(self, label, node, cmp_operator, cmp_addr, value):
         """
         Create a conditional goto call
         """
 
         if isinstance(cmp_operator, ast.Eq):
-            cmp_ast = expr2ast('CmpEq(%s)' % str(mask))
+            cmp_ast = expr2ast('CmpEq("%s", %s)' % (cmp_addr, str(value)))
         elif isinstance(cmp_operator, ast.NotEq):
-            cmp_ast = expr2ast('CmpNeq(%s)' % str(mask))
+            cmp_ast = expr2ast('CmpNeq("%s", %s)' % (cmp_addr, str(value)))
         elif isinstance(cmp_operator, ast.Gt):
-            cmp_ast = expr2ast('CmpGt(%s)' % str(mask))
+            cmp_ast = expr2ast('CmpGt("%s", %s)' % (cmp_addr, str(value)))
         elif isinstance(cmp_operator, ast.Lt):
-            cmp_ast = expr2ast('CmpLt(%s)' % str(mask))
+            cmp_ast = expr2ast('CmpLt("%s", %s)' % (cmp_addr, str(value)))
         else:
             NodeError.error_msg(node,
                 'Unallowed comparison operator [%s]' % ast2str(node))
@@ -605,15 +605,18 @@ class Flattener(ast.NodeTransformer):
         if (isinstance(node.test, ast.Name) or
                 isinstance(node.test, ast.Call)):
             mask = 0
+            cmp_addr = node.test.id
             cmp_operator = ast.NotEq()
         elif (isinstance(node.test, ast.UnaryOp) and
                 isinstance(node.test.op, ast.Not)):
             mask = 0
+            cmp_addr = node.test.operand.id
             cmp_operator = ast.Eq()
         elif isinstance(node.test, ast.Compare):
             # FIXME the value can be on either side of the comparison
             # this assumes that it is on the right
             mask = node.test.comparators[0].n
+            cmp_addr = node.test.left.id
             cmp_operator = node.test.ops[0]
         else:
             NodeError.error_msg(node.test,
@@ -623,7 +626,11 @@ class Flattener(ast.NodeTransformer):
         if_label, end_label = LabelManager.allocate_labels(
                 'if', 'if_end')
 
-        cond_ast = self.make_cgoto_call(if_label, node.test, cmp_operator, mask)
+        cond_ast = self.make_cgoto_call(if_label,
+                                        node.test,
+                                        cmp_operator,
+                                        cmp_addr,
+                                        mask)
 
         # cond_ast is actually a list of AST nodes
         new_body = cond_ast
