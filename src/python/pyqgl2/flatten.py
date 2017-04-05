@@ -152,7 +152,6 @@ class Flattener(ast.NodeTransformer):
         Create a conditional goto call
         """
 
-        load_ast = expr2ast('LoadCmp()')
         if isinstance(cmp_operator, ast.Eq):
             cmp_ast = expr2ast('CmpEq(%s)' % str(mask))
         elif isinstance(cmp_operator, ast.NotEq):
@@ -167,11 +166,10 @@ class Flattener(ast.NodeTransformer):
             return None
         label_ast = expr2ast('Goto(BlockLabel(\'%s\'))' % label)
 
-        pyqgl2.ast_util.copy_all_loc(load_ast, node, recurse=True)
         pyqgl2.ast_util.copy_all_loc(cmp_ast, node, recurse=True)
         pyqgl2.ast_util.copy_all_loc(label_ast, node, recurse=True)
 
-        return list([load_ast, cmp_ast, label_ast])
+        return list([cmp_ast, label_ast])
 
     def make_label_call(self, label):
 
