@@ -189,23 +189,22 @@ def compile_function(filename,
         print(('%s: ORIGINAL CODE:\n%s' % (datetime.now(), ast_text_orig)),
               file=intermediate_fout, flush=True)
 
-    # if Wait() and Sync() aren't accessible from the namespace
-    # used by the qglmain, then things are going to fail later;
-    # might as well fail quickly
+    # When QGL2 flattens various kinds of control flow and runtime
+    # computations it emits QGL1 instruction that the user may not
+    # have imported.
     #
     # TODO: this is a hack, but the approach of adding these
     # blindly to the namespace is also a hack.  This is a
     # placeholder until we figure out a cleaner approach.
-    #
-    # if not importer.resolve_sym(ptree.qgl_fname, 'Sync'):
+
+    required_imports = ['Wait', 'Barrier', 'Goto', 'LoadCmp', 'CmpEq', 'CmpNeq',
+        'CmpGt', 'CmpLt', 'BlockLabel', 'Store']
 
     modname = ptree.qgl_fname
-    if not (add_import_from_as(importer, modname, 'qgl2.qgl1', 'Wait') and
-            add_import_from_as(importer, modname, 'qgl2.qgl1', 'Sync') and
-            add_import_from_as(importer, modname, 'qgl2.qgl1', 'Barrier')):
-        NodeError.error_msg(ptree,
-                'Wait() and/or Sync() and/or Barrier() cannot be found: missing imports?')
-        NodeError.halt_on_error()
+    for symbol in required_imports:
+        if not add_import_from_as(importer, modname, 'qgl2.qgl1', symbol):
+            NodeError.error_msg(ptree, 'Could not import %s' % symbol)
+    NodeError.halt_on_error()
 
     ptree1 = ptree
 

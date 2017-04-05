@@ -2,10 +2,6 @@ from qgl2.qgl2 import concur, qgl2decl, qgl2main
 from qgl2.qgl2 import qbit, qbit_list
 from qgl2.qgl1 import QubitFactory, Id, X90, Y90, X, Y, MEAS
 
-# FIXME these are inserted by the flattener, the user shouldn't have to
-# import them manually
-from qgl2.qgl1 import LoadCmp, CmpEq, CmpNeq, CmpGt, CmpLt, Goto, BlockLabel
-
 @qgl2decl
 def classical_continue():
     q1 = QubitFactory("q1")

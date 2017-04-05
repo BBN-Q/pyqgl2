@@ -23,7 +23,7 @@ class TestRuntimeValues(unittest.TestCase):
         else_seq = [Id(q1)]
         expectedseq = [
             MEAS(q1),
-            qwait("CMP"),
+            qwait(kind="CMP"),
             cmp_instr(mask),
             Goto(label(if_seq)),
             else_seq,
@@ -79,3 +79,28 @@ class TestRuntimeValues(unittest.TestCase):
         # expectedseq = match_labels(expectedseq, seqs)
 
         # assertPulseSequenceEqual(self, seqs, expectedseq)
+
+    def test_runtime1(self):
+        resFunction = compile_function("test/code/reset.py", "runtime1")
+        seqs = resFunction()
+
+        q1 = QubitFactory('q1')
+
+        if_seq = [X(q1)]
+        else_seq = [Z(q1)]
+        expectedseq = [
+            MEAS(q1),
+            MEAS(q1),
+            Store("r", "my_operator(m1, m2)"),
+            qwait(kind="CMP"),
+            CmpEq(1),
+            Goto(label(if_seq)),
+            else_seq,
+            Goto(endlabel(if_seq)),
+            if_seq,
+            X90(q1)
+        ]
+        expectedseq = testable_sequence(expectedseq)
+        expectedseq = match_labels(expectedseq, seqs)
+
+        assertPulseSequenceEqual(self, seqs, expectedseq)

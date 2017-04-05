@@ -7,7 +7,6 @@ import pyqgl2.importer as importer
 from pyqgl2.ast_util import NodeError
 from pyqgl2.ast_util import NodeTransformerWithFname
 from pyqgl2.ast_util import NodeVisitorWithFname
-from pyqgl2.builtin_decl import QGL2Functions
 from pyqgl2.lang import QGL2
 
 class CheckWaveforms(NodeTransformerWithFname):
@@ -136,7 +135,7 @@ class CheckWaveforms(NodeTransformerWithFname):
 
         return node
 
-    def find_val(self, call_node, expr): 
+    def find_val(self, call_node, expr):
 
         print('EXPR %s' % ast.dump(expr))
         if type(expr) == ast.Name:
@@ -176,5 +175,3 @@ class CheckWaveforms(NodeTransformerWithFname):
         else:
             print('generating waveform %s' % signature)
             self.waveforms[signature] = 1 # BOGUS
-
-

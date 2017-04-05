@@ -312,6 +312,39 @@ class Flattener(ast.NodeTransformer):
         #
         # return dbg_if
 
+    def visit_Assign(self, node):
+        """
+        Flatten an assignment. The only assignments we should see
+        are Qubits, measurements, and runtime computations. If we see a
+        measurement, we need to schedule the pulse (the RHS). A runtime
+        computation is passed through as an opaque STORE command.
+        """
+        if not isinstance(node.value, ast.Call):
+            NodeError.error_msg(node,
+                "Unexpected assignment [%s]" % ast2str(node))
+        if hasattr(node, 'qgl2_type'):
+            if node.qgl2_type == 'qbit':
+                return node
+            elif node.qgl2_type == 'measurement':
+                new_node = ast.Expr(value=node.value)
+                pyqgl2.ast_util.copy_all_loc(new_node, node)
+                return new_node
+            elif node.qgl2_type == 'runtime_call':
+                # put the runtime_call in a STORE command
+                new_node = expr2ast('Store()')
+                # first argument is the STORE destination
+                # TODO we want to re-write the target as an address
+                target_str = ast2str(node.targets[0]).strip()
+                new_node.value.args.append(ast.Str(s=target_str))
+                # second argument is the str() representation
+                # of the runtime call
+                call_str = ast2str(node.value).strip()
+                new_node.value.args.append(ast.Str(s=call_str))
+                pyqgl2.ast_util.copy_all_loc(new_node, node, recurse=True)
+                return new_node
+
+        return node
+
     def with_flattener(self, node):
         """
         For "embedded" with statements, below the top-level

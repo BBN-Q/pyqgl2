@@ -18,17 +18,6 @@ from pyqgl2.ast_util import ast2str
 import QGL.Channels
 from QGL.ChannelLibrary import QubitFactory
 
-class BarrierIdentifier(object):
-
-    NEXTNUM = 1
-
-    @staticmethod
-    def next_bid():
-        nextnum = BarrierIdentifier.NEXTNUM
-        BarrierIdentifier.NEXTNUM += 1
-        return nextnum
-
-
 class QubitPlaceholder(QGL.Channels.Qubit):
     """
     Subclass of QGL.Channels.Qubit to add methods
@@ -1003,9 +992,6 @@ class NameRedirector(ast.NodeTransformer):
         # a hack; the downstream code expects to see just
         # the name.
         #
-        # TODO: expand what we can represent as literals
-        # (i.e. add simple lists, tuples).
-        #
         # TODO: add a comment, if possible, with the name of the variable
 
         value = self.values[name]
@@ -1024,13 +1010,30 @@ class NameRedirector(ast.NodeTransformer):
         elif isinstance(value, QubitPlaceholder):
             redirection = ast.Name(id=value.use_name(), ctx=ast.Load())
             redirection.qgl_is_qbit = True
+        elif hasattr(value, '__iter__'):
+            # for simple (non-nested) iterables, try parsing the repr()
+            # of the value, and then replacing QubitPlaceholders as above
+            try:
+                redirection = ast.parse(repr(value)).body[0].value
+                for ct, element in enumerate(value):
+                    if isinstance(element, QubitPlaceholder):
+                        redirection.elts[ct] = ast.Name(id=element.use_name(),
+                                                        ctx=ast.Load())
+                        redirection.elts[ct].qgl_is_qbit = True
+            except:
+                NodeError.warning_msg(node,
+                    "Could not represent the value [%s] of [%s] as an AST node" % (value, name))
+                redirection = ast.Subscript(
+                        value=ast.Name(id=self.table_name, ctx=ast.Load()),
+                        slice=ast.Index(value=ast.Str(s=name)))
         else:
+            NodeError.warning_msg(node,
+                "Could not represent the value [%s] of [%s] as an AST node" % (value, name))
             redirection = ast.Subscript(
                     value=ast.Name(id=self.table_name, ctx=ast.Load()),
                     slice=ast.Index(value=ast.Str(s=name)))
 
         return redirection
-
 
 def names_in_ptree(ptree):
     """
