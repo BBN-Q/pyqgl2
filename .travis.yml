@@ -1,6 +1,7 @@
 language: python
 python:
-  - 3.5
+  - "3.5"
+  - "3.6"
 
 install:
   # Setup anaconda. See http://conda.pydata.org/docs/travis.html
@@ -14,15 +15,16 @@ install:
   - conda info -a
 
   # Create conda environment with dependencies
-  - conda create -q -n test-environment python=3.5 numpy bokeh h5py jupyter scipy networkx future
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy bokeh h5py jupyter scipy networkx future
   - source activate test-environment
-  - pip install cppy
-  - pip install git+https://github.com/nucleic/atom.git@1.0.0-dev
-  - pip install watchdog coveralls
+  - conda install -c ecpy atom watchdog
+  - pip install git+https://github.com/BBN-Q/QGL.git
+  - pip install meta coveralls
+  - export PYTHONPATH=$PYTHONPATH:$PWD/src/python
 
 script:
-  - cd src/python
-  - coverage run -m unittest discover
+  - coverage run --source=pyqgl2,qgl2 -m unittest discover
+
 after_script:
   - coveralls
 
