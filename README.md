@@ -27,6 +27,10 @@ cd ..
 git clone git@qiplab.bbn.com:buq-lab/pyqgl2.git
 ```
 
+## License
+
+Apache License v2.0
+
 ## Funding ##
 
 This software is based in part upon work supported by the Office of the Director
