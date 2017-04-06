@@ -1,7 +1,7 @@
 # QGL2 Compiler
 
 This is the QGL2 language compiler. QGL2 is a python-like language for
-programming quantum computers. It is an "assembly language" in the sense that
+programming quantum computers. It is a "low-level language" in the sense that
 programs directly specify gates at the physical layer, but with many of the
 niceties of a high-level programming language provided by the python host
 language.
