@@ -165,27 +165,23 @@ def Store(dest, source) -> control:
 def LoadCmp() -> control:
     print('LoadCmp')
 
-@qgl2stub('QGL.ControlFlow')
-def ComparisonInstruction(mask, operator) -> control:
-    print('CMP %s %s' % (operator, mask))
-
 # Note that these Cmp functions don't really need to be stubs,
 # they can be run as is. But making them stubs ensures
 # the imports work out.
 # operand is expected to be an integer
 
 @qgl2stub('QGL.ControlFlow')
-def CmpEq(operand) -> control:
-    return ComparisonInstruction(operand, '==')
+def CmpEq(address, value) -> control:
+    print('CMP %s == %s' % (address, value))
 @qgl2stub('QGL.ControlFlow')
-def CmpNeq(operand) -> control:
-    return ComparisonInstruction(operand, "!=")
+def CmpNeq(address, value) -> control:
+    print('CMP %s != %s' % (address, value))
 @qgl2stub('QGL.ControlFlow')
-def CmpLt(operand) -> control:
-    return ComparisonInstruction(operand, "<")
+def CmpLt(address, value) -> control:
+    print('CMP %s < %s' % (address, value))
 @qgl2stub('QGL.ControlFlow')
-def CmpGt(operand) -> control:
-    return ComparisonInstruction(operand, ">")
+def CmpGt(address, value) -> control:
+    print('CMP %s > %s' % (address, value))
 
 # Functions used by qgl2 compiler from ControlFlow
 

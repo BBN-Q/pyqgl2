@@ -410,3 +410,22 @@ def value2ast(value):
     final_ast = candidate_ast.body
 
     return final_ast
+
+def contains_type(node_or_list, ast_type):
+    """
+    Return True if the given node or any of its descendants is
+    of the given ast_type, False otherwise
+
+    For the sake of convenience, this function can also
+    take a list of AST nodes instead of a single node.
+    """
+
+    if isinstance(node_or_list, list):
+        return any(contains_type(node, ast_type)
+                for node in node_or_list)
+
+    for subnode in ast.walk(node_or_list):
+        if isinstance(subnode, ast_type):
+            return True
+
+    return False

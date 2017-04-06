@@ -23,8 +23,7 @@ class TestRuntimeValues(unittest.TestCase):
         else_seq = [Id(q1)]
         expectedseq = [
             MEAS(q1),
-            qwait(kind="CMP"),
-            cmp_instr(mask),
+            cmp_instr('m', mask),
             Goto(label(if_seq)),
             else_seq,
             Goto(endlabel(if_seq)),
@@ -92,8 +91,7 @@ class TestRuntimeValues(unittest.TestCase):
             MEAS(q1),
             MEAS(q1),
             Store("r", "my_operator(m1, m2)"),
-            qwait(kind="CMP"),
-            CmpEq(1),
+            CmpEq("r", 1),
             Goto(label(if_seq)),
             else_seq,
             Goto(endlabel(if_seq)),

@@ -1,15 +1,507 @@
-# Copyright 2015-2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
+# Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 """
-Old group-by-qbit code
-
-Functionality is now done within grouper.QbitGrouper
+Group nodes by the qbits they operate on
 """
 
+import ast
 
-class QbitGrouper(ast.NodeTransformer):
+import pyqgl2.ast_util
+
+from pyqgl2.ast_qgl2 import is_with_label
+from pyqgl2.ast_qgl2 import is_concur, is_infunc
+from pyqgl2.ast_util import ast2str, expr2ast
+from pyqgl2.ast_util import copy_all_loc
+from pyqgl2.ast_util import NodeError
+from pyqgl2.inline import QubitPlaceholder
+from pyqgl2.debugmsg import DebugMsg
+from pyqgl2.quickcopy import quickcopy
+
+def find_all_channels(node, local_vars=None):
     """
-    TODO: this is just a prototype and needs some refactoring
+    Reinitialze the set of all_channels to be the set of
+    all channels referenced in the AST rooted at the given
+    node.
+
+    This is a hack, because we assume we can identify all
+    channels lexically.  FIXME
+    """
+
+    if not local_vars:
+        local_vars = dict()
+
+    all_channels = set()
+
+    for subnode in ast.walk(node):
+        if isinstance(subnode, ast.Name):
+
+            # Ugly hard-coded assumption about channel names: FIXME
+            #
+            # Also look for bindings to QubitPlaceholders
+            #
+            if subnode.id.startswith('QBIT_'):
+                all_channels.add(subnode.id)
+            elif subnode.id.startswith('EDGE_'):
+                all_channels.add(subnode.id)
+            elif subnode.id in local_vars:
+                print('SYM IN LOCAL_VARS %s' % subnode.id)
+                if isinstance(local_vars[subnode.id], QubitPlaceholder):
+                    all_channels.add(local_vars[subnode.id].use_name())
+
+        # Look for references to inlined calls; dig out any
+        # channels that might be hiding there despite being
+        # optimized away later.
+        #
+        if hasattr(subnode, 'qgl2_orig_call'):
+            orig_chan = find_all_channels(subnode.qgl2_orig_call, local_vars)
+            # print('FAC %s -> %s' %
+            #         (ast2str(subnode.qgl2_orig_call).strip(),
+            #             str(orig_chan)))
+            all_channels.update(orig_chan)
+
+    return all_channels
+
+class BarrierIdentifier(object):
+
+    NEXTNUM = 1
+
+    @staticmethod
+    def next_bid():
+        nextnum = BarrierIdentifier.NEXTNUM
+        BarrierIdentifier.NEXTNUM += 1
+        return nextnum
+
+class MarkReferencedQbits(ast.NodeVisitor):
+    """
+    NodeVisitor that initializes a member named qgl2_referenced_qbits
+    to be the set of qbit names referenced by each node in a given AST
+
+    Assumed to be used after the inlining and evaluation has been done.
+    Does not treat qbit creation specially (at least not yet): this
+    is handled elsewhere right now.
+    """
+
+    def __init__(self, local_vars=None, force_recursion=False):
+
+        if local_vars:
+            self.local_vars = local_vars
+        else:
+            self.local_vars = dict()
+
+        self.force_recursion = force_recursion
+
+    def visit_Name(self, node):
+
+        # Ugly hard-coded assumption about channel names: FIXME
+        #
+        # Also look for bindings to QubitPlaceholders
+        #
+
+        referenced_qbits = set()
+
+        if node.id.startswith('QBIT_'):
+            referenced_qbits.add(node.id)
+        elif node.id.startswith('EDGE_'):
+            referenced_qbits.add(node.id)
+        elif ((node.id in self.local_vars) and
+                (isinstance(self.local_vars[node.id], QubitPlaceholder))):
+            referenced_qbits.add(self.local_vars[node.id].use_name())
+
+        node.qgl2_referenced_qbits = referenced_qbits
+
+    def visit(self, node):
+
+        referenced_qbits = set()
+
+        # Some ancillary nodes related to assignment or name resolution
+        # cause issues later, and have no effect on qbit refs, so
+        # skip them.  Right now Load seems to be the only troublemaker
+        #
+        if isinstance(node, ast.Load):
+            return
+
+        # If we've already run over this subtree, then we don't need
+        # to examine it again.  (this assumes that any modifications
+        # and reinvocations of this traversal happen at the root of
+        # of the AST)
+        #
+        # TODO: provide some way to check this assumption
+        #
+        if ((not self.force_recursion) and
+                hasattr(node, 'qgl2_referenced_qbits')):
+            return
+
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.Name):
+                self.visit_Name(child)
+            else:
+                self.visit(child)
+
+            if hasattr(child, 'qgl2_referenced_qbits'):
+                referenced_qbits.update(child.qgl2_referenced_qbits)
+
+        # If this is an inline expansion of a function, then
+        # make sure that qbits passed to that call are
+        # marked and added to the referenced qbits for this node.
+        #
+        if hasattr(node, 'qgl2_orig_call'):
+            orig_call = node.qgl2_orig_call
+            self.visit(orig_call)
+            referenced_qbits.update(orig_call.qgl2_referenced_qbits)
+
+        node.qgl2_referenced_qbits = referenced_qbits
+
+    @staticmethod
+    def marker(node, local_vars=None, force_recursion=False):
+        """
+        Helper function: creates a MarkReferencedQbits instance
+        with the given local variables, the uses this instance to
+        visit each AST element of the node and mark it with the
+        set of qbits it references, and then returns the set of
+        all qbits referenced by the root node
+        """
+
+        marker_obj = MarkReferencedQbits(
+                local_vars=local_vars, force_recursion=force_recursion)
+        marker_obj.visit(node)
+
+        return node.qgl2_referenced_qbits
+
+class AddSequential(ast.NodeTransformer):
+    """
+    Insert barriers to implement sequentiality when in the
+    outermost block (the @qgl2main) or inside an expanded function
+    and not inside a with-concur.
+    statements.
+
+    By default, statements that are not directly within a
+    with-concur block are treated as sequential.  For example,
+    if a function is invoked inside a with-concur block,
+    the statements of that function are not "directly" within
+    that with-concur and therefore are executed sequentially
+    unless the body of the function is itself a with-concur
+    block.
+    """
+
+    def __init__(self):
+
+        # in_concur is True if we're in a point in the traversal
+        # where we're within a with-concur block but not inside a
+        # a with-infunc that is a descendant of that with-concur.
+        #
+        self.in_concur = False
+        self.referenced_qbits = set()
+
+    @staticmethod
+    def add_barriers(node):
+        """
+        Destructively add barriers to the given node (which must be
+        a function definition) to enforce sequential execution,
+        where necessary.
+        """
+
+        assert isinstance(node, ast.FunctionDef), 'node must be a FunctionDef'
+
+        new_preamble = list()
+        new_body = list()
+
+        # Split the statements into the preamble and the
+        # "real" body
+        #
+        # if it's a qbit_creation, or it doesn't appear to
+        # have any qbit references in it, then put it in
+        # the preamble
+        #
+        # otherwise, put it in the candidate new body,
+        #
+        for stmnt in node.body:
+            # if (isinstance(stmnt, ast.Assign) and
+            #         stmnt.targets[0].qgl_is_qbit):
+            if isinstance(stmnt, ast.Assign):
+                new_preamble.append(stmnt)
+            elif not stmnt.qgl2_referenced_qbits:
+                new_preamble.append(stmnt)
+            else:
+                new_body.append(stmnt)
+
+        # Use expand_body to add barriers to the body recursively
+        #
+        add_seq = AddSequential()
+        add_seq.in_concur = False
+        add_seq.referenced_qbits = node.qgl2_referenced_qbits
+
+        new_body, new_refs = add_seq.expand_body(new_body)
+        if new_refs:
+            node.qgl2_referenced_qbits = new_refs
+
+        node.body = new_preamble + new_body
+
+        return node
+
+    def visit(self, node):
+
+        if not hasattr(node, 'qgl2_referenced_qbits'):
+            return node
+
+        # Special case: if we're called on a function def,
+        # then use add_barriers instead, because function
+        # definitions are different than ordinary statements
+        #
+        if isinstance(node, ast.FunctionDef):
+            return self.add_barriers(node)
+
+        # Save a copy of the current state, so we can
+        # restore it later (even if we don't actually
+        # modify the state)
+        #
+        prev_state = self.in_concur
+        prev_qbits = self.referenced_qbits
+
+        # Figure out if we might be entering a new execution mode
+        # (with-concur or with-infunc).  If we are, then we need
+        # to change the state variables before recursing.
+        #
+        entering_concur = is_concur(node)
+        entering_infunc = is_infunc(node)
+
+        if entering_concur or entering_infunc:
+            self.referenced_qbits = node.qgl2_referenced_qbits
+
+        if entering_concur:
+            self.in_concur = True
+        elif entering_infunc:
+            self.in_concur = False
+
+        if hasattr(node, 'body'):
+            node.body, new_refs = self.expand_body(node.body)
+            if new_refs:
+                node.qgl2_referenced_qbits = new_refs
+
+            for stmnt in node.body:
+                if not stmnt.qgl2_referenced_qbits:
+                    stmnt.qgl2_referenced_qbits = new_refs
+
+            # if we're entering a concur block and have
+            # more than one qbit to protect, then add a
+            # begin and end barrier
+            #
+            if entering_concur and len(self.referenced_qbits) > 0:
+                bid = BarrierIdentifier.next_bid()
+
+                beg_barrier = self.make_barrier_ast(
+                        self.referenced_qbits, node,
+                        name='concur_beg', bid=bid)
+                end_barrier = self.make_barrier_ast(
+                        self.referenced_qbits, node,
+                        name='concur_end', bid=bid)
+                node.body = [beg_barrier] + node.body + [end_barrier]
+
+        if hasattr(node, 'orelse') and node.orelse:
+            node.orelse, new_refs = self.expand_body(node.orelse)
+            if new_refs:
+                node.qgl2_referenced_qbits = new_refs
+
+        if DebugMsg.ACTIVE_LEVEL < 3:
+            print('NODE %s => %s %s' %
+                  (ast2str(node).strip(),
+                   str(node.qgl2_referenced_qbits),
+                   str(self.referenced_qbits)))
+
+        # put things back the way they were (even if we didn't
+        # change anything)
+        #
+        self.in_concur = prev_state
+        self.referenced_qbits = prev_qbits
+
+        return node
+
+    def expand_body(self, body):
+        """
+        We need to set the qgl2_referenced_qbits properly
+        in the new with-concur nodes correctly in order to ensure
+        that statements that operate on distinct sets of qbits
+        are still made sequential, even though they don't "conflict".
+        In essence, we must make them conflict.
+        """
+
+        new_body = list()
+        cnt = 0
+
+        updated_qbit_refs = None
+
+        # This shouldn't happen, but deal with it if it does
+        #
+        if len(body) == 0:
+            return new_body, updated_qbit_refs
+
+        # If the statement is any sort of "with", then pass it
+        # straight through, because this means that it's a
+        # container of some sort.  We only insert barriers around
+        # "simple" statements.
+        #
+        # If it's a qbit creation, then let it go through without
+        # serializing; these statements will all be moved to the
+        # preamble anyway.
+        #
+
+        bid = BarrierIdentifier.next_bid()
+
+        for ind in range(len(body)):
+            stmnt = body[ind]
+
+            # We don't put barriers around with statements;
+            # we only put them around "primitive" statements
+            # or as the side effect of with statements
+            #
+            new_stmnt = self.visit(stmnt)
+
+            if self.is_with_container(new_stmnt):
+                new_body.append(new_stmnt)
+            elif self.in_concur:
+                new_body.append(new_stmnt)
+            else:
+                if len(self.referenced_qbits) > 1:
+                    barrier_ast = self.make_barrier_ast(
+                            self.referenced_qbits, stmnt,
+                            name='seq_%d' % ind, bid=bid)
+                    new_body.append(barrier_ast)
+
+                new_body.append(new_stmnt)
+
+                updated_qbit_refs = self.referenced_qbits
+
+        if not (self.in_concur or self.is_with_container(new_stmnt)):
+            if len(self.referenced_qbits) > 1:
+                barrier_ast = self.make_barrier_ast(
+                        self.referenced_qbits, stmnt,
+                        name='eseq_%d' % len(body), bid=bid)
+                new_body.append(barrier_ast)
+
+            updated_qbit_refs = self.referenced_qbits
+
+        return new_body, updated_qbit_refs
+
+    def is_with_container(self, node):
+        """
+        Return True if the node is a "with" statement that
+        we use in the preprocessor as a container for loops
+        or iterations of loops, False otherwise.
+
+        These containers are for bookkeeping and therefore
+        are not subject to barriers.
+
+        In some cases, we add extra barriers for the sake
+        of readability -- otherwise readers are confused
+        about why they're missing, even though the "obvious"
+        barriers often turn out to be redundant.  Most of
+        the time, we try to get rid of redundant barriers
+        because they just obscure what's going on.
+        """
+
+        if is_with_label(node, 'Qiter'):
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def make_barrier_ast(qbits, node, name='seq', bid=None):
+
+        if not bid:
+            bid = BarrierIdentifier.next_bid()
+
+        arg_names = sorted(list(qbits))
+        arg_list = '[%s]' % ', '.join(arg_names)
+        barrier_name = '%s_%d' % (name, bid)
+
+        barrier_ast = expr2ast(
+                'Barrier(\'%s\', %s)' % (barrier_name, arg_list))
+
+        # TODO: make sure that this gets all of the qbits.
+        # It might need local scope info as well, which we don't
+        # have here.
+        #
+        MarkReferencedQbits.marker(barrier_ast)
+
+        copy_all_loc(barrier_ast, node, recurse=True)
+
+        # Add an "implicit import" for the Barrier function
+        #
+        barrier_ast.value.qgl_implicit_import = (
+                'Barrier', 'qgl2.qgl1control', 'Barrier')
+
+        # print('MARKED %s [%s] %s' %
+        #         (barrier_name,
+        #             str(barrier_ast.qgl2_referenced_qbits), str(qbits)))
+
+        return barrier_ast
+
+
+class QbitPruner(ast.NodeTransformer):
+    """
+    NodeTransformer that prunes out statements that do not reference
+    any members of a given set of qbits.  Note that we should not prune
+    out anything below the statement level.
+
+    If the body or the orelse of a statement is reduced to the
+    empty list by this pruning, then it is replaced with a "pass"
+    statement.
+
+    Assumed to be used after the inlining and evaluation has been done,
+    and after MarkReferencedQbits.visit() has been used to detect
+    which qbits are used by each node.
+
+    Does not treat qbit creation specially (at least not yet): this
+    is handled elsewhere right now.
+    """
+
+    def __init__(self, active_qbits):
+
+        self.active_qbits = active_qbits
+
+    def visit(self, node):
+
+        if not node.qgl2_referenced_qbits.intersection(self.active_qbits):
+            return None
+
+        if hasattr(node, 'body'):
+            new_body = self.prune_body(node.body)
+            if not new_body:
+                new_body = list([ast.Pass()]) # bogus! debugging
+            node.body = new_body
+
+        if hasattr(node, 'orelse'):
+            node.orelse = self.prune_body(node.orelse)
+
+        return node
+
+    def prune_body(self, old_body):
+        """
+        Prune out statements that don't reference the active qbits.
+        """
+
+        new_body = list()
+
+        for old_stmnt in old_body:
+            if old_stmnt.qgl2_referenced_qbits.intersection(self.active_qbits):
+                new_stmnt = self.visit(old_stmnt)
+                if new_stmnt:
+                    new_body.append(new_stmnt)
+
+        return new_body
+
+
+class QbitGrouper2(object):
+    """
+    Given a FunctionDef ptree, rewrite it so that all the
+    assignments are in the preamble, and then create a
+    "with-grouped" statemnt with a body consisting of "with-seq"
+    statements, one per qbit, for the statements that will be
+    executed on that qbit.
+
+    Each "with-seq" is prefixed with a special Barrier that
+    identifies the sequence as the start of a group for a
+    specific qbit (this info is used later, to compile the
+    sequences to hardware)
     """
 
     def __init__(self, local_vars=None):
@@ -19,436 +511,92 @@ class QbitGrouper(ast.NodeTransformer):
 
         self.local_vars = local_vars
 
-    def visit_FunctionDef(self, node):
-        """
-        The grouper should only be used on a function def,
-        and there shouldn't be any nested functions, so this
-        should effectively be the top-level call.
-
-        For every statement in the body of the function,
-        if it's a with-concur, then do the grouping as implied
-        by that.  Otherwise, treat each statement as if it was
-        wrapped in an implicit with-concur/with-seq block,
-        because we need to serialize them.  (This isn't the
-        only way to deal with this situation, but it meshes
-        well with the other mechanisms.)
-
-        Note that the initial qbit creation/assignment is
-        treated as a special case: these statements are
-        purely classical bookkeeping, even though they look
-        like quantum operations, and are left alone.
-
-        TODO: need to figure out how to handle nested with-concurs,
-        particularly within conditional statements.
-        """
-
-        for i in range(len(node.body)):
-            stmnt = node.body[i]
-
-            # If it's a with-concur statement, then recurse.
-            # If it's a qbit creation/assigment statement, then
-            # leave it alone.
-            # If it's anything else, then treat it as strictly
-            # sequential; wrap it in a with-concur and with-seq
-            # to create a global barriers before/after the statement.
-            #
-            # TODO: we've been talking about non-global barriers.
-            # Adding this will require changes to this logic.
-            #
-            if is_concur(stmnt):
-                node.body[i] = self.visit(stmnt)
-                continue
-            elif is_infunc(stmnt):
-                node.body[i] = self.visit(stmnt)
-                continue
-
-            elif (isinstance(stmnt, ast.Assign) and
-                    stmnt.targets[0].qgl_is_qbit):
-                # Leave the stmnt untouched.
-                # TODO: this is an awkward way of determining
-                # whether the statement is a qbit assignment.
-                # FIXME: really need a cleaner method (here and elsewhere)
-                continue
-            else:
-                seq_node = ast.With(
-                        items=list([ast.withitem(
-                            context_expr=ast.Name(id='seq', ctx=ast.Load()),
-                            optional_vars=None)]),
-                        body=list())
-                concur_node = ast.With(
-                        items=list([ast.withitem(
-                            context_expr=ast.Name(id='concur', ctx=ast.Load()),
-                            optional_vars=None)]),
-                        body=list([seq_node]))
-
-                pyqgl2.ast_util.copy_all_loc(concur_node, stmnt, recurse=True)
-
-                # NOTE: I don't like this.  If the stmnt is a compound
-                # statement, then we've put the body into a with-concur
-                # and a with-seq, which might not be what the programmer
-                # expects (or what we want).
-                #
-                seq_node.body = list([self.generic_visit(stmnt)])
-
-                # DESTRUCTIVE
-                #
-                node.body[i] = concur_node
-
-        return node
-
-    def visit_With(self, node):
-
-        if is_concur(node) or is_infunc(node):
-
-            # Hackish way to create a seq node to use
-            seq_node = expr2ast('with seq: pass')
-
-            pyqgl2.ast_util.copy_all_loc(seq_node, node)
-
-            groups = self.group_stmnts2(node.body)
-            new_body = list()
-
-            for qbits, stmnts in groups:
-                new_seq = deepcopy(seq_node)
-                new_seq.body = stmnts
-                # Mark an attribute on new_seq naming the qbits
-                new_seq.qgl_chan_list = qbits
-                NodeError.diag_msg(node,
-                        ("Adding new with seq marked with qbits %s" %
-                            (str(qbits))))
-                new_body.append(new_seq)
-
-            node.body = new_body
-
-            # print('Final:\n%s' % pyqgl2.ast_util.ast2str(node))
-
-            return node
-        else:
-            return self.generic_visit(node) # check
-
-    def group_stmnts2(self, stmnts, find_qbits_func=None):
-        """
-        A different approach to grouping statements,
-        which (hopefully) will work more cleanly on deep
-        structures.  See group_stmnts for a basic overview
-        of what this function attempts to do.
-
-        NOTE: this function assumes that each statement
-        is associated with exactly one qbit.  Operations
-        that involve multiple qbits (like CNOT) are treated
-        as having a "source" qbit, and this is the qbit
-        associated with the statement.  (this may be
-        overly simplistic)
-
-        The basic approach taken by this method is:
-
-        a) find all the qbits referenced by the stmnts
-
-        b) for each qbit referenced:
-
-            i) make a copy of the stmnts
-
-            ii) for each qbit, traverse the copy, removing
-                any statement that does not reference that qbit.
-                (this is a recursive process, if the statements
-                are themselves compound)
-
-            iii) for each copy, remove any statements made
-                degenerate by removing substatements (for
-                example, you could end up with loops filled with
-                "with Qiter: pass" statements, which can be safely
-                elided).
-
-        (To make this slightly simpler, we stripe this by
-        statement, instead of doing the entire statement list
-        at once in steps b.i--b.ii.)
-
-        This consumes more memory than a pure construction,
-        but it's simpler.
-        """
-
-        if find_qbits_func is None:
-            find_qbits_func = find_all_channels
-
-        all_qbits = set()
-
-        for stmnt in stmnts:
-            all_qbits.update(find_qbits_func(stmnt, self.local_vars))
-
-        qbit2stmnts = dict()
-
-        for qbit in all_qbits:
-            new_stmnts = list()
-
-            for stmnt in stmnts:
-                pruned_stmnt = self.keep_qbit(stmnt, qbit, find_qbits_func)
-                if pruned_stmnt:
-                    new_stmnts.append(pruned_stmnt)
-
-            if new_stmnts:
-                qbit2stmnts[qbit] = new_stmnts
-            else:
-                print('GR2: expected to find at least one stmnt? [%s]', qbit)
-
-        """
-        for qbit in qbit2stmnts:
-            print('GR2 final %s' % qbit)
-            for substmnt in qbit2stmnts[qbit]:
-                print('   %s' % ast2str(substmnt).strip())
-        """
-
-        groups = [ (list([qbit]), qbit2stmnts[qbit])
-                for qbit in qbit2stmnts.keys() ]
-
-        return groups
-
-    def keep_qbit(self, stmnt, qbit, finder):
-        """
-        Fake scaffolding that only looks at the top-level
-
-        NOTE: only looks at the top level and
-        determines whether they match the given qbit
-        and whether the stmnt contains more than
-        one qbit
-
-        TODO: does not examine the internal structure
-        of statements in general; the only compound structure
-        it considers is the body of top-level Qfor statements
-
-        TODO: add special case (probably to the finder)
-        to address the problem of operators that take
-        multiple qbits, such as CNOT.
-        """
-
-        if is_with_label(stmnt, QGL2.FOR):
-            new_body = list()
-
-            # this is wasteful: we make a copy of the whole
-            # thing, and then end up throwing away everything
-            # but the header.  Should allocate only the header.
-            #
-            new_qfor = deepcopy(stmnt)
-
-            # TODO: the only thing that should be in the body of a
-            # Qfor is a Qiter, but we don't do anything if this
-            # assumption is violated.
-            #
-            for substmnt in stmnt.body:
-                if not is_with_label(substmnt, QGL2.ITER):
-                    print('EXPECTED %s' % QGL2.ITER)
-
-                if self.keep_qbit(substmnt, qbit, finder):
-                    new_body.append(substmnt)
-
-            # We can't have a completely empty body, so add a pass
-            # if necessary
-            #
-            if not new_body:
-                new_body = list([ast.Pass()])
-
-            new_qfor.body = new_body
-            return new_qfor
-
-        # The general case: it's not a Qfor, at least not at the
-        # top level.  It's all or nothing, then.
-
-        qbits = finder(stmnt, self.local_vars)
-        n_qbits = len(qbits)
-        if n_qbits == 0:
-            NodeError.error_msg(stmnt,
-                    ('no qbit references in stmnt? [%s]' %
-                        ast2str(stmnt).strip()))
-            return None
-            
-        elif n_qbits > 1:
-            print('multiple qbit references (%s) in stmnt [%s]' %
-                        (str(qbits), ast2str(stmnt).strip()))
-            NodeError.error_msg(stmnt,
-                    ('multiple qbit references (%s) in stmnt [%s]' %
-                        (str(qbits), ast2str(stmnt).strip())))
-            return None
-
-        if qbit in qbits:
-            return stmnt
-        else:
-            return None
-
-    def group_stmnts(self, stmnts, find_qbits_func=None):
-        """
-        Return a list of statement groups, where each group is a tuple
-        (qbit_list, stmnt_list) where qbit_list is a list of all of
-        the qbits referenced in the statements in stmnt_list.
-
-        The stmnts list is partitioned such that each qbit is referenced
-        by statements in exactly one partition (with a special partition
-        for statements that don't reference any qbits).
-
-        TODO: Independence is defined ad-hoc here, and will need
-        to be something more sophisticated that understands the
-        interdependencies between qbits/channels.
-
-        For example, assuming that "x", "y", and "z" refer to
-        qbits on non-conflicting channels, the statements:
-
-                X90(x)
-                Y90(y)
-                Id(z)
-                Y90(x)
-                X180(z)
-
-        can be grouped into:
-
-                [ [ X90(x), Y90(x) ], [ Y90(y) ], [ Id(z), X180(z) ] ]
-
-        which would result in a returned value of:
-
-        [ ([x], [X90(x), Y90(x)]), ([y], [Y90(y)]), ([z], [Id(z), X180(z)]) ]
-
-        If there are operations over multiple qbits, then the
-        partitioning may fail.
-
-        Note that the first step in the partitioning may result
-        in the creation of additional statements, with the goal
-        of simplifying the later partitioning.  For example, if
-        we have a simple iterative loop with more than one qbit
-        referenced within it:
-
-                with qrepeat(3):
-                    something(QBIT_1)
-                    something(QBIT_2)
-                    something(QBIT_3)
-
-        In this example, the with statement references three qbits,
-        which is an awkward partition.  We can partition the body
-        to create three separate loops:
-
-                with qrepeat(3):
-                    something(QBIT_1)
-                with qrepeat(3):
-                    something(QBIT_2)
-                with qrepeat(3):
-                    something(QBIT_3)
-
-        This seems to create more work, but since the loops are
-        going to run on three disjoint sets of hardware, it's
-        actually simpler and closer to the actual instruction
-        sequence.
-        """
-
-        if find_qbits_func is None:
-            find_qbits_func = find_all_channels
-
-        qbit2list = dict()
-
-        expanded_stmnts = list()
-
-        # Make a first pass over the list of statements,
-        # looking for any that need to be partitioned by creating
-        # new statements, thus creating an expanded list of
-        # statements.
+    @staticmethod
+    def group(node, local_vars=None):
+
+        # We want to make a copy of params of the root node,
+        # but we DO NOT need to recurse through the body of
+        # the node (and this is potentially a time-sink).
+        # So we grab a reference to the node body, reassign
+        # the node body to the empty list, make a copy of
+        # the node recursively, and then put the original
+        # body back.
         #
-        # See above for an example.
+        orig_body = node.body
+        node.body = list()
+        new_node = quickcopy(node)
+        node.body = orig_body
+
+        all_qbits = MarkReferencedQbits.marker(
+                node, local_vars=local_vars, force_recursion=True)
+
+        # TODO: need to check that it's a FunctionDef
+
+        alloc_stmnts = list()
+        body_stmnts = list()
+
+        # Divide between qbit allocation and ordinary
+        # statements.  This is ugly: it would be better
+        # to move qbit allocation outside qgl2main. TODO
         #
-        for stmnt in stmnts:
+        for stmnt in node.body:
+            # if (isinstance(stmnt, ast.Assign) and
+            #         stmnt.targets[0].qgl_is_qbit):
+            if isinstance(stmnt, ast.Assign):
+                alloc_stmnts.append(stmnt)
+            else:
+                body_stmnts.append(stmnt)
 
-            # If this is a qrepeat statement, then partition
-            # its body and then create a new qrepeat statement
-            # for each partition.
+        new_groups = list()
+
+        qbits = sorted(all_qbits)
+
+        for i in range(len(qbits)):
+            qbit = qbits[i]
+
+            # An optimization: we need to make a copy of body_stmnts
+            # so we can modify it, but for the last iteration, we can
+            # cannibalize it and use the input list as our scratch_body.
+            # In the (common) case that there's only one qbit, this
+            # has a large effect on performance.
             #
-            # Eventually there may be other kinds of statements
-            # that we expand, but qrepeat is the only one we
-            # expand now
-            #
-            if is_with_call(stmnt, QGL2.REPEAT):
-
-                rep_groups = self.group_stmnts(stmnt.body)
-                for partition, substmnts in rep_groups:
-                    # lazy way to create the specialized qrepeat:
-                    # copy the whole thing, and then throw away
-                    # its body and replace it with the partition.
-                    #
-                    new_qrepeat = deepcopy(stmnt)
-                    new_qrepeat.body = substmnts
-
-                    expanded_stmnts.append(new_qrepeat)
-            elif is_with_label(stmnt, QGL2.FOR):
-                # TODO: must deal with Qfor and Qiters here.
-                expanded_stmnts.append(stmnt)
-
+            if i == (len(qbits) - 1):
+                scratch_body = body_stmnts
             else:
-                expanded_stmnts.append(stmnt)
+                scratch_body = quickcopy(body_stmnts)
 
-        for stmnt in expanded_stmnts:
+            pruned_body = QbitPruner(set([qbit])).prune_body(scratch_body)
+            if not pruned_body:
+                continue
 
-            qbits_referenced = list(find_qbits_func(stmnt, self.local_vars))
-            # print('GR %s -> %s' %
-            #         (ast2str(stmnt).strip(), str(qbits_referenced)))
+            with_group = expr2ast('with group(%s): pass' % qbit)
+            copy_all_loc(with_group, node, recurse=True)
 
-            if len(qbits_referenced) == 0:
-                # print('unexpected: no qbit referenced')
+            # Insert a special Barrier named "group_marker..."
+            # at the start of each per-qbit group.
+            # The compiler later looks for this to know
+            # which sequence is for which Qubit.
+            bid = BarrierIdentifier.next_bid()
+            beg_barrier = AddSequential.make_barrier_ast(
+                [qbit], with_group,
+                name='group_marker', bid=bid)
+            if DebugMsg.ACTIVE_LEVEL < 3:
+                print("For qbit %s, inserting group_marker: %s" %
+                        (qbit, ast2str(beg_barrier)))
 
-                # Not sure whether this should be an error;
-                # for now we'll add this to a special 'no qbit'
-                # bucket.
+            with_group.body = [beg_barrier] + pruned_body
 
-                if 'no_qbit' not in qbit2list:
-                    qbit2list['no_qbit'] = list([stmnt])
-                else:
-                    qbit2list['no_qbit'].append(stmnt)
+            with_group.qbit = qbit
+            MarkReferencedQbits.marker(with_group, local_vars=local_vars)
 
-            elif len(qbits_referenced) == 1:
-                qbit = qbits_referenced[0]
-                if qbit not in qbit2list:
-                    qbit2list[qbit] = list([stmnt])
-                else:
-                    qbit2list[qbit].append(stmnt)
-            else:
-                # There are multiple qbits referenced by the stmnt,
-                # then we need to find any other stmnt lists that
-                # we've built up for each of the qbits, and combine
-                # them into one sequence of statments, and then
-                # map each qbit to the resulting sequence.
-                #
-                # This would be more elegant if we could have a set
-                # of lists, but in Python lists aren't hashable,
-                # so we need to fake a set implementation with a list.
-                #
-                stmnt_set = list()
-                stmnt_list = list()
+            new_groups.append(with_group)
 
-                for qbit in qbits_referenced:
-                    if qbit in qbit2list:
-                        curr_list = qbit2list[qbit]
+        with_grouped = expr2ast('with grouped: pass')
+        copy_all_loc(with_grouped, node, recurse=True)
+        MarkReferencedQbits.marker(with_grouped, local_vars=local_vars)
 
-                        if curr_list not in stmnt_set:
-                            stmnt_set.append(curr_list)
+        with_grouped.body = new_groups
 
-                for seq in stmnt_set:
-                    stmnt_list += seq
+        new_node.body = alloc_stmnts + list([with_grouped])
 
-                stmnt_list.append(stmnt)
-
-                for qbit in qbits_referenced:
-                    qbit2list[qbit] = stmnt_list
-
-        # neaten up qbit2list to eliminate duplicates;
-        # present the result in a more useful manner
-
-        tmp_groups = dict()
-
-        for qbit in qbit2list.keys():
-            # this is gross, but we can't use a mutable object as a key
-            # in a table, so we use a string representation
-
-            stmnts_str = str(qbit2list[qbit])
-            if stmnts_str in tmp_groups:
-                (qbits, _stmnts) = tmp_groups[stmnts_str]
-                qbits.append(qbit)
-            else:
-                tmp_groups[stmnts_str] = (list([qbit]), qbit2list[qbit])
-
-        groups = [ (sorted(tmp_groups[key][0]), tmp_groups[key][1])
-                for key in tmp_groups.keys() ]
-
-        return sorted(groups)
-
+        return new_node
