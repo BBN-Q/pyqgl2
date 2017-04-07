@@ -81,6 +81,9 @@ class QRegister(object):
     def __eq__(self, other):
         return self.qubits == other.qubits
 
+    def __hash__(self):
+        return hash(tuple(self.qubits))
+
     def use_name(self, idx=None):
         if idx is not None:
             return 'QBIT_' + str(self.qubits[idx])
