@@ -1,7 +1,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 from pyqgl2.ast_util import NodeError
-from pyqgl2.qreg import QRegister
+from pyqgl2.qreg import QRegister, QReference
 
 def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
     """
@@ -26,7 +26,8 @@ def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
     assert isinstance(colno, int), 'colno must be a int'
 
     if required_type == 'qbit':
-        if not isinstance(value, QRegister):
+        # TODO add a check that QReference indices are within bounds
+        if not isinstance(value, (QRegister, QReference)):
             print(('%s:%d:%d: error: ' +
                 'param [%s] of func [%s] must be qbit') %
                     (fname, lineno, colno, fp_name, fun_name))

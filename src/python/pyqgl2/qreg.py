@@ -19,15 +19,11 @@ from pyqgl2.lang import QGL2
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.ast_util import NodeError, ast2str
 
-# from QGL.ChannelLibrary import QubitFactory
-
 class QRegister(object):
     """
     Registers of Qubits.
 
-    Instances should never be created directly;
-    use QRegister.factory() to create
-    instances.
+    Use QRegister.factory() to create instances from AST nodes.
     """
 
     # mapping from index to reference
@@ -95,7 +91,7 @@ class QRegister(object):
         return len(self.qubits)
 
     def __getitem__(self, n):
-        return QRegister("q" + str(self.qubits[n]))
+        return QReference(self, n)
 
     def __add__(self, other):
         return QRegister(self, other)
@@ -132,6 +128,25 @@ class QRegister(object):
         QRegister.KNOWN_QUBITS.clear()
         QRegister.NUM_REGISTERS = 0
 
+class QReference(object):
+    '''
+    A subscripted QRegister
+    '''
+    def __init__(self, ref, idx):
+        if not isinstance(ref, QRegister):
+            raise NameError("ref is not a QRegister %s" % str(ref))
+        self.ref = ref
+        self.idx = idx
+
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        return "QReference({0}, {1})".format(self.ref, self.idx)
+
+    def use_name(self):
+        return self.ref.use_name()
+
 def is_qbit_create(node):
     """
     Returns True if node represents a qbit creation and assignment.
@@ -154,6 +169,21 @@ def is_qbit_create(node):
         return False
 
     if node.value.func.id != QGL2.QBIT_ALLOC:
+        return False
+
+    return True
+
+def is_qbit_subscript(node, local_vars):
+    """
+    Returns True if a node represents a QRegister subscript
+    """
+    if not isinstance(node, ast.Subscript):
+        return False
+
+    if not node.value.id in local_vars:
+        return False
+
+    if not isinstance(local_vars[node.value.id], QRegister):
         return False
 
     return True

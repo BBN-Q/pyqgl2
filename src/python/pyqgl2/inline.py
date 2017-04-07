@@ -9,7 +9,7 @@ from pyqgl2.importer import NameSpaces
 from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
 from pyqgl2.quickcopy import quickcopy
-from pyqgl2.qreg import QRegister
+from pyqgl2.qreg import QRegister, QReference
 
 import pyqgl2.ast_util
 import pyqgl2.scope
@@ -949,6 +949,12 @@ class NameRedirector(ast.NodeTransformer):
             redirection = ast.Str(s=value)
         elif isinstance(value, QRegister):
             redirection = ast.Name(id=value.use_name(), ctx=ast.Load())
+            redirection.qgl_is_qbit = True
+        elif isinstance(value, QReference):
+            # TODO add check that that value.idx is a numeric constant?
+            redirection = ast.Subscript(value=ast.Name(id=value.use_name(), ctx=ast.Load()),
+                                        slice=ast.Index(ast.Num(n=value.idx)),
+                                        ctx=ast.Load())
             redirection.qgl_is_qbit = True
         elif hasattr(value, '__iter__'):
             # for simple (non-nested) iterables, try parsing the repr()
