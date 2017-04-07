@@ -15,12 +15,9 @@ from test.helpers import testable_sequence, discard_zero_Ids, \
     flattenSeqs, channel_setup, assertPulseSequenceEqual, \
     get_cal_seqs_1qubit, get_cal_seqs_2qubits
 
-class TestBasicMins(unittest.TestCase):
+class TestAllXY(unittest.TestCase):
     def setUp(self):
         channel_setup()
-
-    def tearDown(self):
-        pass
 
     def test_AllXY(self):
         q1 = QubitFactory('q1')
@@ -111,9 +108,10 @@ class TestBasicMins(unittest.TestCase):
         assertPulseSequenceEqual(self, seqs[:len(expectedseq)], expectedseq)
 
 
-    # CRMin
+class TestCR(unittest.TestCase):
+    def setUp(self):
+        channel_setup()
 
-    # PiRabi
     def test_PiRabi(self):
         controlQ = QubitFactory('q1')
         targetQ = QubitFactory('q2')
@@ -267,7 +265,9 @@ class TestBasicMins(unittest.TestCase):
         self.maxDiff = None
         assertPulseSequenceEqual(self, seqs, expected_seq)
 
-    ## DecouplingMin
+class TestDecoupling(unittest.TestCase):
+    def setUp(self):
+        channel_setup()
 
     def test_HahnEcho(self):
         q = QubitFactory('q1')
@@ -298,6 +298,7 @@ class TestBasicMins(unittest.TestCase):
                                       (q, pulseSpacings, periods, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
+        # import ipdb; ipdb.set_trace()
         assertPulseSequenceEqual(self, seqs, expectedseq)
 
     def test_CPMG(self):
@@ -343,7 +344,10 @@ class TestBasicMins(unittest.TestCase):
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs, expectedseq)
 
-    ## FlipFlopMin
+class TestFlipFlop(unittest.TestCase):
+    def setUp(self):
+        channel_setup()
+
     def test_FlipFlop(self):
         qubit = QubitFactory('q1')
         dragParamSweep = np.linspace(0, 5e-6, 11) # FIXME
@@ -387,8 +391,10 @@ class TestBasicMins(unittest.TestCase):
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs, expectedseq)
 
-    ## RB isn't ready yet
-
+## RB isn't ready yet
+class TestRabiMin(unittest.TestCase):
+    def setUp(self):
+        channel_setup()
     ## Rabi
 
     def test_RabiAmp(self):
@@ -559,7 +565,9 @@ class TestBasicMins(unittest.TestCase):
 
         assertPulseSequenceEqual(self, seqs, expectedseq)
 
-    ## SPAMMin
+class TestSPAM(unittest.TestCase):
+    def setUp(self):
+        channel_setup()
 
     def test_SPAM(self):
         q = QubitFactory('q1')
@@ -608,7 +616,9 @@ class TestBasicMins(unittest.TestCase):
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs, expectedseq)
 
-    ## T1T2Min
+class TestT1T2(unittest.TestCase):
+    def setUp(self):
+        channel_setup()
 
     def test_InversionRecovery(self):
         q = QubitFactory('q1')
