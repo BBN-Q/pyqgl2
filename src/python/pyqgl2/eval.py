@@ -781,10 +781,8 @@ class EvalTransformer(object):
         self.seen_continue = False
         self.in_quantum_condition = False
 
-        # the 'use names' (i.e. QBIT_1) for qbits known to be
-        # allocated
-        #
-        self.allocated_qbits = set()
+        # map of 'use names' (i.e. QREG_1) to QRegisters
+        self.allocated_qbits = dict()
 
         # run-time variables, which store the results of measurements
         # or computations on other run-time values
@@ -916,6 +914,9 @@ class EvalTransformer(object):
         # restore the last known set of locals before
         # trying to process the body of the node
         self.setup_locals()
+
+        # reset QRegister globals
+        QRegister.reset()
 
         # add assignments for passed qbit parameters
         qbit_preamble = list()
@@ -1538,13 +1539,13 @@ class EvalTransformer(object):
                 if is_qbit_create(stmnt):
                     self.rewriter.rewrite(stmnt.value)
 
-                    qbit = QRegister.factory(stmnt, self.allocated_qbits)
+                    qreg = QRegister.factory(stmnt, self.allocated_qbits)
                     sym_name = stmnt.targets[0].id
 
-                    self.allocated_qbits.add(qbit.use_name())
+                    self.allocated_qbits[qreg.use_name()] = qreg
 
                     local_variables = self.eval_state.locals_stack[-1]
-                    local_variables[sym_name] = qbit
+                    local_variables[sym_name] = qreg
                     # print('EV: QBIT CREATE %s' % ast.dump(stmnt))
                     stmnt.qgl2_type = 'qbit'
                     new_body.append(stmnt)

@@ -60,8 +60,6 @@ class QRegister(object):
                 # assume names are of the form "qN"
                 # TODO throw an error if the provided string doesn't have that form
                 idx = int(arg[1:])
-                if idx in QRegister.KNOWN_QUBITS:
-                    raise NameError("Qubit %s is already in use" % str(args[0]))
                 self.qubits.append(idx)
         elif all(isinstance(x, QRegister) for x in args):
             # concatenated register
@@ -96,6 +94,9 @@ class QRegister(object):
     def __len__(self):
         return len(self.qubits)
 
+    def __getitem__(self, n):
+        return QRegister("q" + str(self.qubits[n]))
+
     def __add__(self, other):
         return QRegister(self, other)
 
@@ -125,6 +126,11 @@ class QRegister(object):
                     "Unhandled argument to QRegister [%s]" % ast2str(arg))
 
         return QRegister(*arg_values)
+
+    @staticmethod
+    def reset():
+        QRegister.KNOWN_QUBITS.clear()
+        QRegister.NUM_REGISTERS = 0
 
 def is_qbit_create(node):
     """
