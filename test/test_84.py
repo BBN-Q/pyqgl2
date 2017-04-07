@@ -71,5 +71,5 @@ class Test84(unittest.TestCase):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         resFunction = compile_function('test/code/bugs/84.py', 't5')
-        if resFunction:
-            self.fail('Empty program should have produced a function')
+        seqs = resFunction()
+        self.assertTrue(len(seqs) == 0)
