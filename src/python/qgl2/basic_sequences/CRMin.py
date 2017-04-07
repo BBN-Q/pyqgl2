@@ -1,9 +1,8 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, concur, qbit_list
+from qgl2.qgl2 import qgl2decl, concur, qbit_list, QRegister
 from qgl2.util import init
-from qgl2.qgl1 import Id, flat_top_gaussian_edge, X, QubitFactory, \
-    X90, echoCR
+from qgl2.qgl1 import Id, flat_top_gaussian_edge, X, X90, echoCR
 from qgl2.qgl1 import MEAS
 from qgl2.basic_sequences.helpers import create_cal_seqs
 
@@ -18,8 +17,8 @@ def meas_all(qubits: qbit_list):
 @qgl2decl
 def doPiRabi():
     # FIXME: No arguments allowed
-    controlQ = QubitFactory('q1')
-    targetQ = QubitFactory('q2')
+    controlQ = QRegister('q1')
+    targetQ = QRegister('q2')
     # FIXME: Better values!?
     lengths = np.linspace(0, 4e-6, 11)
     riseFall=40e-9
@@ -52,8 +51,8 @@ def doPiRabi():
 @qgl2decl
 def doEchoCRLen():
     # FIXME: No arguments allowed
-    controlQ = QubitFactory('q1')
-    targetQ = QubitFactory('q2')
+    controlQ = QRegister('q1')
+    targetQ = QRegister('q2')
     # FIXME: Better values!?
     lengths = np.linspace(0, 2e-6, 11)
     riseFall=40e-9
@@ -89,8 +88,8 @@ def doEchoCRLen():
 @qgl2decl
 def doEchoCRPhase():
     # FIXME: No arguments allowed
-    controlQ = QubitFactory('q1')
-    targetQ = QubitFactory('q2')
+    controlQ = QRegister('q1')
+    targetQ = QRegister('q2')
     # FIXME: Better values!?
     phases = np.linspace(0, pi/2, 11)
     riseFall=40e-9

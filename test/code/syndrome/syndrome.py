@@ -1,5 +1,5 @@
-from qgl2.qgl2 import qgl2decl, qgl2main, qbit, concur
-from qgl2.qgl1 import QubitFactory, X, Y, Z, Y90, X90
+from qgl2.qgl2 import qgl2decl, qgl2main, qbit, QRegister
+from qgl2.qgl1 import X, Y, Z, Y90, X90, CNOT
 
 @qgl2decl
 def syndrome_cycle(qbits, role_def):
@@ -27,15 +27,6 @@ def syndrome_cycle(qbits, role_def):
 def Hadamard(q: qbit):
     Y90(q)
     X90(q)
-
-# Fake CNOT operation; placeholders for the real operations
-#
-@qgl2decl
-def CNOT(q1: qbit, q2: qbit):
-    # this is bogus, but we assign waveforms to make
-    # the output human-readable
-    Z(q1)
-    Y90(q2)
 
 class SyndromeRole(object):
     """
@@ -78,15 +69,15 @@ def main():
     And the order of CNOTs is up-left-right-down
     """
 
-    q0 = QubitFactory(label='q0')
-    q1 = QubitFactory(label='q1')
-    q2 = QubitFactory(label='q2')
-    q3 = QubitFactory(label='q3')
-    q4 = QubitFactory(label='q4')
-    q5 = QubitFactory(label='q5')
-    q6 = QubitFactory(label='q6')
-    q7 = QubitFactory(label='q7')
-    q8 = QubitFactory(label='q8')
+    q0 = QRegister('q0')
+    q1 = QRegister('q1')
+    q2 = QRegister('q2')
+    q3 = QRegister('q3')
+    q4 = QRegister('q4')
+    q5 = QRegister('q5')
+    q6 = QRegister('q6')
+    q7 = QRegister('q7')
+    q8 = QRegister('q8')
 
     all_qbits = [q0, q1, q2, q3, q4, q5, q6, q7, q8]
 

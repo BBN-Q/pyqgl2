@@ -305,16 +305,16 @@ class TestBasicMins(unittest.TestCase):
 
         # Create numPulses sequences
         numPulses = [0, 2, 4, 6]
-        pulseSpacing = 500e-9
+        pulseSpacing = 500e-9 - q.pulseParams['length']
         calRepeats = 2
 
         def addt180t(q, pulseSpacing, rep):
             t180t = []
             for _ in range(rep):
                 t180t += [
-                    Id(q, (pulseSpacing - q.pulseParams['length'])/2),
+                    Id(q, pulseSpacing/2),
                     Y(q),
-                    Id(q, (pulseSpacing - q.pulseParams['length'])/2)
+                    Id(q, pulseSpacing/2)
                 ]
             return t180t
 

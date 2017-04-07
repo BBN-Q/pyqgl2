@@ -2,9 +2,9 @@
 
 # QGL2 test versions of AllXY
 
-from qgl2.qgl2 import qgl2decl, qbit, concur
+from qgl2.qgl2 import qgl2decl, qbit, concur, QRegister
 from qgl2.util import init
-from qgl2.qgl1 import MEAS, QubitFactory
+from qgl2.qgl1 import MEAS
 
 from qgl2.qgl1 import Id, X, Y, X90, Y90
 

@@ -1,8 +1,8 @@
 from itertools import product
 
-from qgl2.qgl2 import concur, qgl2decl, qgl2main
-from qgl2.qgl2 import classical, pulse, qbit, qbit_list
-from qgl2.qgl1 import QubitFactory, Id, X90, Y90, X, Y, MEAS, Wait, CNOT
+from qgl2.qgl2 import qgl2decl, qgl2main, qbit, qbit_list
+from qgl2.qgl2 import QRegister
+from qgl2.qgl1 import Id, X90, Y90, X, Y, MEAS, Wait, CNOT
 
 # Don't do this import here - it replaces our stubs above
 #from QGL import *
@@ -59,18 +59,18 @@ def process(control:qbit, target:qbit):
 
 @qgl2decl
 def main():
-    q1 = QubitFactory("q1")
-    q2 = QubitFactory("q2")
+    q1 = QRegister("q1")
+    q2 = QRegister("q2")
     tomo(process, q1, q2)
 
 @qgl2decl
 def main_no_generators():
-    q1 = QubitFactory("q1")
-    q2 = QubitFactory("q2")
+    q1 = QRegister("q1")
+    q2 = QRegister("q2")
     tomo_no_generators(process, q1, q2)
 
 @qgl2decl
 def main_statetomo():
-    q1 = QubitFactory("q1")
-    q2 = QubitFactory("q2")
+    q1 = QRegister("q1")
+    q2 = QRegister("q2")
     statetomo(process, q1, q2)

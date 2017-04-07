@@ -1,10 +1,10 @@
-from qgl2.qgl2 import concur, qgl2decl, qgl2main
-from qgl2.qgl2 import qbit, qbit_list
-from qgl2.qgl1 import QubitFactory, Id, X90, Y90, X, Y, MEAS
+from qgl2.qgl2 import qgl2decl, qgl2main, qbit, qbit_list
+from qgl2.qgl2 import QRegister
+from qgl2.qgl1 import Id, X90, Y90, X, Y, MEAS
 
 @qgl2decl
 def classical_continue():
-    q1 = QubitFactory("q1")
+    q1 = QRegister("q1")
 
     for ct in range(3):
         X(q1)
@@ -16,7 +16,7 @@ def classical_continue():
 
 @qgl2decl
 def classical_break():
-    q1 = QubitFactory("q1")
+    q1 = QRegister("q1")
 
     for ct in range(3):
         X(q1)
@@ -28,7 +28,7 @@ def classical_break():
 
 @qgl2decl
 def runtime_continue():
-    q1 = QubitFactory("q1")
+    q1 = QRegister("q1")
 
     for ct in range(3):
         m = MEAS(q1)
@@ -40,7 +40,7 @@ def runtime_continue():
 
 @qgl2decl
 def runtime_break():
-    q1 = QubitFactory("q1")
+    q1 = QRegister("q1")
 
     for ct in range(3):
         m = MEAS(q1)

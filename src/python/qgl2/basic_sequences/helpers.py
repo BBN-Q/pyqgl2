@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit_list, concur
+from qgl2.qgl2 import qgl2decl, qbit_list
 from qgl2.qgl1 import Id, X, MEAS, Barrier
 from qgl2.util import init
 

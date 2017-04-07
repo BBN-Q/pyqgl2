@@ -1,5 +1,6 @@
-from qgl2.qgl2 import qgl2decl, qgl2main, qbit, classical, pulse, qbit_list
-from qgl2.qgl1 import X, Y, Z, Id, Utheta, QubitFactory
+from qgl2.qgl2 import qgl2decl, qgl2main, qbit, qbit_list
+from qgl2.qgl2 import QRegister
+from qgl2.qgl1 import X, Y, Z, Id, Utheta
 from itertools import product
 
 @qgl2decl
@@ -8,7 +9,7 @@ def t1():
     Expected: [X(q1), X(q1)]
     """
 
-    q1 = QubitFactory(label='q1')
+    q1 = QRegister('q1')
 
     l1 = list()
     l1 += [ 0 ]
@@ -31,7 +32,7 @@ def t2():
     Expected: [X(q1), X(q1), X(q1), X(q1)]
     """
 
-    q1 = QubitFactory(label='q1')
+    q1 = QRegister('q1')
 
     l1 = [0, 1, 2, 3]
 
@@ -65,7 +66,7 @@ def t3():
     Expected: [X(q1), X(q1), X(q1)]
     """
 
-    q1 = QubitFactory(label='q1')
+    q1 = QRegister('q1')
 
     total = 0
     if total == 0:
@@ -94,7 +95,7 @@ def t4():
     TODO: currently fails; instance methods confuse the evaluator.
     """
 
-    q1 = QubitFactory(label='q1')
+    q1 = QRegister('q1')
 
     l1 = list()
 
@@ -119,7 +120,7 @@ def t5():
     Like t4, but uses operators that work properly right now.
     """
 
-    q1 = QubitFactory(label='q1')
+    q1 = QRegister('q1')
 
     l1 = list()
 
