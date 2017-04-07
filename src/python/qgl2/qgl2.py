@@ -170,6 +170,9 @@ def qgl2meas(import_path=None):
 
     return deco
 
+def QRegister(*args):
+    pass
+
 # Symbols used for method signature annotation.  Their value has
 # no meaning; they're only assigned a value so that Python considers
 # them to be valid symbols.

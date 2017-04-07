@@ -9,12 +9,9 @@ import sys
 
 from copy import deepcopy
 
-from pyqgl2.ast_qgl2 import is_seq, is_with_label
 from pyqgl2.ast_util import ast2str, NodeError
 from pyqgl2.find_channels import find_all_channels
-from pyqgl2.find_labels import getChanLabel
-from pyqgl2.importer import collapse_name
-from pyqgl2.lang import QGL2
+from pyqgl2.qreg import is_qbit_create
 
 class SequenceExtractor(object):
     """
@@ -33,7 +30,7 @@ class SequenceExtractor(object):
         self.importer = importer
 
         self.qbits = set()  # from find_all_channels
-        self.qbit_creates = list() # of sym_name, use_name, node tuples
+        self.qbit_creates = list() # expressions that create QRegisters
         self.sequences = {
             'AWG': [],
             'controller': []
@@ -46,47 +43,6 @@ class SequenceExtractor(object):
         # clauses (i.e. 'foo' or 'foo as bar')
         #
         self.stub_imports = dict()
-
-    def is_qbit_create(self, node):
-        """
-        If the node does not represent a qbit creation and assignment,
-        return False.  Otherwise, return a triple (sym_name, use_name,
-        node) where sym_name is the symbolic name, use_name is the
-        name used by the preprocessor to substitute for this qbit
-        reference, and node is the node parameter (i.e. the root
-        of the ast for the assignment.
-
-        There are several sloppy assumptions here.
-        """
-
-        if not isinstance(node, ast.Assign):
-            return False
-
-        # Only handles simple assignments; not tuples
-        # TODO: handle tuples
-        if len(node.targets) != 1:
-            return False
-
-        if not isinstance(node.value, ast.Call):
-            return False
-
-        if not isinstance(node.value.func, ast.Name):
-            return False
-
-        # This is the old name, and needs to be updated
-        # TODO: update to new name/signature
-        if node.value.func.id != QGL2.QBIT_ALLOC and \
-           node.value.func.id != QGL2.QBIT_ALLOC2:
-            return False
-
-        chanLabel = getChanLabel(node)
-        if not chanLabel:
-            NodeError.warning_msg(node, 'failed to find chanLabel')
-
-        # HACK FIXME: assumes old-style Qbit allocation
-        sym_name = node.targets[0].id
-        use_name = 'QBIT_%s' % chanLabel
-        return (sym_name, use_name, node)
 
     def find_imports(self, node):
         '''Fill in self.stub_imports with all the per module imports needed'''
@@ -174,9 +130,8 @@ class SequenceExtractor(object):
             # print("Line %d of %d" % (lineNo+1, len(node.body)))
             stmnt = node.body[lineNo]
             # print("Looking at stmnt %s" % stmnt)
-            assignment = self.is_qbit_create(stmnt)
-            if assignment:
-                self.qbit_creates.append(assignment)
+            if is_qbit_create(stmnt):
+                self.qbit_creates.append(stmnt)
                 continue
 
             elif isinstance(stmnt, ast.Expr):
@@ -236,7 +191,7 @@ class SequenceExtractor(object):
         # FIXME: In below block, calls to ast2str are the slowest part
         # (78%) of calling get_sequence_function. Fixable?
 
-        for (_sym_name, _use_name, node) in self.qbit_creates:
+        for node in self.qbit_creates:
             preamble += indent + ast2str(node).strip() + '\n'
 
         if setup:
