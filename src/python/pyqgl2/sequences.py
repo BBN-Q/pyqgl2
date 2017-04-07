@@ -111,26 +111,43 @@ class SequenceExtractor(object):
             qbits.update(qreg.qubits)
         return qbits
 
+    def expand_arg(self, arg):
+        expanded_args = []
+        if isinstance(arg, ast.Name) and arg.id in self.allocated_qregs:
+            qreg = self.allocated_qregs[arg.id]
+            for n in range(len(qreg)):
+                new_arg = ast.Name(id=qreg.use_name(n), ctx=ast.Load())
+                expanded_args.append(new_arg)
+        elif (isinstance(arg, ast.Subscript) and
+                arg.value.id in self.allocated_qregs):
+            qreg = self.allocated_qregs[arg.value.id]
+            if not isinstance(arg.slice.value, ast.Num):
+                NodeError(arg,
+                    "Non-literal slice of a QRegister [%s]" % ast2str(arg))
+            n = arg.slice.value.n
+            new_arg = ast.Name(id=qreg.use_name(n), ctx=ast.Load())
+            expanded_args.append(new_arg)
+        elif isinstance(arg, (ast.Tuple, ast.List)):
+            # expand tuples and lists to include all constituent qubits
+            # FIXME would be safer to create a set() of qubits
+            expanded_elts = []
+            # recurse into the elements
+            for elt in arg.elts:
+                expanded_elts.extend(self.expand_arg(elt))
+            new_arg = quickcopy(arg)
+            new_arg.elts = expanded_elts
+            expanded_args.append(new_arg)
+        return expanded_args
+
     def expand_qreg_call(self, node):
         new_stmnts = []
         for ct, arg in enumerate(node.value.args):
-            if isinstance(arg, ast.Name) and arg.id in self.allocated_qregs:
-                qreg = self.allocated_qregs[arg.id]
-                for n in range(len(qreg)):
-                    stmnt = quickcopy(node)
-                    stmnt.value.args[ct].id = qreg.use_name(n)
-                    new_stmnts.append(stmnt)
-            elif (isinstance(arg, ast.Subscript) and
-                    arg.value.id in self.allocated_qregs):
-                qreg = self.allocated_qregs[arg.value.id]
-                if not isinstance(arg.slice.value, ast.Num):
-                    NodeError(node,
-                        "Non-literal slice of a QRegister [%s]" % ast2str(node))
-                n = arg.slice.value.n
+            expanded_args = self.expand_arg(arg)
+            for new_arg in expanded_args:
                 stmnt = quickcopy(node)
-                stmnt.value.args[ct] = ast.Name(id=qreg.use_name(n),
-                                                ctx=ast.Load())
+                stmnt.value.args[ct] = new_arg
                 new_stmnts.append(stmnt)
+
         return new_stmnts
 
     def find_sequences(self, node):
