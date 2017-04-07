@@ -131,22 +131,24 @@ class SequenceExtractor(object):
             # expand tuples and lists to include all constituent qubits
             # FIXME would be safer to create a set() of qubits
             expanded_elts = []
-            # recurse into the elements
             for elt in arg.elts:
                 expanded_elts.extend(self.expand_arg(elt))
             new_arg = quickcopy(arg)
             new_arg.elts = expanded_elts
             expanded_args.append(new_arg)
+        else:
+            # don't expand it
+            expanded_args.append(arg)
         return expanded_args
 
     def expand_qreg_call(self, node):
         new_stmnts = []
-        for ct, arg in enumerate(node.value.args):
-            expanded_args = self.expand_arg(arg)
-            for new_arg in expanded_args:
-                stmnt = quickcopy(node)
-                stmnt.value.args[ct] = new_arg
-                new_stmnts.append(stmnt)
+        expanded_args = [self.expand_arg(a) for a in node.value.args]
+        # TODO verify that QRegister lengths match
+        for args in zip(*expanded_args):
+            stmnt = quickcopy(node)
+            stmnt.value.args = args
+            new_stmnts.append(stmnt)
 
         return new_stmnts
 
