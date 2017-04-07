@@ -42,3 +42,10 @@ class TestQRegister(unittest.TestCase):
         a = QRegister.factory(node, {})
         self.assertEqual(len(a), 2)
         self.assertEqual(a.qubits, [1,5])
+
+    def test_factory_slice(self):
+        allocated_qregs = {'qr': QRegister(3)}
+        node = ast.parse("a = QRegister(qr[0], qr[1])").body[0]
+        a = QRegister.factory(node, allocated_qregs)
+        self.assertEqual(len(a), 2)
+        self.assertEqual(a.qubits, [1,2])

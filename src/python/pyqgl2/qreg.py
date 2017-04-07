@@ -120,6 +120,10 @@ class QRegister(object):
                 arg_values.append(arg.s)
             elif isinstance(arg, ast.Name) and arg.id in allocated_qbits:
                 arg_values.append(allocated_qbits[arg.id])
+            elif is_qbit_subscript(arg, allocated_qbits):
+                parent_qreg = allocated_qbits[arg.value.id]
+                idx = arg.slice.value.n
+                arg_values.append("q" + str(parent_qreg.qubits[idx]))
             else:
                 NodeError.error_msg(node,
                     "Unhandled argument to QRegister [%s]" % ast2str(arg))
