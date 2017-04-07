@@ -8,15 +8,12 @@ from qgl2.util import init
 
 @qgl2decl
 def multiQbitTest2():
-    q1 = QRegister('q1')
-    q2 = QRegister('q2')
+    qs = QRegister('q1', 'q2')
 
-    for q in [q1, q2]:
-        Id(q)
-        X(q)
-    Barrier("", (q1, q2))
-    for q in [q1, q2]:
-        MEAS(q)
+    Id(qs)
+    X(qs)
+    Barrier("", (qs,))
+    MEAS(qs)
 
 @qgl2decl
 def doSimple():
@@ -36,28 +33,23 @@ def simpleSingle():
 
 @qgl2decl
 def anotherMulti():
-    q1 = QRegister('q1')
-    q2 = QRegister('q2')
-    for q in [q1, q2]:
-        Id(q)
-        X(q)
-    Barrier("", (q1, q2))
-    for q in [q1, q2]:
-        MEAS(q)
-    for q in [q1, q2]:
-        Y(q)
+    qs = QRegister(2)
+    Id(qs)
+    X(qs)
+    Barrier("", (qs,))
+    MEAS(qs)
+    Y(qs)
 
 @qgl2decl
 def anotherMulti2():
-    q1 = QRegister('q1')
-    q2 = QRegister('q2')
-    q3 = QRegister('q3')
-    for q in [q1, q2]:
-        Id(q)
-        X(q)
-    Barrier("", (q1, q2, q3))
-    for q in [q1, q2]:
-        MEAS(q)
-    Barrier("", (q1, q2, q3))
-    for q in [q1, q3]:
-        Y(q)
+    qs = QRegister(3)
+    # TODO it would be nice to just directly use qs[0:1] below instead of
+    # creating qsub
+    qsub = QRegister("q1", "q2")
+    Id(qsub)
+    X(qsub)
+    Barrier("", (qs,))
+    MEAS(qsub)
+    Barrier("", (qs,))
+    Y(qs[0])
+    Y(qs[2])

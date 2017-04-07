@@ -22,8 +22,8 @@ class TestMulti(unittest.TestCase):
         q2 = QubitFactory('q2')
         expected = [
             Id(q1),
-            X(q1),
             Id(q2),
+            X(q1),
             X(q2),
             Barrier("", (q1, q2)),
             MEAS(q1),
@@ -55,8 +55,8 @@ class TestMulti(unittest.TestCase):
         q2 = QubitFactory('q2')
         expected = [
             Id(q1),
-            X(q1),
             Id(q2),
+            X(q1),
             X(q2),
             Barrier("", (q1, q2)),
             MEAS(q1),
@@ -81,8 +81,8 @@ class TestMulti(unittest.TestCase):
         # q3: <barrier>, Y, <barrier>
         expected = [
             Id(q1),
-            X(q1),
             Id(q2),
+            X(q1),
             X(q2),
             Barrier("", (q1, q2, q3)),
             MEAS(q1),

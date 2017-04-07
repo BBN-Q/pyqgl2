@@ -8,13 +8,10 @@ from qgl2.util import init
 
 @qgl2decl
 def edgeTest():
-    q1 = QRegister('q1')
-    q2 = QRegister('q2')
-    for q in [q1, q2]:
-        init(q)
-    for q in [q1, q2]:
-        X(q)
-    echoCR(q1, q2)
+    qs = QRegister('q1', 'q2')
+    init(qs)
+    X(qs)
+    echoCR(qs[0], qs[1])
 
 @qgl2decl
 def edgeTest3():
