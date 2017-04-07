@@ -61,13 +61,13 @@ class QRegister(object):
                 # TODO throw an error if the provided string doesn't have that form
                 idx = int(arg[1:])
                 if idx in QRegister.KNOWN_QUBITS:
-                    raise NameError("Qubit %s has already been declared" % str(args[0]))
+                    raise NameError("Qubit %s is already in use" % str(args[0]))
                 self.qubits.append(idx)
         elif all(isinstance(x, QRegister) for x in args):
             # concatenated register
             for arg in args:
                 if arg.qubits in self.qubits:
-                    raise NameError("Non-disjoint qubits in concatenated registers")
+                    raise NameError("Non-disjoint qubit sets in concatenated registers")
                 self.qubits.extend(arg.qubits)
 
         # add qubits to KNOWN_QUBITS
@@ -76,6 +76,16 @@ class QRegister(object):
 
         QRegister.NUM_REGISTERS += 1
         self.reg_name = 'QREG_' + str(QRegister.NUM_REGISTERS)
+
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        args = ", ".join("'q{}'".format(q) for q in self.qubits)
+        return "QRegister({})".format(args)
+
+    def __eq__(self, other):
+        return self.qubits == other.qubits
 
     def use_name(self, idx=None):
         if idx is not None:
