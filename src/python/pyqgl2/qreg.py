@@ -63,6 +63,8 @@ class QRegister(object):
                 if arg.qubits in self.qubits:
                     raise NameError("Non-disjoint qubit sets in concatenated registers")
                 self.qubits.extend(arg.qubits)
+        else:
+            raise NameError("Invalid QRegister constructor.")
 
         # add qubits to KNOWN_QUBITS
         for q in self.qubits:
@@ -100,12 +102,11 @@ class QRegister(object):
         return QRegister(self, other)
 
     @staticmethod
-    def factory(node, allocated_qbits):
+    def factory(node, local_vars):
         '''
         Evaluates a ast.Call node of a QRegister and returns its value.
 
-        allocated_qbits is a dictionary of QRegister symbol names mapped
-        to their corresponding values.
+        local_vars is a dictionary of symbol -> value bindings
         '''
         if not is_qbit_create(node):
             NodeError.error_msg(node,
@@ -118,10 +119,10 @@ class QRegister(object):
                 arg_values.append(arg.n)
             elif isinstance(arg, ast.Str):
                 arg_values.append(arg.s)
-            elif isinstance(arg, ast.Name) and arg.id in allocated_qbits:
-                arg_values.append(allocated_qbits[arg.id])
-            elif is_qbit_subscript(arg, allocated_qbits):
-                parent_qreg = allocated_qbits[arg.value.id]
+            elif isinstance(arg, ast.Name) and arg.id in local_vars:
+                arg_values.append(local_vars[arg.id])
+            elif is_qbit_subscript(arg, local_vars):
+                parent_qreg = local_vars[arg.value.id]
                 idx = arg.slice.value.n
                 arg_values.append("q" + str(parent_qreg.qubits[idx]))
             else:

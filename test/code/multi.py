@@ -45,7 +45,7 @@ def anotherMulti2():
     qs = QRegister(3)
     # TODO it would be nice to just directly use qs[0:1] below instead of
     # creating qsub
-    qsub = QRegister("q1", "q2")
+    qsub = QRegister(qs[0], qs[1])
     Id(qsub)
     X(qsub)
     Barrier("", (qs,))

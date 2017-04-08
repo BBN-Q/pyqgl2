@@ -1538,13 +1538,13 @@ class EvalTransformer(object):
                 #
                 if is_qbit_create(stmnt):
                     self.rewriter.rewrite(stmnt.value)
+                    local_variables = self.eval_state.locals_stack[-1]
 
-                    qreg = QRegister.factory(stmnt, self.allocated_qbits)
+                    qreg = QRegister.factory(stmnt, local_variables)
                     sym_name = stmnt.targets[0].id
 
                     self.allocated_qbits[qreg.use_name()] = qreg
 
-                    local_variables = self.eval_state.locals_stack[-1]
                     local_variables[sym_name] = qreg
                     # print('EV: QBIT CREATE %s' % ast.dump(stmnt))
                     stmnt.qgl2_type = 'qbit'
