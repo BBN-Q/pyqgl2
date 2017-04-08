@@ -98,3 +98,10 @@ class TestMulti(unittest.TestCase):
         seqs = testable_sequence(seqs)
 
         assertPulseSequenceEqual(self, seqs, expected)
+
+        resFunction = compile_function("test/code/multi.py",
+                                      "anotherMulti3")
+        seqs = resFunction()
+        seqs = testable_sequence(seqs)
+
+        assertPulseSequenceEqual(self, seqs, expected)

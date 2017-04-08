@@ -53,3 +53,16 @@ def anotherMulti2():
     Barrier("", (qs,))
     Y(qs[0])
     Y(qs[2])
+
+@qgl2decl
+def anotherMulti3():
+    qs = QRegister(3)
+    # create the QRegister with slicing
+    qsub = QRegister(qs[0:2])
+    Id(qsub)
+    X(qsub)
+    Barrier("", (qs,))
+    MEAS(qsub)
+    Barrier("", (qs,))
+    Y(qs[0])
+    Y(qs[2])

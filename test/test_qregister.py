@@ -49,3 +49,23 @@ class TestQRegister(unittest.TestCase):
         a = QRegister.factory(node, allocated_qregs)
         self.assertEqual(len(a), 2)
         self.assertEqual(a.qubits, [1,2])
+
+        node = ast.parse("a = QRegister(qr[0:2])").body[0]
+        a = QRegister.factory(node, allocated_qregs)
+        self.assertEqual(len(a), 2)
+        self.assertEqual(a.qubits, [1,2])
+
+        node = ast.parse("a = QRegister(qr[:2])").body[0]
+        a = QRegister.factory(node, allocated_qregs)
+        self.assertEqual(len(a), 2)
+        self.assertEqual(a.qubits, [1,2])
+
+        node = ast.parse("a = QRegister(qr[1:])").body[0]
+        a = QRegister.factory(node, allocated_qregs)
+        self.assertEqual(len(a), 2)
+        self.assertEqual(a.qubits, [2,3])
+
+        node = ast.parse("a = QRegister(qr[0::2])").body[0]
+        a = QRegister.factory(node, allocated_qregs)
+        self.assertEqual(len(a), 2)
+        self.assertEqual(a.qubits, [1,3])
