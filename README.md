@@ -1,5 +1,7 @@
 # QGL2 Compiler
 
+[![Build Status](https://travis-ci.org/BBN-Q/pyqgl2.svg?branch=master)](https://travis-ci.org/BBN-Q/pyqgl2) [![Coverage Status](https://coveralls.io/repos/BBN-Q/pyqgl2/badge.svg?branch=master)](https://coveralls.io/r/BBN-Q/pyqgl2)
+
 This is the QGL2 language compiler. QGL2 is a python-like language for
 programming quantum computers. It is a "low-level language" in the sense that
 programs directly specify gates at the physical layer, but with many of the
