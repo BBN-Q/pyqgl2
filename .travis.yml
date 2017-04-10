@@ -28,10 +28,10 @@ script:
 after_script:
   - coveralls
 
- # necessary to run on new container-based infrastructure
- sudo: false
+# necessary to run on new container-based infrastructure
+sudo: false
 
- cache:
-   directories:
-     - $HOME/download
-     - $HOME/.cache/pip
+cache:
+  directories:
+    - $HOME/download
+    - $HOME/.cache/pip
