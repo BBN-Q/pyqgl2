@@ -2,24 +2,21 @@
 
 # Tests for end to end Edge handling, and handling stubs on >1 qubits
 
-from qgl2.qgl1 import QubitFactory, Id, X, MEAS, Y, echoCR, CNOT
-from qgl2.qgl2 import qgl2decl, concur, qbit, qgl2stub, pulse
+from qgl2.qgl1 import Id, X, MEAS, Y, echoCR, CNOT
+from qgl2.qgl2 import qgl2decl, qbit, QRegister
 from qgl2.util import init
 
 @qgl2decl
 def edgeTest():
-    q1 = QubitFactory('q1')
-    q2 = QubitFactory('q2')
-    for q in [q1, q2]:
-        init(q)
-    for q in [q1, q2]:
-        X(q)
-    echoCR(q1, q2)
+    qs = QRegister('q1', 'q2')
+    init(qs)
+    X(qs)
+    echoCR(qs[0], qs[1])
 
 @qgl2decl
 def edgeTest3():
-    q1 = QubitFactory('q1')
-    q2 = QubitFactory('q2')
+    q1 = QRegister('q1')
+    q2 = QRegister('q2')
     for q in [q1, q2]:
         init(q)
     echoCR(q1, q2)
@@ -32,8 +29,8 @@ def edgeTest3():
 # which may not be realistic
 @qgl2decl
 def edgeTest4():
-    q1 = QubitFactory('q1')
-    q2 = QubitFactory('q2')
+    q1 = QRegister('q1')
+    q2 = QRegister('q2')
 
     for q in [q1, q2]:
         init(q)
@@ -47,8 +44,8 @@ def edgeTest4():
 
 @qgl2decl
 def cnotcrTest():
-    q1 = QubitFactory('q1')
-    q2 = QubitFactory('q2')
+    q1 = QRegister('q1')
+    q2 = QRegister('q2')
     for q in [q1, q2]:
         init(q)
     CNOT(q1, q2)

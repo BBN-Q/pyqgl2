@@ -4,8 +4,8 @@
 # These work around QGL2 constraints, such as only doing sequence generation and
 # not compilation, or not taking arguments.
 
-from qgl2.qgl2 import qgl2decl, qbit, qbit_list, concur
-from qgl2.qgl1 import QubitFactory, Utheta, MEAS, X, Id
+from qgl2.qgl2 import qgl2decl, qbit, qbit_list, QRegister
+from qgl2.qgl1 import Utheta, MEAS, X, Id
 from qgl2.util import init
 
 import qgl2.basic_sequences.pulses

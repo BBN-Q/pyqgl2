@@ -19,8 +19,7 @@ class QGL2(object):
 
     QMODULE = 'qgl2'
 
-    QBIT_ALLOC = 'Qubit'
-    QBIT_ALLOC2 = 'QubitFactory'
+    QBIT_ALLOC = 'QRegister'
 
     CLASSICAL = 'classical'
     PULSE = 'pulse'

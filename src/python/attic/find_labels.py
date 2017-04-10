@@ -5,7 +5,7 @@ import ast
 from pyqgl2.debugmsg import DebugMsg
 
 
-def getChanLabel(node):
+def get_chan_label(node):
     '''Given an Call to Qubit() or QubitFactory() or an Assign
     containing such, find the label of the qbit.
     Return None if can't find it.'''

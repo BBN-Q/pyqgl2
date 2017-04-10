@@ -7,14 +7,9 @@ import ast
 import os
 import sys
 
-from copy import deepcopy
-
-from pyqgl2.ast_qgl2 import is_seq, is_with_label
 from pyqgl2.ast_util import ast2str, NodeError
-from pyqgl2.find_channels import find_all_channels
-from pyqgl2.find_labels import getChanLabel
-from pyqgl2.importer import collapse_name
-from pyqgl2.lang import QGL2
+from pyqgl2.quickcopy import quickcopy
+from pyqgl2.qreg import is_qbit_create
 
 class SequenceExtractor(object):
     """
@@ -28,16 +23,14 @@ class SequenceExtractor(object):
     flattened, grouped, and sequenced already.
     """
 
-    def __init__(self, importer):
+    def __init__(self, importer, allocated_qregs):
 
         self.importer = importer
+        self.allocated_qregs = allocated_qregs
 
-        self.qbits = set()  # from find_all_channels
-        self.qbit_creates = list() # of sym_name, use_name, node tuples
-        self.sequences = {
-            'AWG': [],
-            'controller': []
-        }
+        self.qbits = set()
+        self.qbit_creates = list() # expressions that create Qubits
+        self.sequence = []
 
         # the imports we need to make in order to satisfy the stubs
         #
@@ -46,47 +39,6 @@ class SequenceExtractor(object):
         # clauses (i.e. 'foo' or 'foo as bar')
         #
         self.stub_imports = dict()
-
-    def is_qbit_create(self, node):
-        """
-        If the node does not represent a qbit creation and assignment,
-        return False.  Otherwise, return a triple (sym_name, use_name,
-        node) where sym_name is the symbolic name, use_name is the
-        name used by the preprocessor to substitute for this qbit
-        reference, and node is the node parameter (i.e. the root
-        of the ast for the assignment.
-
-        There are several sloppy assumptions here.
-        """
-
-        if not isinstance(node, ast.Assign):
-            return False
-
-        # Only handles simple assignments; not tuples
-        # TODO: handle tuples
-        if len(node.targets) != 1:
-            return False
-
-        if not isinstance(node.value, ast.Call):
-            return False
-
-        if not isinstance(node.value.func, ast.Name):
-            return False
-
-        # This is the old name, and needs to be updated
-        # TODO: update to new name/signature
-        if node.value.func.id != QGL2.QBIT_ALLOC and \
-           node.value.func.id != QGL2.QBIT_ALLOC2:
-            return False
-
-        chanLabel = getChanLabel(node)
-        if not chanLabel:
-            NodeError.warning_msg(node, 'failed to find chanLabel')
-
-        # HACK FIXME: assumes old-style Qbit allocation
-        sym_name = node.targets[0].id
-        use_name = 'QBIT_%s' % chanLabel
-        return (sym_name, use_name, node)
 
     def find_imports(self, node):
         '''Fill in self.stub_imports with all the per module imports needed'''
@@ -97,6 +49,10 @@ class SequenceExtractor(object):
             if (isinstance(subnode, ast.Call) and
                     isinstance(subnode.func, ast.Name)):
                 funcname = subnode.func.id
+
+                # QRegister calls will be stripped by find_sequences, so skip
+                if funcname == 'QRegister':
+                    continue
 
                 # If we created a node without an qgl_fname,
                 # then use the default namespace instead.
@@ -149,24 +105,117 @@ class SequenceExtractor(object):
 
         return import_list
 
+    def qbits_from_qregs(self, allocated_qregs):
+        '''
+        Returns the set of all qubits contained within allocated_qregs.
+        '''
+        qbits = set()
+        for qreg in allocated_qregs.values():
+            qbits.update(qreg.qubits)
+        return qbits
+
+    def expand_arg(self, arg):
+        '''
+        Expands a single argument to a stub call. QRegisters are expanded
+        to a list of constituent Qubits. QRegister subscripts are similar,
+        except that the slice selects which Qubits to return. Tuples and
+        lists are different in that the exansion happens "within" the
+        tuple. So, given
+            a = QRegister(2)
+            b = QRegister(1)
+        we do (in AST shorthand):
+            expand_arg("a") -> ["QBIT_1", "QBIT_2"]
+            expand_arg("a[1]") -> ["QBIT_2"]
+            expand_arg("(a,b)") -> [("QBIT_1", "QBIT_2", "QBIT_3")]
+        '''
+        expanded_args = []
+        if isinstance(arg, ast.Name) and arg.id in self.allocated_qregs:
+            qreg = self.allocated_qregs[arg.id]
+            # add an argument for each constituent qubit in the QRegister
+            for n in range(len(qreg)):
+                new_arg = ast.Name(id=qreg.use_name(n), ctx=ast.Load())
+                expanded_args.append(new_arg)
+        elif (isinstance(arg, ast.Subscript) and
+                arg.value.id in self.allocated_qregs):
+            # add an argument for the subset of qubits referred to
+            # by the QReference
+            # eval the subscript to extract the slice
+            qreg = self.allocated_qregs[arg.value.id]
+            try:
+                qref = eval(ast2str(arg), None, self.allocated_qregs)
+            except:
+                NodeError(arg,
+                    "Error evaluating QReference [%s]" % ast2str(arg))
+            # convert the slice into a list of indices
+            idx = range(len(qreg))[qref.idx]
+            if not hasattr(idx, '__iter__'):
+                idx = (idx,)
+            for n in idx:
+                new_arg = ast.Name(id=qreg.use_name(n), ctx=ast.Load())
+                expanded_args.append(new_arg)
+        elif isinstance(arg, (ast.Tuple, ast.List)):
+            # expand tuples and lists to include all constituent qubits
+            # FIXME would be safer to create a set() of qubits
+            expanded_elts = []
+            for elt in arg.elts:
+                expanded_elts.extend(self.expand_arg(elt))
+            new_arg = quickcopy(arg)
+            new_arg.elts = expanded_elts
+            expanded_args.append(new_arg)
+        else:
+            # don't expand it
+            expanded_args.append(arg)
+        return expanded_args
+
+    def expand_qreg_call(self, node):
+        '''
+        Expands calls on stubs to element-wise broadcast over QRegister
+        arguments. So that given
+            a = QRegister(2)
+            b = QRegister(2)
+        single-qubit calls expand like:
+            X(a)
+        becomes
+            X(QBIT_1)
+            X(QBIT_2)
+        and two-qubit calls expand like:
+            CNOT(a, b)
+        becomes
+            CNOT(QBIT_1, QBIT_3)
+            CNOT(QBIT_2, QBIT_4)
+        Calls that act on tuples or lists expand inside the tuple, i.e.
+            Barrier("", (a, b))
+        becomes
+            Barrier("", (QBIT_1, QBIT_2, QBIT_3, QBIT_4))
+
+        Returns a list of ast.Call nodes with appropriate argumnet
+        substitutions.
+        '''
+        new_stmnts = []
+        expanded_args = [self.expand_arg(a) for a in node.value.args]
+        # TODO verify that QRegister lengths match
+        for args in zip(*expanded_args):
+            stmnt = quickcopy(node)
+            stmnt.value.args = args
+            new_stmnts.append(stmnt)
+
+        return new_stmnts
+
     def find_sequences(self, node):
         '''
         Input AST node is the main function definition.
-        Use is_qbit_create to get qbit creation statements,
-        and walk the AST to find sequence elements to create the sequences
-        on the object.'''
+        Strips out QRegister creation statements and builds
+        a list of corresponding Qubit creation statements.
+        Converts calls on QRegisters into calls on Qubits.'''
 
         if not isinstance(node, ast.FunctionDef):
             NodeError.fatal_msg(node, 'not a function definition')
             return False
 
-        self.qbits = find_all_channels(node)
-
-        if len(self.qbits) == 0:
-            NodeError.error_msg(node, 'no channels found')
-            return False
-        else:
-            NodeError.diag_msg(node, "Found channels %s" % self.qbits)
+        self.qbits = self.qbits_from_qregs(self.allocated_qregs)
+        for q in self.qbits:
+            stmnt = ast.parse("QBIT_{0} = QubitFactory('q{0}')".format(q))
+            self.qbit_creates.append(stmnt)
 
         lineNo = -1
         while lineNo+1 < len(node.body):
@@ -174,21 +223,24 @@ class SequenceExtractor(object):
             # print("Line %d of %d" % (lineNo+1, len(node.body)))
             stmnt = node.body[lineNo]
             # print("Looking at stmnt %s" % stmnt)
-            assignment = self.is_qbit_create(stmnt)
-            if assignment:
-                self.qbit_creates.append(assignment)
+            if is_qbit_create(stmnt):
+                # drop it
                 continue
 
             elif isinstance(stmnt, ast.Expr):
-                # TODO separate statements into 'AWG' vs 'controller' statements
-                self.sequences['AWG'].append(stmnt)
-
+                # expand calls on QRegisters into calls on Qubits
+                if (hasattr(stmnt, 'qgl2_type') and
+                        (stmnt.qgl2_type == 'stub' or stmnt.qgl2_type == 'measurement')):
+                    new_stmnts = self.expand_qreg_call(stmnt)
+                    self.sequence.extend(new_stmnts)
+                else:
+                    self.sequence.append(stmnt)
             else:
                 NodeError.error_msg(stmnt,
                                     'orphan statement %s' % ast.dump(stmnt))
 
         # print("Seqs: %s" % self.sequences)
-        if not self.sequences['AWG']:
+        if not self.sequence:
             NodeError.warning_msg(node, "No qubit operations discovered")
             return False
 
@@ -220,14 +272,12 @@ class SequenceExtractor(object):
         # Here we include the imports matching stuff in qgl2.qgl1.py
         # as required by create_imports_list(), plus
         # extras as required.
-#        base_imports = """    from QGL.PulseSequencePlotter import plot_pulse_files
-#"""
-        base_imports = ''
+
+        base_imports = indent + 'from QGL import QubitFactory\n'
 
         found_imports = ('\n' + indent).join(self.create_imports_list())
 
-        # allow QBIT parameters to be overridden
-        #
+        # define the method preamble
         preamble = 'def %s():\n' % func_name
         preamble += base_imports
         preamble += indent + found_imports
@@ -236,16 +286,14 @@ class SequenceExtractor(object):
         # FIXME: In below block, calls to ast2str are the slowest part
         # (78%) of calling get_sequence_function. Fixable?
 
-        for (_sym_name, _use_name, node) in self.qbit_creates:
+        for node in self.qbit_creates:
             preamble += indent + ast2str(node).strip() + '\n'
 
         if setup:
             for setup_stmnt in setup:
                 preamble += indent + ('%s\n' % ast2str(setup_stmnt).strip())
 
-        seq = self.sequences['AWG']
-
-        sequence = [ast2str(item).strip() for item in seq]
+        sequence = [ast2str(item).strip() for item in self.sequence]
 
         # TODO there must be a more elegant way to indent this properly
         seq_str = indent + 'seq = [\n' + 2 * indent
@@ -257,7 +305,7 @@ class SequenceExtractor(object):
         res =  preamble + seq_str + postamble
         return res
 
-def get_sequence_function(node, func_name, importer,
+def get_sequence_function(node, func_name, importer, allocated_qregs,
         intermediate_fout=None, saveOutput=False, filename=None,
         setup=None):
     """
@@ -270,29 +318,26 @@ def get_sequence_function(node, func_name, importer,
     so that we know whether or not they've been processed.
     """
 
-    builder = SequenceExtractor(importer)
+    builder = SequenceExtractor(importer, allocated_qregs)
 
-    if builder.find_sequences(node) and builder.find_imports(node):
-        code = builder.emit_function(func_name, setup)
-        if intermediate_fout:
-            print(('#start function\n%s\n#end function' % code),
-                  file=intermediate_fout, flush=True)
-        if saveOutput and filename:
-            newf = os.path.abspath(filename[:-3] + "qgl1.py")
-            with open(newf, 'w') as compiledFile:
-                compiledFile.write(code)
-            print("Saved compiled code to %s" % newf)
+    builder.find_sequences(node)
+    builder.find_imports(node)
+    code = builder.emit_function(func_name, setup)
+    if intermediate_fout:
+        print(('#start function\n%s\n#end function' % code),
+              file=intermediate_fout, flush=True)
+    if saveOutput and filename:
+        newf = os.path.abspath(filename[:-3] + "qgl1.py")
+        with open(newf, 'w') as compiledFile:
+            compiledFile.write(code)
+        print("Saved compiled code to %s" % newf)
 
-        NodeError.diag_msg(
-                node, 'generated code:\n#start\n%s\n#end code' % code)
+    NodeError.diag_msg(
+            node, 'generated code:\n#start\n%s\n#end code' % code)
 
-        # TODO: we might want to pass in elements of the local scope
-        scratch_scope = dict()
-        eval(compile(code, '<none>', mode='exec'), globals(), scratch_scope)
-        NodeError.halt_on_error()
+    # TODO: we might want to pass in elements of the local scope
+    scratch_scope = dict()
+    eval(compile(code, '<none>', mode='exec'), globals(), scratch_scope)
+    NodeError.halt_on_error()
 
-        return scratch_scope[func_name]
-    else:
-        NodeError.warning_msg(
-                node, 'no per-Qubit sequences discovered')
-        return None
+    return scratch_scope[func_name]

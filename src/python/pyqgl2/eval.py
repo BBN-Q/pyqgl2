@@ -15,14 +15,13 @@ from pyqgl2.importer import NameSpaces
 from pyqgl2.inline import inline_call
 from pyqgl2.inline import Inliner
 from pyqgl2.inline import NameFinder, NameRedirector, NameRewriter
-from pyqgl2.inline import QubitPlaceholder
 from pyqgl2.inline import TempVarManager
 from pyqgl2.qgl2_check import QGL2check
-from pyqgl2.single import is_qbit_create
+from pyqgl2.qreg import is_qbit_create
+from pyqgl2.qreg import QRegister
 from pyqgl2.quickcopy import quickcopy
 
 from QGL import Qubit
-from QGL import QubitFactory
 
 def insert_keyword(kwargs, key, value):
 
@@ -327,9 +326,7 @@ class SimpleEvaluator(object):
         """
 
         # FIXME: this isn't right.  We need to handle this case correctly
-        #
-        qbit_create = is_qbit_create(node)
-        if qbit_create:
+        if is_qbit_create(node):
             # TODO: need to track the creation of the qbit.  This is
             # currently done elsewhere.
             print('EV: ERROR: must handle qbit_create')
@@ -784,10 +781,8 @@ class EvalTransformer(object):
         self.seen_continue = False
         self.in_quantum_condition = False
 
-        # the 'use names' (i.e. QBIT_1) for qbits known to be
-        # allocated
-        #
-        self.allocated_qbits = set()
+        # map of 'use names' (i.e. QREG_1) to QRegisters
+        self.allocated_qbits = dict()
 
         # run-time variables, which store the results of measurements
         # or computations on other run-time values
@@ -920,13 +915,16 @@ class EvalTransformer(object):
         # trying to process the body of the node
         self.setup_locals()
 
+        # reset QRegister globals
+        QRegister.reset()
+
         # add assignments for passed qbit parameters
         qbit_preamble = list()
         local_variables = self.eval_state.locals_stack[-1]
         for k, v in local_variables.items():
             if isinstance(v, Qubit):
                 # FIXME kludge assumption that label is sufficient description
-                stmnt = ast.parse("{0} = QubitFactory('{1}')".format(k, v.label))
+                stmnt = ast.parse("{0} = QRegister('{1}')".format(k, v.label))
                 copy_all_loc(stmnt.body[0], node, recurse=True)
                 qbit_preamble.append(stmnt.body[0])
             elif hasattr(v, '__iter__') and all(isinstance(x, Qubit) for x in v):
@@ -939,7 +937,7 @@ class EvalTransformer(object):
                 for elem in v:
                     tmp_name = tmp_namer.create_tmp_name(elem.label)
                     tmp_names.append(tmp_name)
-                    qstrs += "{0} = QubitFactory('{1}')\n".format(tmp_name, elem.label)
+                    qstrs += "{0} = QRegister('{1}')\n".format(tmp_name, elem.label)
                 qstrs += "{0} = ({1})".format(k, ", ".join(tmp_names))
                 stmnt = ast.parse(qstrs)
                 for s in stmnt.body:
@@ -1531,30 +1529,23 @@ class EvalTransformer(object):
             elif isinstance(stmnt, ast.Assign):
                 # If the assignment is due to qbit creation
                 # then we have some housekeeping to do.
-                # We create a fake value (a QubitPlaceholder instance)
+                # We create a fake value (a QRegister instance)
                 # to assign to the target, and then update the locals
                 # with this binding.
                 #
                 # FIXME this only handles a limited set of all
-                # the ways qbits might be created.  It would be
-                # better to actually invoke the QubitFactory here,
-                # although that would break many other things.
+                # the ways qbits might be created.
                 #
                 if is_qbit_create(stmnt):
                     self.rewriter.rewrite(stmnt.value)
-                    sym_name, use_name, _node = is_qbit_create(stmnt)
-
-                    # is_qbit_create returns the "old" style use-name,
-                    # but what we need to pass to the Qubit creator
-                    # is the label, which is the suffix of the use-name.
-                    #
-                    label_name = re.sub('QBIT_', '', use_name)
-                    qbit = QubitPlaceholder.factory(stmnt, label=label_name)
-
-                    self.allocated_qbits.add(use_name)
-
                     local_variables = self.eval_state.locals_stack[-1]
-                    local_variables[sym_name] = qbit
+
+                    qreg = QRegister.factory(stmnt, local_variables)
+                    sym_name = stmnt.targets[0].id
+
+                    self.allocated_qbits[qreg.use_name()] = qreg
+
+                    local_variables[sym_name] = qreg
                     # print('EV: QBIT CREATE %s' % ast.dump(stmnt))
                     stmnt.qgl2_type = 'qbit'
                     new_body.append(stmnt)

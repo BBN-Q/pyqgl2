@@ -1,8 +1,8 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit
+from qgl2.qgl2 import qgl2decl, qbit, QRegister
 from qgl2.util import init
-from qgl2.qgl1 import X90, X90m, Y90, MEAS, QubitFactory, Id, X
+from qgl2.qgl1 import X90, X90m, Y90, MEAS, Id, X
 
 import numpy as np
 

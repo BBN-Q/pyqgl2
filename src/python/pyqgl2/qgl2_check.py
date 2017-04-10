@@ -1,9 +1,7 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
 from pyqgl2.ast_util import NodeError
-from pyqgl2.inline import QubitPlaceholder
-
-import QGL.Channels
+from pyqgl2.qreg import QRegister, QReference
 
 def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
     """
@@ -18,7 +16,7 @@ def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
     """
 
     # TODO: should be able to tolerate actual Qubit values,
-    # not just references to QubitPlaceholder instances
+    # not just references to QRegister instances
 
     assert isinstance(required_type, str), 'required_type must be a str'
     assert isinstance(fp_name, str), 'fp_name must be a str'
@@ -28,7 +26,8 @@ def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
     assert isinstance(colno, int), 'colno must be a int'
 
     if required_type == 'qbit':
-        if not isinstance(value, QubitPlaceholder):
+        # TODO add a check that QReference indices are within bounds
+        if not isinstance(value, (QRegister, QReference)):
             print(('%s:%d:%d: error: ' +
                 'param [%s] of func [%s] must be qbit') %
                     (fname, lineno, colno, fp_name, fun_name))
@@ -47,10 +46,10 @@ def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
 
         for element in value:
             # this might be too persnickety, but right now
-            # we must have a QubitPlaceholder because we will
+            # we must have a QRegister because we will
             # require the use_name() method be present.
             #
-            if not isinstance(element, QubitPlaceholder):
+            if not isinstance(element, QRegister):
                 print(('%s:%d:%d: error: ' +
                     'each elem of param [%s] of func [%s] must be a qbit') %
                         (fname, lineno, colno, fp_name, fun_name))
@@ -58,7 +57,7 @@ def QGL2check(value, required_type, fp_name, fun_name, fname, lineno, colno):
                 return False
 
     elif required_type == 'classical':
-        if isinstance(value, QubitPlaceholder):
+        if isinstance(value, QRegister):
             print(('%s:%d:%d: error: ' +
                 'param [%s] of func [%s] must be classical') %
                     (fname, lineno, colno, fp_name, fun_name))

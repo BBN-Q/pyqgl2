@@ -178,6 +178,7 @@ class Flattener(ast.NodeTransformer):
                 return node
             elif node.qgl2_type == 'measurement':
                 new_node = ast.Expr(value=node.value)
+                new_node.qgl2_type = 'measurement'
                 pyqgl2.ast_util.copy_all_loc(new_node, node)
                 return new_node
             elif node.qgl2_type == 'runtime_call':
@@ -191,6 +192,7 @@ class Flattener(ast.NodeTransformer):
                 # of the runtime call
                 call_str = ast2str(node.value).strip()
                 new_node.value.args.append(ast.Str(s=call_str))
+                new_node.qgl2_type = 'runtime_call'
                 pyqgl2.ast_util.copy_all_loc(new_node, node, recurse=True)
                 return new_node
 

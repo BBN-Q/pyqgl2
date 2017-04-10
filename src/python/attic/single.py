@@ -9,50 +9,6 @@ from copy import deepcopy
 from pyqgl2.ast_qgl2 import is_concur, is_seq
 from pyqgl2.ast_util import ast2str, NodeError
 from pyqgl2.find_channels import find_all_channels
-from pyqgl2.find_labels import getChanLabel
-from pyqgl2.importer import collapse_name
-from pyqgl2.lang import QGL2
-
-def is_qbit_create(node):
-    """
-    If the node does not represent a qbit creation and assignment,
-    return False.  Otherwise, return a triple (sym_name, use_name,
-    node) where sym_name is the symbolic name, use_name is the
-    name used by the preprocessor to substitute for this qbit
-    reference, and node is the node parameter (i.e. the root
-    of the ast for the assignment.
-
-    There are several sloppy assumptions here.
-    """
-
-    if not isinstance(node, ast.Assign):
-        return False
-
-    # Only handles simple assignments; not tuples
-    # TODO: handle tuples
-    if len(node.targets) != 1:
-        return False
-
-    if not isinstance(node.value, ast.Call):
-        return False
-
-    if not isinstance(node.value.func, ast.Name):
-        return False
-
-    # This is the old name, and needs to be updated
-    # TODO: update to new name/signature
-    if node.value.func.id != QGL2.QBIT_ALLOC and \
-       node.value.func.id != QGL2.QBIT_ALLOC2:
-        return False
-
-    chanLabel = getChanLabel(node)
-    if not chanLabel:
-        NodeError.warning_msg(node, 'failed to find chanLabel')
-
-    # HACK FIXME: assumes old-style Qbit allocation
-    sym_name = node.targets[0].id
-    use_name = 'QBIT_%s' % chanLabel
-    return (sym_name, use_name, node)
 
 
 class SingleSequence(object):

@@ -1,6 +1,7 @@
 
-from qgl2.qgl2 import qgl2decl, qgl2main, qbit, classical, pulse, qbit_list
-from qgl2.qgl1 import X, Y, Z, Id, Utheta, QubitFactory
+from qgl2.qgl2 import qgl2decl, qgl2main, qbit, qbit_list
+from qgl2.qgl2 import QRegister
+from qgl2.qgl1 import X, Y, Z, Id, Utheta
 from itertools import product
 
 @qgl2decl
@@ -9,7 +10,7 @@ def t1():
     Correct result is [ X(q1), X(q1), X(q1) ]
     """
 
-    q1 = QubitFactory(label='q1')
+    q1 = QRegister('q1')
 
     (x, y, z) = (1, 2, 3)
     if (x, y, z) == (1, 2, 3):
@@ -38,7 +39,7 @@ def t2():
     Correct result is [ X(q1), X(q1), X(q1) ]
     """
 
-    q1 = QubitFactory(label='q1')
+    q1 = QRegister('q1')
 
     (x, y, z) = (1, 2, 3)
 
@@ -81,7 +82,7 @@ def t3():
     Correct result is [ X(q1), X(q1), X(q1), X(q1) ]
     """
 
-    q1 = QubitFactory(label='q1')
+    q1 = QRegister('q1')
 
     a = [ 0, 1, 2, 3 ]
 
@@ -112,5 +113,3 @@ def t3():
     else:
         print('oops 4')
         Y(q1)
-
-

@@ -2,10 +2,10 @@
 
 # QGL2 clean versions for T1T2.py
 
-from qgl2.qgl2 import qgl2decl, qbit
+from qgl2.qgl2 import qgl2decl, qbit, QRegister
 from qgl2.basic_sequences.helpers import create_cal_seqs
 from qgl2.util import init
-from qgl2.qgl1 import QubitFactory, X, Id, MEAS, U90, X90
+from qgl2.qgl1 import X, Id, MEAS, U90, X90
 import numpy as np
 from numpy import pi
 

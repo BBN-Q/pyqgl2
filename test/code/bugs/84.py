@@ -1,6 +1,7 @@
 
-from qgl2.qgl2 import qgl2decl, qgl2main, qbit, classical, pulse, qbit_list
-from qgl2.qgl1 import X, Y, Z, Id, Utheta, QubitFactory
+from qgl2.qgl2 import qgl2decl, qgl2main, qbit, qbit_list
+from qgl2.qgl2 import QRegister
+from qgl2.qgl1 import X, Y, Z, Id, Utheta
 from itertools import product
 
 @qgl2decl
@@ -14,7 +15,7 @@ def t1():
     Correct result is [ X(q1) ]
     """
 
-    q1 = QubitFactory(label='q1')
+    q1 = QRegister('q1')
 
     cond_helper(q1, False)
 
@@ -26,8 +27,8 @@ def t2():
     Correct result is [ X(q1) ]
     """
 
-    q1 = QubitFactory(label='q1')
-    q2 = QubitFactory(label='q2')
+    q1 = QRegister('q1')
+    q2 = QRegister('q2')
 
     # We're not going to reference q2 anywhere,
     # just to make sure that the compiler doesn't
@@ -40,8 +41,8 @@ def t3():
     Like t2, but with a function call
     """
 
-    q1 = QubitFactory(label='q1')
-    q2 = QubitFactory(label='q2')
+    q1 = QRegister('q1')
+    q2 = QRegister('q2')
 
     cond_helper(q1, True)
 
@@ -51,8 +52,8 @@ def t4():
     Like t3, but the function call does nothing
     """
 
-    q1 = QubitFactory(label='q1')
-    q2 = QubitFactory(label='q2')
+    q1 = QRegister('q1')
+    q2 = QRegister('q2')
 
     cond_helper(q1, False)
 
@@ -64,7 +65,7 @@ def t5():
     Like t3, but the function call does nothing
     """
 
-    q1 = QubitFactory(label='q1')
-    q2 = QubitFactory(label='q2')
+    q1 = QRegister('q1')
+    q2 = QRegister('q2')
 
     # don't do anything at all

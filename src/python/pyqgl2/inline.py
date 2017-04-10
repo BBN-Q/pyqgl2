@@ -9,72 +9,12 @@ from pyqgl2.importer import NameSpaces
 from pyqgl2.importer import collapse_name
 from pyqgl2.lang import QGL2
 from pyqgl2.quickcopy import quickcopy
+from pyqgl2.qreg import QRegister, QReference
 
 import pyqgl2.ast_util
 import pyqgl2.scope
 
 from pyqgl2.ast_util import ast2str
-
-import QGL.Channels
-from QGL.ChannelLibrary import QubitFactory
-
-class QubitPlaceholder(QGL.Channels.Qubit):
-    """
-    Subclass of QGL.Channels.Qubit to add methods
-    used for QGL2 bookkeeping
-
-    (QGL.Channels.Qubit is a subclasses of Atom,
-    which means that it cannot be modified in-place
-    and generally doesn't behave like an ordinary
-    Python class)
-
-    Instances should never be created directly;
-    use QubitPlaceholder.factory() to create
-    instances.
-    """
-
-    # mapping from label to reference
-    KNOWN_QUBITS = dict()
-
-    def __init__(self, **kwargs):
-        super(QubitPlaceholder, self).__init__(**kwargs)
-
-    def use_name(self):
-        return 'QBIT_' + self.label
-
-    @staticmethod
-    def factory(node=None, **kwargs):
-
-        if 'label' not in kwargs:
-            NodeError.error_msg(node, 'Qubit must have a label')
-            return None
-
-        label = kwargs['label']
-        if not isinstance(label, str):
-            NodeError.error_msg(node, 'Qubit label must be a string')
-            return None
-
-        if not label:
-            NodeError.error_msg(node, 'Qubit label must be non-empty')
-            return None
-
-        use_name = 'QBIT_' + label
-
-        mapping = QubitPlaceholder.KNOWN_QUBITS
-        if use_name not in mapping:
-
-            # TODO: check that the kwargs haven't changed since
-            # the last Qubit was created with this label
-
-            new_qbit = QubitFactory(**kwargs)
-
-            # coerce to this subclass of Qubit, so that use_name works
-            #
-            new_qbit.__class__ = QubitPlaceholder
-
-            mapping[use_name] = new_qbit
-
-        return mapping[use_name]
 
 class TempVarManager(object):
     """
@@ -1007,16 +947,28 @@ class NameRedirector(ast.NodeTransformer):
             redirection = ast.Num(n=value)
         elif isinstance(value, str):
             redirection = ast.Str(s=value)
-        elif isinstance(value, QubitPlaceholder):
+        elif isinstance(value, QRegister):
             redirection = ast.Name(id=value.use_name(), ctx=ast.Load())
+            redirection.qgl_is_qbit = True
+        elif isinstance(value, QReference):
+            if isinstance(value.idx, slice):
+                lower = ast.Num(n=value.idx.start) if value.idx.start else None
+                upper = ast.Num(n=value.idx.stop) if value.idx.stop else None
+                step = ast.Num(n=value.idx.step) if value.idx.step else None
+                idx = ast.Slice(lower, upper, step)
+            else:
+                idx = ast.Index(ast.Num(n=value.idx))
+            redirection = ast.Subscript(value=ast.Name(id=value.use_name(), ctx=ast.Load()),
+                                        slice=idx,
+                                        ctx=ast.Load())
             redirection.qgl_is_qbit = True
         elif hasattr(value, '__iter__'):
             # for simple (non-nested) iterables, try parsing the repr()
-            # of the value, and then replacing QubitPlaceholders as above
+            # of the value, and then replacing QRegisters as above
             try:
                 redirection = ast.parse(repr(value)).body[0].value
                 for ct, element in enumerate(value):
-                    if isinstance(element, QubitPlaceholder):
+                    if isinstance(element, QRegister):
                         redirection.elts[ct] = ast.Name(id=element.use_name(),
                                                         ctx=ast.Load())
                         redirection.elts[ct].qgl_is_qbit = True

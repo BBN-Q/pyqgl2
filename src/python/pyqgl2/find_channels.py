@@ -11,7 +11,7 @@ import pyqgl2.ast_util
 
 from pyqgl2.ast_util import ast2str
 from pyqgl2.debugmsg import DebugMsg
-from pyqgl2.inline import QubitPlaceholder
+from pyqgl2.qreg import QRegister
 
 
 def find_all_channels(node, local_vars=None):
@@ -59,15 +59,15 @@ def find_all_channels_worker(node, local_vars=None):
 
             # Ugly hard-coded assumption about channel names: FIXME
             #
-            # Also look for bindings to QubitPlaceholders
+            # Also look for bindings to QRegister
             #
             if subnode.id.startswith('QBIT_'):
                 all_channels.add(subnode.id)
-            elif subnode.id.startswith('EDGE_'):
+            elif subnode.id.startswith('QREG_'):
                 all_channels.add(subnode.id)
             elif subnode.id in local_vars:
                 print('SYM IN LOCAL_VARS %s' % subnode.id)
-                if isinstance(local_vars[subnode.id], QubitPlaceholder):
+                if isinstance(local_vars[subnode.id], QRegister):
                     all_channels.add(local_vars[subnode.id].use_name())
 
         # Look for references to inlined calls; dig out any
