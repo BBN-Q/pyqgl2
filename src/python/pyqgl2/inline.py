@@ -951,9 +951,15 @@ class NameRedirector(ast.NodeTransformer):
             redirection = ast.Name(id=value.use_name(), ctx=ast.Load())
             redirection.qgl_is_qbit = True
         elif isinstance(value, QReference):
-            # TODO add check that that value.idx is a numeric constant?
+            if isinstance(value.idx, slice):
+                lower = ast.Num(n=value.idx.start) if value.idx.start else None
+                upper = ast.Num(n=value.idx.stop) if value.idx.stop else None
+                step = ast.Num(n=value.idx.step) if value.idx.step else None
+                idx = ast.Slice(lower, upper, step)
+            else:
+                idx = ast.Index(ast.Num(n=value.idx))
             redirection = ast.Subscript(value=ast.Name(id=value.use_name(), ctx=ast.Load()),
-                                        slice=ast.Index(ast.Num(n=value.idx)),
+                                        slice=idx,
                                         ctx=ast.Load())
             redirection.qgl_is_qbit = True
         elif hasattr(value, '__iter__'):

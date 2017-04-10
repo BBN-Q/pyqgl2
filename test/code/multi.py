@@ -43,11 +43,9 @@ def anotherMulti():
 @qgl2decl
 def anotherMulti2():
     qs = QRegister(3)
-    # TODO it would be nice to just directly use qs[0:1] below instead of
-    # creating qsub
     qsub = QRegister(qs[0], qs[1])
     Id(qsub)
-    X(qsub)
+    X(qs[0:2]) # equivalent to calling with qsub argument
     Barrier("", (qs,))
     MEAS(qsub)
     Barrier("", (qs,))

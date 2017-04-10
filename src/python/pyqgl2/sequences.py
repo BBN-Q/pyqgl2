@@ -115,18 +115,28 @@ class SequenceExtractor(object):
         expanded_args = []
         if isinstance(arg, ast.Name) and arg.id in self.allocated_qregs:
             qreg = self.allocated_qregs[arg.id]
+            # add an argument for each constituent qubit in the QRegister
             for n in range(len(qreg)):
                 new_arg = ast.Name(id=qreg.use_name(n), ctx=ast.Load())
                 expanded_args.append(new_arg)
         elif (isinstance(arg, ast.Subscript) and
                 arg.value.id in self.allocated_qregs):
+            # add an argument for the subset of qubits referred to
+            # by the QReference
+            # eval the subscript to extract the slice
             qreg = self.allocated_qregs[arg.value.id]
-            if not isinstance(arg.slice.value, ast.Num):
+            try:
+                qref = eval(ast2str(arg), None, self.allocated_qregs)
+            except:
                 NodeError(arg,
-                    "Non-literal slice of a QRegister [%s]" % ast2str(arg))
-            n = arg.slice.value.n
-            new_arg = ast.Name(id=qreg.use_name(n), ctx=ast.Load())
-            expanded_args.append(new_arg)
+                    "Error evaluating QReference [%s]" % ast2str(arg))
+            # convert the slice into a list of indices
+            idx = range(len(qreg))[qref.idx]
+            if not hasattr(idx, '__iter__'):
+                idx = (idx,)
+            for n in idx:
+                new_arg = ast.Name(id=qreg.use_name(n), ctx=ast.Load())
+                expanded_args.append(new_arg)
         elif isinstance(arg, (ast.Tuple, ast.List)):
             # expand tuples and lists to include all constituent qubits
             # FIXME would be safer to create a set() of qubits
