@@ -122,19 +122,18 @@ class QRegister(object):
             elif isinstance(arg, ast.Name) and arg.id in local_vars:
                 arg_values.append(local_vars[arg.id])
             elif is_qbit_subscript(arg, local_vars):
+                # evaluate the subscript to extract the referenced qubits
                 parent_qreg = local_vars[arg.value.id]
-                if isinstance(arg.slice, ast.Index):
-                    idx = arg.slice.value.n
-                    arg_values.append("q" + str(parent_qreg.qubits[idx]))
-                elif isinstance(arg.slice, ast.Slice):
-                    lower = arg.slice.lower.n if arg.slice.lower else None
-                    upper = arg.slice.upper.n if arg.slice.upper else None
-                    step = arg.slice.step.n if arg.slice.step else None
-                    idx = slice(lower, upper, step)
-                    arg_values.extend("q" + str(qb) for qb in parent_qreg.qubits[idx])
-                else:
+                try:
+                    arg_val = eval(ast2str(arg), None, local_vars)
+                except:
                     NodeError.error_msg(node,
                         "Unhandled qreg subscript [%s]" % ast2str(arg))
+                sub_qubits = parent_qreg.qubits[arg_val.idx]
+                if hasattr(sub_qubits, '__iter__'):
+                    arg_values.extend("q" + str(n) for n in sub_qubits)
+                else:
+                    arg_values.append("q" + str(sub_qubits))
             else:
                 NodeError.error_msg(node,
                     "Unhandled argument to QRegister [%s]" % ast2str(arg))
