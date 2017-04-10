@@ -106,12 +106,28 @@ class SequenceExtractor(object):
         return import_list
 
     def qbits_from_qregs(self, allocated_qregs):
+        '''
+        Returns the set of all qubits contained within allocated_qregs.
+        '''
         qbits = set()
         for qreg in allocated_qregs.values():
             qbits.update(qreg.qubits)
         return qbits
 
     def expand_arg(self, arg):
+        '''
+        Expands a single argument to a stub call. QRegisters are expanded
+        to a list of constituent Qubits. QRegister subscripts are similar,
+        except that the slice selects which Qubits to return. Tuples and
+        lists are different in that the exansion happens "within" the
+        tuple. So, given
+            a = QRegister(2)
+            b = QRegister(1)
+        we do (in AST shorthand):
+            expand_arg("a") -> ["QBIT_1", "QBIT_2"]
+            expand_arg("a[1]") -> ["QBIT_2"]
+            expand_arg("(a,b)") -> [("QBIT_1", "QBIT_2", "QBIT_3")]
+        '''
         expanded_args = []
         if isinstance(arg, ast.Name) and arg.id in self.allocated_qregs:
             qreg = self.allocated_qregs[arg.id]
@@ -152,6 +168,29 @@ class SequenceExtractor(object):
         return expanded_args
 
     def expand_qreg_call(self, node):
+        '''
+        Expands calls on stubs to element-wise broadcast over QRegister
+        arguments. So that given
+            a = QRegister(2)
+            b = QRegister(2)
+        single-qubit calls expand like:
+            X(a)
+        becomes
+            X(QBIT_1)
+            X(QBIT_2)
+        and two-qubit calls expand like:
+            CNOT(a, b)
+        becomes
+            CNOT(QBIT_1, QBIT_3)
+            CNOT(QBIT_2, QBIT_4)
+        Calls that act on tuples or lists expand inside the tuple, i.e.
+            Barrier("", (a, b))
+        becomes
+            Barrier("", (QBIT_1, QBIT_2, QBIT_3, QBIT_4))
+
+        Returns a list of ast.Call nodes with appropriate argumnet
+        substitutions.
+        '''
         new_stmnts = []
         expanded_args = [self.expand_arg(a) for a in node.value.args]
         # TODO verify that QRegister lengths match
