@@ -8,11 +8,12 @@ import numpy as np
 from math import pi
 
 from pyqgl2.main import compile_function
+from pyqgl2.qreg import QRegister
 from QGL import *
 from qgl2.qgl1control import Barrier
 
-from test.helpers import testable_sequence, discard_zero_Ids, \
-    flattenSeqs, channel_setup, assertPulseSequenceEqual, \
+from test.helpers import testable_sequence, \
+    channel_setup, assertPulseSequenceEqual, \
     get_cal_seqs_1qubit, get_cal_seqs_2qubits
 
 class TestAllXY(unittest.TestCase):
@@ -21,6 +22,7 @@ class TestAllXY(unittest.TestCase):
 
     def test_AllXY(self):
         q1 = QubitFactory('q1')
+        qr = QRegister('q1')
         expectedseq = []
         # Expect a single sequence 4 * 2 * 21 pulses long
         # Expect it to start like this:
@@ -47,7 +49,7 @@ class TestAllXY(unittest.TestCase):
         # intermediate products
         resFunction = compile_function("src/python/qgl2/basic_sequences/AllXYMin.py",
                                       "doAllXY",
-                                      (q1,))
+                                      (qr,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -57,6 +59,7 @@ class TestAllXY(unittest.TestCase):
     # Tests list of lists of function references, instead of sub-functions
     def test_AllXY_alt1(self):
         q1 = QubitFactory('q1')
+        qr = QRegister('q1')
         expectedseq = []
         # Expect a single sequence 4 * 2 * 21 pulses long
         # Expect it to start like this:
@@ -74,7 +77,7 @@ class TestAllXY(unittest.TestCase):
         resFunction = compile_function(
                 "test/code/AllXY_alt.py",
                 "doAllXY",
-                (q1,))
+                (qr,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -83,6 +86,7 @@ class TestAllXY(unittest.TestCase):
 
     def test_AllXY_alt2(self):
         q1 = QubitFactory('q1')
+        qr = QRegister('q1')
         expectedseq = []
         # Expect a single sequence 4 * 2 * 21 pulses long
         # Expect it to start like this:
@@ -100,7 +104,7 @@ class TestAllXY(unittest.TestCase):
         resFunction = compile_function(
                 "test/code/AllXY_alt.py",
                 "doAllXY2",
-                (q1,))
+                (qr,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -271,6 +275,7 @@ class TestDecoupling(unittest.TestCase):
 
     def test_HahnEcho(self):
         q = QubitFactory('q1')
+        qr = QRegister('q1')
         steps = 11
         pulseSpacings = np.linspace(0, 5e-6, steps)
         periods = 0
@@ -295,7 +300,7 @@ class TestDecoupling(unittest.TestCase):
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/DecouplingMin.py",
                                       "doHahnEcho",
-                                      (q, pulseSpacings, periods, calRepeats))
+                                      (qr, pulseSpacings, periods, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         # import ipdb; ipdb.set_trace()
@@ -303,6 +308,7 @@ class TestDecoupling(unittest.TestCase):
 
     def test_CPMG(self):
         q = QubitFactory('q1')
+        qr = QRegister('q1')
 
         # Create numPulses sequences
         numPulses = [0, 2, 4, 6]
@@ -339,7 +345,7 @@ class TestDecoupling(unittest.TestCase):
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/DecouplingMin.py",
                                       "doCPMG",
-                                      (q, numPulses, pulseSpacing, calRepeats))
+                                      (qr, numPulses, pulseSpacing, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs, expectedseq)
@@ -350,7 +356,8 @@ class TestFlipFlop(unittest.TestCase):
 
     def test_FlipFlop(self):
         qubit = QubitFactory('q1')
-        dragParamSweep = np.linspace(0, 5e-6, 11) # FIXME
+        qr = QRegister('q1')
+        dragParamSweep = np.linspace(0, 1, 11)
         maxNumFFs = 10
 
         def addFFSeqs(dragParam, maxNumFFs, qubit):
@@ -386,7 +393,7 @@ class TestFlipFlop(unittest.TestCase):
         ]
         resFunction = compile_function("src/python/qgl2/basic_sequences/FlipFlopMin.py",
                                       "doFlipFlop",
-                                      (qubit, dragParamSweep, maxNumFFs))
+                                      (qr, dragParamSweep, maxNumFFs))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs, expectedseq)
@@ -399,6 +406,7 @@ class TestRabiMin(unittest.TestCase):
 
     def test_RabiAmp(self):
         q1 = QubitFactory('q1')
+        qr = QRegister('q1')
         amps = np.linspace(0, 1, 11)
         phase = 0
 
@@ -412,7 +420,7 @@ class TestRabiMin(unittest.TestCase):
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiAmp",
-                                      (q1, amps, phase))
+                                      (qr, amps, phase))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs, expectedseq)
@@ -421,11 +429,12 @@ class TestRabiMin(unittest.TestCase):
     def test_RabiWidth(self):
         from qgl2.basic_sequences.pulses import local_tanh
         q1 = QubitFactory('q1')
+        qr = QRegister('q1')
         widths = np.linspace(0, 5e-6, 11)
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiWidth",
-                                      (q1, widths))
+                                      (qr, widths))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -442,11 +451,12 @@ class TestRabiMin(unittest.TestCase):
     def test_RabiAmpPi(self):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
+        qr = QRegister('q1', 'q2')
         amps = np.linspace(0, 1, 11)
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiAmpPi",
-                                      (q1, q2, amps))
+                                      (qr, amps))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -465,9 +475,10 @@ class TestRabiMin(unittest.TestCase):
 
     def test_SingleShot(self):
         q1 = QubitFactory('q1')
+        qr = QRegister('q1')
         resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doSingleShot",
-                                      (q1,))
+                                      (qr,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -484,9 +495,10 @@ class TestRabiMin(unittest.TestCase):
 
     def test_PulsedSpec(self):
         q1 = QubitFactory('q1')
+        qr = QRegister('q1')
         resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doPulsedSpec",
-                                      (q1, True))
+                                      (qr, True))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -501,7 +513,7 @@ class TestRabiMin(unittest.TestCase):
     def test_RabiAmp_NQubits(self):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
-        qubits = [q1, q2]
+        qr = QRegister('q1', 'q2')
         amps = np.linspace(0, 5e-6, 11)
         p = 0
         docals = False
@@ -514,7 +526,6 @@ class TestRabiMin(unittest.TestCase):
                 qwait(),
                 Utheta(q1, amp=a, phase=p),
                 Utheta(q2, amp=a, phase=p),
-                Barrier("", (q1, q2)),
                 MEAS(q1),
                 MEAS(q2)
             ]
@@ -528,7 +539,7 @@ class TestRabiMin(unittest.TestCase):
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doRabiAmp_NQubits",
-                                      (qubits, amps, docals, calRepeats))
+                                      (qr, amps, docals, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -537,6 +548,7 @@ class TestRabiMin(unittest.TestCase):
     def test_Swap(self):
         q = QubitFactory('q1')
         mq = QubitFactory('q2')
+        qr = QRegister('q1', 'q2')
         delays = np.linspace(0, 5e-6, 11)
         expectedseq = []
         for d in delays:
@@ -559,7 +571,7 @@ class TestRabiMin(unittest.TestCase):
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
                                       "doSwap",
-                                      (q, mq, delays))
+                                      (qr, delays))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -571,6 +583,7 @@ class TestSPAM(unittest.TestCase):
 
     def test_SPAM(self):
         q = QubitFactory('q1')
+        qr = QRegister('q1')
         angleSweep = np.linspace(0, pi/2, 11)
         maxSpamBlocks=10
         expectedseq = []
@@ -611,7 +624,7 @@ class TestSPAM(unittest.TestCase):
         ]
         resFunction = compile_function("src/python/qgl2/basic_sequences/SPAMMin.py",
                                       "doSPAM",
-                                      (q, angleSweep, maxSpamBlocks))
+                                      (qr, angleSweep, maxSpamBlocks))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs, expectedseq)
@@ -622,6 +635,7 @@ class TestT1T2(unittest.TestCase):
 
     def test_InversionRecovery(self):
         q = QubitFactory('q1')
+        qr = QRegister('q1')
         delays = np.linspace(0, 5e-6, 11)
         calRepeats = 2
         expectedseq = []
@@ -641,13 +655,14 @@ class TestT1T2(unittest.TestCase):
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/T1T2Min.py",
                                       "doInversionRecovery",
-                                      (q, delays, calRepeats))
+                                      (qr, delays, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs, expectedseq)
 
     def test_Ramsey(self):
         q = QubitFactory('q1')
+        qr = QRegister('q1')
         delays = np.arange(100e-9, 10e-6, 100e-9)
         TPPIFreq = 1e6
         calRepeats = 2
@@ -673,7 +688,7 @@ class TestT1T2(unittest.TestCase):
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/T1T2Min.py",
                                       "doRamsey",
-                                      (q, delays, TPPIFreq, calRepeats))
+                                      (qr, delays, TPPIFreq, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs, expectedseq)

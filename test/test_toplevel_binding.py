@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 
 from pyqgl2.main import compile_function
+from pyqgl2.qreg import QRegister
 from QGL import *
 
 from .helpers import channel_setup, testable_sequence
@@ -121,6 +122,7 @@ class TestTopLevelBinding(unittest.TestCase):
     def test_main3(self):
         # add a qubit input
         q1 = QubitFactory('q1')
+        qr = QRegister('q1')
         amps = range(5)
         expectedseq = [Xtheta(q1, amp=a) for a in amps]
 
@@ -128,7 +130,44 @@ class TestTopLevelBinding(unittest.TestCase):
         resFunction = compile_function(
             "test/code/toplevel_binding.py",
             "main3",
-            (q1, amps)
+            (qr, amps)
+            )
+        seqs = resFunction()
+
+        self.assertEqual(seqs, expectedseq)
+
+    def test_main3b(self):
+        # QReference input
+        q1 = QubitFactory('q1')
+        qr = QRegister('q1', 'q2')
+        amps = range(5)
+        expectedseq = [Xtheta(q1, amp=a) for a in amps]
+
+        # tuple input for toplevel_bindings
+        resFunction = compile_function(
+            "test/code/toplevel_binding.py",
+            "main3",
+            (qr[0], amps)
+            )
+        seqs = resFunction()
+
+        self.assertEqual(seqs, expectedseq)
+
+    def test_main3c(self):
+        # QReference slice
+        q1 = QubitFactory('q1')
+        q2 = QubitFactory('q2')
+        qr = QRegister('q1', 'q2', 'q3')
+        amps = range(5)
+        expectedseq = []
+        for a in amps:
+            expectedseq += [Xtheta(q1, amp=a), Xtheta(q2, amp=a)]
+
+        # tuple input for toplevel_bindings
+        resFunction = compile_function(
+            "test/code/toplevel_binding.py",
+            "main3",
+            (qr[:2], amps)
             )
         seqs = resFunction()
 
@@ -137,6 +176,7 @@ class TestTopLevelBinding(unittest.TestCase):
     def test_main4(self):
         # add a function handle as an input
         q1 = QubitFactory('q1')
+        qr = QRegister('q1')
         amps = range(5)
         expectedseq = [Xtheta(q1, amp=a, shapeFun=PulseShapes.tanh) for a in amps]
 
@@ -144,7 +184,7 @@ class TestTopLevelBinding(unittest.TestCase):
         resFunction = compile_function(
             "test/code/toplevel_binding.py",
             "main4",
-            (q1, amps, PulseShapes.tanh)
+            (qr, amps, PulseShapes.tanh)
             )
         seqs = resFunction()
 
@@ -155,13 +195,36 @@ class TestTopLevelBinding(unittest.TestCase):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         qs = [q1, q2]
+        qr1 = QRegister('q1')
+        qr2 = QRegister('q2')
+        qrs = [qr1, qr2]
         expectedseq = [X(q1), X(q2)]
 
         # tuple input for toplevel_bindings
         resFunction = compile_function(
             "test/code/toplevel_binding.py",
             "main5",
-            (qs,)
+            (qrs,)
+            )
+        seqs = resFunction()
+
+        self.assertEqual(seqs, expectedseq)
+
+    def test_main5b(self):
+        # TODO this doesn't actually match the signature of "main5",
+        # because a QRegister is not a qbit_list (at least not as
+        # currently defined). Should this throw an error?
+        q1 = QubitFactory('q1')
+        q2 = QubitFactory('q2')
+        qs = [q1, q2]
+        qr = QRegister('q1', 'q2')
+        expectedseq = [X(q1), X(q2)]
+
+        # tuple input for toplevel_bindings
+        resFunction = compile_function(
+            "test/code/toplevel_binding.py",
+            "main5",
+            (qr,)
             )
         seqs = resFunction()
 

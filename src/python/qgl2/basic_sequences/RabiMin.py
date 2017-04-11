@@ -31,14 +31,13 @@ def doRabiAmp(q:qbit, amps, phase):
         MEAS(q)
 
 @qgl2decl
-def doRabiAmpPi(q1:qbit, q2:qbit, amps):
+def doRabiAmpPi(qr:qbit, amps):
     for l in amps:
-        init(q1)
-        init(q2)
-        X(q2)
-        Utheta(q1, amp=l, phase=0)
-        X(q2)
-        MEAS(q2)
+        init(qr)
+        X(qr[1])
+        Utheta(qr[0], amp=l, phase=0)
+        X(qr[1])
+        MEAS(qr[1])
 
 @qgl2decl
 def doSingleShot(q:qbit):
@@ -59,31 +58,24 @@ def doPulsedSpec(q:qbit, specOn):
     MEAS(q)
 
 @qgl2decl
-def doRabiAmp_NQubits(qubits:qbit_list, amps, docals, calRepeats):
+def doRabiAmp_NQubits(qr:qbit, amps, docals, calRepeats):
     p = 0
 
     for a in amps:
-        for q in qubits:
-            init(q)
-        for q in qubits:
-            Utheta(q, amp=a, phase=p)
-        Barrier("", qubits)
-        for q in qubits:
-            MEAS(q)
+        init(qr)
+        Utheta(qr, amp=a, phase=p)
+        MEAS(qr)
 
     if docals:
-        create_cal_seqs(qubits, calRepeats)
+        create_cal_seqs(qr, calRepeats)
 
 @qgl2decl
-def doSwap(q:qbit, mq:qbit, delays):
-    qr = QRegister(q, mq)
-
+def doSwap(qr:qbit, delays):
     for d in delays:
         init(qr)
         X(qr)
         Id(qr[1], length=d)
         Barrier("", (qr,))
         MEAS(qr)
-
 
     create_cal_seqs(qr, 2)

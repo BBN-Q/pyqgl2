@@ -1,4 +1,4 @@
-from qgl2.qgl2 import concur, qgl2decl
+from qgl2.qgl2 import qgl2decl
 from qgl2.qgl2 import qbit, qbit_list, QRegister
 from qgl2.qgl1 import Xtheta, Ytheta
 

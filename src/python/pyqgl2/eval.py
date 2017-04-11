@@ -18,10 +18,8 @@ from pyqgl2.inline import NameFinder, NameRedirector, NameRewriter
 from pyqgl2.inline import TempVarManager
 from pyqgl2.qgl2_check import QGL2check
 from pyqgl2.qreg import is_qbit_create
-from pyqgl2.qreg import QRegister
+from pyqgl2.qreg import QRegister, QReference
 from pyqgl2.quickcopy import quickcopy
-
-from QGL import Qubit
 
 def insert_keyword(kwargs, key, value):
 
@@ -922,23 +920,32 @@ class EvalTransformer(object):
         qbit_preamble = list()
         local_variables = self.eval_state.locals_stack[-1]
         for k, v in local_variables.items():
-            if isinstance(v, Qubit):
-                # FIXME kludge assumption that label is sufficient description
-                stmnt = ast.parse("{0} = QRegister('{1}')".format(k, v.label))
+            if isinstance(v, QRegister):
+                # pass a QRegister straight thru as if it were simply
+                # delcared at the top of main
+                stmnt = ast.parse("{0} = {1}".format(k, v))
                 copy_all_loc(stmnt.body[0], node, recurse=True)
                 qbit_preamble.append(stmnt.body[0])
-            elif hasattr(v, '__iter__') and all(isinstance(x, Qubit) for x in v):
-                # a uniform list of Qubits
-                # FIXME same kludge as above
+            elif isinstance(v, QReference):
+                # make a new QRegister containing the referenced qubits
+                if isinstance(v.idx, slice):
+                    qubit_args = ", ".join("'q{0}'".format(n) for n in v.ref.qubits[v.idx])
+                else:
+                    qubit_args = "'q{0}'".format(v.ref.qubits[v.idx])
+                stmnt = ast.parse("{0} = QRegister({1})".format(k, qubit_args))
+                copy_all_loc(stmnt.body[0], node, recurse=True)
+                qbit_preamble.append(stmnt.body[0])
+            elif hasattr(v, '__iter__') and all(isinstance(x, QRegister) for x in v):
+                # a uniform list of QRegisters
                 tmp_namer = TempVarManager.create_temp_var_manager(
                         name_prefix='___preamble')
                 qstrs = ""
                 tmp_names = []
                 for elem in v:
-                    tmp_name = tmp_namer.create_tmp_name(elem.label)
+                    tmp_name = tmp_namer.create_tmp_name()
                     tmp_names.append(tmp_name)
-                    qstrs += "{0} = QRegister('{1}')\n".format(tmp_name, elem.label)
-                qstrs += "{0} = ({1})".format(k, ", ".join(tmp_names))
+                    qstrs += "{0} = {1}\n".format(tmp_name, elem)
+                qstrs += "{0} = ({1},)".format(k, ", ".join(tmp_names))
                 stmnt = ast.parse(qstrs)
                 for s in stmnt.body:
                     copy_all_loc(s, node, recurse=True)

@@ -5,6 +5,7 @@ import unittest
 # Test functions in multi.py
 
 from pyqgl2.main import compile_function
+from pyqgl2.qreg import QRegister
 from test.helpers import channel_setup, testable_sequence
 
 from test.helpers import assertPulseSequenceEqual, \
@@ -22,9 +23,9 @@ class TestQFT(unittest.TestCase):
     def test_qft(self):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
-        qs = [q1, q2]
+        qr = QRegister('q1', 'q2')
 
-        resFunction = compile_function('test/code/qft.py', 'qft', (qs,))
+        resFunction = compile_function('test/code/qft.py', 'qft', (qr,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 

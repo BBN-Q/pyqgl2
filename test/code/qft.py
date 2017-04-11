@@ -1,4 +1,4 @@
-from qgl2.qgl2 import qgl2decl, qgl2main, qbit, qbit_list
+from qgl2.qgl2 import qgl2decl, qgl2main, qbit, qbit_list, QRegister
 from qgl2.qgl1 import Id, X90, Y90, X, Y, Ztheta, MEAS, CNOT
 
 from math import pi
@@ -17,10 +17,9 @@ def CZ_k(c:qbit, t:qbit, k):
     CNOT(c, t)
 
 @qgl2decl
-def qft(qs:qbit_list):
+def qft(qs:qbit):
     for i in range(len(qs)):
         hadamard(qs[i])
         for j in range(i+1, len(qs)):
             CZ_k(qs[i], qs[j], j-i)
-    for q in qs:
-        MEAS(q)
+    MEAS(qs)
