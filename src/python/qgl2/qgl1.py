@@ -151,11 +151,9 @@ def Sync() -> control:
 
 # This function is QGL1 but only for use by QGL2
 @qgl2stub('qgl2.qgl1control')
-def Barrier(ctr, chanlist) -> control:
-    # ctr - global counter of barriers to line them up
+def Barrier(chanlist: qbit_list) -> control:
     # chanlist is list of channels that are waiting here
-    # chanlist must be enough to produce some later wait on specific channels
-    print('Barrier(%s, %s)' % (ctr, chanlist))
+    print('Barrier(%s)' % (chanlist))
 
 @qgl2stub('QGL.ControlFlow')
 def Store(dest, source) -> control:

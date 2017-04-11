@@ -35,5 +35,5 @@ def create_cal_seqs(qubits: qbit, numRepeats):
             init(qubits)
             for pulse, qubit in zip(pulseSet, qubits):
                 pulse(qubit)
-            Barrier("", (qubits,))
+            Barrier((qubits,))
             MEAS(qubits)

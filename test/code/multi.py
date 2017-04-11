@@ -12,7 +12,7 @@ def multiQbitTest2():
 
     Id(qs)
     X(qs)
-    Barrier("", (qs,))
+    Barrier((qs,))
     MEAS(qs)
 
 @qgl2decl
@@ -36,7 +36,7 @@ def anotherMulti():
     qs = QRegister(2)
     Id(qs)
     X(qs)
-    Barrier("", (qs,))
+    Barrier((qs,))
     MEAS(qs)
     Y(qs)
 
@@ -46,9 +46,9 @@ def anotherMulti2():
     qsub = QRegister(qs[0], qs[1])
     Id(qsub)
     X(qs[0:2]) # equivalent to calling with qsub argument
-    Barrier("", (qs,))
+    Barrier((qs,))
     MEAS(qsub)
-    Barrier("", (qs,))
+    Barrier((qs,))
     Y(qs[0])
     Y(qs[2])
 
@@ -59,8 +59,8 @@ def anotherMulti3():
     qsub = QRegister(qs[0:2])
     Id(qsub)
     X(qsub)
-    Barrier("", (qs,))
+    Barrier((qs,))
     MEAS(qsub)
-    Barrier("", (qs,))
+    Barrier((qs,))
     Y(qs[0])
     Y(qs[2])

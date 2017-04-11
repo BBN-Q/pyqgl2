@@ -135,7 +135,7 @@ class TestCR(unittest.TestCase):
                 qwait(),
                 Id(controlQ),
                 flat_top_gaussian(edge, riseFall, length=l, amp=amp, phase=phase),
-                Barrier("", (controlQ, targetQ)),
+                Barrier((controlQ, targetQ)),
                 MEAS(controlQ),
                 MEAS(targetQ)
             ]
@@ -147,7 +147,7 @@ class TestCR(unittest.TestCase):
                 X(controlQ),
                 flat_top_gaussian(edge, riseFall, length=l, amp=amp, phase=phase),
                 X(controlQ),
-                Barrier("", (controlQ, targetQ)),
+                Barrier((controlQ, targetQ)),
                 MEAS(controlQ),
                 MEAS(targetQ)
             ]
@@ -185,7 +185,7 @@ class TestCR(unittest.TestCase):
                 echoCR(controlQ, targetQ, length=l, phase=phase,
                        riseFall=riseFall),
                 Id(controlQ),
-                Barrier("", (controlQ, targetQ)),
+                Barrier((controlQ, targetQ)),
                 MEAS(controlQ),
                 MEAS(targetQ)
             ]
@@ -198,7 +198,7 @@ class TestCR(unittest.TestCase):
                 echoCR(controlQ, targetQ, length=l, phase=phase,
                        riseFall=riseFall),
                 X(controlQ),
-                Barrier("", (controlQ, targetQ)),
+                Barrier((controlQ, targetQ)),
                 MEAS(controlQ),
                 MEAS(targetQ)
             ]
@@ -236,7 +236,7 @@ class TestCR(unittest.TestCase):
                        riseFall=riseFall),
                 X90(targetQ),
                 Id(controlQ),
-                Barrier("", (controlQ, targetQ)),
+                Barrier((controlQ, targetQ)),
                 MEAS(controlQ),
                 MEAS(targetQ)
             ]
@@ -251,7 +251,7 @@ class TestCR(unittest.TestCase):
                        riseFall=riseFall),
                 X90(targetQ),
                 X(controlQ),
-                Barrier("", (controlQ, targetQ)),
+                Barrier((controlQ, targetQ)),
                 MEAS(controlQ),
                 MEAS(targetQ)
             ]
@@ -558,7 +558,7 @@ class TestRabiMin(unittest.TestCase):
                 X(q),
                 X(mq),
                 Id(mq, length=d),
-                Barrier("", (q, mq)),
+                Barrier((q, mq)),
                 MEAS(q),
                 MEAS(mq)
             ]
