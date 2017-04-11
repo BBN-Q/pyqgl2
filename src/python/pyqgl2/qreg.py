@@ -101,6 +101,10 @@ class QRegister(object):
     def __add__(self, other):
         return QRegister(self, other)
 
+    def __iter__(self):
+        for n in range(len(self.qubits)):
+            yield self[n]
+
     @staticmethod
     def factory(node, local_vars):
         '''
@@ -160,6 +164,9 @@ class QReference(object):
 
     def __str__(self):
         return "QReference({0}, {1})".format(self.ref, self.idx)
+
+    def __eq__(self, other):
+        return (self.ref == other.ref) and (self.idx == other.idx)
 
     def use_name(self):
         return self.ref.use_name()

@@ -10,15 +10,9 @@ import numpy as np
 from math import pi
 
 @qgl2decl
-def meas_all(qubits: qbit_list):
-    for q in qubits:
-        MEAS(q)
-
-@qgl2decl
 def doPiRabi():
     # FIXME: No arguments allowed
-    controlQ = QRegister('q1')
-    targetQ = QRegister('q2')
+    qr = QRegister('q1', 'q2') # qr[0] is control, qr[1] is target
     # FIXME: Better values!?
     lengths = np.linspace(0, 4e-6, 11)
     riseFall=40e-9
@@ -28,31 +22,28 @@ def doPiRabi():
 
     # Sequence 1: Id(control), gaussian(l), measure both
     for l in lengths:
-        init(controlQ)
-        init(targetQ)
-        Id(controlQ)
-        flat_top_gaussian_edge(controlQ, targetQ, riseFall, amp=amp, phase=phase, length=l)
-        Barrier("", (targetQ, controlQ))
-        meas_all([targetQ, controlQ])
+        init(qr)
+        Id(qr[0])
+        flat_top_gaussian_edge(qr[0], qr[1], riseFall, amp=amp, phase=phase, length=l)
+        Barrier("", (qr,))
+        MEAS(qr)
 
     # Sequence 2: X(control), gaussian(l), X(control), measure both
     for l in lengths:
-        init(controlQ)
-        init(targetQ)
-        X(controlQ)
-        flat_top_gaussian_edge(controlQ, targetQ, riseFall, amp=amp, phase=phase, length=l)
-        X(controlQ)
-        Barrier("", (targetQ, controlQ))
-        meas_all([targetQ, controlQ])
+        init(qr)
+        X(qr[0])
+        flat_top_gaussian_edge(qr[0], qr[1], riseFall, amp=amp, phase=phase, length=l)
+        X(qr[0])
+        Barrier("", (qr,))
+        MEAS(qr)
 
     # Then do calRepeats calibration sequences
-    create_cal_seqs((targetQ, controlQ), calRepeats)
+    create_cal_seqs(qr, calRepeats)
 
 @qgl2decl
 def doEchoCRLen():
     # FIXME: No arguments allowed
-    controlQ = QRegister('q1')
-    targetQ = QRegister('q2')
+    qr = QRegister('q1', 'q2') # qr[0] is control, qr[1] is target
     # FIXME: Better values!?
     lengths = np.linspace(0, 2e-6, 11)
     riseFall=40e-9
@@ -62,34 +53,31 @@ def doEchoCRLen():
 
     # Sequence1:
     for l in lengths:
-        init(controlQ)
-        init(targetQ)
-        Id(controlQ)
-        echoCR(controlQ, targetQ, length=l, phase=phase,
+        init(qr)
+        Id(qr[0])
+        echoCR(qr[0], qr[1], length=l, phase=phase,
                riseFall=riseFall)
-        Id(controlQ)
-        Barrier("", (targetQ, controlQ))
-        meas_all([targetQ, controlQ])
+        Id(qr[0])
+        Barrier("", (qr,))
+        MEAS(qr)
 
     # Sequence 2
     for l in lengths:
-        init(controlQ)
-        init(targetQ)
-        X(controlQ)
-        echoCR(controlQ, targetQ, length=l, phase=phase,
+        init(qr)
+        X(qr[0])
+        echoCR(qr[0], qr[1], length=l, phase=phase,
                riseFall=riseFall)
-        X(controlQ)
-        Barrier("", (targetQ, controlQ))
-        meas_all([targetQ, controlQ])
+        X(qr[0])
+        Barrier("", (qr,))
+        MEAS(qr)
 
     # Then do calRepeats calibration sequences
-    create_cal_seqs((targetQ, controlQ), calRepeats)
+    create_cal_seqs(qr, calRepeats)
 
 @qgl2decl
 def doEchoCRPhase():
     # FIXME: No arguments allowed
-    controlQ = QRegister('q1')
-    targetQ = QRegister('q2')
+    qr = QRegister('q1', 'q2') # qr[0] is control, qr[1] is target
     # FIXME: Better values!?
     phases = np.linspace(0, pi/2, 11)
     riseFall=40e-9
@@ -99,27 +87,25 @@ def doEchoCRPhase():
 
     # Sequence 1
     for ph in phases:
-        init(controlQ)
-        init(targetQ)
-        Id(controlQ)
-        echoCR(controlQ, targetQ, length=length, phase=ph,
+        init(qr)
+        Id(qr[0])
+        echoCR(qr[0], qr[1], length=length, phase=ph,
                riseFall=riseFall)
-        X90(targetQ)
-        Id(controlQ)
-        Barrier("", (targetQ, controlQ))
-        meas_all([targetQ, controlQ])
+        X90(qr[1])
+        Id(qr[0])
+        Barrier("", (qr,))
+        MEAS(qr)
 
     # Sequence 2
     for ph in phases:
-        init(controlQ)
-        init(targetQ)
-        X(controlQ)
-        echoCR(controlQ, targetQ, length=length, phase=ph,
+        init(qr)
+        X(qr[0])
+        echoCR(qr[0], qr[1], length=length, phase=ph,
                riseFall=riseFall)
-        X90(targetQ)
-        X(controlQ)
-        Barrier("", (targetQ, controlQ))
-        meas_all([targetQ, controlQ])
+        X90(qr[1])
+        X(qr[0])
+        Barrier("", (qr,))
+        MEAS(qr)
 
     # Then do calRepeats calibration sequences
-    create_cal_seqs((targetQ, controlQ), calRepeats)
+    create_cal_seqs(qr, calRepeats)
