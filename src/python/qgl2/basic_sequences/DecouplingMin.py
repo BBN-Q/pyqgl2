@@ -24,7 +24,7 @@ def doHahnEcho(q:qbit, pulseSpacings, periods, calRepeats):
         U90(q, phase=2*pi*periods/len(pulseSpacings)*k)
         MEAS(q)
 
-    create_cal_seqs((q,), calRepeats)
+    create_cal_seqs(q, calRepeats)
 
 @qgl2decl
 def doCPMG(q:qbit, numPulses, pulseSpacing, calRepeats):
@@ -43,4 +43,4 @@ def doCPMG(q:qbit, numPulses, pulseSpacing, calRepeats):
         MEAS(q)
 
     # Tack on calibration
-    create_cal_seqs((q,), calRepeats)
+    create_cal_seqs(q, calRepeats)

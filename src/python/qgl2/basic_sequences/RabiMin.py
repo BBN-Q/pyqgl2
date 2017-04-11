@@ -76,15 +76,14 @@ def doRabiAmp_NQubits(qubits:qbit_list, amps, docals, calRepeats):
 
 @qgl2decl
 def doSwap(q:qbit, mq:qbit, delays):
+    qr = QRegister(q, mq)
 
     for d in delays:
-        init(q)
-        init(mq)
-        X(q)
-        X(mq)
-        Id(mq, length=d)
-        Barrier("", (q, mq))
-        MEAS(q)
-        MEAS(mq)
+        init(qr)
+        X(qr)
+        Id(qr[1], length=d)
+        Barrier("", (qr,))
+        MEAS(qr)
 
-    create_cal_seqs((mq, q), 2)
+
+    create_cal_seqs(qr, 2)

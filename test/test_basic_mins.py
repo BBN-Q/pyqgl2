@@ -131,9 +131,9 @@ class TestCR(unittest.TestCase):
                 qwait(),
                 Id(controlQ),
                 flat_top_gaussian(edge, riseFall, length=l, amp=amp, phase=phase),
-                Barrier("", (targetQ, controlQ)),
-                MEAS(targetQ),
-                MEAS(controlQ)
+                Barrier("", (controlQ, targetQ)),
+                MEAS(controlQ),
+                MEAS(targetQ)
             ]
         # Seq2
         for l in lengths:
@@ -143,13 +143,13 @@ class TestCR(unittest.TestCase):
                 X(controlQ),
                 flat_top_gaussian(edge, riseFall, length=l, amp=amp, phase=phase),
                 X(controlQ),
-                Barrier("", (targetQ, controlQ)),
-                MEAS(targetQ),
-                MEAS(controlQ)
+                Barrier("", (controlQ, targetQ)),
+                MEAS(controlQ),
+                MEAS(targetQ)
             ]
 
         # Add calibration
-        calseq = get_cal_seqs_2qubits(targetQ, controlQ, calRepeats)
+        calseq = get_cal_seqs_2qubits(controlQ, targetQ, calRepeats)
         expected_seq += calseq
         expected_seq = testable_sequence(expected_seq)
 
@@ -181,9 +181,9 @@ class TestCR(unittest.TestCase):
                 echoCR(controlQ, targetQ, length=l, phase=phase,
                        riseFall=riseFall),
                 Id(controlQ),
-                Barrier("", (targetQ, controlQ)),
-                MEAS(targetQ),
-                MEAS(controlQ)
+                Barrier("", (controlQ, targetQ)),
+                MEAS(controlQ),
+                MEAS(targetQ)
             ]
         # Seq2
         for l in lengths:
@@ -194,13 +194,13 @@ class TestCR(unittest.TestCase):
                 echoCR(controlQ, targetQ, length=l, phase=phase,
                        riseFall=riseFall),
                 X(controlQ),
-                Barrier("", (targetQ, controlQ)),
-                MEAS(targetQ),
-                MEAS(controlQ)
+                Barrier("", (controlQ, targetQ)),
+                MEAS(controlQ),
+                MEAS(targetQ)
             ]
 
         # Add calibration
-        cal_seqs = get_cal_seqs_2qubits(targetQ, controlQ, calRepeats)
+        cal_seqs = get_cal_seqs_2qubits(controlQ, targetQ, calRepeats)
         expected_seq += cal_seqs
         expected_seq = testable_sequence(expected_seq)
 
@@ -232,9 +232,9 @@ class TestCR(unittest.TestCase):
                        riseFall=riseFall),
                 X90(targetQ),
                 Id(controlQ),
-                Barrier("", (targetQ, controlQ)),
-                MEAS(targetQ),
-                MEAS(controlQ)
+                Barrier("", (controlQ, targetQ)),
+                MEAS(controlQ),
+                MEAS(targetQ)
             ]
 
         # Seq2
@@ -247,13 +247,13 @@ class TestCR(unittest.TestCase):
                        riseFall=riseFall),
                 X90(targetQ),
                 X(controlQ),
-                Barrier("", (targetQ, controlQ)),
-                MEAS(targetQ),
-                MEAS(controlQ)
+                Barrier("", (controlQ, targetQ)),
+                MEAS(controlQ),
+                MEAS(targetQ)
             ]
 
         # Add calibration
-        cal_seqs = get_cal_seqs_2qubits(targetQ, controlQ, calRepeats)
+        cal_seqs = get_cal_seqs_2qubits(controlQ, targetQ, calRepeats)
         expected_seq += cal_seqs
         expected_seq = testable_sequence(expected_seq)
 
@@ -552,7 +552,7 @@ class TestRabiMin(unittest.TestCase):
             ]
 
         # Add calibration
-        cal_seqs = get_cal_seqs_2qubits(mq, q, 2)
+        cal_seqs = get_cal_seqs_2qubits(q, mq, 2)
         expectedseq += cal_seqs
 
         expectedseq = testable_sequence(expectedseq)

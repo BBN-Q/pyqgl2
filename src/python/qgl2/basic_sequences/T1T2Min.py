@@ -18,7 +18,7 @@ def doInversionRecovery(q:qbit, delays, calRepeats):
         MEAS(q)
 
     # Tack on calibration
-    create_cal_seqs((q,), calRepeats)
+    create_cal_seqs(q, calRepeats)
 
 @qgl2decl
 def doRamsey(q:qbit, delays, TPPIFreq, calRepeats):
@@ -34,4 +34,4 @@ def doRamsey(q:qbit, delays, TPPIFreq, calRepeats):
         MEAS(q)
 
     # Tack on calibration
-    create_cal_seqs((q,), calRepeats)
+    create_cal_seqs(q, calRepeats)
