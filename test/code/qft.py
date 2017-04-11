@@ -17,10 +17,9 @@ def CZ_k(c:qbit, t:qbit, k):
     CNOT(c, t)
 
 @qgl2decl
-def qft(qs:qbit_list):
+def qft(qs:qbit):
     for i in range(len(qs)):
         hadamard(qs[i])
         for j in range(i+1, len(qs)):
             CZ_k(qs[i], qs[j], j-i)
-    for q in qs:
-        MEAS(q)
+    MEAS(qs)
