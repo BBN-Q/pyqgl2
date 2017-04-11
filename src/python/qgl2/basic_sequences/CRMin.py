@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, concur, qbit_list, QRegister
+from qgl2.qgl2 import qgl2decl, qbit_list, QRegister
 from qgl2.util import init
 from qgl2.qgl1 import Id, flat_top_gaussian_edge, X, X90, echoCR
 from qgl2.qgl1 import MEAS

@@ -2,7 +2,7 @@
 
 # QGL2 test versions of AllXY
 
-from qgl2.qgl2 import qgl2decl, qbit, concur, QRegister
+from qgl2.qgl2 import qgl2decl, qbit, QRegister
 from qgl2.util import init
 from qgl2.qgl1 import MEAS
 

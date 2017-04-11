@@ -1,4 +1,4 @@
-from qgl2.qgl2 import qgl2decl, qgl2main, qbit, qbit_list
+from qgl2.qgl2 import qgl2decl, qgl2main, qbit, qbit_list, QRegister
 from qgl2.qgl1 import Id, X90, Y90, X, Y, Ztheta, MEAS, CNOT
 
 from math import pi
