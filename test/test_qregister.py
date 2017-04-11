@@ -79,3 +79,10 @@ class TestQRegister(unittest.TestCase):
         a = QRegister.factory(node, local_vars)
         self.assertEqual(len(a), 2)
         self.assertEqual(a.qubits, [1,3])
+
+    def test_iter(self):
+        a = QRegister(4)
+        ct = 0
+        for q in a:
+            self.assertEqual(q, a[ct])
+            ct += 1
