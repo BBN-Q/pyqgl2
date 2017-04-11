@@ -136,6 +136,43 @@ class TestTopLevelBinding(unittest.TestCase):
 
         self.assertEqual(seqs, expectedseq)
 
+    def test_main3b(self):
+        # QReference input
+        q1 = QubitFactory('q1')
+        qr = QRegister('q1', 'q2')
+        amps = range(5)
+        expectedseq = [Xtheta(q1, amp=a) for a in amps]
+
+        # tuple input for toplevel_bindings
+        resFunction = compile_function(
+            "test/code/toplevel_binding.py",
+            "main3",
+            (qr[0], amps)
+            )
+        seqs = resFunction()
+
+        self.assertEqual(seqs, expectedseq)
+
+    def test_main3c(self):
+        # QReference slice
+        q1 = QubitFactory('q1')
+        q2 = QubitFactory('q2')
+        qr = QRegister('q1', 'q2', 'q3')
+        amps = range(5)
+        expectedseq = []
+        for a in amps:
+            expectedseq += [Xtheta(q1, amp=a), Xtheta(q2, amp=a)]
+
+        # tuple input for toplevel_bindings
+        resFunction = compile_function(
+            "test/code/toplevel_binding.py",
+            "main3",
+            (qr[:2], amps)
+            )
+        seqs = resFunction()
+
+        self.assertEqual(seqs, expectedseq)
+
     def test_main4(self):
         # add a function handle as an input
         q1 = QubitFactory('q1')

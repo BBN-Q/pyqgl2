@@ -928,9 +928,13 @@ class EvalTransformer(object):
                 qbit_preamble.append(stmnt.body[0])
             elif isinstance(v, QReference):
                 # make a new QRegister containing the referenced qubits
-                idx = range(v.ref)[v.idx]
-                qubit_args = ", ".join("q" + str(n) for n in v.ref.qubits[idx])
-                stmnt = ast.parse("{0} = QRegister({1})".format(v, qubit_args))
+                if isinstance(v.idx, slice):
+                    qubit_args = ", ".join("'q{0}'".format(n) for n in v.ref.qubits[v.idx])
+                else:
+                    qubit_args = "'q{0}'".format(v.ref.qubits[v.idx])
+                stmnt = ast.parse("{0} = QRegister({1})".format(k, qubit_args))
+                copy_all_loc(stmnt.body[0], node, recurse=True)
+                qbit_preamble.append(stmnt.body[0])
             elif hasattr(v, '__iter__') and all(isinstance(x, QRegister) for x in v):
                 # a uniform list of QRegisters
                 tmp_namer = TempVarManager.create_temp_var_manager(
