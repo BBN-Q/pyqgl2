@@ -144,10 +144,10 @@ class QRegister(object):
 
         return QRegister(*arg_values)
 
-    @staticmethod
-    def reset():
-        QRegister.KNOWN_QUBITS.clear()
-        QRegister.NUM_REGISTERS = 0
+    @classmethod
+    def reset(cls):
+        cls.KNOWN_QUBITS.clear()
+        cls.NUM_REGISTERS = 0
 
 class QReference(object):
     '''
@@ -167,6 +167,9 @@ class QReference(object):
 
     def __eq__(self, other):
         return (self.ref == other.ref) and (self.idx == other.idx)
+
+    def __len__(self):
+        return len(self.ref.qubits[self.idx])
 
     def use_name(self):
         return self.ref.use_name()
