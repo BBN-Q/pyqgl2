@@ -1,9 +1,9 @@
 from qgl2.qgl2 import qgl2decl
-from qgl2.qgl2 import qbit, qbit_list, QRegister
+from qgl2.qgl2 import qreg, QRegister
 from qgl2.qgl1 import Xtheta, Ytheta
 
 @qgl2decl
-def A(q: qbit):
+def A(q: qreg):
     a = 1
     Xtheta(q, amp=a)
 

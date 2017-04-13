@@ -1,13 +1,13 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, QRegister
+from qgl2.qgl2 import qgl2decl, qreg, QRegister
 from qgl2.util import init
 from qgl2.qgl1 import X90, X90m, Y90, MEAS, Id, X
 
 import numpy as np
 
 @qgl2decl
-def flipflop_seqs(dragParam, maxNumFFs, qubit: qbit):
+def flipflop_seqs(dragParam, maxNumFFs, qubit: qreg):
     """ Helper function to create a list of sequences with a specified drag parameter. """
     # QGL2 qubits are read only.
     # So instead, supply the dragScaling as an explicit kwarg to all pulses
@@ -23,7 +23,7 @@ def flipflop_seqs(dragParam, maxNumFFs, qubit: qbit):
         MEAS(qubit)
 
 @qgl2decl
-def doFlipFlop(qubit:qbit, dragParamSweep, maxNumFFs):
+def doFlipFlop(qubit:qreg, dragParamSweep, maxNumFFs):
 
     # QGL2 qubits are read only, so can't modify qubit.pulseParams[dragScaling],
     # So no need to save this off and reset afterwards

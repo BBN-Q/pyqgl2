@@ -5,13 +5,13 @@
 from math import pi
 import numpy as np
 
-from qgl2.qgl2 import qgl2decl, qbit, pulse, QRegister
+from qgl2.qgl2 import qgl2decl, qreg, pulse, QRegister
 from qgl2.qgl1 import X90, Id, Y, U90, MEAS, X90
 from qgl2.util import init
 from qgl2.basic_sequences.helpers import create_cal_seqs
 
 @qgl2decl
-def doHahnEcho(q:qbit, pulseSpacings, periods, calRepeats):
+def doHahnEcho(q:qreg, pulseSpacings, periods, calRepeats):
 
     for k in range(len(pulseSpacings)):
         init(q)
@@ -27,7 +27,7 @@ def doHahnEcho(q:qbit, pulseSpacings, periods, calRepeats):
     create_cal_seqs(q, calRepeats)
 
 @qgl2decl
-def doCPMG(q:qbit, numPulses, pulseSpacing, calRepeats):
+def doCPMG(q:qreg, numPulses, pulseSpacing, calRepeats):
     # delay = (pulseSpacing - q.pulseParams['length']) / 2
     delay = pulseSpacing / 2
 

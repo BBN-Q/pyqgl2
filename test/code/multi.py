@@ -1,9 +1,9 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-# Test functions to test end-to-end handling of Barriers & multi qbit sequences
+# Test functions to test end-to-end handling of Barriers & multi-qubit sequences
 
 from qgl2.qgl1 import Id, X, MEAS, Y, Barrier
-from qgl2.qgl2 import qgl2decl, qbit, QRegister
+from qgl2.qgl2 import qgl2decl, qreg, QRegister
 from qgl2.util import init
 
 @qgl2decl
@@ -21,7 +21,7 @@ def doSimple():
     simpleSingle2(q2)
 
 @qgl2decl
-def simpleSingle2(q: qbit):
+def simpleSingle2(q: qreg):
     X(q)
     MEAS(q)
 

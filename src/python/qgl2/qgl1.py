@@ -4,136 +4,136 @@
 # how to handle these functions
 
 # The annotations are defined in here
-from qgl2.qgl2 import qbit, pulse, qgl2stub, qgl2meas, sequence, qbit_list, control
+from qgl2.qgl2 import qreg, pulse, qgl2stub, qgl2meas, sequence, qreg_list, control
 
 # Many uses of Id supply a delay. That's the length: an int or float
 # FIXME: Do we need to include that explicitly?
 @qgl2stub('QGL.PulsePrimitives')
-def Id(channel: qbit, *args, **kwargs) -> pulse:
+def Id(channel: qreg, *args, **kwargs) -> pulse:
     print('Id')
 
 # Some uses supply qubit, length, amp, phase, shapeFun in that order
-# Others qbit, amp, phase only in that order
+# Others qreg, amp, phase only in that order
 # FIXME: Do we need to include the other 2?
 @qgl2stub('QGL.PulsePrimitives')
-def Utheta(qubit: qbit, amp=0, phase=0, label='Utheta', **kwargs) -> pulse:
+def Utheta(qubit: qreg, amp=0, phase=0, label='Utheta', **kwargs) -> pulse:
     print('Utheta')
 
 @qgl2stub('QGL.PulsePrimitives')
-def Xtheta(qubit: qbit, amp=0, label='Xtheta', **kwargs) -> pulse:
+def Xtheta(qubit: qreg, amp=0, label='Xtheta', **kwargs) -> pulse:
     print('Xtheta')
 
 @qgl2stub('QGL.PulsePrimitives')
-def Ytheta(qubit: qbit, amp=0, label='Ytheta', **kwargs) -> pulse:
+def Ytheta(qubit: qreg, amp=0, label='Ytheta', **kwargs) -> pulse:
     print('Ytheta')
 
 @qgl2stub('QGL.PulsePrimitives')
-def Ztheta(qubit: qbit, angle=0, label='Ztheta', **kwargs) -> pulse:
+def Ztheta(qubit: qreg, angle=0, label='Ztheta', **kwargs) -> pulse:
     print('Ztheta')
 
 @qgl2stub('QGL.PulsePrimitives')
-def X(qubit: qbit, **kwargs) -> pulse:
+def X(qubit: qreg, **kwargs) -> pulse:
     print('X')
 
 @qgl2stub('QGL.PulsePrimitives')
-def X90(qubit: qbit, **kwargs) -> pulse:
+def X90(qubit: qreg, **kwargs) -> pulse:
     print('X90')
 
 @qgl2stub('QGL.PulsePrimitives')
-def X90m(qubit: qbit, **kwargs) -> pulse:
+def X90m(qubit: qreg, **kwargs) -> pulse:
     print('X90m')
 
 @qgl2stub('QGL.PulsePrimitives')
-def Y(qubit: qbit, **kwargs) -> pulse:
+def Y(qubit: qreg, **kwargs) -> pulse:
     print('Y')
 
 @qgl2stub('QGL.PulsePrimitives')
-def Y90(qubit: qbit, **kwargs) -> pulse:
+def Y90(qubit: qreg, **kwargs) -> pulse:
     print('Y90')
 
 @qgl2stub('QGL.PulsePrimitives')
-def Y90m(qubit: qbit, **kwargs) -> pulse:
+def Y90m(qubit: qreg, **kwargs) -> pulse:
     print('Y90m')
 
 @qgl2stub('QGL.PulsePrimitives')
-def Z(qubit: qbit, **kwargs) -> pulse:
+def Z(qubit: qreg, **kwargs) -> pulse:
     print('Z')
 
 @qgl2stub('QGL.PulsePrimitives')
-def Z90(qubit: qbit, **kwargs) -> pulse:
+def Z90(qubit: qreg, **kwargs) -> pulse:
     print('Z90')
 
 @qgl2stub('QGL.PulsePrimitives')
-def Z90m(qubit: qbit, **kwargs) -> pulse:
+def Z90m(qubit: qreg, **kwargs) -> pulse:
     print('Z90m')
 
 @qgl2stub('QGL.PulsePrimitives')
-def U90(qubi: qbit, phase=0, **kwargs) -> pulse:
+def U90(qubi: qreg, phase=0, **kwargs) -> pulse:
     print('U90')
 
 @qgl2stub('QGL.PulsePrimitives')
-def AC(qubit: qbit, cliffNum) -> pulse:
+def AC(qubit: qreg, cliffNum) -> pulse:
     print('AC')
 
 @qgl2stub('QGL.PulsePrimitives')
-def flat_top_gaussian(chan: qbit, riseFall, length, amp, phase=0) -> pulse:
+def flat_top_gaussian(chan: qreg, riseFall, length, amp, phase=0) -> pulse:
     print('flat_top_gaussian')
 
 @qgl2stub('qgl2.qgl1_util', 'flat_top_gaussian_edge_impl')
-def flat_top_gaussian_edge(source: qbit, target: qbit, riseFall,
+def flat_top_gaussian_edge(source: qreg, target: qreg, riseFall,
                            length, amp, phase=0) -> pulse:
     print('flat_top_gaussian_edge')
 
 @qgl2stub('QGL.PulsePrimitives')
-def echoCR(controlQ: qbit, targetQ: qbit, amp=1, phase=0, length=200e-9, riseFall=20e-9, lastPi=True) -> sequence:
+def echoCR(controlQ: qreg, targetQ: qreg, amp=1, phase=0, length=200e-9, riseFall=20e-9, lastPi=True) -> sequence:
     print('echoCR')
 
 
 @qgl2stub('QGL.PulsePrimitives')
-def CNOT(controlQ: qbit, targetQ: qbit, **kwargs) -> sequence:
+def CNOT(controlQ: qreg, targetQ: qreg, **kwargs) -> sequence:
     print('CNOT')
 
 # FIXME: QGL2 can't handle *args
-# Calls include: qubit, 2 qubits, qbit list. But so far
-# our qgl2 uses are just with a single qbit
-#def MEAS(*args: qbit_list, **kwargs) -> pulse:
+# Calls include: qubit, 2 qubits, qreg list. But so far
+# our qgl2 uses are just with a single qreg
+#def MEAS(*args: qreg_list, **kwargs) -> pulse:
 @qgl2meas('QGL.PulsePrimitives')
-def MEAS(q: qbit, *args, **kwargs) -> pulse:
+def MEAS(q: qreg, *args, **kwargs) -> pulse:
     print('MEAS')
 
 # Our uses of U never supply any extra kwargs
 @qgl2stub('QGL.PulsePrimitives')
-def U(qubit: qbit, phase=0, **kwargs) -> pulse:
+def U(qubit: qreg, phase=0, **kwargs) -> pulse:
     print('U')
 
 # Note that this is really a class
-#def Edge(**kwargs) -> qbit:
+#def Edge(**kwargs) -> qreg:
 @qgl2stub('QGL.Channels')
-def Edge(label, source: qbit, target: qbit, gateChan, **kwargs) -> qbit:
-    # FIXME: Can take source and target which are qbits
-    # FIXME: Is qbit the right return type?
+def Edge(label, source: qreg, target: qreg, gateChan, **kwargs) -> qreg:
+    # FIXME: Can take source and target which are qregs
+    # FIXME: Is qreg the right return type?
     print('Edge')
 
 # Note that this is really a class
-#def Qubit(**kwargs) -> qbit:
+#def Qubit(**kwargs) -> qreg:
 @qgl2stub('QGL.Channels')
-def Qubit(label=None, gateChan=None, **kwargs) -> qbit:
+def Qubit(label=None, gateChan=None, **kwargs) -> qreg:
     print('Qubit')
 
 @qgl2stub('QGL.ChannelLibrary')
-def EdgeFactory(source: qbit, target: qbit) -> qbit:
+def EdgeFactory(source: qreg, target: qreg) -> qreg:
     # Is that the right return?
     print('EdgeFactory')
 
 @qgl2stub('QGL.ChannelLibrary')
-def QubitFactory(label, **kwargs) -> qbit:
+def QubitFactory(label, **kwargs) -> qreg:
     print('QubitFactory')
 
 # This is used just in testing mains
 # Note that this is really a class
-#def LogicalMarkerChannel(**kwargs) -> qbit:
+#def LogicalMarkerChannel(**kwargs) -> qreg:
 @qgl2stub('QGL.Channels')
-def LogicalMarkerChannel(label, **kwargs) -> qbit:
+def LogicalMarkerChannel(label, **kwargs) -> qreg:
     print('LogicalMarkerChannel')
 
 @qgl2stub('QGL.ControlFlow')
@@ -151,7 +151,7 @@ def Sync() -> control:
 
 # This function is QGL1 but only for use by QGL2
 @qgl2stub('qgl2.qgl1control')
-def Barrier(chanlist: qbit_list) -> control:
+def Barrier(chanlist: qreg_list) -> control:
     # chanlist is list of channels that are waiting here
     print('Barrier(%s)' % (chanlist))
 

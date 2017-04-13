@@ -4,7 +4,7 @@
 # These work around QGL2 constraints, such as only doing sequence generation and
 # not compilation, or not taking arguments.
 
-from qgl2.qgl2 import qgl2decl, qbit, qbit_list, QRegister
+from qgl2.qgl2 import qgl2decl, qreg, QRegister
 from qgl2.qgl1 import Utheta, MEAS, X, Id
 from qgl2.util import init
 
@@ -15,7 +15,7 @@ from qgl2.basic_sequences.helpers import create_cal_seqs
 import numpy as np
 
 @qgl2decl
-def doRabiWidth(q:qbit, widths):
+def doRabiWidth(q:qreg, widths):
     # FIXME: Note the local re-definition of tanh
     shapeFun = qgl2.basic_sequences.pulses.local_tanh
     for l in widths:
@@ -24,14 +24,14 @@ def doRabiWidth(q:qbit, widths):
         MEAS(q)
 
 @qgl2decl
-def doRabiAmp(q:qbit, amps, phase):
+def doRabiAmp(q:qreg, amps, phase):
     for amp in amps:
         init(q)
         Utheta(q, amp=amp, phase=phase)
         MEAS(q)
 
 @qgl2decl
-def doRabiAmpPi(qr:qbit, amps):
+def doRabiAmpPi(qr:qreg, amps):
     for l in amps:
         init(qr)
         X(qr[1])
@@ -40,7 +40,7 @@ def doRabiAmpPi(qr:qbit, amps):
         MEAS(qr[1])
 
 @qgl2decl
-def doSingleShot(q:qbit):
+def doSingleShot(q:qreg):
     init(q)
     Id(q)
     MEAS(q)
@@ -49,7 +49,7 @@ def doSingleShot(q:qbit):
     MEAS(q)
 
 @qgl2decl
-def doPulsedSpec(q:qbit, specOn):
+def doPulsedSpec(q:qreg, specOn):
     init(q)
     if specOn:
         X(q)
@@ -58,7 +58,7 @@ def doPulsedSpec(q:qbit, specOn):
     MEAS(q)
 
 @qgl2decl
-def doRabiAmp_NQubits(qr:qbit, amps, docals, calRepeats):
+def doRabiAmp_NQubits(qr:qreg, amps, docals, calRepeats):
     p = 0
 
     for a in amps:
@@ -70,7 +70,7 @@ def doRabiAmp_NQubits(qr:qbit, amps, docals, calRepeats):
         create_cal_seqs(qr, calRepeats)
 
 @qgl2decl
-def doSwap(qr:qbit, delays):
+def doSwap(qr:qreg, delays):
     for d in delays:
         init(qr)
         X(qr)

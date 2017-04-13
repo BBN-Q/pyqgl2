@@ -1,6 +1,6 @@
 from itertools import product
 
-from qgl2.qgl2 import qgl2decl, qgl2main, qbit, qbit_list
+from qgl2.qgl2 import qgl2decl, qgl2main, qreg
 from qgl2.qgl2 import QRegister
 from qgl2.qgl1 import Id, X90, Y90, X, Y, MEAS, Wait, CNOT
 
@@ -13,7 +13,7 @@ def init(*args):
     pass
 
 @qgl2decl
-def tomo(f, q1:qbit, q2:qbit):
+def tomo(f, q1:qreg, q2:qreg):
     fncs = [Id, X90, Y90, X]
     for prep in product(fncs, fncs):
         for meas in product(fncs, fncs):
@@ -27,7 +27,7 @@ def tomo(f, q1:qbit, q2:qbit):
                 MEAS(q)
 
 @qgl2decl
-def tomo_no_generators(f, q1:qbit, q2:qbit):
+def tomo_no_generators(f, q1:qreg, q2:qreg):
     fncs = [Id, X90, Y90, X]
     # QGL2 couldn't handle generators and needed to listify them
     # (no longer true)
@@ -42,7 +42,7 @@ def tomo_no_generators(f, q1:qbit, q2:qbit):
                 MEAS(q)
 
 @qgl2decl
-def statetomo(f, q1:qbit, q2:qbit):
+def statetomo(f, q1:qreg, q2:qreg):
     fncs = [Id, X90, Y90, X]
     for meas in product(fncs, fncs):
         init(q1, q2)
@@ -53,7 +53,7 @@ def statetomo(f, q1:qbit, q2:qbit):
             MEAS(q)
 
 @qgl2decl
-def process(control:qbit, target:qbit):
+def process(control:qreg, target:qreg):
     X90(control)
     Y90(target)
 

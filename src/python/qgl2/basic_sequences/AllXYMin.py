@@ -2,14 +2,14 @@
 
 # QGL2 simplified versions of AllXY
 
-from qgl2.qgl2 import qgl2decl, qbit, QRegister
+from qgl2.qgl2 import qgl2decl, qreg, QRegister
 from qgl2.util import init
 from qgl2.qgl1 import MEAS
 
 from qgl2.qgl1 import Id, X, Y, X90, Y90
 
 @qgl2decl
-def doAllXY(q:qbit):
+def doAllXY(q:qreg):
     twentyOnePulsePairs = [
             # no pulses to measure |0>
             (Id, Id),

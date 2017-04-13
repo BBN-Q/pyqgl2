@@ -8,9 +8,7 @@ class QGL2(object):
     # These MUST agree with the names used in the base QGL2
     # import (currently qgl2.qgl2)
     #
-    QCONCUR = 'concur'
     QINFUNC = 'infunc'
-    QSEQ = 'seq'
     QMAIN = 'qgl2main'
     QDECL = 'qgl2decl'
     # A stub for a QGL1 function: It's QGL2 but don't inline it
@@ -23,8 +21,8 @@ class QGL2(object):
 
     CLASSICAL = 'classical'
     PULSE = 'pulse'
-    QBIT = 'qbit'
-    QBIT_LIST = 'qbit_list'
+    QBIT = 'qreg'
+    QBIT_LIST = 'qreg_list'
     # like a Wait
     CONTROL = 'control'
     # A sequence of pulses

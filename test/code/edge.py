@@ -3,7 +3,7 @@
 # Tests for end to end Edge handling, and handling stubs on >1 qubits
 
 from qgl2.qgl1 import Id, X, MEAS, Y, echoCR, CNOT
-from qgl2.qgl2 import qgl2decl, qbit, QRegister
+from qgl2.qgl2 import qgl2decl, qreg, QRegister
 from qgl2.util import init
 
 @qgl2decl
