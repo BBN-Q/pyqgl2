@@ -15,19 +15,31 @@ measurement results to variables and control flow statements.
 
 ```python
 # single qubit reset
-from qgl2.qgl2 import QRegister
+from qgl2.qgl2 import qgl2decl, QRegister
 from qgl2.qgl1 import Id, X, MEAS
-q = QRegister(1)
-m = MEAS(q)
-if m:
-  X(q)
-else:
-  Id(q)
+
+@qgl2decl
+def reset():
+  q = QRegister(1)
+  m = MEAS(q)
+  if m:
+    X(q)
+  else:
+    Id(q)
 ```
 
-With decorators and type annotations, function calls that execute pulses on
-qubits make it possible to write tidy compact code using natural pythonic
-iteration tools.
+Once a function is decorated with `@qgl2decl` it can act as the `main` for
+compiling a QGL2 program. If the `reset` function is placed in Python module
+then it can be compiled with:
+
+```python
+from pyqgl2.main import compile_function
+result = compile_function(filename, "reset")
+```
+
+QGL2 uses type annotations in function calls to mark quantum and classical
+values. Encapsulating subroutines makes it possible to write tidy compact code
+using natural pythonic iteration tools.
 
 ```python
 # multi-qubit QFT
