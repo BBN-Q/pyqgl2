@@ -1,11 +1,11 @@
 
-from qgl2.qgl2 import qgl2decl, qgl2main, qbit, qbit_list
+from qgl2.qgl2 import qgl2decl, qgl2main, qreg
 from qgl2.qgl2 import QRegister
 from qgl2.qgl1 import X, Y, Z, Id, Utheta
 from itertools import product
 
 @qgl2decl
-def cond_helper(q: qbit, cond):
+def cond_helper(q: qreg, cond):
     if cond:
         X(q)
 

@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit_list, qgl2main, concur, qbit, pulse
+from qgl2.qgl2 import qgl2decl, qgl2main, concur, qreg, pulse
 from qgl2.qgl1 import Id, MEAS, X
 from qgl2.util import init
 
@@ -15,7 +15,7 @@ from itertools import product
 # TODO we don't want this method to be inlined by the compiler
 # how do we tell QGL2 not to inline it?
 @qgl2decl
-def qreset(q: qbit):
+def qreset(q: qreg):
     m = MEAS(q)
     if m == 1:
         X(q)
@@ -25,7 +25,7 @@ def qreset(q: qbit):
 # sign flip. One way to write this seems to imply TDM computation.
 
 @qgl2decl
-def qreset_with_sign_inversion(q: qbit, measSign):
+def qreset_with_sign_inversion(q: qreg, measSign):
     m = MEAS(q)
     if m == measSign:
         X(q)
@@ -37,7 +37,7 @@ def qreset_with_sign_inversion(q: qbit, measSign):
 # passing delay deterministic.
 
 @qgl2decl
-def qreset_with_delay(q: qbit, delay):
+def qreset_with_delay(q: qreg, delay):
     m = MEAS(q)
     # Wait to make branching time deterministic, and to allow residual
     # measurement photons to decay
@@ -50,7 +50,7 @@ def qreset_with_delay(q: qbit, delay):
 # populated with an Id. Putting these things all together we have:
 
 @qgl2decl
-def qreset_full(q:qbit, delay, measSign):
+def qreset_full(q:qreg, delay, measSign):
     m = MEAS(q)
     Id(q, delay)
     if m == measSign:
@@ -58,7 +58,7 @@ def qreset_full(q:qbit, delay, measSign):
     else:
         Id(q)
 
-def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
+def Reset(qubits: qreg, measDelay = 1e-6, signVec = None,
           doubleRound = True, showPlot = False, docals = True,
           calRepeats=2):
     """
@@ -79,19 +79,14 @@ def Reset(qubits: qbit_list, measDelay = 1e-6, signVec = None,
         signVec = [1]*len(qubits)
 
     for prep in product([Id,X], repeat=len(qubits)):
-        with concur:
-            for p,q,measSign in zip(prep, qubits, signVec):
-                init(q)
-                # prepare the initial state
-                p(q)
+        for p,q,measSign in zip(prep, qubits, signVec):
+            init(q)
+            # prepare the initial state
+            p(q)
+            qreset_full(q, measDelay, measSign)
+            if doubleRound:
                 qreset_full(q, measDelay, measSign)
-                if doubleRound:
-                    qreset_full(q, measDelay, measSign)
-        # TODO add sugar so that this can be concisely expressed as:
-        # MEAS(qubits)
-        with concur:
-            for q in qubits:
-                MEAS(q)
+            MEAS(qubits)
 
     # If we're doing calibration too, add that at the very end
     # - another 2^numQubits * calRepeats sequences

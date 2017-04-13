@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qbit, pulse, qgl2decl, qgl2stub
+from qgl2.qgl2 import qreg, pulse, qgl2decl, qgl2stub
 
 # init will demarcate the beginning of a list of
 # experiments. QGL1 compiler injects WAITs in beginning of
@@ -22,7 +22,7 @@ from qgl2.qgl2 import qbit, pulse, qgl2decl, qgl2stub
 # error checking, etc, then make this a qgl2decl instead.
 
 @qgl2stub("qgl2.qgl1_util", "init_real")
-def init(q: qbit) -> pulse:
+def init(q: qreg) -> pulse:
     """
     Wait()
     Annotated as returning a pulse for backwards compatibility.

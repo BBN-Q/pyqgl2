@@ -93,8 +93,8 @@ def QRegister(*args):
 # These names might need to change if they are confused with local symbols
 #
 classical = True
-qbit = True
-qbit_list = True
+qreg = True
+qreg_list = True
 pulse = True
 sequence = True
 control = True

@@ -1,4 +1,4 @@
-from qgl2.qgl2 import qgl2decl, qgl2main, qbit, QRegister
+from qgl2.qgl2 import qgl2decl, qgl2main, qreg, QRegister
 from qgl2.qgl1 import X, Y, Z, Y90, X90, CNOT
 
 @qgl2decl
@@ -24,7 +24,7 @@ def syndrome_cycle(qbits, role_def):
             Hadamard(q)
 
 @qgl2decl
-def Hadamard(q: qbit):
+def Hadamard(q: qreg):
     Y90(q)
     X90(q)
 

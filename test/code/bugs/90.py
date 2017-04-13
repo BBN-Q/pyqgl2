@@ -1,5 +1,5 @@
 
-from qgl2.qgl2 import qgl2decl, qgl2main, qbit, qbit_list
+from qgl2.qgl2 import qgl2decl, qgl2main, qreg
 from qgl2.qgl2 import QRegister
 from qgl2.qgl1 import X, Y, Z, Id, Utheta
 from itertools import product
@@ -87,7 +87,7 @@ def t4():
     t4_helper(q1, Y, [1], [1, 2])
 
 @qgl2decl
-def t4_helper(q: qbit, op, a_list, p_list=None):
+def t4_helper(q: qreg, op, a_list, p_list=None):
 
     if p_list is None:
         p_list = a_list

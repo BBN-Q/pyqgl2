@@ -1,5 +1,5 @@
 from qgl2.qgl2 import qgl2decl, qgl2main
-from qgl2.qgl2 import classical, pulse, qbit, qbit_list, QRegister
+from qgl2.qgl2 import classical, pulse, qreg, QRegister
 from qgl2.qgl1 import Id, X90, Y90, X, Y, Z, MEAS
 
 @qgl2decl

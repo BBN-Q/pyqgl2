@@ -2,7 +2,7 @@
 
 # QGL2 clean versions for T1T2.py
 
-from qgl2.qgl2 import qgl2decl, qbit, QRegister
+from qgl2.qgl2 import qgl2decl, qreg, QRegister
 from qgl2.basic_sequences.helpers import create_cal_seqs
 from qgl2.util import init
 from qgl2.qgl1 import X, Id, MEAS, U90, X90
@@ -10,7 +10,7 @@ import numpy as np
 from numpy import pi
 
 @qgl2decl
-def doInversionRecovery(q:qbit, delays, calRepeats):
+def doInversionRecovery(q:qreg, delays, calRepeats):
     for d in delays:
         init(q)
         X(q)
@@ -21,7 +21,7 @@ def doInversionRecovery(q:qbit, delays, calRepeats):
     create_cal_seqs(q, calRepeats)
 
 @qgl2decl
-def doRamsey(q:qbit, delays, TPPIFreq, calRepeats):
+def doRamsey(q:qreg, delays, TPPIFreq, calRepeats):
     # Create the phases for the TPPI
     phases = 2*pi*TPPIFreq*delays
 
