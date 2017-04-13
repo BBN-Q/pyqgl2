@@ -22,7 +22,7 @@ from qgl2.qgl2 import qreg, pulse, control, qgl2decl, qgl2stub
 # error checking, etc, then make this a qgl2decl instead.
 
 @qgl2stub("qgl2.qgl1_util", "init_real")
-def init(q: qreg) -> control:
+def init(q: qreg, *args) -> control:
     """
     Wait()
     Annotated as returning a pulse for backwards compatibility.

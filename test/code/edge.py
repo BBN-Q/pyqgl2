@@ -17,8 +17,7 @@ def edgeTest():
 def edgeTest3():
     q1 = QRegister('q1')
     q2 = QRegister('q2')
-    for q in [q1, q2]:
-        init(q)
+    init(q1, q2)
     echoCR(q1, q2)
     X(q2)
     Y(q2)
