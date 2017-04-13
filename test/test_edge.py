@@ -21,8 +21,7 @@ class TestEdge(unittest.TestCase):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         expected = [
-            qwait(q1),
-            qwait(q2),
+            qwait((q1, q2)),
             X(q1),
             X(q2),
             echoCR(q1, q2)
@@ -40,8 +39,8 @@ class TestEdge(unittest.TestCase):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         expected = [
-            qwait(q1),
-            qwait(q2),
+            qwait((q1,)),
+            qwait((q2,)),
             echoCR(q1, q2),
             X(q2),
             Y(q2),
@@ -63,8 +62,8 @@ class TestEdge(unittest.TestCase):
         q2 = QubitFactory('q2')
 
         expected = [
-            qwait(q1),
-            qwait(q2),
+            qwait((q1,)),
+            qwait((q2,)),
             echoCR(q1, q2),
             echoCR(q2, q1),
             echoCR(q1, q2),
@@ -86,8 +85,7 @@ class TestEdge(unittest.TestCase):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         expected = [
-            qwait(q1),
-            qwait(q2),
+            qwait((q1,q2)),
             CNOT(q1, q2)
         ]
         expected = testable_sequence(expected)

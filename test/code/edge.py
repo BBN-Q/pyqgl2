@@ -44,8 +44,6 @@ def edgeTest4():
 
 @qgl2decl
 def cnotcrTest():
-    q1 = QRegister('q1')
-    q2 = QRegister('q2')
-    for q in [q1, q2]:
-        init(q)
-    CNOT(q1, q2)
+    qr = QRegister('q1', 'q2')
+    init(qr)
+    CNOT(qr[0], qr[1])

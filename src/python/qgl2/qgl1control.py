@@ -12,7 +12,7 @@ from QGL.ControlFlow import ControlInstruction
 # or a Sync then a Wait if the block is of indeterminate length.
 class Barrier(ControlInstruction):
     # chanlist is a list of Channel instances
-    def __init__(self, chanlist):
+    def __init__(self, *chanlist):
         super(Barrier, self).__init__("BARRIER")
         # Consider adding a start/end marker,
         # to help line up barriers across sequences.

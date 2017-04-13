@@ -27,11 +27,11 @@ class TestAllXY(unittest.TestCase):
         # Expect a single sequence 4 * 2 * 21 pulses long
         # Expect it to start like this:
         expectedseq += [
-            qwait(q1),
+            qwait((q1,)),
             Id(q1),
             Id(q1),
             MEAS(q1),
-            qwait(q1),
+            qwait((q1,)),
             Id(q1),
             Id(q1),
             MEAS(q1)
@@ -64,11 +64,11 @@ class TestAllXY(unittest.TestCase):
         # Expect a single sequence 4 * 2 * 21 pulses long
         # Expect it to start like this:
         expectedseq += [
-            qwait(q1),
+            qwait((q1,)),
             Id(q1),
             Id(q1),
             MEAS(q1),
-            qwait(q1),
+            qwait((q1,)),
             Id(q1),
             Id(q1),
             MEAS(q1)
@@ -91,11 +91,11 @@ class TestAllXY(unittest.TestCase):
         # Expect a single sequence 4 * 2 * 21 pulses long
         # Expect it to start like this:
         expectedseq += [
-            qwait(q1),
+            qwait((q1,)),
             Id(q1),
             Id(q1),
             MEAS(q1),
-            qwait(q1),
+            qwait((q1,)),
             Id(q1),
             Id(q1),
             MEAS(q1)
@@ -131,23 +131,21 @@ class TestCR(unittest.TestCase):
         # Seq1
         for l in lengths:
             expected_seq += [
-                qwait(controlQ),
-                qwait(targetQ),
+                qwait((controlQ, targetQ)),
                 Id(controlQ),
                 flat_top_gaussian(edge, riseFall, length=l, amp=amp, phase=phase),
-                Barrier((controlQ, targetQ)),
+                Barrier(controlQ, targetQ),
                 MEAS(controlQ),
                 MEAS(targetQ)
             ]
         # Seq2
         for l in lengths:
             expected_seq += [
-                qwait(controlQ),
-                qwait(targetQ),
+                qwait((controlQ, targetQ)),
                 X(controlQ),
                 flat_top_gaussian(edge, riseFall, length=l, amp=amp, phase=phase),
                 X(controlQ),
-                Barrier((controlQ, targetQ)),
+                Barrier(controlQ, targetQ),
                 MEAS(controlQ),
                 MEAS(targetQ)
             ]
@@ -179,26 +177,24 @@ class TestCR(unittest.TestCase):
         # Seq1
         for l in lengths:
             expected_seq += [
-                qwait(controlQ),
-                qwait(targetQ),
+                qwait((controlQ, targetQ)),
                 Id(controlQ),
                 echoCR(controlQ, targetQ, length=l, phase=phase,
                        riseFall=riseFall),
                 Id(controlQ),
-                Barrier((controlQ, targetQ)),
+                Barrier(controlQ, targetQ),
                 MEAS(controlQ),
                 MEAS(targetQ)
             ]
         # Seq2
         for l in lengths:
             expected_seq += [
-                qwait(controlQ),
-                qwait(targetQ),
+                qwait((controlQ, targetQ)),
                 X(controlQ),
                 echoCR(controlQ, targetQ, length=l, phase=phase,
                        riseFall=riseFall),
                 X(controlQ),
-                Barrier((controlQ, targetQ)),
+                Barrier(controlQ, targetQ),
                 MEAS(controlQ),
                 MEAS(targetQ)
             ]
@@ -229,14 +225,13 @@ class TestCR(unittest.TestCase):
         # Seq1
         for p in phases:
             expected_seq += [
-                qwait(controlQ),
-                qwait(targetQ),
+                qwait((controlQ, targetQ)),
                 Id(controlQ),
                 echoCR(controlQ, targetQ, length=length, phase=p,
                        riseFall=riseFall),
                 X90(targetQ),
                 Id(controlQ),
-                Barrier((controlQ, targetQ)),
+                Barrier(controlQ, targetQ),
                 MEAS(controlQ),
                 MEAS(targetQ)
             ]
@@ -244,14 +239,13 @@ class TestCR(unittest.TestCase):
         # Seq2
         for p in phases:
             expected_seq += [
-                qwait(controlQ),
-                qwait(targetQ),
+                qwait((controlQ, targetQ)),
                 X(controlQ),
                 echoCR(controlQ, targetQ, length=length, phase=p,
                        riseFall=riseFall),
                 X90(targetQ),
                 X(controlQ),
-                Barrier((controlQ, targetQ)),
+                Barrier(controlQ, targetQ),
                 MEAS(controlQ),
                 MEAS(targetQ)
             ]
@@ -283,7 +277,7 @@ class TestDecoupling(unittest.TestCase):
         expectedseq = []
         for k in range(len(pulseSpacings)):
             expectedseq += [
-                qwait(q),
+                qwait((q,)),
                 X90(q),
                 Id(q, pulseSpacings[k]),
                 Y(q),
@@ -328,7 +322,7 @@ class TestDecoupling(unittest.TestCase):
         expectedseq = []
         for rep in numPulses:
             expectedseq += [
-                qwait(q),
+                qwait((q,)),
                 X90(q)
             ]
             expectedseq += addt180t(q, pulseSpacing, rep)
@@ -364,7 +358,7 @@ class TestFlipFlop(unittest.TestCase):
             ffs = []
             for rep in range(maxNumFFs):
                 ffs += [
-                    qwait(qubit),
+                    qwait((qubit,)),
                     X90(qubit, dragScaling=dragParam)
                 ]
                 for _ in range(rep):
@@ -381,13 +375,13 @@ class TestFlipFlop(unittest.TestCase):
         expectedseq = []
         for dragParam in dragParamSweep:
             expectedseq += [
-                qwait(qubit),
+                qwait((qubit,)),
                 Id(qubit),
                 MEAS(qubit)
             ]
             expectedseq += addFFSeqs(dragParam, maxNumFFs, qubit)
         expectedseq += [
-            qwait(qubit),
+            qwait((qubit,)),
             X(qubit),
             MEAS(qubit)
         ]
@@ -413,7 +407,7 @@ class TestRabiMin(unittest.TestCase):
         expectedseq = []
         for amp in amps:
             expectedseq += [
-                qwait(q1),
+                qwait((q1,)),
                 Utheta(q1, amp=amp, phase=phase),
                 MEAS(q1)
             ]
@@ -441,7 +435,7 @@ class TestRabiMin(unittest.TestCase):
         expectedseq = []
         for l in widths:
             expectedseq += [
-                qwait(q1),
+                qwait((q1,)),
                 Utheta(q1, length=l, amp=1, phase=0, shapeFun=local_tanh),
                 MEAS(q1)
             ]
@@ -463,8 +457,7 @@ class TestRabiMin(unittest.TestCase):
         expectedseq = []
         for amp in amps:
             expectedseq += [
-                qwait(q1),
-                qwait(q2),
+                qwait((q1,q2)),
                 X(q2),
                 Utheta(q1, amp=amp, phase=0),
                 X(q2),
@@ -483,10 +476,10 @@ class TestRabiMin(unittest.TestCase):
         seqs = testable_sequence(seqs)
 
         expectedseq = [
-            qwait(q1),
+            qwait((q1,)),
             Id(q1),
             MEAS(q1),
-            qwait(q1),
+            qwait((q1,)),
             X(q1),
             MEAS(q1)
         ]
@@ -503,7 +496,7 @@ class TestRabiMin(unittest.TestCase):
         seqs = testable_sequence(seqs)
 
         expectedseq = [
-            qwait(q1),
+            qwait((q1,)),
             X(q1),
             MEAS(q1)
         ]
@@ -522,8 +515,7 @@ class TestRabiMin(unittest.TestCase):
 
         for a in amps:
             expectedseq += [
-                qwait(q1),
-                qwait(q2),
+                qwait((q1,q2)),
                 Utheta(q1, amp=a, phase=p),
                 Utheta(q2, amp=a, phase=p),
                 MEAS(q1),
@@ -553,12 +545,11 @@ class TestRabiMin(unittest.TestCase):
         expectedseq = []
         for d in delays:
             expectedseq += [
-                qwait(q),
-                qwait(mq),
+                qwait((q, mq)),
                 X(q),
                 X(mq),
                 Id(mq, length=d),
-                Barrier((q, mq)),
+                Barrier(q, mq),
                 MEAS(q),
                 MEAS(mq)
             ]
@@ -592,7 +583,7 @@ class TestSPAM(unittest.TestCase):
             thisseq = []
             for rep in range(maxSpamBlocks):
                 thisseq += [
-                    qwait(q),
+                    qwait((q,)),
                     Y90(q)
                 ]
                 innerseq = []
@@ -612,13 +603,13 @@ class TestSPAM(unittest.TestCase):
 
         for angle in angleSweep:
             expectedseq += [
-                qwait(q),
+                qwait((q,)),
                 Id(q),
                 MEAS(q)
             ]
             expectedseq += spam_seqs(angle, q, maxSpamBlocks)
         expectedseq += [
-            qwait(q),
+            qwait((q,)),
             X(q),
             MEAS(q)
         ]
@@ -641,7 +632,7 @@ class TestT1T2(unittest.TestCase):
         expectedseq = []
         for d in delays:
             expectedseq += [
-                qwait(q),
+                qwait((q,)),
                 X(q),
                 Id(q, d),
                 MEAS(q)
@@ -674,7 +665,7 @@ class TestT1T2(unittest.TestCase):
         # Create the basic Ramsey sequence
         for d,phase in zip(delays, phases):
             expectedseq += [
-                qwait(q),
+                qwait((q,)),
                 X90(q),
                 Id(q, d),
                 U90(q, phase=phase),

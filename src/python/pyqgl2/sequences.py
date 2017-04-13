@@ -118,15 +118,12 @@ class SequenceExtractor(object):
         '''
         Expands a single argument to a stub call. QRegisters are expanded
         to a list of constituent Qubits. QRegister subscripts are similar,
-        except that the slice selects which Qubits to return. Tuples and
-        lists are different in that the exansion happens "within" the
-        tuple. So, given
+        except that the slice selects which Qubits to return. So, given
             a = QRegister(2)
             b = QRegister(1)
         we do (in AST shorthand):
             expand_arg("a") -> ["QBIT_1", "QBIT_2"]
             expand_arg("a[1]") -> ["QBIT_2"]
-            expand_arg("(a,b)") -> [("QBIT_1", "QBIT_2", "QBIT_3")]
         '''
         expanded_args = []
         if isinstance(arg, ast.Name) and arg.id in self.allocated_qregs:
@@ -144,7 +141,7 @@ class SequenceExtractor(object):
             try:
                 qref = eval(ast2str(arg), None, self.allocated_qregs)
             except:
-                NodeError(arg,
+                NodeError.error_msg(arg,
                     "Error evaluating QReference [%s]" % ast2str(arg))
             # convert the slice into a list of indices
             idx = range(len(qreg))[qref.idx]
@@ -153,24 +150,33 @@ class SequenceExtractor(object):
             for n in idx:
                 new_arg = ast.Name(id=qreg.use_name(n), ctx=ast.Load())
                 expanded_args.append(new_arg)
-        elif isinstance(arg, (ast.Tuple, ast.List)):
-            # expand tuples and lists to include all constituent qubits
-            # FIXME would be safer to create a set() of qubits
-            expanded_elts = []
-            for elt in arg.elts:
-                expanded_elts.extend(self.expand_arg(elt))
-            new_arg = quickcopy(arg)
-            new_arg.elts = expanded_elts
-            expanded_args.append(new_arg)
         else:
             # don't expand it
             expanded_args.append(arg)
         return expanded_args
 
+    def expand_arg_union(self, node):
+        '''
+        Expand a list of arguments to the union of the constituent qubits
+        in QRegisters. So, given
+            a = QRegister(2)
+            b = QRegister(1)
+        then we expand
+            Barrier(a,b) -> Barrier("QBIT_1", "QBIT_2", "QBIT_3")
+        Returns a list of ast.Call nodes with appropriate argument
+        substitutions.
+        '''
+        expanded_args = []
+        for arg in node.value.args:
+            expanded_args.extend(self.expand_arg(arg))
+        stmnt = quickcopy(node)
+        stmnt.value.args = expanded_args
+        return stmnt
+
     def expand_qreg_call(self, node):
         '''
-        Expands calls on stubs to element-wise broadcast over QRegister
-        arguments. So that given
+        Expands calls on pulse stubs to element-wise broadcast over
+        QRegister arguments. So that given
             a = QRegister(2)
             b = QRegister(2)
         single-qubit calls expand like:
@@ -183,21 +189,29 @@ class SequenceExtractor(object):
         becomes
             CNOT(QBIT_1, QBIT_3)
             CNOT(QBIT_2, QBIT_4)
-        Calls that act on tuples or lists expand inside the tuple, i.e.
-            Barrier("", (a, b))
+        Control stubs are expanded over the union of consistuent qubits,
+        so that
+            Barrier(a, b)
         becomes
-            Barrier("", (QBIT_1, QBIT_2, QBIT_3, QBIT_4))
+            Barrier(QBIT_1, QBIT_2, QBIT_3)
 
-        Returns a list of ast.Call nodes with appropriate argumnet
+        Returns a list of ast.Call nodes with appropriate argument
         substitutions.
         '''
         new_stmnts = []
-        expanded_args = [self.expand_arg(a) for a in node.value.args]
-        # TODO verify that QRegister lengths match
-        for args in zip(*expanded_args):
-            stmnt = quickcopy(node)
-            stmnt.value.args = args
-            new_stmnts.append(stmnt)
+        # FIXME this assumes that nodes without a qgl_return attribute are
+        # pulses. I did this because certain nodes are not getting decorated
+        # with a qgl_return attribute (e.g. MEAS in assignments). Figure out
+        # why...
+        if hasattr(node.value, 'qgl_return') and node.value.qgl_return == 'control':
+            new_stmnts.append(self.expand_arg_union(node))
+        else:
+            expanded_args = [self.expand_arg(a) for a in node.value.args]
+            # TODO verify that QRegister lengths match
+            for args in zip(*expanded_args):
+                stmnt = quickcopy(node)
+                stmnt.value.args = args
+                new_stmnts.append(stmnt)
 
         return new_stmnts
 

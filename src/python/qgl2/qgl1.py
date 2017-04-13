@@ -4,7 +4,7 @@
 # how to handle these functions
 
 # The annotations are defined in here
-from qgl2.qgl2 import qreg, pulse, qgl2stub, qgl2meas, sequence, qreg_list, control
+from qgl2.qgl2 import qreg, pulse, qgl2stub, qgl2meas, qreg_list, control
 
 # Many uses of Id supply a delay. That's the length: an int or float
 # FIXME: Do we need to include that explicitly?
@@ -85,12 +85,12 @@ def flat_top_gaussian_edge(source: qreg, target: qreg, riseFall,
     print('flat_top_gaussian_edge')
 
 @qgl2stub('QGL.PulsePrimitives')
-def echoCR(controlQ: qreg, targetQ: qreg, amp=1, phase=0, length=200e-9, riseFall=20e-9, lastPi=True) -> sequence:
+def echoCR(controlQ: qreg, targetQ: qreg, amp=1, phase=0, length=200e-9, riseFall=20e-9, lastPi=True) -> pulse:
     print('echoCR')
 
 
 @qgl2stub('QGL.PulsePrimitives')
-def CNOT(controlQ: qreg, targetQ: qreg, **kwargs) -> sequence:
+def CNOT(controlQ: qreg, targetQ: qreg, **kwargs) -> pulse:
     print('CNOT')
 
 # FIXME: QGL2 can't handle *args
@@ -151,7 +151,7 @@ def Sync() -> control:
 
 # This function is QGL1 but only for use by QGL2
 @qgl2stub('qgl2.qgl1control')
-def Barrier(chanlist: qreg_list) -> control:
+def Barrier(chanlist: qreg) -> control:
     # chanlist is list of channels that are waiting here
     print('Barrier(%s)' % (chanlist))
 

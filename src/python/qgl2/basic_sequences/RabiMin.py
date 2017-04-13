@@ -75,7 +75,7 @@ def doSwap(qr:qreg, delays):
         init(qr)
         X(qr)
         Id(qr[1], length=d)
-        Barrier((qr,))
+        Barrier(qr)
         MEAS(qr)
 
     create_cal_seqs(qr, 2)

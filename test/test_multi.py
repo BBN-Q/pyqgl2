@@ -25,7 +25,7 @@ class TestMulti(unittest.TestCase):
             Id(q2),
             X(q1),
             X(q2),
-            Barrier((q1, q2)),
+            Barrier(q1, q2),
             MEAS(q1),
             MEAS(q2)
         ]
@@ -58,7 +58,7 @@ class TestMulti(unittest.TestCase):
             Id(q2),
             X(q1),
             X(q2),
-            Barrier((q1, q2)),
+            Barrier(q1, q2),
             MEAS(q1),
             MEAS(q2),
             Y(q1),
@@ -84,10 +84,10 @@ class TestMulti(unittest.TestCase):
             Id(q2),
             X(q1),
             X(q2),
-            Barrier((q1, q2, q3)),
+            Barrier(q1, q2, q3),
             MEAS(q1),
             MEAS(q2),
-            Barrier((q1, q2, q3)),
+            Barrier(q1, q2, q3),
             Y(q1),
             Y(q3)
         ]
