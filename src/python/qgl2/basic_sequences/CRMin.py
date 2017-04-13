@@ -25,7 +25,7 @@ def doPiRabi():
         init(qr)
         Id(qr[0])
         flat_top_gaussian_edge(qr[0], qr[1], riseFall, amp=amp, phase=phase, length=l)
-        Barrier((qr,))
+        Barrier(qr)
         MEAS(qr)
 
     # Sequence 2: X(control), gaussian(l), X(control), measure both
@@ -34,7 +34,7 @@ def doPiRabi():
         X(qr[0])
         flat_top_gaussian_edge(qr[0], qr[1], riseFall, amp=amp, phase=phase, length=l)
         X(qr[0])
-        Barrier((qr,))
+        Barrier(qr)
         MEAS(qr)
 
     # Then do calRepeats calibration sequences
@@ -58,7 +58,7 @@ def doEchoCRLen():
         echoCR(qr[0], qr[1], length=l, phase=phase,
                riseFall=riseFall)
         Id(qr[0])
-        Barrier((qr,))
+        Barrier(qr)
         MEAS(qr)
 
     # Sequence 2
@@ -68,7 +68,7 @@ def doEchoCRLen():
         echoCR(qr[0], qr[1], length=l, phase=phase,
                riseFall=riseFall)
         X(qr[0])
-        Barrier((qr,))
+        Barrier(qr)
         MEAS(qr)
 
     # Then do calRepeats calibration sequences
@@ -93,7 +93,7 @@ def doEchoCRPhase():
                riseFall=riseFall)
         X90(qr[1])
         Id(qr[0])
-        Barrier((qr,))
+        Barrier(qr)
         MEAS(qr)
 
     # Sequence 2
@@ -104,7 +104,7 @@ def doEchoCRPhase():
                riseFall=riseFall)
         X90(qr[1])
         X(qr[0])
-        Barrier((qr,))
+        Barrier(qr)
         MEAS(qr)
 
     # Then do calRepeats calibration sequences

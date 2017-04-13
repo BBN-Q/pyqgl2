@@ -1882,6 +1882,10 @@ def add_runtime_call_check(call_ptree, func_ptree):
     pyqgl2.ast_util.copy_all_loc(new_call_ast, call_ptree, recurse=True)
     new_call_ast.value.qgl2_checked_call = True
 
+    # mark the call with the return type (if any) of the checked call
+    if hasattr(func_ptree, 'qgl_return'):
+        new_call_ast.value.qgl_return = func_ptree.qgl_return
+
     if tmp_check_tuples:
         checker = make_check_ast_vec(
                 func_ptree.name, call_ptree, tmp_check_tuples)

@@ -302,9 +302,9 @@ def get_cal_seqs_1qubit(qubit, calRepeats=2):
     for pulse in [Id, X]:
         for _ in range(calRepeats):
             calSeq += [
-                qwait(qubit),
+                qwait((qubit,)),
                 pulse(qubit),
-                Barrier((qubit,)),
+                Barrier(qubit),
                 MEAS(qubit)
             ]
     return calSeq
@@ -318,11 +318,10 @@ def get_cal_seqs_2qubits(q1, q2, calRepeats=2):
     for pulseSet in [(Id, Id), (Id, X), (X, Id), (X, X)]:
         for _ in range(calRepeats):
             calseq += [
-                qwait(q1),
-                qwait(q2),
+                qwait((q1, q2)),
                 pulseSet[0](q1),
                 pulseSet[1](q2),
-                Barrier((q1, q2)),
+                Barrier(q1, q2),
                 MEAS(q1),
                 MEAS(q2)
             ]
