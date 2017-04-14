@@ -8,7 +8,91 @@ programs directly specify gates at the physical layer, but with many of the
 niceties of a high-level programming language provided by the python host
 language.
 
-## Dependencies
+## Examples
+
+QGL2 directly parses the Python syntax to give natural looking binding of qubit
+measurement results to variables and control flow statements.
+
+```python
+# single qubit reset
+from qgl2.qgl2 import qgl2decl, QRegister
+from qgl2.qgl1 import Id, X, MEAS
+
+@qgl2decl
+def reset():
+  q = QRegister(1)
+  m = MEAS(q)
+  if m:
+    X(q)
+  else:
+    Id(q)
+```
+
+Once a function is decorated with `@qgl2decl` it can act as the `main` for
+compiling a QGL2 program. If the `reset` function is placed in Python module
+then it can be compiled with:
+
+```python
+from pyqgl2.main import compile_function
+result = compile_function(filename, "reset")
+```
+
+QGL2 uses type annotations in function calls to mark quantum and classical
+values. Encapsulating subroutines makes it possible to write tidy compact code
+using natural pythonic iteration tools.
+
+```python
+# multi-qubit QFT
+from qgl2.qgl2 import qgl2decl, qreg, QRegister
+from qgl2.qgl1 import Id, X90, Y90, X, Y, Ztheta, MEAS, CNOT
+
+from math import pi
+
+@qgl2decl
+def hadamard(q: qreg):
+    Y90(q)
+    X(q)
+
+@qgl2decl
+def CZ_k(c: qreg, t: qreg, k):
+    theta = 2 * pi / 2**k
+    Ztheta(t, angle=theta/2)
+    CNOT(c, t)
+    Ztheta(t, angle=-theta/2)
+    CNOT(c, t)
+
+@qgl2decl
+def qft(qs: qreg):
+    for i in range(len(qs)):
+        hadamard(qs[i])
+        for j in range(i+1, len(qs)):
+            CZ_k(qs[i], qs[j], j-i)
+    MEAS(qs)
+```
+
+By embedding in Python powerful metaprogramming of sequences is possible. For
+example process tomography on a two qubit sequence comes a function.
+
+```python
+@qgl2decl
+def tomo(f, q1: qreg, q2: qreg):
+    fncs = [Id, X90, Y90, X]
+    for prep in product(fncs, fncs):
+        for meas in product(fncs, fncs):
+            init(q1, q2)
+            for p, q in zip(prep, (q1,q2)):
+                p(q)
+            f(q1, q2)
+            for m, q in zip(meas, (q1, q2)):
+                m(q)
+            for q in (q1, q2):
+                MEAS(q)
+```
+
+
+## Installation
+
+### Dependencies
 
  * Working QGL installation (including networkx, bokeh, numpy, scipy)
  * Python 3.5 or 3.6
