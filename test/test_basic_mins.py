@@ -10,7 +10,6 @@ from math import pi
 from pyqgl2.main import compile_function
 from pyqgl2.qreg import QRegister
 from QGL import *
-from qgl2.qgl1control import Barrier
 
 from test.helpers import testable_sequence, \
     channel_setup, assertPulseSequenceEqual, \

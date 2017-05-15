@@ -149,8 +149,7 @@ def Wait() -> control:
 def Sync() -> control:
     print('Sync')
 
-# This function is QGL1 but only for use by QGL2
-@qgl2stub('qgl2.qgl1control')
+@qgl2stub('QGL.ControlFlow')
 def Barrier(chanlist: qreg) -> control:
     # chanlist is list of channels that are waiting here
     print('Barrier(%s)' % (chanlist))

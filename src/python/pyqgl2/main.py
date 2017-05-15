@@ -504,7 +504,7 @@ def countChannelsInSequences(seqs):
     from QGL.Channels import Qubit as qgl1Qubit
     from QGL.Channels import Edge
     from QGL.PatternUtils import flatten
-    from qgl2.qgl1control import Barrier
+    from qgl2.qgl1 import Barrier
     import collections
     import logging
 
@@ -605,7 +605,7 @@ def mapQubitsToSequences(seqs):
     from QGL.Compiler import find_unique_channels
     from QGL.Channels import Qubit as qgl1Qubit
     from QGL.Channels import Edge
-    from qgl2.qgl1control import Barrier
+    from qgl2.qgl1 import Barrier
     import copy
     import logging
 

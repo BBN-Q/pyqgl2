@@ -8,7 +8,6 @@ from .helpers import testable_sequence, discard_zero_Ids, \
 from pyqgl2.main import compile_function
 
 from QGL import *
-from qgl2.qgl1control import Barrier
 
 class TestMulti(unittest.TestCase):
     def setUp(self):
