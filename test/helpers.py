@@ -9,9 +9,8 @@ from QGL.Channels import Edge, Measurement
 from QGL.PulseSequencer import Pulse, CompositePulse
 from QGL.PatternUtils import flatten
 from QGL.PulsePrimitives import Id, X, MEAS
-from QGL.ControlFlow import qsync, qwait, ControlInstruction, Goto
+from QGL.ControlFlow import qsync, qwait, ControlInstruction, Goto, Barrier
 from QGL.BlockLabel import BlockLabel
-from qgl2.qgl1control import Barrier
 
 import collections
 from math import pi
