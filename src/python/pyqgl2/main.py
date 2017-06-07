@@ -722,7 +722,7 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     from QGL.PatternUtils import flatten
     from QGL.PulseSequencer import Pulse, CompositePulse
 
-    from pyqgl2.evenblocks import replaceBarriers
+    from attic.evenblocks import replaceBarriers
 
     import collections
     import logging

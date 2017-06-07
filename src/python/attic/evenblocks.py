@@ -4,7 +4,7 @@
 
 # This file contains code to replace Barrier instructions with appropriate Id()
 # pulses to make channels line up without using a Wait where possible.
-# Where not possible, it replaces the Barrier with Sync then WaitSome.
+# Where not possible, it replaces the Barrier with Sync.
 # See replaceBarriers().
 
 '''
@@ -45,9 +45,9 @@ Assumptions
 * A valid QGL2 program calls init() (as currently defined) on all channels that will be used in the program concurrently
  * because it includes a global Wait that requires a Sync from all channels before the program can proceed
 * Call and Repeat blocks may be nested
-* If a Wait or WaitSome waits on a channel, then all those channels will have a matching Wait.
+* If a Wait waits on a channel, then all those channels will have a matching Wait.
  * You cannot wait for a sync from a channel that does not itself Wait
-* A Wait or WaitSome must be preceded by a Sync
+* A Wait must be preceded by a Sync
 
 Some things you cannot assume:
 * The BlockLabel target of a Goto is often numerically BEFORE the
@@ -69,7 +69,7 @@ Some things you cannot assume:
 # * When all channels start with a Barrier, make it a Wait
 
 from QGL.ControlFlow import Goto, Call, Return, LoadRepeat, Repeat, Wait, LoadCmp, Sync, ComparisonInstruction, ControlInstruction
-from qgl2.qgl1control import Barrier, WaitSome
+from qgl2.qgl1 import Barrier
 from QGL.PulseSequencer import Pulse, CompositePulse, PulseBlock
 from QGL.BlockLabel import BlockLabel
 from QGL.PulsePrimitives import Id
@@ -82,7 +82,6 @@ logger = logging.getLogger('QGL.Compiler.qgl2')
 
 # Convenience functions to identify pulse/control elements
 def isWait(pulse): return isinstance(pulse, Wait)
-def isWaitSome(pulse): return isinstance(pulse, WaitSome)
 def isBarrier(pulse): return isinstance(pulse, Barrier)
 def isSync(pulse): return isinstance(pulse, Sync)
 def isCMP(pulse): return isinstance(pulse, ComparisonInstruction)
@@ -134,7 +133,7 @@ def pulseLengths(pulses):
 # FIXME: This gets called a bunch. Removing log statements doesn't
 # speed it up. What would help?
 def markBarrierLengthCalculated(barrierCtr, seqIdx, addLen=float('nan')):
-    '''Update the barrier object in our 3 data structures 
+    '''Update the barrier object in our 3 data structures
     for the given counter, sequence to add the given length
     to lengthSince; adding in the length of the Id pulse.
     Note that if it becomes a wait, addLen is NAN, and adding that
@@ -229,7 +228,7 @@ def getLengthBetweenBarriers(seqInd, currCtr, prevCtr='-1', iterCnt=0):
     Return float('NaN') if indeterminate.
     Recurses up the list of barriers adding up the lengths we previously
     calculated for each pair of Barriers.
-    So if the length between any 2 barriers within that chain are indeterminate, 
+    So if the length between any 2 barriers within that chain are indeterminate,
     the whole thing is indeterminate.
     '''
     # ctr of '-1' means start
@@ -261,7 +260,7 @@ def getLengthBetweenBarriers(seqInd, currCtr, prevCtr='-1', iterCnt=0):
     # Old code stored firstPrev and prevPrev to handle repeat with barrier inside
     # But now realize that doesn't make sense; any barrier inside a repeat (if allowed at all)
     # must be treated as indetermine / a Wait
-    
+
     # If the length so far is indeterminate, no use in recursing -
     # the whole thing will be indeterminate
     if math.isnan(prevLen):
@@ -273,13 +272,13 @@ def getLengthBetweenBarriers(seqInd, currCtr, prevCtr='-1', iterCnt=0):
 
 def isReplaceableBarrier(barrier, seqs):
     '''Is the given barrier object replacable on its sequence?
-    Start, Wait, WaitSome, and barriers that are no longer in
+    Start, Wait, and barriers that are no longer in
     their sequence are not replacable. So only a Barrier() of the correct id (counter).
-    HOWEVER: We now pretend Wait/WaitSome are replacable so that later we calculate the real length, though
+    HOWEVER: We now pretend Wait are replacable so that later we calculate the real length, though
     we don't actually do the replacement.
     '''
     # Is the given barrier something we can replace?
-    # Not a Wait or WaitSome, and still in its sequence
+    # Not a Wait and still in its sequence
     # return boolean
     ind = barrier['seqPos']
     nextCtr = barrier['counter']
@@ -290,7 +289,7 @@ def isReplaceableBarrier(barrier, seqs):
         logger.debug("Barrier '%s' is start, not replaceable", nextCtr)
         return False
     # 7/8: Don't bail here; so we can calculate the length later
-    # if nextType in ('wait', 'waitsome'):
+    # if nextType in ('wait'):
     #     logger.debug("Barrier %s is a wait, not replaceable", nextCtr)
     #     return False
     if seqs:
@@ -307,9 +306,9 @@ def isReplaceableBarrier(barrier, seqs):
             # Expected when we've already done a replacement
             logger.debug("Barrier '%s' actual element is (now) %s on sequence %d (don't replace)", nextCtr, seqs[seqInd][ind], seqInd)
             return False
-        # 7/8: We want to let it go through if it's a Wait or WaitSome for now
-        if isWait(seqs[seqInd][ind]) or isWaitSome(seqs[seqInd][ind]):
-            logger.debug("Barrier '%s' on sequence %d is a Wait or WaitSome - pretend it's replaceable so we calculate the length: %s", nextCtr, seqInd, seqs[seqInd][ind])
+        # 7/8: We want to let it go through if it's a Wait for now
+        if isWait(seqs[seqInd][ind]):
+            logger.debug("Barrier '%s' on sequence %d is a Wait - pretend it's replaceable so we calculate the length: %s", nextCtr, seqInd, seqs[seqInd][ind])
             return True
         if not isBarrier(seqs[seqInd][ind]):
             # We don't think we've replaced any barriers with waits, so this is unexpected
@@ -490,7 +489,7 @@ def getLastSharedBarrierCtr(channels, barrierCtr):
             logger.warning("Couldn't find channels on barrier '%s'", barrierCtr)
             return '-1'
         channels = barrier["channels"]
-        
+
     if not channels:
         logger.debug("getLastSharedBarrier couldn't find channels for Barrier '%s'", barrierCtr)
         return '-1'
@@ -541,7 +540,7 @@ def getLastSharedBarrierCtr(channels, barrierCtr):
         prevChannelSet = set(prevBarrier.get('channels', []))
 
         # Look for error where a barrier claims more channels than sequences it is found on
-        # Typically this is a Wait() that isn't on all channels, or WaitSome
+        # Typically this is a Wait() that isn't on all channels
         # not on the channels it listed
         psc = 0
         psIs = []
@@ -550,7 +549,7 @@ def getLastSharedBarrierCtr(channels, barrierCtr):
                 psc += 1
                 psIs.append(sI)
         if psc != len(prevChannelSet):
-            # This is an error if we insist all channels share a Wait/WaitSome that waits on those channels
+            # This is an error if we insist all channels share a Wait that waits on those channels
             # Our current naming convention for Waits and way of finding matching waits assumes this
             logger.error("Candidate prevBarrier '%s' claims %d channels but found on only %d sequences (channels %s but sequences %s)", prevBarrierCtr, len(prevChannelSet), psc, prevChannelSet, psIs)
         logger.debug("  currChannelSet: %s; prev %s ChannelSet: %s", channelsSet, prevBarrierCtr, prevChannelSet)
@@ -563,7 +562,7 @@ def getLastSharedBarrierCtr(channels, barrierCtr):
 
     logger.info("Failed to find a common previous barrier to barrier '%s' on channels %s. Use start.", barrierCtr, channels)
     return '-1'
-    
+
 def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
     '''Replace Barrier currCtr on sequences with indices channelIdxs into seqs
     with the proper Id pulse, or mark this barrier as indeterminate and leave it.
@@ -623,9 +622,9 @@ def replaceBarrier(seqs, currCtr, prevForLengthCtr, channelIdxs, chanBySeq):
         channel = chanBySeq[seqInd]
         idlen = maxBlockLen - lengths[seqInd] # Length of Id pulse to pause till last channel done
 
-        # 7/8: If this barrier is a wait or waitsome, then don't do the replace, just update the length
+        # 7/8: If this barrier is a wait, then don't do the replace, just update the length
         barrier = getBarrierForSeqCtr(seqInd, currCtr)
-        if barrier != -1 and barrier.get('type', 'barrier') not in ('wait', 'waitsome'):
+        if barrier != -1 and barrier.get('type', 'barrier') is not 'wait':
             if idlen == 0:
                 # Instead of creating a new pulse Id(q, length=0) that
                 # uses memory and just has to get removed later, put
@@ -694,7 +693,7 @@ def getPreviousUndoneBarrierCtr(currCtr, prevCtr, seqIdx, iterCnt = 0):
 
 def getLastUnMeasuredBarrierCtr(currCtr, prevCtr, seqIdxes):
     '''Return the counter/id of the last Barrier on the list of sequences
-    not already marked as measured (will be WaitSome or know
+    not already marked as measured (will know
     the Id pulse length)
     Return None if all are measured.
     '''
@@ -717,7 +716,7 @@ def replaceOneBarrier(currCtr, seqIdxToChannelMap, seqs, seqInd = None):
     '''Replace the barrier with id currCtr on all sequences.
     Use the version of the barrier on the given sequence seqInd if given.
     Recursively find intervening Barriers on any related channel that is not
-    marked as 'measured' (turned into an Id or will be a WaitSome),
+    marked as 'measured' (turned into an Id),
     and replace those first, so that we can correctly calculate
     the length for this Barrier.
     Then use the helper replaceBarrier to do the actual replacement.
@@ -743,7 +742,7 @@ def replaceOneBarrier(currCtr, seqIdxToChannelMap, seqs, seqInd = None):
     logger.debug("Replacing Barrier '%s' on channels %s, sequences %s", currCtr, waitChans, waitSeqIdxes)
 
     # 7/8: No longer skip these here; let the core replace method do the right thing
-#    # Skip barriers that are Wait or WaitSome instances
+#    # Skip barriers that are Wait instances
 #    if barrier != -1 and barrier.get('type', 'barrier') in ('wait', 'waitsome'):
 #        # do this later
 #        logger.info("Found wait barrier %s; handle it later", currCtr)
@@ -752,7 +751,7 @@ def replaceOneBarrier(currCtr, seqIdxToChannelMap, seqs, seqInd = None):
 #        for idx in waitSeqIdxes:
 #            markBarrierLengthCalculated(currCtr, idx)
 #        return seqs
-    
+
     prevForLengthCtr = getLastSharedBarrierCtr(waitChans, currCtr)
     for seqInd in waitSeqIdxes:
         if prevForLengthCtr not in barriersBySeqByCtr[seqInd]:
@@ -792,13 +791,12 @@ def replaceOneBarrier(currCtr, seqIdxToChannelMap, seqs, seqInd = None):
 # * Raise exceptions don't just log for bad things
 # * How do we check that all channels start with sync/wait? Should we?
 #  * Or related, do we do anything special if all channels start with a shared barrier?
-# * What if we discover multiple sequential Waits or WaitSomes on same channels?
+# * What if we discover multiple sequential Waits on same channels?
 #  * Can we or should we remove duplicates?
 # * Consider passing around data structures instead of making them globals
 # * Testing, including
 #  * 3+ qubits
-#  * explicit WaitSomes and Waits
-#  * Barrier that becomes WaitSome inside a call or a repeat or both
+#  * explicit Waits
 #  * call or goto that goes backwards or forwards (4 cases)
 #  * Nested Calls
 #  * Nested Repeats
@@ -806,16 +804,12 @@ def replaceOneBarrier(currCtr, seqIdxToChannelMap, seqs, seqInd = None):
 #  * Sequences that dont start with a barrier
 def replaceBarriers(seqs, seqIdxToChannelMap):
     '''
-    Replace all Barrier() instructions with Sync() and WaitSome() or Id() pulses.
-    Use WaitSome() if there's some intervening indeterminate length operation,
-    like a CMP() or LoadCmp().
-    Otherwise pause using Id on the less busy channels.
+    Replace all Barrier() instructions with Sync() or Id() pulses.
+    Pause using Id on the less busy channels.
     This modifies the sequences and returns the updated sequences.
     Assumes Barriers list the channels they are on,
     and have an ID.
-    Each Barrier is used exactly once per channel during operation
-    (or else has guaranteed same length since prior Barrier,
-    effectively meaning it is a WaitSome).
+    Each Barrier is used exactly once per channel during operation.
     '''
     # Approach:
     # Walk through each sequence building up barrier objects
@@ -823,15 +817,13 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
     # since the last barrier.
     # Then walk through barriers replacing them with Id pulses
     # where possible.
-    # Then replace the remaining barriers with WaitSomes
     # Barrier objects are kept in 3 dictionaries: by sequence
     # by position in the sequence (where each sequence has different
     # instance of the object), by sequence by counter (id), and
     # independent of sequence by counter (in which case this is
     # just one instance of this barrier)
     # Each barrier has its sequence, position, channels,
-    # ID, previous barrier, length since previous barrier
-    # (float, may be 'nan' meaning it becomes a WaitSome)
+    # ID, previous barrier, length since previous barrier (float)
     # A barrier object that is -1 means the start
     # A barrier ID of '-1' means the start
     # A wait has a barrier ID of 'wait-chans-%s-ctr-%d' % (curBarrier['channels'], curBarrier['waitCount'])
@@ -850,7 +842,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
     startBarrier['type'] = 'start'
     startBarrier['counter'] = '-1' # notional 'start' barrier has counter '-1', pos -1
     startBarrier['seqPos'] = -1 # index in sequence
-    # Have we determined the length of the Id pulse or if this is a WaitSome?
+    # Have we determined the length of the Id pulse?
     startBarrier['lengthCalculated'] = False
     # Walking thru running of this sequence, the length since the last Barrier on this sequence,
     # including this element.
@@ -924,7 +916,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
             # If it is a CMP, then this block is indeterminate length. Next barrier must say so
 
             # Handle all kinds of barriers by putting them in our data structures
-            if isBarrier(elem) or isWaitSome(elem) or isWait(elem):
+            if isBarrier(elem) or isWait(elem):
                 # The current barrier
                 curBarrier = dict()
                 curBarrier['type'] = 'barrier'
@@ -951,33 +943,6 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
                         curBarrier['channels'] = [chans[0]]
                     curBarrier['chanKey'] = frozenset(curBarrier['channels'])
                     curBarrier['counter'] = elem.value
-                elif isWaitSome(elem):
-                    # This shouldn't really happen I think, but maybe?
-                    # But if previous is a Sync then treat this as a Barrier on its listed channels?
-                    logger.info("Got %s at pos %d?!", elem, seqPos)
-                    curBarrier['type'] = 'waitsome'
-                    chans = list()
-                    for chan in elem.chanlist:
-                        if isinstance(chan, str):
-                            logger.warning("Channel %s on %s was a string", chan, elem)
-                            if chan.startswith('QBIT_'):
-                                chan = chan[5:]
-                            chan = QubitFactory(chan)
-                        chans.append(chan)
-                    # Store the channels sorted alphabetically for later comparison
-                    curBarrier['channels'] = sorted(chans, key=lambda chan: repr(chan))
-                    # Make that a frozenset to use as key in dict
-                    curBarrier['chanKey'] = frozenset(curBarrier['channels'])
-                    if curBarrier['chanKey'] not in waitsOnChannels:
-                        waitsOnChannels[curBarrier['chanKey']] = 0
-                    # Keep counter of # times seen a wait for same channels
-                    # as the 2nd wait on same channels should match a waitsome on
-                    # the other sequences on the same channels
-                    waitsOnChannels[curBarrier['chanKey']] += 1
-                    curBarrier['waitCount'] = waitsOnChannels[curBarrier['chanKey']]
-                    curBarrier['counter'] = 'wait-chans-%s-ctr-%d' % (curBarrier['channels'], curBarrier['waitCount'])
-                    if not isSync(seq[seqPos-1]):
-                        logger.warning("Previous element was not a Sync, but %s", seq[seqPos-1])
                 elif isWait(elem):
                     logger.info("Got %s at %d", elem, seqPos)
                     curBarrier['type'] = 'wait'
@@ -1055,8 +1020,6 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
             # is 2 different Id blocks so it isn't a repeat.
             # Exceptions: If the element right before the block is a barrier, and the last element in the block
             # is a Barrier, or you otherwise construct things carefully, then the block is the same length.
-            # Or else if the Barrier is a WaitSome (on both 1st and later times through the loop), then it is an identical
-            # Pulse.
             # Put another way: you can only use a given Barrier in a single way in any channel.
             # However there's another issue with a Barrier in a Repeat block: each channel for that Barrier must use the barrier
             # the same # of times, and in the same way, such that it makes sense to line up the barrier.
@@ -1263,7 +1226,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
             seqPos += 1
             continue
         # Done looking at elements in this sequence
-        
+
         logger.debug("Done looking for Barriers on sequence %d\n", seqInd)
         # Now we'll move to the next channel
     # End of loop over channels
@@ -1294,8 +1257,7 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
     # - because thats a 1 for 1 replacement (doesn't screw up saved indices)
     # For each sequence, start at the 'start' barrier and go to 'next'
     # where the next is a Barrier that is still in the sequence
-    # and not marked as already calculated (if still there but marked
-    # calculated it is turning into a WaitSome)
+    # and not marked as already calculated.
     # When we have such a barrier, replace it.
     # Note however that replacing a Barrier potentially requires
     # first replacing some other barriers on other channels.
@@ -1322,8 +1284,8 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
             currCtr = getNextBarrierCtr(seqs, seqInd, currCtr, positions)
     # When we get here, we ran out of barriers that turn into Id pulses to replace
     logger.debug("Done swapping non Wait Barriers\n")
-  
-    # Now change any remaining barriers into Sync/WaitSome pairs
+
+    # Now change any remaining barriers into Sync pairs
     for seqInd in barriersBySeqByPos:
         if seqInd < 0 or seqInd >= len(seqs):
             logger.warn("No such channel %d?", seqInd)
@@ -1352,13 +1314,10 @@ def replaceBarriers(seqs, seqIdxToChannelMap):
             # Make sure it's a barrier still
             if isBarrier(seq[bInd]):
                 swapCnt += 1
-                if bType == 'wait' or bChannels == allChannels:                    
+                if bType == 'wait' or bChannels == allChannels:
                     logger.info("Replacing sequence %d index %d (%s) with Sync();Wait()", seqInd, bInd, seq[bInd])
                     # Replace
                     seqs[seqInd] = seq[:bInd] + [Sync(), Wait()] + seq[bInd+1:]
-                else:
-                    logger.info("Replacing sequence %d index %d (%s) with Sync(); WaitSome(%s)", seqInd, bInd, seq[bInd], bChannels)
-                    seqs[seqInd] = seq[:bInd] + [Sync(), WaitSome(bChannels)] + seq[bInd+1:]
             else:
                 # This is common / expected
                 logger.debug("Spot %d (was %d) in sequence %d (channel %s) not (no longer) a barrier, but: %s", bInd, barrierInd, seqInd, seqIdxToChannelMap[seqInd], seq[bInd])
@@ -1453,12 +1412,12 @@ if __name__ == '__main__':
             Call(BlockLabel('myfunc')),
             Y(q1, length=.2),
             Goto(BlockLabel('end')),
-            BlockLabel('myfunc2'), 
+            BlockLabel('myfunc2'),
             Barrier('3', [q1]), # Id 0
             MEAS(q1),
             Barrier('4', [q1]), # Id 0
             Return(),
-            BlockLabel('myfunc'), 
+            BlockLabel('myfunc'),
             Barrier('1', [q1, q2]), # Id 0
             X90(q1, length=.3),
             Call(BlockLabel('myfunc2')),
@@ -1613,134 +1572,134 @@ if __name__ == '__main__':
         seqs += [seq]
         return seqs
 
-    def testWaitSome():
-        from QGL.ChannelLibrary import QubitFactory
-        from QGL.BlockLabel import BlockLabel
-        from qgl2.qgl1control import Barrier
-        from QGL.ControlFlow import Sync, Repeat, LoadRepeat
-        from QGL.ControlFlow import Wait
-        from QGL.PulsePrimitives import Id
-        from QGL.PulsePrimitives import MEAS
-        from QGL.PulsePrimitives import X, X90, X90m
-        from QGL.PulsePrimitives import Y, Y90
-
-        q1 = QubitFactory('q1')
-        QBIT_q1 = q1
-        q2 = QubitFactory('q2')
-        QBIT_q2 = q2
-        q3 = QubitFactory('q3')
-        QBIT_q3 = q3
-
-        seqs = list()
-        # q1
-        seq = [
-            Barrier('1', [q1, q2, q3]), # Id 0
-            Sync(),
-            WaitSome([q1, q2]), # Note this isn't on q3 and matches line 3 of q2. Should be left alone.
-            X(q1, length=0.1),
-            Barrier('2', [q1, q2]), # Prev is the WaitSome; should become Id 0
-            Y(q1, length=0.2),
-#            Barrier('3', [q1, q2]),
- #           Wait(),
-            X(q1, length=0.3),
-            Barrier('4', [q1, q2, q3]) # Id .8 without q2 and waitsomes; lSince .6; Make this Id 0.9
-        ]
-        seqs += [seq]
-        # q2
-        seq = [
-            Barrier('1', [q1, q2, q3]), # Id 0
-            Sync(),
-            WaitSome([q1, q2]), # Note this isn't on q3 and matches line 3 of q2. # Should be left alone.
-            X(q2),
-            Barrier('2', [q1, q2]), # Prev is the WaitSome; should become Id 0.1
-            Y(q2),
-#            Barrier('3', [q1, q2]),
-            WaitSome([q2, q3]), # Not on q1; prev is B1; lSince 0; computed could be 0.1; could become Id 0.8 (.9-.1) but leave alone
-            X(q2),
-            Barrier('4', [q1, q2, q3]) # Id .5 if no q3; Prev B1; lSince 0 but computed 0.9; Make this Id 0.6
-        ]
-        seqs += [seq]
-        # q3
-        seq = [
-            Barrier('1', [q1, q2, q3]), # Id 0
-            Sync(),
-#            Wait(),
-            X(q3, length=0.4),
-#            Barrier('2', [q1, q2]),
-            Y(q3, length=0.5),
-#            Barrier('3', [q1, q2]),
-            WaitSome([q2, q3]), # Not on q1; prev is B1; lsince 0.9; could become Id 0 but leave alone
-            X(q3, length=0.6),
-            Barrier('4', [q1, q2, q3]) # Prev B1; lSince 1.5; Make this Id 0
-        ]
-        seqs += [seq]
-        return seqs
-
-    def testCMP():
-        from QGL.ChannelLibrary import QubitFactory
-        from QGL.BlockLabel import BlockLabel
-        from qgl2.qgl1control import Barrier
-        from QGL.ControlFlow import Sync, Repeat, LoadRepeat
-        from QGL.ControlFlow import Wait
-        from QGL.ControlFlow import LoadCmp, CmpEq
-        from QGL.PulsePrimitives import Id
-        from QGL.PulsePrimitives import MEAS
-        from QGL.PulsePrimitives import X, X90, X90m
-        from QGL.PulsePrimitives import Y, Y90
-
-        q1 = QubitFactory('q1')
-        QBIT_q1 = q1
-        q2 = QubitFactory('q2')
-        QBIT_q2 = q2
-        q3 = QubitFactory('q3')
-        QBIT_q3 = q3
-
-        seqs = list()
-        # q1
-        seq = [
-            Barrier('1', [q1, q2, q3]), # Id 0
-            Sync(),
-            WaitSome([q1, q2]), # Note this isn't on q3 and matches line 3 of q2. Should be left alone.
-            X(q1, length=0.1),
-            Barrier('2', [q1, q2]), # Prev is the WaitSome; should become Id 0
-            Y(q1, length=0.2),
-#            Barrier('3', [q1, q2]),
- #           Wait(),
-            X(q1, length=0.3),
-            Barrier('4', [q1, q2, q3]) # Id .8 without q2 and waitsomes; lSince .6; Due to q3 becomes NaN: Sync/Wait
-        ]
-        seqs += [seq]
-        # q2
-        seq = [
-            Barrier('1', [q1, q2, q3]), # Id 0
-            Sync(),
-            WaitSome([q1, q2]), # Note this isn't on q3 and matches line 3 of q2. # Should be left alone.
-            X(q2),
-            Barrier('2', [q1, q2]), # Prev is the WaitSome; should become Id 0.1
-            Y(q2),
-#            Barrier('3', [q1, q2]),
-            WaitSome([q2, q3]), # Not on q1; prev is B1; lSince 0; computed: NaN due to q3
-            X(q2),
-            Barrier('4', [q1, q2, q3]) # Id .5 if no q3; Prev B1; lSince 0; must be Sync/Wait to match q1, else Sync then Id 0.6?
-        ]
-        seqs += [seq]
-        # q3
-        seq = [
-            Barrier('1', [q1, q2, q3]), # Id 0
-            Sync(),
-#            Wait(),
-            X(q3, length=0.4),
-#            Barrier('2', [q1, q2]),
-            LoadCmp(),
-            CmpEq(1),
-            Y(q3, length=0.5),
-#            Barrier('3', [q1, q2]),
-            WaitSome([q2, q3]), # Not on q1; prev is B1; lsince 0.9+NaN=NaN; computed NaN
-            X(q3, length=0.6),
-            Barrier('4', [q1, q2, q3]) # Prev B1; lSince NaN (0.6 since WaitSome); Make this Sync/Wait to match q1, else could be Sync;Id 0
-        ]
-        seqs += [seq]
-        return seqs
+#     def testWaitSome():
+#         from QGL.ChannelLibrary import QubitFactory
+#         from QGL.BlockLabel import BlockLabel
+#         from qgl2.qgl1control import Barrier
+#         from QGL.ControlFlow import Sync, Repeat, LoadRepeat
+#         from QGL.ControlFlow import Wait
+#         from QGL.PulsePrimitives import Id
+#         from QGL.PulsePrimitives import MEAS
+#         from QGL.PulsePrimitives import X, X90, X90m
+#         from QGL.PulsePrimitives import Y, Y90
+#
+#         q1 = QubitFactory('q1')
+#         QBIT_q1 = q1
+#         q2 = QubitFactory('q2')
+#         QBIT_q2 = q2
+#         q3 = QubitFactory('q3')
+#         QBIT_q3 = q3
+#
+#         seqs = list()
+#         # q1
+#         seq = [
+#             Barrier('1', [q1, q2, q3]), # Id 0
+#             Sync(),
+#             WaitSome([q1, q2]), # Note this isn't on q3 and matches line 3 of q2. Should be left alone.
+#             X(q1, length=0.1),
+#             Barrier('2', [q1, q2]), # Prev is the WaitSome; should become Id 0
+#             Y(q1, length=0.2),
+# #            Barrier('3', [q1, q2]),
+#  #           Wait(),
+#             X(q1, length=0.3),
+#             Barrier('4', [q1, q2, q3]) # Id .8 without q2 and waitsomes; lSince .6; Make this Id 0.9
+#         ]
+#         seqs += [seq]
+#         # q2
+#         seq = [
+#             Barrier('1', [q1, q2, q3]), # Id 0
+#             Sync(),
+#             WaitSome([q1, q2]), # Note this isn't on q3 and matches line 3 of q2. # Should be left alone.
+#             X(q2),
+#             Barrier('2', [q1, q2]), # Prev is the WaitSome; should become Id 0.1
+#             Y(q2),
+# #            Barrier('3', [q1, q2]),
+#             WaitSome([q2, q3]), # Not on q1; prev is B1; lSince 0; computed could be 0.1; could become Id 0.8 (.9-.1) but leave alone
+#             X(q2),
+#             Barrier('4', [q1, q2, q3]) # Id .5 if no q3; Prev B1; lSince 0 but computed 0.9; Make this Id 0.6
+#         ]
+#         seqs += [seq]
+#         # q3
+#         seq = [
+#             Barrier('1', [q1, q2, q3]), # Id 0
+#             Sync(),
+# #            Wait(),
+#             X(q3, length=0.4),
+# #            Barrier('2', [q1, q2]),
+#             Y(q3, length=0.5),
+# #            Barrier('3', [q1, q2]),
+#             WaitSome([q2, q3]), # Not on q1; prev is B1; lsince 0.9; could become Id 0 but leave alone
+#             X(q3, length=0.6),
+#             Barrier('4', [q1, q2, q3]) # Prev B1; lSince 1.5; Make this Id 0
+#         ]
+#         seqs += [seq]
+#         return seqs
+#
+#     def testCMP():
+#         from QGL.ChannelLibrary import QubitFactory
+#         from QGL.BlockLabel import BlockLabel
+#         from qgl2.qgl1control import Barrier
+#         from QGL.ControlFlow import Sync, Repeat, LoadRepeat
+#         from QGL.ControlFlow import Wait
+#         from QGL.ControlFlow import LoadCmp, CmpEq
+#         from QGL.PulsePrimitives import Id
+#         from QGL.PulsePrimitives import MEAS
+#         from QGL.PulsePrimitives import X, X90, X90m
+#         from QGL.PulsePrimitives import Y, Y90
+#
+#         q1 = QubitFactory('q1')
+#         QBIT_q1 = q1
+#         q2 = QubitFactory('q2')
+#         QBIT_q2 = q2
+#         q3 = QubitFactory('q3')
+#         QBIT_q3 = q3
+#
+#         seqs = list()
+#         # q1
+#         seq = [
+#             Barrier('1', [q1, q2, q3]), # Id 0
+#             Sync(),
+#             WaitSome([q1, q2]), # Note this isn't on q3 and matches line 3 of q2. Should be left alone.
+#             X(q1, length=0.1),
+#             Barrier('2', [q1, q2]), # Prev is the WaitSome; should become Id 0
+#             Y(q1, length=0.2),
+# #            Barrier('3', [q1, q2]),
+#  #           Wait(),
+#             X(q1, length=0.3),
+#             Barrier('4', [q1, q2, q3]) # Id .8 without q2 and waitsomes; lSince .6; Due to q3 becomes NaN: Sync/Wait
+#         ]
+#         seqs += [seq]
+#         # q2
+#         seq = [
+#             Barrier('1', [q1, q2, q3]), # Id 0
+#             Sync(),
+#             WaitSome([q1, q2]), # Note this isn't on q3 and matches line 3 of q2. # Should be left alone.
+#             X(q2),
+#             Barrier('2', [q1, q2]), # Prev is the WaitSome; should become Id 0.1
+#             Y(q2),
+# #            Barrier('3', [q1, q2]),
+#             WaitSome([q2, q3]), # Not on q1; prev is B1; lSince 0; computed: NaN due to q3
+#             X(q2),
+#             Barrier('4', [q1, q2, q3]) # Id .5 if no q3; Prev B1; lSince 0; must be Sync/Wait to match q1, else Sync then Id 0.6?
+#         ]
+#         seqs += [seq]
+#         # q3
+#         seq = [
+#             Barrier('1', [q1, q2, q3]), # Id 0
+#             Sync(),
+# #            Wait(),
+#             X(q3, length=0.4),
+# #            Barrier('2', [q1, q2]),
+#             LoadCmp(),
+#             CmpEq(1),
+#             Y(q3, length=0.5),
+# #            Barrier('3', [q1, q2]),
+#             WaitSome([q2, q3]), # Not on q1; prev is B1; lsince 0.9+NaN=NaN; computed NaN
+#             X(q3, length=0.6),
+#             Barrier('4', [q1, q2, q3]) # Prev B1; lSince NaN (0.6 since WaitSome); Make this Sync/Wait to match q1, else could be Sync;Id 0
+#         ]
+#         seqs += [seq]
+#         return seqs
 
     def testRepeat():
         from QGL.ChannelLibrary import QubitFactory
@@ -1854,7 +1813,7 @@ Repeat(loopstart)
         ]
         seqs += [seq]
         return seqs
- 
+
     def testFunc():
         from QGL.ChannelLibrary import QubitFactory
         from qgl2.qgl1control import Barrier
