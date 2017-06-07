@@ -722,8 +722,6 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     from QGL.PatternUtils import flatten
     from QGL.PulseSequencer import Pulse, CompositePulse
 
-    from pyqgl2.evenblocks import replaceBarriers
-
     import collections
     import logging
 
@@ -735,9 +733,6 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
 
     # Hack: skip the empty sequence(s) now before doing anything else
     (seqs, seqIdxToChannelMap, seqIdxToEdgeMap) = getNonEmptySequences(seqs, seqIdxToChannelMap, seqIdxToEdgeMap)
-
-    # Try to replace Barrier commands with Id pulses where possible, else with Sync/Wait
-    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
 
     errors = 0
 
@@ -799,7 +794,7 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
                 newS.append(el)
             seq = newS
 
-        newfiles = compile_to_hardware([seq], filename, suffix, qgl2=True, addQGL2SlaveTrigger=doSlave, edgesToCompile=edges, qubitToCompile=seqIdxToChannelMap[idx])
+        newfiles = compile_to_hardware([seq], filename, suffix)
         if newfiles:
             logger.debug("Produced files: %s", newfiles)
             for nfile in newfiles:
