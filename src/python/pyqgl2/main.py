@@ -722,8 +722,6 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     from QGL.PatternUtils import flatten
     from QGL.PulseSequencer import Pulse, CompositePulse
 
-    from attic.evenblocks import replaceBarriers
-
     import collections
     import logging
 
@@ -735,9 +733,6 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
 
     # Hack: skip the empty sequence(s) now before doing anything else
     (seqs, seqIdxToChannelMap, seqIdxToEdgeMap) = getNonEmptySequences(seqs, seqIdxToChannelMap, seqIdxToEdgeMap)
-
-    # Try to replace Barrier commands with Id pulses where possible, else with Sync/Wait
-    seqs = replaceBarriers(seqs, seqIdxToChannelMap)
 
     errors = 0
 
