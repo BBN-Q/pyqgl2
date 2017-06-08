@@ -339,7 +339,7 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     from QGL.Scheduler import schedule
 
     scheduled_seq = schedule(seqs)
-    return compile_to_hardware(scheduled_seq, filename, suffix)
+    return compile_to_hardware([scheduled_seq], filename, suffix)
 
 ######
 # Run the main with
