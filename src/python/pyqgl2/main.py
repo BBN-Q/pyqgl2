@@ -330,16 +330,16 @@ def compile_function(filename,
     return qgl1_main
 
 
-def qgl2_compile_to_hardware(seqs, filename, suffix=''):
+def compile_to_hardware(seqs, filename, suffix=''):
     '''
     Custom compile_to_hardware for QGL2
     '''
 
-    from QGL.Compiler import compile_to_hardware
+    from QGL.Compiler import compile_to_hardware as qgl1_compile_to_hardware
     from QGL.Scheduler import schedule
 
     scheduled_seq = schedule(seqs)
-    return compile_to_hardware(scheduled_seq, filename, suffix)
+    return qgl1_compile_to_hardware([scheduled_seq], filename, suffix)
 
 ######
 # Run the main with
@@ -397,7 +397,7 @@ if __name__ == '__main__':
             set_log_level()
 
         # Now we have a QGL1 list of sequences we can act on
-        fileNames = qgl2_compile_to_hardware(sequences, opts.prefix,
+        fileNames = compile_to_hardware(sequences, opts.prefix,
                                         opts.suffix)
         print(fileNames)
         if opts.showplot:
