@@ -21,8 +21,13 @@ from qgl2.qgl2 import qreg, pulse, control, qgl2decl, qgl2stub
 # qubit. Later if it does real stuff for which we want QGL2 to do
 # error checking, etc, then make this a qgl2decl instead.
 
+@qgl2decl
+def init(*args):
+    for arg in args:
+        qreg_init(arg)
+
 @qgl2stub("qgl2.qgl1_util", "init_real")
-def init(q: qreg) -> control:
+def qreg_init(q: qreg) -> control:
     """
     Wait()
     Annotated as returning a pulse for backwards compatibility.
