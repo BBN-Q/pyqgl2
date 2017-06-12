@@ -517,15 +517,6 @@ def create_inline_procedure(func_ptree, call_ptree):
     #
     seen_param_names = dict()
 
-    if len(actual_params) > len(formal_params):
-        # Not exactly the same as the Python3 error message,
-        # but close enough
-        #
-        NodeError.error_msg(call_ptree,
-                ('%s() takes %d positional arguments but %d were given' %
-                    (func_ptree.name, len(formal_params), len(actual_params))))
-        return None
-
     # Make a list of all the formal parameter names,
     # to make sure that no bogus parameters are inserted
     # into the call.  (they won't have any effect, but
@@ -534,16 +525,51 @@ def create_inline_procedure(func_ptree, call_ptree):
     #
     all_fp_names = [param.arg for param in formal_params]
 
+    # Note: the first version of QGL2 did not permit *args
+    # or **kwargs, but users have notes that some idioms become
+    # awkward without *args.  So, I'm going to add them back
+    # in and see what the consequences are.  Note that there's
+    # no type checking on *args parameters; we assume that if
+    # there's a type error it will be caught later.
+    #
+    # Also note that we do not support all of the *args
+    # bells and whistles, like having multiple *args separated
+    # by **kwargs.
+
+    # check whether there's a *args lurking
+    #
+    has_starargs = func_ptree.args.vararg is not None
+
+    if len(actual_params) > len(formal_params):
+        if not has_starargs:
+            # Not exactly the same as the Python3 error message,
+            # but close enough
+            #
+            NodeError.error_msg(call_ptree,
+                    ('%s() takes %d positional arguments but %d were given' %
+                        (func_ptree.name,
+                            len(formal_params), len(actual_params))))
+            return None
+
+    # TODO: check that there's only one *args.  We don't understand
+    # what to do with more than one.
+
     # examine the call, and build the code to assign
     # the actuals to the formals.
     #
     # First we do the non-keyword actual parameters, which
     # map directly to the formal parameters
     #
-    for param_ind in range(len(actual_params)):
+    for param_ind in range(len(formal_params)):
         orig_name = formal_params[param_ind].arg
         actual_param = actual_params[param_ind]
         seen_param_names[orig_name] = actual_param
+
+    # If there's a starargs, then deal with it.
+    #
+    if has_starargs:
+        star_name = func_ptree.args.vararg.arg
+        star_value = ast.List(elts=actual_params[len(formal_params):])
 
     # Potential optimizations: many other possible cases TODO
     #
@@ -619,7 +645,7 @@ def create_inline_procedure(func_ptree, call_ptree):
 
     setup_checks = list()
 
-    for param_ind in range(len(actual_params)):
+    for param_ind in range(len(formal_params)):
 
         arg = formal_params[param_ind]
         anno = arg.annotation
@@ -719,6 +745,21 @@ def create_inline_procedure(func_ptree, call_ptree):
         # print('ARG %s = %s' %
         #         (name, pyqgl2.ast_util.ast2str(actual)))
         # print('ARG %s = %s' % (name, ast.dump(actual)))
+
+    if has_starargs:
+        new_name = tmp_names.create_tmp_name(orig_name=star_name)
+        rewriter.add_mapping(star_name, new_name)
+
+        new_setup_locals.append(ast.Assign(
+                targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
+                value=star_value))
+
+        # Finally add to seen_param_names; we didn't want to
+        # do this earlier because we don't treat starargs like
+        # other parameters in the earlier code
+        #
+        seen_param_names[star_name] = new_name
+
 
     # NOTE: this interacts badly with doing eval-time error checking,
     # because letting the "constants" through untouched removes
