@@ -554,10 +554,7 @@ def create_inline_procedure(func_ptree, call_ptree):
     # TODO: check that there's only one *args.  We don't understand
     # what to do with more than one.
 
-    print('CALL %s' % ast.dump(call_ptree))
-    print('FUNC %s' % ast.dump(func_ptree))
-
-    # examine the call, and build the code to assign
+    # Examine the call, and build the code to assign
     # the actuals to the formals.
     #
     # Python gets a bit complicated with functions that mix
@@ -583,18 +580,16 @@ def create_inline_procedure(func_ptree, call_ptree):
             param_names.append(orig_name)
             param_ind += 1
         elif has_starargs:
-            print('DOING STARARGS')
             star_name = func_ptree.args.vararg.arg
             star_value = ast.List(
                     elts=actual_params[param_ind:])
             seen_param_names[star_name] = star_value
             param_names.append(star_name)
-            print('STAR-BINDING %s -> %s' %
-                    (star_name, ast.dump(star_value)))
             break
         else:
-            print('ERROR: too many positional arguments')
-            exit(1)
+            NodeError.error_msg(call_ptree,
+                     'too many positional arguments')
+            failed = True
 
     # Then consider each keyword-specified parameter.
     # TODO: we blindly accept keyword parameters even
@@ -612,10 +607,41 @@ def create_inline_procedure(func_ptree, call_ptree):
             seen_param_names[orig_name] = actual_param
             param_names.append(orig_name)
         else:
-            print('ERROR: keyword repeated (%s)' % orig_name)
-            exit(1)
+            NodeError.error_msg(call_ptree,
+                     'parameter (%s) is defined more than once' % orig_name)
+            failed = True
+            continue
 
-    # TODO: continue with keyword actuals
+    if failed:
+        return None
+
+    # Next, add any values for any parameters that weren't explicitly
+    # specified by the call, but which have default values specified
+    # as part of the function definition
+
+    pos_defaults = func_ptree.args.defaults
+    if pos_defaults:
+        num_pos = len(formal_params)
+
+        # make a slice of just the formal positional parameters
+        # that have defaults; this simplifies computing the
+        # array offsets
+        #
+        pos_defaulted_params = formal_params[-len(pos_defaults):]
+
+        for param_ind in range(len(pos_defaulted_params)):
+            orig_name = pos_defaulted_params[param_ind].arg
+            if orig_name not in seen_param_names:
+                seen_param_names[orig_name] = pos_defaults[param_ind]
+                param_names.append(orig_name)
+
+    kw_defaults = func_ptree.args.kw_defaults
+    if kw_defaults:
+        for param_ind in range(len(kw_defaults)):
+            orig_name = func_ptree.args.kwonlyargs[param_ind].arg
+            if orig_name not in seen_param_names:
+                seen_param_names[orig_name] = kw_defaults[param_ind]
+                param_names.append(orig_name)
 
     # Potential optimizations: many other possible cases TODO
     #
@@ -631,7 +657,7 @@ def create_inline_procedure(func_ptree, call_ptree):
     # just treat all actual parameters in the default way.
     # We can't go wrong this way.
     #
-    for orig_name in seen_param_names.keys():
+    for orig_name in param_names:
 
         # Here's where we might do something clever:
         #
@@ -677,17 +703,18 @@ def create_inline_procedure(func_ptree, call_ptree):
             failed = True
             continue
 
-        new_name = tmp_names.create_tmp_name(orig_name=orig_name)
-        rewriter.add_mapping(orig_name, new_name)
+        if 0:
+            new_name = tmp_names.create_tmp_name(orig_name=orig_name)
+            rewriter.add_mapping(orig_name, new_name)
 
-        # NodeError.diag_msg(call_ptree,
-        #         ('KASSIGN %s -> %s' %
-        #             (new_name, ast.dump(keyword_param.value))))
+            # NodeError.diag_msg(call_ptree,
+            #         ('KASSIGN %s -> %s' %
+            #             (new_name, ast.dump(keyword_param.value))))
 
-        seen_param_names[orig_name] = keyword_param.value
-        setup_locals.append(ast.Assign(
-                    targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
-                    value=keyword_param.value))
+            seen_param_names[orig_name] = keyword_param.value
+            setup_locals.append(ast.Assign(
+                        targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
+                        value=keyword_param.value))
 
     setup_checks = list()
 
@@ -740,10 +767,11 @@ def create_inline_procedure(func_ptree, call_ptree):
             #         ('DASSIGN %s -> %s' %
             #             (new_name, ast.dump(defaults[param_ind]))))
 
-            seen_param_names[orig_name] = defaults[param_ind]
-            setup_locals.append(ast.Assign(
-                        targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
-                        value=defaults[param_ind]))
+            if 0:
+                seen_param_names[orig_name] = defaults[param_ind]
+                setup_locals.append(ast.Assign(
+                            targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
+                            value=defaults[param_ind]))
 
     # Finally we check to see whether there are any formal
     # parameters we haven't seen in either form, and chide
@@ -805,7 +833,6 @@ def create_inline_procedure(func_ptree, call_ptree):
         # other parameters in the earlier code
         #
         seen_param_names[star_name] = new_name
-
 
     # NOTE: this interacts badly with doing eval-time error checking,
     # because letting the "constants" through untouched removes
