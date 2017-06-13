@@ -526,7 +526,7 @@ def create_inline_procedure(func_ptree, call_ptree):
     all_fp_names = [param.arg for param in formal_params]
 
     # Note: the first version of QGL2 did not permit *args
-    # or **kwargs, but users have notes that some idioms become
+    # or **kwargs, but users have noted that some idioms become
     # awkward without *args.  So, I'm going to add them back
     # in and see what the consequences are.  Note that there's
     # no type checking on *args parameters; we assume that if
@@ -554,22 +554,68 @@ def create_inline_procedure(func_ptree, call_ptree):
     # TODO: check that there's only one *args.  We don't understand
     # what to do with more than one.
 
+    print('CALL %s' % ast.dump(call_ptree))
+    print('FUNC %s' % ast.dump(func_ptree))
+
     # examine the call, and build the code to assign
     # the actuals to the formals.
     #
-    # First we do the non-keyword actual parameters, which
-    # map directly to the formal parameters
-    #
-    for param_ind in range(len(formal_params)):
-        orig_name = formal_params[param_ind].arg
-        actual_param = actual_params[param_ind]
-        seen_param_names[orig_name] = actual_param
+    # Python gets a bit complicated with functions that mix
+    # *args and keyword args: the keyword args must come after
+    # the *args, and cannot be treated as positional, but
+    # if there isn't a *args, then positional args map onto
+    # keyword args.
 
-    # If there's a starargs, then deal with it.
+    # For each actual parameter, figure out what formal parameter
+    # it belongs with.  We don't have to worry about most of the
+    # illegal cases because the Python parser should have detected
+    # them.
     #
-    if has_starargs:
-        star_name = func_ptree.args.vararg.arg
-        star_value = ast.List(elts=actual_params[len(formal_params):])
+    param_names = list()
+    seen_param_names = dict()
+
+    param_ind = 0
+    while param_ind < len(actual_params):
+        if param_ind < len(formal_params):
+            orig_name = formal_params[param_ind].arg
+            actual_param = actual_params[param_ind]
+            seen_param_names[orig_name] = actual_param
+            param_names.append(orig_name)
+            param_ind += 1
+        elif has_starargs:
+            print('DOING STARARGS')
+            star_name = func_ptree.args.vararg.arg
+            star_value = ast.List(
+                    elts=actual_params[param_ind:])
+            seen_param_names[star_name] = star_value
+            param_names.append(star_name)
+            print('STAR-BINDING %s -> %s' %
+                    (star_name, ast.dump(star_value)))
+            break
+        else:
+            print('ERROR: too many positional arguments')
+            exit(1)
+
+    # Then consider each keyword-specified parameter.
+    # TODO: we blindly accept keyword parameters even
+    # if the keywords don't match any formal parameters.
+    # This should be checked.
+    #
+    # Also note that we DO NOT address **kwargs.
+    #
+    while param_ind < len(call_ptree.keywords):
+        arg = call_ptree.keywords[param_ind]
+        orig_name = arg.arg
+        actual_param = arg.value
+
+        if orig_name not in seen_param_names:
+            seen_param_names[orig_name] = actual_param
+            param_names.append(orig_name)
+        else:
+            print('ERROR: keyword repeated (%s)' % orig_name)
+            exit(1)
+
+    # TODO: continue with keyword actuals
 
     # Potential optimizations: many other possible cases TODO
     #
