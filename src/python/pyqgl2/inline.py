@@ -231,108 +231,25 @@ def is_qgl2_meas(node):
     '''
     return (hasattr(node, 'qgl_meas') and node.qgl_meas)
 
-def check_call_parameters(call_ptree):
+def check_func_parameters(func_ptree):
     """
-    If the function uses *args and/or **kwargs, then punt on inlining.
-    This isn't an error, but it defeats inlining (for now).
+    If the function uses **kwargs, then punt on inlining.
+    This isn't necessarily error, but it defeats inlining (for now).
 
     Note that Python permits many combinations of positional parameters,
     keyword parameters, as well as *args, and **kwargs, and we only
-    support a small subset of them:
-
-    1) A call with positional or keyword parameters, but NO *args or
-    **kwargs parameters.
-
-    2) A call with one *args and/or one **kwargs parameters (if both
-    are supplied, then the *args MUST come first, as required by
-    ordinary Python syntax) but NO positional or keyword parameters
-
-    We do consider it an error if we see any other combination
-    of parameter types, and try to provide a meaningful error message.
+    support a small subset of them: a call with positional or keyword
+    parameters, and possibly an *args, but NOT **kwargs parameters.
 
     We might want to expand the number of cases we handle, but this
     captures a lot of the common cases.
     """
 
-    # print('CALL TREE %s' % ast.dump(call_ptree))
-
     # TODO: sanity checks on input
 
-    # Check positional arguments:
-    #
-    # if there's a stararg, then there must be exactly one stararg
-    # and it must be the only positional arg
-    #
-    stararg_cnt = 0
-    kwarg_cnt = 0
-
-    funcname = collapse_name(call_ptree.func)
-
-    posarg_cnt = len(call_ptree.args)
-    keyword_cnt = len(call_ptree.keywords)
-
-    for posarg in call_ptree.args:
-        if isinstance(posarg, ast.Starred):
-            stararg_cnt += 1
-
-    if (stararg_cnt > 0):
-        if stararg_cnt > 1:
-            NodeError.error_msg(call_ptree,
-                    ('call to %s() has multiple *args' % funcname))
-            return False
-
-        if (stararg_cnt == 1) and (posarg_cnt > 1):
-            NodeError.error_msg(call_ptree,
-                    ('call to %s() mixes positional arguments and *args' %
-                        funcname))
-            return False
-
-    # Check keyword args:
-    #
-    # if there's a **kwargs, then there must be exactly one **kwargs
-    # and it must be the only keyword arg
-    #
-    for keyarg in call_ptree.keywords:
-        if keyarg.arg == None: # None represents **
-            kwarg_cnt += 1
-
-    if (kwarg_cnt > 0):
-
-        # Not even sure if this is valid Python...
-        #
-        if kwarg_cnt > 1:
-            NodeError.error_msg(call_ptree,
-                    ('call to %s() has multiple **kwargs' % funcname))
-            return False
-
-        if (kwarg_cnt == 1) and (keyword_cnt > 1):
-            NodeError.error_msg(call_ptree,
-                    ('call to %s() mixes keyword arguments and **kwargs' %
-                        funcname))
-            return False
-
-    # if either kwarg_cnt or stararg_cnt are > 0, then
-    # make sure that both the number of other positional
-    # and keyword arguments is exactly zero
-    #
-    if (stararg_cnt != 0) and (kwarg_cnt != keyword_cnt):
-        NodeError.error_msg(call_ptree,
-                ('call to %s() mixes keyword arguments and *args' %
-                    funcname))
-        return False
-    elif (kwarg_cnt != 0) and (stararg_cnt != posarg_cnt):
-        NodeError.error_msg(call_ptree,
-                ('call to %s() mixes positional arguments and **kwargs' %
-                    funcname))
-        return False
-
-    if stararg_cnt > 0:
-        NodeError.warning_msg(call_ptree,
-                'call to %s() uses *args; cannot inline' % funcname)
-        return False
-    elif kwarg_cnt > 0:
-        NodeError.warning_msg(call_ptree,
-                'call to %s() uses **kwargs; cannot inline' % funcname)
+    if func_ptree.args.kwarg:
+        NodeError.error_msg(func_ptree,
+                ('function %s() has **kwargs' % func_ptree.name))
         return False
 
     return True
@@ -556,7 +473,8 @@ def create_inline_procedure(func_ptree, call_ptree):
 
     # Check whether this is a function we can handle.
     #
-    if not check_call_parameters(call_ptree):
+    if not check_func_parameters(func_ptree):
+        print('WE CANNOT HANDLE THIS')
         return None
 
     # TODO: check that the name of the called function
