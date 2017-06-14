@@ -400,6 +400,73 @@ def make_symtype_check(symname, symtype, actual_param, fpname):
 
     return check_ast
 
+def find_param_annos(func_args):
+    """
+    Return a dictionary of param_name -> annotation.id for all of the
+    formal parameter names mentioned in the given func_args (which is
+    assumed to be an ast.arguments instance) that have annotations
+    """
+
+    annos = dict()
+
+    args = func_args.args + func_args.kwonlyargs
+    for arg in args:
+        if arg.annotation:
+            if not isinstance(arg.annotation, ast.Name):
+                NodeError.fatal_msg(
+                        arg, 'annotation of param [%s] not a symbol' % arg.id)
+                return None
+
+            annos[arg.arg] = arg.annotation.id
+
+    # NOTE: we ignore annotations on *args or **kwargs.
+    # (we ignore **kwargs in general...)
+    # Not sure how to interpret annotations on varargs; have
+    # not investigated.
+
+    return annos
+
+def find_param_names(func_args):
+    """
+    Return a set of all of the formal parameter names mentioned
+    in the given func_args (which is assumed to be an ast.arguments
+    instance)
+    """
+
+    names = set()
+
+    args = func_args.args + func_args.kwonlyargs
+    for arg in args:
+        name = arg.arg
+        if name in names:
+            NodeError.fatal_msg(
+                    arg, 'param name [%s] appears more than once' % name)
+            return None
+
+        names.add(name)
+
+    if func_args.vararg:
+        name = func_args.vararg.arg
+
+        if name in names:
+            NodeError.fatal_msg(
+                    arg, 'param name [%s] appears more than once' % name)
+            return None
+
+        names.add(name)
+
+    if func_args.kwarg:
+        name = func_args.kwarg.arg
+
+        if name in names:
+            NodeError.fatal_msg(
+                    arg, 'param name [%s] appears more than once' % name)
+            return None
+
+        names.add(name)
+
+    return names
+
 def create_inline_procedure(func_ptree, call_ptree):
     """
     Given a ptree rooted at a FuncDefinition, create
@@ -507,7 +574,6 @@ def create_inline_procedure(func_ptree, call_ptree):
     actual_params = quickcopy(call_ptree.args)
     keyword_actual_params = quickcopy(call_ptree.keywords)
 
-    setup_locals = list()
     new_func_body = list()
 
     # parameters that we've already processed (to make sure
@@ -570,14 +636,18 @@ def create_inline_procedure(func_ptree, call_ptree):
     #
     param_names = list()
     seen_param_names = dict()
+    check_tuples = list()
 
     param_ind = 0
     while param_ind < len(actual_params):
         if param_ind < len(formal_params):
-            orig_name = formal_params[param_ind].arg
+            formal_param = formal_params[param_ind]
+
+            orig_name = formal_param.arg
             actual_param = actual_params[param_ind]
             seen_param_names[orig_name] = actual_param
             param_names.append(orig_name)
+
             param_ind += 1
         elif has_starargs:
             star_name = func_ptree.args.vararg.arg
@@ -585,6 +655,11 @@ def create_inline_procedure(func_ptree, call_ptree):
                     elts=actual_params[param_ind:])
             seen_param_names[star_name] = star_value
             param_names.append(star_name)
+
+            # TODO: is it possible to have an annotation on starargs?
+            # If so, how should it be interpreted?
+            # NOTE: we assume this is impossible/irrelevant right now
+
             break
         else:
             NodeError.error_msg(call_ptree,
@@ -656,16 +731,16 @@ def create_inline_procedure(func_ptree, call_ptree):
     # complicated.  For now we're going to ignore them and
     # just treat all actual parameters in the default way.
     # We can't go wrong this way.
-    #
-    for orig_name in param_names:
 
-        # Here's where we might do something clever:
-        #
-        # if this is the name of a fp we don't need to assign:
-        #    continue
+    setup_locals = list()
+    check_tuples = list()
+
+    annos = find_param_annos(func_ptree.args)
+
+    for orig_name in param_names:
+        actual_param = seen_param_names[orig_name]
 
         new_name = tmp_names.create_tmp_name(orig_name=orig_name)
-        actual_param = seen_param_names[orig_name]
         rewriter.add_mapping(orig_name, new_name)
 
         # NodeError.diag_msg(call_ptree,
@@ -675,118 +750,30 @@ def create_inline_procedure(func_ptree, call_ptree):
                 targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
                 value=actual_param))
 
-    # deal with any specified keyword parameters
-    #
-    for keyword_param in keyword_actual_params:
-        orig_name = keyword_param.arg
-
-        # If a named parameter has a name that doesn't match
-        # any of the formal parameters, consider it an error
-        #
-        if orig_name not in all_fp_names:
-            NodeError.error_msg(call_ptree,
-                    ('%s() got an unexpected keyword argument \'%s\'' %
-                        (func_ptree.name, orig_name)))
-            failed = True
-            continue
-
-        # TODO: we don't check whether the keyword parameter
-        # matches a formal parameter
-
-        # santity check: check to make sure we haven't done this
-        # parameter already
-        #
-        if orig_name in seen_param_names:
-            NodeError.error_msg(call_ptree,
-                    ('%s() got multiple values for argument \'%s\'' %
-                        (func_ptree.name, orig_name)))
-            failed = True
-            continue
-
-        if 0:
-            new_name = tmp_names.create_tmp_name(orig_name=orig_name)
-            rewriter.add_mapping(orig_name, new_name)
-
-            # NodeError.diag_msg(call_ptree,
-            #         ('KASSIGN %s -> %s' %
-            #             (new_name, ast.dump(keyword_param.value))))
-
-            seen_param_names[orig_name] = keyword_param.value
-            setup_locals.append(ast.Assign(
-                        targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
-                        value=keyword_param.value))
+        if orig_name in annos:
+            anno_type = annos[orig_name]
+            if anno_type:
+                check_tuple = make_check_tuple(
+                        new_name, anno_type,
+                        call_ptree, orig_name, func_ptree.name)
+                check_tuples.append(check_tuple)
 
     setup_checks = list()
-
-    for param_ind in range(len(formal_params)):
-
-        arg = formal_params[param_ind]
-        anno = arg.annotation
-        if not anno:
-            continue
-
-        if not isinstance(anno, ast.Name):
-            NodeError.fatal_msg(
-                    anno, 'type annotation is not a symbol')
-            break
-
-        fpname = arg.arg
-        new_name = rewriter.name2name[fpname]
-
-        actual_param = actual_params[param_ind]
-
-        # TODO: add back the make_symtype_check when it's reliable
-        #
-        # check = make_symtype_check(new_name, anno.id, actual_param, fpname)
-        # if check:
-        #     setup_checks.append(check)
-
-    # deal with any unspecified keyword parameters
-    #
-    # this is awkward, because there are a lot of things that
-    # the programmer can do that aren't correct.
-    #
-    # What we do is we scan forward down the
-    # list of formal parameters for which we have defaults,
-    # looking for any whose names have not yet been seen, and
-    # add those to the assignments.
-    defaults = func_ptree.args.defaults
-    if len(defaults) > 0:
-        keyword_params = formal_params[-len(defaults):]
-
-        for param_ind in range(len(keyword_params)):
-            orig_name = keyword_params[param_ind].arg
-
-            if orig_name in seen_param_names:
-                continue
-
-            new_name = tmp_names.create_tmp_name(orig_name=orig_name)
-            rewriter.add_mapping(orig_name, new_name)
-
-            # NodeError.diag_msg(call_ptree,
-            #         ('DASSIGN %s -> %s' %
-            #             (new_name, ast.dump(defaults[param_ind]))))
-
-            if 0:
-                seen_param_names[orig_name] = defaults[param_ind]
-                setup_locals.append(ast.Assign(
-                            targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
-                            value=defaults[param_ind]))
 
     # Finally we check to see whether there are any formal
     # parameters we haven't seen in either form, and chide
     # the user if there are.
     #
-    for formal_param in formal_params:
-        orig_name = formal_param.arg
+    fp_names = find_param_names(func_ptree.args)
 
-        if orig_name not in seen_param_names:
-            # Not precisely like the standard Python3 error msg
+    for fp_name in all_fp_names:
+        if fp_name not in seen_param_names:
+            # Not very much like the standard Python3 error msg,
             # but reasonably close
             #
             NodeError.error_msg(call_ptree,
-                    ('%s() missing required positional argument: \'%s\'' %
-                        (func_ptree.name, orig_name)))
+                    ('%s() missing parameter: \'%s\'' %
+                        (func_ptree.name, fp_name)))
             failed = True
 
     if failed:
@@ -819,20 +806,6 @@ def create_inline_procedure(func_ptree, call_ptree):
         # print('ARG %s = %s' %
         #         (name, pyqgl2.ast_util.ast2str(actual)))
         # print('ARG %s = %s' % (name, ast.dump(actual)))
-
-    if has_starargs:
-        new_name = tmp_names.create_tmp_name(orig_name=star_name)
-        rewriter.add_mapping(star_name, new_name)
-
-        new_setup_locals.append(ast.Assign(
-                targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
-                value=star_value))
-
-        # Finally add to seen_param_names; we didn't want to
-        # do this earlier because we don't treat starargs like
-        # other parameters in the earlier code
-        #
-        seen_param_names[star_name] = new_name
 
     # NOTE: this interacts badly with doing eval-time error checking,
     # because letting the "constants" through untouched removes
