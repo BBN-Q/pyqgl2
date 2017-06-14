@@ -144,8 +144,8 @@ class CheckScoping(ast.NodeVisitor):
         formal parameters, and then process the body
         """
 
-        for arg in node.args.args:
-            name = arg.arg
+        names = pyqgl2.inline.find_param_names(node.args)
+        for name in names:
             if name not in self.local_names:
                 self.local_names[name] = CheckScoping.PARAM_SCOPE
             elif self.local_names[name] == CheckScoping.MODULE_SCOPE:
