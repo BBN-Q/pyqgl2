@@ -415,6 +415,182 @@ def find_param_names(func_args):
 
     return names
 
+def find_param_bindings(call_ptree, func_ptree):
+    """
+    Walks through the call AST ptree, to the function defined
+    by the given FunctionDef AST ptree, and matches up the formal
+    and actual parameters.
+
+    Returns (status, names, name2actual) where
+
+    - status is True if the matching succeeded, or False otherwise.
+        if status is False, names and names2actual have no defined
+        meaning and should be ignored.
+
+    - names is a list of all of the formal parameters in the order
+        in which they appear in the call (with defaulted parameters
+        appearing after all of the non-defaulted parameters).  We
+        preserve this (rather than just using the declared order of
+        the formal parameters) because if evaluation the actuals has
+        any side effect, then we want to preserve the order as such.
+
+    - name2actual is a dictionary from formal parameter name to
+        actual parameter expressions (which are AST instances from
+        the call_ptree).
+
+    This is more complex than it sounds, given Python's wealth
+    of different ways to say the same thing (positional parameters
+    vs keyword parameters, *args, and **kwargs).
+
+    TODO: we do not support calling with *args or **kwargs (although we do
+    support them as formal parameters).  Adding this should be possible,
+    although the resulting code will be more complex.
+    """
+
+    status = True
+    names = list()
+    name2actual = dict()
+
+    pos_actual_params = call_ptree.args
+    formal_params = func_ptree.args.args
+
+    if func_ptree.args.vararg:
+        has_starargs = True
+        star_name = func_ptree.args.vararg.arg
+    else:
+        has_starargs = False
+
+    # Basic sanity checking...
+    #
+    if (len(pos_actual_params) > len(formal_params)) and not has_starargs:
+        # Not exactly the same as the Python3 error message,
+        # but close enough
+        #
+        NodeError.error_msg(call_ptree,
+                ('%s() takes %d positional arguments but %d were given' %
+                    (func_ptree.name,
+                        len(pos_formal_params), len(actual_params))))
+        return False, names, name2actual
+
+    param_ind = 0
+    while param_ind < len(pos_actual_params):
+        if param_ind < len(formal_params):
+            formal_param = formal_params[param_ind]
+
+            orig_name = formal_param.arg
+            actual_param = pos_actual_params[param_ind]
+            name2actual[orig_name] = actual_param
+            names.append(orig_name)
+
+            param_ind += 1
+        elif has_starargs:
+            star_value = ast.List(
+                    elts=pos_actual_params[param_ind:])
+            name2actual[star_name] = star_value
+            names.append(star_name)
+
+            # TODO: is it possible to have an annotation on starargs?
+            # If so, how should it be interpreted?
+            # NOTE: we assume this is impossible/irrelevant right now
+
+            break
+        else:
+            NodeError.error_msg(call_ptree,
+                     'too many positional arguments')
+            return False, names, name2actual
+
+    # If there's a declared starargs, but no values found for
+    # it, we still need to assign it an empty list.  We create
+    # out out of thin air and copy the position of the call_ptree
+    # into it.
+    #
+    if has_starargs:
+        if star_name not in name2actual:
+            star_value = ast.List(elts=list())
+            pyqgl2.ast_util.copy_all_loc(star_value, call_ptree, recurse=True)
+            name2actual[star_name] = star_value
+            names.append(star_name)
+
+    # Then consider each keyword-specified parameter.
+    # TODO: we blindly accept keyword parameters even
+    # if the keywords don't match any formal parameters.
+    # This should be checked.
+    #
+    # Also note that we DO NOT address **kwargs.
+    #
+    kw_actual_params = call_ptree.keywords
+
+    while param_ind < len(kw_actual_params):
+        arg = kw_actual_params[param_ind]
+        orig_name = arg.arg
+        actual_param = arg.value
+
+        if orig_name not in name2actual:
+            name2actual[orig_name] = actual_param
+            names.append(orig_name)
+        else:
+            NodeError.error_msg(call_ptree,
+                     'parameter (%s) is defined more than once' % orig_name)
+            status = False
+            continue
+
+    if not status:
+        return False, names, name2actual
+
+    # Next, add any values for any parameters that weren't explicitly
+    # specified by the call, but which have default values specified
+    # as part of the function definition
+
+    pos_defaults = func_ptree.args.defaults
+    if pos_defaults:
+        num_pos = len(formal_params)
+
+        # make a slice of just the formal positional parameters
+        # that have defaults; this simplifies computing the
+        # array offsets
+        #
+        pos_defaulted_params = formal_params[-len(pos_defaults):]
+
+        for param_ind in range(len(pos_defaulted_params)):
+            orig_name = pos_defaulted_params[param_ind].arg
+            if orig_name not in name2actual:
+                # need to copy the default AST, because we're going
+                # to annotate it with the location of the call.
+                value = quickcopy(pos_defaults[param_ind])
+                pyqgl2.ast_util.copy_all_loc(value, call_ptree, recurse=True)
+                name2actual[orig_name] = value
+                names.append(orig_name)
+
+    kw_defaults = func_ptree.args.kw_defaults
+    if kw_defaults:
+        for param_ind in range(len(kw_defaults)):
+            orig_name = func_ptree.args.kwonlyargs[param_ind].arg
+            if orig_name not in name2actual:
+                # need to copy the default AST, because we're going
+                # to annotate it with the location of the call.
+                value = quickcopy(kw_defaults[param_ind])
+                pyqgl2.ast_util.copy_all_loc(value, call_ptree, recurse=True)
+                name2actual[orig_name] = value
+                names.append(orig_name)
+
+    # Finally we check to see whether there are any positional
+    # parameters we haven't seen in either form, and chide
+    # the user if there are any missing.
+    #
+    fp_names = find_param_names(func_ptree.args)
+
+    for fp_name in fp_names:
+        if fp_name not in name2actual:
+            # Not very much like the standard Python3 error msg,
+            # but reasonably close
+            #
+            NodeError.error_msg(call_ptree,
+                    ('%s() missing parameter: \'%s\'' %
+                        (func_ptree.name, fp_name)))
+            return False, names, name2actual
+
+    return True, names, name2actual
+
 def create_inline_procedure(func_ptree, call_ptree):
     """
     Given a ptree rooted at a FuncDefinition, create
@@ -531,13 +707,6 @@ def create_inline_procedure(func_ptree, call_ptree):
 
     new_func_body = list()
 
-    # parameters that we've already processed (to make sure
-    # that we don't do something as both an ordinary and keyword
-    # parameter, and make sure that all the keyword parameters
-    # get initialized
-    #
-    seen_param_names = dict()
-
     # Note: the first version of QGL2 did not permit functions
     # that had formal parameters of *args or **kwargs, but users
     # have noted that some idioms become awkward without *args.
@@ -553,17 +722,6 @@ def create_inline_procedure(func_ptree, call_ptree):
     #
     has_starargs = func_ptree.args.vararg is not None
 
-    if len(actual_params) > len(formal_params):
-        if not has_starargs:
-            # Not exactly the same as the Python3 error message,
-            # but close enough
-            #
-            NodeError.error_msg(call_ptree,
-                    ('%s() takes %d positional arguments but %d were given' %
-                        (func_ptree.name,
-                            len(formal_params), len(actual_params))))
-            return None
-
     # TODO: check that there's only one *args.  We don't understand
     # what to do with more than one.
 
@@ -576,14 +734,23 @@ def create_inline_procedure(func_ptree, call_ptree):
     # if there isn't a *args, then positional args map onto
     # keyword args.
 
+    # parameters that we've already processed (to make sure
+    # that we don't do something as both an ordinary and keyword
+    # parameter, and make sure that all the keyword parameters
+    # get initialized
+    #
     # For each actual parameter, figure out what formal parameter
     # it belongs with.  We don't have to worry about most of the
     # illegal cases because the Python parser should have detected
     # them.
     #
+
+    status, param_names, name2actual = find_param_bindings(
+            call_ptree, func_ptree)
+
+    """
+    name2actual = dict()
     param_names = list()
-    seen_param_names = dict()
-    check_tuples = list()
 
     if has_starargs:
         star_name = func_ptree.args.vararg.arg
@@ -595,14 +762,14 @@ def create_inline_procedure(func_ptree, call_ptree):
 
             orig_name = formal_param.arg
             actual_param = actual_params[param_ind]
-            seen_param_names[orig_name] = actual_param
+            name2actual[orig_name] = actual_param
             param_names.append(orig_name)
 
             param_ind += 1
         elif has_starargs:
             star_value = ast.List(
                     elts=actual_params[param_ind:])
-            seen_param_names[star_name] = star_value
+            name2actual[star_name] = star_value
             param_names.append(star_name)
 
             # TODO: is it possible to have an annotation on starargs?
@@ -619,8 +786,8 @@ def create_inline_procedure(func_ptree, call_ptree):
     # it, we still need to assign it an empty list
     #
     if has_starargs:
-        if star_name not in seen_param_names:
-            seen_param_names[star_name] = ast.List(elts=list())
+        if star_name not in name2actual:
+            name2actual[star_name] = ast.List(elts=list())
             param_names.append(star_name)
 
     # Then consider each keyword-specified parameter.
@@ -635,8 +802,8 @@ def create_inline_procedure(func_ptree, call_ptree):
         orig_name = arg.arg
         actual_param = arg.value
 
-        if orig_name not in seen_param_names:
-            seen_param_names[orig_name] = actual_param
+        if orig_name not in name2actual:
+            name2actual[orig_name] = actual_param
             param_names.append(orig_name)
         else:
             NodeError.error_msg(call_ptree,
@@ -663,16 +830,16 @@ def create_inline_procedure(func_ptree, call_ptree):
 
         for param_ind in range(len(pos_defaulted_params)):
             orig_name = pos_defaulted_params[param_ind].arg
-            if orig_name not in seen_param_names:
-                seen_param_names[orig_name] = pos_defaults[param_ind]
+            if orig_name not in name2actual:
+                name2actual[orig_name] = pos_defaults[param_ind]
                 param_names.append(orig_name)
 
     kw_defaults = func_ptree.args.kw_defaults
     if kw_defaults:
         for param_ind in range(len(kw_defaults)):
             orig_name = func_ptree.args.kwonlyargs[param_ind].arg
-            if orig_name not in seen_param_names:
-                seen_param_names[orig_name] = kw_defaults[param_ind]
+            if orig_name not in name2actual:
+                name2actual[orig_name] = kw_defaults[param_ind]
                 param_names.append(orig_name)
 
     # Finally we check to see whether there are any positional
@@ -682,7 +849,7 @@ def create_inline_procedure(func_ptree, call_ptree):
     fp_names = find_param_names(func_ptree.args)
 
     for fp_name in fp_names:
-        if fp_name not in seen_param_names:
+        if fp_name not in name2actual:
             # Not very much like the standard Python3 error msg,
             # but reasonably close
             #
@@ -690,6 +857,7 @@ def create_inline_procedure(func_ptree, call_ptree):
                     ('%s() missing parameter: \'%s\'' %
                         (func_ptree.name, fp_name)))
             failed = True
+    """
 
     if failed:
         return None
@@ -711,9 +879,10 @@ def create_inline_procedure(func_ptree, call_ptree):
     # Now rescan the list of locals, looking for any we might
     # be able to reduce to constants.
     #
-    check_tuples = list()
     constants = list()
     setup_locals = list()
+
+    annos = find_param_annos(func_ptree.args)
 
     # iterate over param_names so that we process the parameters
     # in the calling order (at least except for *args) instead
@@ -721,7 +890,7 @@ def create_inline_procedure(func_ptree, call_ptree):
     # are used.
     #
     for name in param_names:
-        actual = seen_param_names[name]
+        actual = name2actual[name]
 
         # FIXME: this interacts badly with doing eval-time error checking,
         # because letting the "constants" through untouched removes
@@ -737,30 +906,13 @@ def create_inline_procedure(func_ptree, call_ptree):
                 isinstance(actual, ast.Name) or
                 isinstance(actual, ast.NameConstant)) and
                 is_static_ref(func_ptree, name)):
-            print('ADDING CONSTANT %s %s' % (name, ast.dump(actual)))
             rewriter.add_constant(name, actual)
+
         else:
             new_name = rewriter.get_mapping(name)
             setup_locals.append(ast.Assign(
                     targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
                     value=actual))
-
-        """
-        NOTE: we need to do the checks for all the variables,
-        even if they're constants, or default values.
-
-        # TODO: this is duplicate code from add_runtime_checks;
-        # I would rather get this done here than to have to crawl
-        # through the actual parameters again later.
-        if name in annos:
-            anno_type = annos[name]
-            if anno_type:
-                check_tuple = make_check_tuple(
-                        new_name, anno_type,
-                        call_ptree, name, func_ptree.name)
-                check_tuples.append(check_tuple)
-        """
-
 
         # print('ARG %s = %s' %
         #         (name, pyqgl2.ast_util.ast2str(actual)))
@@ -775,7 +927,7 @@ def create_inline_procedure(func_ptree, call_ptree):
         # if it's not a parameter, then we haven't
         # already set up a new name for it, so do so here
         #
-        if name not in seen_param_names:
+        if name not in name2actual:
             new_local_names.add(name)
             new_name = tmp_names.create_tmp_name(orig_name=name)
             rewriter.add_mapping(name, new_name)
@@ -791,8 +943,6 @@ def create_inline_procedure(func_ptree, call_ptree):
             subnode.qgl_fname = source_file
 
             pyqgl2.ast_util.copy_all_loc(assignment, call_ptree, recurse=True)
-
-    annos = find_param_annos(func_ptree.args)
 
     # placeholder for more actual checking.
     for name in param_names:
