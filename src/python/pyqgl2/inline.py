@@ -675,24 +675,7 @@ def create_inline_procedure(func_ptree, call_ptree):
                 seen_param_names[orig_name] = kw_defaults[param_ind]
                 param_names.append(orig_name)
 
-    # Potential optimizations: many other possible cases TODO
-    #
-    # 1. If an actual parameter is a reference or a constant, and
-    # isn't reassigned, then we can just pass it in as such;
-    # no need to give it a local name.
-    #
-    # 2. If an actual parameter is reassigned before use,
-    # no need to do the initial ap -> fp assignment.
-    #
-    # There are many possible cases, and their analyses are
-    # complicated.  For now we're going to ignore them and
-    # just treat all actual parameters in the default way.
-    # We can't go wrong this way.
-
-    setup_locals = list()
-    check_tuples = list()
-
-    # Finally we check to see whether there are any formal
+    # Finally we check to see whether there are any positional
     # parameters we haven't seen in either form, and chide
     # the user if there are any missing.
     #
@@ -711,13 +694,26 @@ def create_inline_procedure(func_ptree, call_ptree):
     if failed:
         return None
 
+    # Potential optimizations: many other possible cases TODO
+    #
+    # 1. If an actual parameter is a reference or a constant, and
+    # isn't reassigned, then we can just pass it in as such;
+    # no need to give it a local name.
+    #
+    # 2. If an actual parameter is reassigned before use,
+    # no need to do the initial ap -> fp assignment.
+    #
+    # There are many possible cases, and their analyses are
+    # complicated.  For now we're going to ignore them and
+    # just treat all actual parameters in the default way.
+    # We can't go wrong this way.
+
     # Now rescan the list of locals, looking for any we might
     # be able to reduce to constants.
     #
+    check_tuples = list()
     constants = list()
     setup_locals = list()
-
-    annos = find_param_annos(func_ptree.args)
 
     # iterate over param_names so that we process the parameters
     # in the calling order (at least except for *args) instead
@@ -770,7 +766,6 @@ def create_inline_procedure(func_ptree, call_ptree):
         #         (name, pyqgl2.ast_util.ast2str(actual)))
         # print('ARG %s = %s' % (name, ast.dump(actual)))
 
-
     # Now rewrite any local variable names to avoid conflicting
     # with other names in the in-lined scope
     #
@@ -797,14 +792,26 @@ def create_inline_procedure(func_ptree, call_ptree):
 
             pyqgl2.ast_util.copy_all_loc(assignment, call_ptree, recurse=True)
 
+    annos = find_param_annos(func_ptree.args)
+
+    # placeholder for more actual checking.
+    for name in param_names:
+        if name in annos:
+            anno_type = annos[name]
+            if anno_type:
+                # print('CHECK that %s param %s is a %s' %
+                #         (func_ptree.name, name, anno_type))
+                # FIXME: do something
+                pass
+
     # Make a list of all of the formal parameters declared to be qbits,
     # and use this to define the barrier statements for this call
     #
     qbit_fparams = list()
     qbit_aparams = list()
-    for formal_param in formal_params:
-        if (formal_param.annotation and
-                formal_param.annotation.id == QGL2.QBIT):
+
+    for name in param_names:
+        if (name in annos) and (annos[name] == QGL2.QBIT):
 
             # If we get a parameter that's not an ast.Name, but it's declared
             # to be a qbit, then we know that the type checking is going
@@ -813,12 +820,12 @@ def create_inline_procedure(func_ptree, call_ptree):
             #
             # TODO: what if the expression isn't a const?
             #
-            if not isinstance(
-                    rewriter.name2const[formal_param.arg], ast.Name):
+            if not isinstance(rewriter.name2const[name], ast.Name):
+                # FIXME: returning an empty list here is probably wrong
                 return list()
 
-            qbit_fparams.append(formal_param.arg)
-            qbit_aparams.append(rewriter.name2const[formal_param.arg].id)
+            qbit_fparams.append(name)
+            qbit_aparams.append(rewriter.name2const[name].id)
 
     qbit_aparams_txt = ', '.join(sorted(qbit_aparams))
 
