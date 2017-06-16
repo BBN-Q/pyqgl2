@@ -821,9 +821,14 @@ def create_inline_procedure(func_ptree, call_ptree):
 
         else:
             new_name = rewriter.get_mapping(name)
-            setup_locals.append(ast.Assign(
+            new_assign = ast.Assign(
                     targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
-                    value=actual))
+                    value=actual)
+            setup_locals.append(new_assign)
+            name2actual[name] = ast.Name(id=new_name, ctx=ast.Load())
+
+            # We don't need to set the location and filename of the new
+            # assignment because this is done later.
 
         # print('ARG %s = %s' %
         #         (name, pyqgl2.ast_util.ast2str(actual)))
@@ -850,10 +855,7 @@ def create_inline_procedure(func_ptree, call_ptree):
     #
     source_file = call_ptree.qgl_fname
     for assignment in setup_locals:
-        for subnode in ast.walk(assignment):
-            subnode.qgl_fname = source_file
-
-            pyqgl2.ast_util.copy_all_loc(assignment, call_ptree, recurse=True)
+        pyqgl2.ast_util.copy_all_loc(assignment, call_ptree, recurse=True)
 
     # Make a list of all of the formal parameters declared to be qbits,
     # and use this to define the barrier statements for this call
@@ -869,9 +871,9 @@ def create_inline_procedure(func_ptree, call_ptree):
             # qbit it is; we can't handle arbitrary expressions
             #
             if not name in rewriter.name2const:
-                NodeError.error_msg(call_ptree,
-                        'parameter %s must be a fixed qbit' % name)
-                return None
+                NodeError.warning_msg(call_ptree,
+                        'parameter %s is not a fixed qbit' % name)
+                continue
 
             # If we get a parameter that's not an ast.Name, but it's declared
             # to be a qbit, then we know that the type checking is going
