@@ -1864,16 +1864,21 @@ def add_runtime_call_check(call_ptree, func_ptree):
 
     for param_ind in range(len(names)):
         fp_name = names[param_ind]
-
         ap_node = name2actual[fp_name]
+
+        # TODO: If the actual is a literal (a number or a string, or a
+        # more complex but literal structure), then then we can check
+        # it right here.  Otherwise, we need to defer the check, if any,
+        # to runtime.
+
         if isinstance(ap_node, ast.Name):
-            # If the ap is already a name, then we can use it as-is.
             new_name = ap_node.id
             all_args.append(ap_node)
         else:
             new_name = tmp_names.create_tmp_name(orig_name=fp_name)
-            new_ast = expr2ast(
-                    '%s = %s' % (new_name, ast2str(ap_node).strip()))
+            new_ast = ast.Assign(
+                    targets=list([ast.Name(id=new_name, ctx=ast.Store())]),
+                    value=ap_node)
             pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=True)
             tmp_assts.append(new_ast)
 
@@ -1885,14 +1890,12 @@ def add_runtime_call_check(call_ptree, func_ptree):
                     new_name, anno, call_ptree, fp_name, func_ptree.name)
             tmp_check_tuples.append(check_tuple)
 
-    # We pass all the parameters to the new call as keyword arguments.
-    # Python doesn't care, and it makes things easier for us if we don't
-    # have to keep track of args vs kwargs.
+    # Now create the new parameter list
     #
-
     final_arglist = list()
-    for fp_name in names:
-        actual = name2actual[fp_name]
+    for param_ind in range(len(names)):
+        fp_name = names[param_ind]
+        actual = all_args[param_ind]
 
         if fp_name not in kwargs:
             arg_str = '%s' % ast2str(actual).strip()
