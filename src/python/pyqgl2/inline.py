@@ -481,7 +481,7 @@ def find_param_bindings(call_ptree, func_ptree):
         NodeError.error_msg(call_ptree,
                 ('%s() takes %d positional arguments but %d were given' %
                     (func_ptree.name,
-                        len(pos_formal_params), len(actual_params))))
+                        len(formal_params), len(pos_actual_params))))
         return False, names, name2actual, kwnames
 
     param_ind = 0
