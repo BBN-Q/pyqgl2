@@ -1874,6 +1874,26 @@ def add_runtime_call_check(call_ptree, func_ptree):
         if isinstance(ap_node, ast.Name):
             new_name = ap_node.id
             all_args.append(ap_node)
+
+            # checking hack: in order to make sure that the name
+            # is visible in this scope, we add a reference to it
+            # so that when this is eval'd, then it will be dereferenced
+            # and any errors will be caught and reported.  We need to do
+            # this before we get to the QGL1 evaluator, because by that
+            # point all the info about where this call appeared in the
+            # original source has been lost.
+            #
+            # If we remove this, things run much faster.
+            #
+            """
+            new_ast = ast.Assign(
+                    targets=list([ast.Name(id='___q_tmp', ctx=ast.Store())]),
+                    value=ap_node)
+            pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=False)
+
+            tmp_assts.append(new_ast)
+            """
+
         else:
             new_name = tmp_names.create_tmp_name(orig_name=fp_name)
             new_ast = ast.Assign(
