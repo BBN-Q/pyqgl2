@@ -554,7 +554,7 @@ class SimpleEvaluator(object):
 
             # print('INLINED REF [\n%s\n]' % ast2str(new_call_with).strip())
             # return new_call_with
-            return new_call
+            return sketch_call
         else:
             # TODO: if we got this far and then failed, something
             # terrible probably happened.  Come up with decent
