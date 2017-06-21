@@ -1876,23 +1876,24 @@ def add_runtime_call_check(call_ptree, func_ptree):
             all_args.append(ap_node)
 
             # checking hack: in order to make sure that the name
-            # is visible in this scope, we add a reference to it
-            # so that when this is eval'd, then it will be dereferenced
-            # and any errors will be caught and reported.  We need to do
-            # this before we get to the QGL1 evaluator, because by that
-            # point all the info about where this call appeared in the
-            # original source has been lost.
+            # is visible in this scope, we add a check tuple for it
+            # (possibly without any annotation type, if there's none
+            # for the formal parameter) so that before the call is
+            # evaluated, it will be dereferenced and any errors will
+            # be caught and reported.
             #
-            # If we remove this, things run much faster.
-            #
-            """
-            new_ast = ast.Assign(
-                    targets=list([ast.Name(id='___q_tmp', ctx=ast.Store())]),
-                    value=ap_node)
-            pyqgl2.ast_util.copy_all_loc(new_ast, ap_node, recurse=False)
+            # We need to do this before we get to the QGL1 evaluator,
+            # because by that point all the info about where this call
+            # appeared in the original source has been lost.
 
-            tmp_assts.append(new_ast)
-            """
+            if fp_name in annos:
+                anno = annos[fp_name]
+            else:
+                anno = None
+
+            check_tuple = make_check_tuple(
+                    new_name, anno, call_ptree, fp_name, func_ptree.name)
+            tmp_check_tuples.append(check_tuple)
 
         else:
             new_name = tmp_names.create_tmp_name(orig_name=fp_name)
@@ -1904,11 +1905,11 @@ def add_runtime_call_check(call_ptree, func_ptree):
 
             all_args.append(new_ast.targets[0])
 
-        if fp_name in annos:
-            anno = annos[fp_name]
-            check_tuple = make_check_tuple(
-                    new_name, anno, call_ptree, fp_name, func_ptree.name)
-            tmp_check_tuples.append(check_tuple)
+            if fp_name in annos:
+                anno = annos[fp_name]
+                check_tuple = make_check_tuple(
+                        new_name, anno, call_ptree, fp_name, func_ptree.name)
+                tmp_check_tuples.append(check_tuple)
 
     # Now create the new parameter list
     #
