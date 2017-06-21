@@ -285,69 +285,6 @@ def check_func_parameters(func_ptree):
 
     return True
 
-def make_symtype_check(symname, symtype, actual_param, fpname):
-    """
-    Create and return AST that performs a check that the given symbol
-    has the given type, and prints and error message and halts if
-    a type violation is detected.  This AST is intended to be inserted
-    into the original program to check that the actual parameters to
-    a function or procedure match the declared types.
-
-    The actual_param is used to create the error message.
-
-    The way that types are specified is a little clunky.
-    In addition to literal types (like str, int, etc) there is also
-    at least one "anti-type", 'classical', which matches any type
-    that isn't quantum.
-
-    TODO: this doesn't handle aggregate types, like lists of
-    qbits, yet.
-    """
-
-    # If we're passed a type instead of a name of a type,
-    # then convert it.
-    #
-    # (This shouldn't happen right now, but it might be possible
-    # in the future.)
-    #
-    if isinstance(symtype, type):
-        # TODO: this method of finding the name of the type
-        # might not be portable.  I haven't checked whether this
-        # is from the spec, or just the way CPython works
-        #
-        symtype = symtype.__name__
-
-    check_ast = None
-
-    errcode = 'NodeError._emit_msg(NodeError.NODE_ERROR_ERROR, \'%s\')'
-
-    if symtype == QGL2.CLASSICAL:
-        txt = NodeError._create_msg(
-                actual_param, NodeError.NODE_ERROR_ERROR,
-                '[%s] declared classical, got quantum' % fpname)
-        expr = (('if isinstance(%s, QubitPlaceholder): ' % symname) +
-                (errcode % txt))
-        check_ast = expr2ast(expr)
-    elif symtype == QGL2.QBIT:
-        txt = NodeError._create_msg(
-                actual_param, NodeError.NODE_ERROR_ERROR,
-                '[%s] declared quantum, got classical' % fpname)
-        expr = (('if not isinstance(%s, QubitPlaceholder): ' % symname) +
-                (errcode % txt))
-        check_ast = expr2ast(expr)
-    else:
-        txt = NodeError._create_msg(
-                actual_param, NodeError.NODE_ERROR_ERROR,
-                '[%s] does not match declared type [%s]' % (fpname, symtype))
-        expr = ('if not isinstance(%s, %s): %s' %
-                    (symname, symtype, errcode % txt))
-        check_ast = expr2ast(expr)
-
-    if check_ast:
-        pyqgl2.ast_util.copy_all_loc(check_ast, actual_param, recurse=True)
-
-    return check_ast
-
 def find_param_annos(func_args):
     """
     Return a dictionary of param_name -> annotation.id for all of the
@@ -1207,46 +1144,6 @@ def is_static_ref(ptree, name):
     # If the name survived all of those checks, then return True.
     #
     return True
-
-def create_inline_function(ptree, actual_params=None):
-    """
-    Like create_inline_procedure, but for a function.
-    The first four steps are the same, but then there is
-    additional work on the copy of the body:
-
-    a) Create a local name for the return value, if any
-
-        It is not required that a function return a value;
-        a naked return statement may also be used as
-        non-local control flow
-
-    b) Scan the body, searching for return statements;
-        replace them with code that assigns the returned
-        value (if any) to the local variable and then
-        raises an InlineReturn exception.
-
-    c) Wrap the body in a try block that catches all
-        InlineReturn exceptions and ignores all others.
-
-    Note: if there are any promiscuous except clauses
-    in the body that catch InlineReturn exceptions,
-    this may fail!
-
-    Finally, paste new try block to the end of the list
-    of statements to assign the formal parameters...
-
-    But we're not done yet: if the function actually
-    does return anything, then make sure that the
-    assignment from the return value of the call is
-    replaced with an assignment from the local variable
-    assigned by the individual return statements.
-    This step can't be done here, but needs to be
-    done in the calling context.  To make this easier,
-    set node.qgl_retname to name of the temporary
-    variable.
-    """
-
-    pass
 
 def is_qgl_procedure(node):
     """
