@@ -1454,7 +1454,25 @@ class EvalTransformer(object):
             (var_name, type_name, fp_name, func, src, row, col) = check
 
             mapped_name = self.rewriter.get_mapping(var_name)
-            value = local_variables[mapped_name]
+
+            # make sure that the name exists, either as a local variable,
+            # or visible in the local namespace.  If not, then there's no
+            # point in confirming that it's a particular type.  (this is
+            # also used to confirm that a binding for the name is visible,
+            # even if we don't care about its type)
+            #
+            try:
+                if mapped_name in local_variables:
+                    value = local_variables[mapped_name]
+                else:
+                    namespace = self.eval_state.importer.path2namespace[src]
+                    value = namespace.native_globals[mapped_name]
+            except KeyError as _exc:
+                print(('%s:%d:%d: error: ' +
+                        'param [%s] of func [%s] not defined') %
+                        (src, row, col, var_name, func))
+                NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_ERROR
+                continue
 
             # QGL2check actually does the check and prints
             # warning/error messages as needed, and sets the
@@ -1462,7 +1480,8 @@ class EvalTransformer(object):
             # this function can detect whether an error has
             # been detected and act accordingly
             #
-            QGL2check(value, type_name, fp_name, func, src, row, col)
+            if type_name is not None:
+                QGL2check(value, type_name, fp_name, func, src, row, col)
 
     def do_body(self, body):
 
