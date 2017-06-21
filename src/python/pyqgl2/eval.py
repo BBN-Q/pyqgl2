@@ -1449,6 +1449,7 @@ class EvalTransformer(object):
         """
 
         local_variables = self.eval_state.locals_stack[-1]
+        importer = self.eval_state.importer
 
         for check in vec:
             (var_name, type_name, fp_name, func, src, row, col) = check
@@ -1465,7 +1466,7 @@ class EvalTransformer(object):
                 if mapped_name in local_variables:
                     value = local_variables[mapped_name]
                 else:
-                    namespace = self.eval_state.importer.path2namespace[src]
+                    namespace = importer.path2namespace[src]
                     value = namespace.native_globals[mapped_name]
             except KeyError as _exc:
                 print(('%s:%d:%d: error: ' +
