@@ -42,7 +42,7 @@ from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.eval import EvalTransformer, SimpleEvaluator
 from pyqgl2.flatten import Flattener
 from pyqgl2.importer import NameSpaces, add_import_from_as
-from pyqgl2.inline import Inliner
+from pyqgl2.inline import Inliner, name_mangler
 from pyqgl2.sequences import SequenceExtractor, get_sequence_function
 
 
@@ -195,6 +195,11 @@ def compile_function(filename,
     NodeError.halt_on_error()
 
     ptree1 = ptree
+
+    # THE NAME MANGLER IS INCOMPLETE: see inline.py for more info.
+    # It shouldn't be use right now.
+    #
+    # ptree1 = name_mangler(ptree1)
 
     # We may need to iterate over the inlining processes a few times,
     # because inlining may expose new things to inline.
