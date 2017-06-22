@@ -1841,6 +1841,53 @@ def inline_call(base_call, importer):
 
         return inlined
 
+def name_mangler(func_ptree):
+    """
+    Rewrite the explicitly assigned names mentioned in a function
+
+    This is a hack to try to work around a bug in the way that
+    the inliner works: if the program contains a reference to
+    a symbol that is undefined in the local scope BUT is defined
+    in the scope of the function where the inlining is rooted,
+    then the symbol will successfully resolve to that definition.
+    (This is a bug in the inliner that is triggered by a bug in
+    the users program -- programs that never reference undefined
+    symbols won't have this problem.)
+
+    THIS IS ONLY PARTIALLY CORRECT because it only understands how
+    to rewrite simple assignments, and punts on anything complicated
+    like tuple assignments.  It DOES NOT understand things like
+    implicitly assigned variables (loop variables, "as" variables,
+    etc).  It's half-baked.
+
+    The approach is to rewrite the names of the assigned variables
+    in the top-level function, so that references to the variables
+    will fail (as long as nobody names their variables using the
+    same mangler that pyqgl2 uses...).
+    """
+
+    assigned_names = set()
+    for node in ast.walk(func_ptree):
+        if isinstance(node, ast.Assign):
+            target = node.targets[0]
+            if isinstance(target, ast.Name):
+                assigned_names.add(target.id)
+            elif isinstance(target, ast.Tuple):
+                NodeError.error_msg(node,
+                        'tuple assignment not supported in qgl2main')
+            else:
+                NodeError.error_msg(node,
+                        'unsupported assignment op in qgl2main')
+
+    NodeError.halt_on_error()
+    rewriter = NameRewriter()
+    tmp_names = TempVarManager.create_temp_var_manager()
+    for name in assigned_names:
+        new_name = tmp_names.create_tmp_name(orig_name=name)
+        rewriter.add_mapping(name, new_name)
+
+    return rewriter.rewrite(func_ptree)
+
 
 class TestInliner(object):
 
