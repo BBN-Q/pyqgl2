@@ -252,7 +252,7 @@ def check_call_actuals(call_ptree):
         if isinstance(arg, ast.Starred):
             NodeError.error_msg(call_ptree,
                     ('function %s() has *args' % func_name))
-            return False
+            # return False
 
     for arg in call_ptree.keywords:
         if arg.arg is None:
@@ -358,7 +358,7 @@ def find_param_bindings(call_ptree, func_ptree):
     by the given FunctionDef AST ptree, and matches up the formal
     and actual parameters.
 
-    Returns (status, names, name2actual, kwnames) where
+    Returns (status, names, name2actual, posnames, kwnames) where
 
     - status is True if the matching succeeded, or False otherwise.
         if status is False, names and names2actual have no defined
@@ -378,6 +378,9 @@ def find_param_bindings(call_ptree, func_ptree):
     - kwnames is a set of all of the parameters that were passed
         by name instead of positionally.
 
+    - posnames is a set of all of the positional parameters that
+        were passed by name AND match a named parameter.
+
     This is more complex than it sounds, given Python's wealth
     of different ways to say the same thing (positional parameters
     vs keyword parameters, *args, and **kwargs).
@@ -390,6 +393,7 @@ def find_param_bindings(call_ptree, func_ptree):
     status = True
     names = list()
     kwnames = set()
+    posnames = set()
     name2actual = dict()
 
     fp_names = find_param_names(func_ptree.args)
@@ -419,7 +423,7 @@ def find_param_bindings(call_ptree, func_ptree):
                 ('%s() takes %d positional arguments but %d were given' %
                     (func_ptree.name,
                         len(formal_params), len(pos_actual_params))))
-        return False, names, name2actual, kwnames
+        return False, names, name2actual, kwnames, posnames
 
     param_ind = 0
     while param_ind < len(pos_actual_params):
@@ -430,13 +434,14 @@ def find_param_bindings(call_ptree, func_ptree):
             actual_param = pos_actual_params[param_ind]
             name2actual[orig_name] = actual_param
             names.append(orig_name)
+            posnames.add(orig_name)
 
         elif has_starargs:
             star_value = ast.List(
                     elts=pos_actual_params[param_ind:])
+            pyqgl2.ast_util.copy_all_loc(star_value, call_ptree, recurse=False)
             name2actual[star_name] = star_value
             names.append(star_name)
-            kwnames.add(star_name)
 
             # TODO: is it possible to have an annotation on starargs?
             # If so, how should it be interpreted?
@@ -446,7 +451,7 @@ def find_param_bindings(call_ptree, func_ptree):
         else:
             NodeError.error_msg(call_ptree,
                      'too many positional arguments')
-            return False, names, name2actual, kwnames
+            return False, names, name2actual, kwnames, posnames
 
         param_ind += 1
 
@@ -488,7 +493,7 @@ def find_param_bindings(call_ptree, func_ptree):
             status = False
             continue
 
-        # If we see a keyword parameter isn't named in the function
+        # If we see a keyword parameter that isn't named in the function
         # definition, and there isn't a **kwargs, then it's an error.
         #
         if orig_name in fp_names:
@@ -498,22 +503,26 @@ def find_param_bindings(call_ptree, func_ptree):
 
         elif has_kwargs:
             # This is handled the same as the previous case, but
-            # I'm leaving it seperate in case we decide to disallow it,
+            # I'm leaving it separate in case we decide to disallow it,
             # or have a warning for non-stubs.
             #
             name2actual[orig_name] = actual_param
             names.append(orig_name)
             kwnames.add(orig_name)
 
+        elif has_starargs and orig_name == star_name:
+            print('FOUND STARTARGS [%s]' % star_name)
+            # NOT SURE WHAT TO DO ABOUT THIS...
+            continue
         else:
             NodeError.error_msg(call_ptree,
                     ('%s() got an unexpected keyword argument \'%s\'' %
-                        func_ptree.name, orig_name))
+                        (func_ptree.name, orig_name)))
             status = False
             continue
 
     if not status:
-        return False, names, name2actual, kwnames
+        return False, names, name2actual, kwnames, posnames
 
     # Next, add any values for any parameters that weren't explicitly
     # specified by the call, but which have default values specified
@@ -569,9 +578,9 @@ def find_param_bindings(call_ptree, func_ptree):
             NodeError.error_msg(call_ptree,
                     ('%s() missing parameter: \'%s\'' %
                         (func_ptree.name, fp_name)))
-            return False, names, name2actual, kwnames
+            return False, names, name2actual, kwnames, posnames
 
-    return True, names, name2actual, kwnames
+    return True, names, name2actual, kwnames, posnames
 
 def create_inline_procedure(func_ptree, call_ptree):
     """
@@ -704,7 +713,7 @@ def create_inline_procedure(func_ptree, call_ptree):
     #
     has_starargs = func_ptree.args.vararg is not None
 
-    status, param_names, name2actual, kwnames = find_param_bindings(
+    status, param_names, name2actual, kwnames, posnames = find_param_bindings(
             call_ptree, func_ptree)
 
     if not status:
@@ -1582,10 +1591,8 @@ def add_runtime_call_check(call_ptree, func_ptree):
     """
 
     annos = find_param_annos(func_ptree.args)
-    if not annos:
-        return None
 
-    status, names, name2actual, kwargs = find_param_bindings(
+    status, names, name2actual, kwargs, posargs = find_param_bindings(
             call_ptree, func_ptree)
     if not status:
         return None
@@ -1655,18 +1662,31 @@ def add_runtime_call_check(call_ptree, func_ptree):
 
     # Now create the new parameter list
     #
-    final_arglist = list()
+    pos_arglist = list()
+    kw_arglist = list()
+
     for param_ind in range(len(names)):
         fp_name = names[param_ind]
         actual = all_args[param_ind]
 
-        if fp_name not in kwargs:
-            arg_str = '%s' % ast2str(actual).strip()
-        else:
-            arg_str = '%s=%s' % (fp_name, ast2str(actual).strip())
+        if fp_name in posargs:
+            pos_arglist.append('%s' % ast2str(actual).strip())
+        elif fp_name in kwargs:
+            kw_arglist.append('%s=%s' % (fp_name, ast2str(actual).strip()))
+        # There could also be *args or *kwargs, but we don't
+        # add them here.  They'll be added implicitly for the kwargs
+        # or explicitly (below) for the *args.
 
-        final_arglist.append(arg_str)
+    # If there's any additional positional parameters, and there
+    # is a *args, then add the remaining positional actuals.
+    #
+    if func_ptree.args.vararg:
+        star_name = func_ptree.args.vararg.arg
+        if star_name in name2actual:
+            for actual in name2actual[star_name].elts:
+                pos_arglist.append('%s' % ast2str(actual).strip())
 
+    final_arglist = pos_arglist + kw_arglist
     args_txt = ', '.join(final_arglist)
 
     new_call_txt = '%s(%s)' % (func_ptree.name, args_txt)
