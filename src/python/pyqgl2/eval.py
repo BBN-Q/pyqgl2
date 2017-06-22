@@ -1230,8 +1230,10 @@ class EvalTransformer(object):
                     value = namespace.native_globals[mapped_name]
             except KeyError as _exc:
                 print(('%s:%d:%d: error: ' +
-                        'param [%s] of func [%s] not defined') %
-                        (src, row, col, var_name, func))
+                        'value of param [%s] of func [%s] not defined') %
+                        (src, row, col, fp_name, func))
+                print('%s:%d:%d: error: symbol [%s] not found' %
+                        (src, row, col, var_name))
                 NodeError.MAX_ERR_LEVEL = NodeError.NODE_ERROR_ERROR
                 continue
 
