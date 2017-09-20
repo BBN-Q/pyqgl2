@@ -9,7 +9,6 @@ import qgl2.basic_sequences.pulses
 from qgl2.basic_sequences.helpers import create_cal_seqs
 
 from itertools import product
-import numpy as np
 
 # The following qreset definitions represent a progression in complexity
 # This first one is the simplest (the "goal")
