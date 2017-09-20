@@ -1,13 +1,15 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qgl2main, concur, qreg, pulse
-from qgl2.qgl1 import Id, MEAS, X
+from qgl2.qgl2 import qgl2decl, qreg, QRegister
+from qgl2.qgl1 import Utheta, MEAS, X, Id
 from qgl2.util import init
 
+import qgl2.basic_sequences.pulses
+
 from qgl2.basic_sequences.helpers import create_cal_seqs
-from qgl2.basic_sequences.new_helpers import compileAndPlot
 
 from itertools import product
+import numpy as np
 
 # The following qreset definitions represent a progression in complexity
 # This first one is the simplest (the "goal")
@@ -41,7 +43,7 @@ def qreset_with_delay(q: qreg, delay):
     m = MEAS(q)
     # Wait to make branching time deterministic, and to allow residual
     # measurement photons to decay
-    Id(q, delay)
+    Id(q, length=delay)
     if m == 1:
         X(q)
 
@@ -52,7 +54,7 @@ def qreset_with_delay(q: qreg, delay):
 @qgl2decl
 def qreset_full(q:qreg, delay, measSign):
     m = MEAS(q)
-    Id(q, delay)
+    Id(q, length=delay)
     if m == measSign:
         X(q)
     else:
