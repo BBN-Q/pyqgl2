@@ -2,7 +2,7 @@
 
 # TODO this should be part of QGL, not in QGL2
 
-from QGL.ChannelLibrary import EdgeFactory
+from QGL.ChannelLibraries import EdgeFactory
 from QGL.ControlFlow import Sync, Wait
 from QGL.PulsePrimitives import flat_top_gaussian
 
