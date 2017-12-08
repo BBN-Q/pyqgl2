@@ -4,6 +4,8 @@ from qgl2.qgl2 import qgl2decl, qgl2main, qreg
 from qgl2.qgl2 import QRegister
 from qgl2.qgl1 import Id, X90, Y90, X, Y, MEAS, Wait, CNOT
 
+ChannelLibrary()
+
 # Don't do this import here - it replaces our stubs above
 #from QGL import *
 

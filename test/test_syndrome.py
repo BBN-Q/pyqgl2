@@ -12,6 +12,7 @@ from .helpers import assertPulseSequenceEqual
 from pyqgl2.main import compile_function
 
 from QGL import *
+ChannelLibrary()
 
 class TestMulti(unittest.TestCase):
     def setUp(self):

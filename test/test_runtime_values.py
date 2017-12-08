@@ -5,6 +5,7 @@ from pyqgl2.main import compile_function
 from QGL import *
 from QGL.ControlFlow import *
 from QGL.BlockLabel import label, endlabel
+ChannelLibrary()
 
 from test.helpers import testable_sequence, channel_setup, \
     assertPulseSequenceEqual, match_labels

@@ -12,6 +12,7 @@ from test.helpers import testable_sequence, discard_zero_Ids, \
     get_cal_seqs_1qubit, get_cal_seqs_2qubits
 
 from QGL import *
+ChannelLibrary()
 
 class Test84(unittest.TestCase):
     def setUp(self):

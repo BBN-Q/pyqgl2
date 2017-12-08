@@ -4,6 +4,7 @@ from itertools import product
 
 from pyqgl2.main import compile_function
 from QGL import *
+ChannelLibrary()
 
 from test.helpers import testable_sequence, \
     channel_setup, assertPulseSequenceEqual
