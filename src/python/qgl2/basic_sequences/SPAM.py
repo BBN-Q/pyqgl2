@@ -166,8 +166,8 @@ def main():
     # b: QGL2 currently only understands the fake Qbits
 #    qg1 = LogicalMarkerChannel(label="q1-gate")
 #    q1 = Qubit(label='q1', gate_chan=qg1)
-#    q1.pulseParams['length'] = 30e-9
-#    q1.pulseParams['phase'] = pi/2
+#    q1.pulse_params['length'] = 30e-9
+#    q1.pulse_params['phase'] = pi/2
 
     # Use stub Qubits, but comment this out when running directly.
     q1 = QubitFactory("q1")

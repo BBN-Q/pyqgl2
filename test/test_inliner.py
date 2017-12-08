@@ -2,7 +2,7 @@ import unittest
 
 from pyqgl2.main import compile_function
 from QGL import *
-ChannelLibrary()
+ChannelLibrary(blank=True)
 
 from test.helpers import channel_setup, assertPulseSequenceEqual
 

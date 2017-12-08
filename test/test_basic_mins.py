@@ -10,7 +10,7 @@ from math import pi
 from pyqgl2.main import compile_function
 from pyqgl2.qreg import QRegister
 from QGL import *
-ChannelLibrary()
+ChannelLibrary(blank=True)
 
 from test.helpers import testable_sequence, \
     channel_setup, assertPulseSequenceEqual, \
@@ -306,7 +306,7 @@ class TestDecoupling(unittest.TestCase):
 
         # Create numPulses sequences
         numPulses = [0, 2, 4, 6]
-        pulseSpacing = 500e-9 - q.pulseParams['length']
+        pulseSpacing = 500e-9 - q.pulse_params['length']
         calRepeats = 2
 
         def addt180t(q, pulseSpacing, rep):

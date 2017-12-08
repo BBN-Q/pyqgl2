@@ -12,7 +12,7 @@ from test.helpers import assertPulseSequenceEqual, \
     get_cal_seqs_1qubit, get_cal_seqs_2qubits
 
 from QGL import *
-ChannelLibrary()
+ChannelLibrary(blank=True)
 
 class TestQFT(unittest.TestCase):
     def setUp(self):

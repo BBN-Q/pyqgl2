@@ -26,13 +26,13 @@ def FlipFlopq1(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     # Original:
     # def flipflop_seqs(dragScaling):
     #     """ Helper function to create a list of sequences with a specified drag parameter. """
-    #     qubit.pulseParams['dragScaling'] = dragScaling
+    #     qubit.pulse_params['dragScaling'] = dragScaling
     #     return [[X90(qubit)] + [X90(qubit), X90m(qubit)]*rep + [Y90(qubit)] for rep in range(maxNumFFs)]
 
     # # Insert an identity at the start of every set to mark them off
-    # originalScaling = qubit.pulseParams['dragScaling']
+    # originalScaling = qubit.pulse_params['dragScaling']
     # seqs = list(chain.from_iterable([[[Id(qubit)]] + flipflop_seqs(dragParam) for dragParam in dragParamSweep]))
-    # qubit.pulseParams['dragScaling'] = originalScaling
+    # qubit.pulse_params['dragScaling'] = originalScaling
 
     # # Add a final pi for reference
     # seqs.append([X(qubit)])
@@ -50,7 +50,7 @@ def FlipFlopq1(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
 
     def flipflop_seqs(dragScaling):
         """ Helper function to create a list of sequences with a specified drag parameter. """
-        qubit.pulseParams['dragScaling'] = dragScaling
+        qubit.pulse_params['dragScaling'] = dragScaling
         seqs = []
         for rep in range(maxNumFFs):
             seq = []
@@ -68,7 +68,7 @@ def FlipFlopq1(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     # [['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9'], ['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9'], ['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9']]
 
     seqs = []
-    originalScaling = qubit.pulseParams['dragScaling']
+    originalScaling = qubit.pulse_params['dragScaling']
     for dragParam in dragParamSweep:
         seqs.append([Id(qubit)])
         # FIXME: In original this was [[Id]] + flipflop - is this
@@ -76,7 +76,7 @@ def FlipFlopq1(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
         ffs = flipflop_seqs(dragParam)
         for elem in ffs:
             seqs.append(elem)
-    qubit.pulseParams['dragScaling'] = originalScaling
+    qubit.pulse_params['dragScaling'] = originalScaling
 
     # Add a final pi for reference
     seqs.append([X(qubit)])
@@ -91,8 +91,8 @@ def FlipFlopq1(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
 @qgl2decl
 def flipflop_seqs(dragScaling, maxNumFFs, qubit: qbit):
     """ Helper function to create a list of sequences with a specified drag parameter. """
-    # FIXME: cause qubit is a placeholder, can't access pulseParams
-    # qubit.pulseParams['dragScaling'] = dragScaling
+    # FIXME: cause qubit is a placeholder, can't access pulse_params
+    # qubit.pulse_params['dragScaling'] = dragScaling
     for rep in range(maxNumFFs):
         init(qubit)
         X90(qubit, dragScaling=dragScaling)
@@ -110,8 +110,8 @@ def FlipFlopMin():
     dragParamSweep = np.linspace(0, 5e-6, 11) # FIXME
     maxNumFFs = 10
 
-    # FIXME: cause qubit is a placeholder, can't access pulseParams
-    # originalScaling = qubit.pulseParams['dragScaling']
+    # FIXME: cause qubit is a placeholder, can't access pulse_params
+    # originalScaling = qubit.pulse_params['dragScaling']
     for dragParam in dragParamSweep:
         init(qubit)
         Id(qubit)
@@ -120,8 +120,8 @@ def FlipFlopMin():
         # FIXME: In original this was [[Id]] + flipflop - is this
         # right?
         flipflop_seqs(dragParam, maxNumFFs, qubit)
-    # FIXME: cause qubit is a placeholder, can't access pulseParams
-    # qubit.pulseParams['dragScaling'] = originalScaling
+    # FIXME: cause qubit is a placeholder, can't access pulse_params
+    # qubit.pulse_params['dragScaling'] = originalScaling
 
     # Add a final pi for reference
     init(qubit)
@@ -144,13 +144,13 @@ def FlipFlop(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     # Original:
     # def flipflop_seqs(dragScaling):
     #     """ Helper function to create a list of sequences with a specified drag parameter. """
-    #     qubit.pulseParams['dragScaling'] = dragScaling
+    #     qubit.pulse_params['dragScaling'] = dragScaling
     #     return [[X90(qubit)] + [X90(qubit), X90m(qubit)]*rep + [Y90(qubit)] for rep in range(maxNumFFs)]
 
     # # Insert an identity at the start of every set to mark them off
-    # originalScaling = qubit.pulseParams['dragScaling']
+    # originalScaling = qubit.pulse_params['dragScaling']
     # seqs = list(chain.from_iterable([[[Id(qubit)]] + flipflop_seqs(dragParam) for dragParam in dragParamSweep]))
-    # qubit.pulseParams['dragScaling'] = originalScaling
+    # qubit.pulse_params['dragScaling'] = originalScaling
 
     # # Add a final pi for reference
     # seqs.append([X(qubit)])
@@ -170,7 +170,7 @@ def FlipFlop(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
     # Want a result something like:
     # [['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9'], ['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9'], ['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9']]
 
-    originalScaling = qubit.pulseParams['dragScaling']
+    originalScaling = qubit.pulse_params['dragScaling']
     for dragParam in dragParamSweep:
         init(qubit)
         Id(qubit)
@@ -179,7 +179,7 @@ def FlipFlop(qubit: qbit, dragParamSweep, maxNumFFs=10, showPlot=False):
         # FIXME: In original this was [[Id]] + flipflop - is this
         # right?
         flipflop_seqs(dragParam, maxNumFFs, qubit)
-    qubit.pulseParams['dragScaling'] = originalScaling
+    qubit.pulse_params['dragScaling'] = originalScaling
 
     # Add a final pi for reference
     init(qubit)
@@ -213,8 +213,8 @@ def main():
     # b: QGL2 currently only understands the fake Qbits
 #    qg1 = LogicalMarkerChannel(label="q1-gate")
 #    q1 = Qubit(label='q1', gate_chan=qg1)
-#    q1.pulseParams['length'] = 30e-9
-#    q1.pulseParams['phase'] = pi/2
+#    q1.pulse_params['length'] = 30e-9
+#    q1.pulse_params['phase'] = pi/2
 
     # Use stub Qubits, but comment this out when running directly.
     q1 = QubitFactory("q1")

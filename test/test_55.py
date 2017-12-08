@@ -10,7 +10,7 @@ from test.helpers import testable_sequence, discard_zero_Ids, \
     get_cal_seqs_1qubit, get_cal_seqs_2qubits
 
 from QGL import *
-ChannelLibrary()
+ChannelLibrary(blank=True)
 
 class Test55(unittest.TestCase):
     """

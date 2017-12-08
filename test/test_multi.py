@@ -8,7 +8,7 @@ from .helpers import testable_sequence, discard_zero_Ids, \
 from pyqgl2.main import compile_function
 
 from QGL import *
-ChannelLibrary()
+ChannelLibrary(blank=True)
 
 class TestMulti(unittest.TestCase):
     def setUp(self):

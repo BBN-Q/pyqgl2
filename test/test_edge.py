@@ -8,7 +8,7 @@ from .helpers import testable_sequence, \
 from pyqgl2.main import compile_function
 
 from QGL import *
-ChannelLibrary()
+ChannelLibrary(blank=True)
 from QGL.PatternUtils import flatten
 
 class TestEdge(unittest.TestCase):

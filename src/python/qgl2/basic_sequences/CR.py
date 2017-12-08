@@ -310,22 +310,22 @@ def main():
     # b: QGL2 currently only understands the fake Qbits
 #    qg1 = LogicalMarkerChannel(label="q1-gate")
 #    q1 = Qubit(label='q1', gate_chan=qg1)
-#    q1.pulseParams['length'] = 30e-9
-#    q1.pulseParams['phase'] = pi/2
+#    q1.pulse_params['length'] = 30e-9
+#    q1.pulse_params['phase'] = pi/2
 
 #    qg2 = LogicalMarkerChannel(label="q2-gate")
 #    q2 = Qubit(label='q2', gate_chan=qg2)
-#    q2.pulseParams['length'] = 30e-9
-#    q2.pulseParams['phase'] = pi/2
+#    q2.pulse_params['length'] = 30e-9
+#    q2.pulse_params['phase'] = pi/2
 
     # this block depends on the existence of q1 and q2
 #    crgate = LogicalMarkerChannel(label='cr-gate')
 
 #    cr = Edge(label="cr", source = q1, target = q2, gate_chan = crgate )
-#    cr.pulseParams['length'] = 30e-9
-#    cr.pulseParams['phase'] = pi/4
+#    cr.pulse_params['length'] = 30e-9
+#    cr.pulse_params['phase'] = pi/4
 
-#    ChannelLibraries.channelLib = ChannelLibraries.ChannelLibraries()
+#    ChannelLibraries.channelLib = ChannelLibraries.ChannelLibrary(blank=True)
 #    ChannelLibraries.channelLib.channelDict = {
 #        'q1-gate': qg1,
 #        'q1': q1,

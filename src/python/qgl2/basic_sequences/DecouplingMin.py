@@ -28,7 +28,7 @@ def doHahnEcho(q:qreg, pulseSpacings, periods, calRepeats):
 
 @qgl2decl
 def doCPMG(q:qreg, numPulses, pulseSpacing, calRepeats):
-    # delay = (pulseSpacing - q.pulseParams['length']) / 2
+    # delay = (pulseSpacing - q.pulse_params['length']) / 2
     delay = pulseSpacing / 2
 
     for rep in numPulses:

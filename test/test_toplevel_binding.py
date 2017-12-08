@@ -4,7 +4,7 @@ import numpy as np
 from pyqgl2.main import compile_function
 from pyqgl2.qreg import QRegister
 from QGL import *
-ChannelLibrary()
+ChannelLibrary(blank=True)
 
 from .helpers import channel_setup, testable_sequence
 

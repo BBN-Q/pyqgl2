@@ -31,7 +31,7 @@ def create_RB_seqs(numQubits, lengths, repeats=32, interleaveGate=None):
     # else:
     #     raise Exception("Can only handle one or two qubits.")
 
-    # # Create lists of of random integers 
+    # # Create lists of of random integers
     # # Subtract one from length for recovery gate
     # seqs = []
     # for length in lengths:
@@ -70,7 +70,7 @@ def create_RB_seqs(numQubits, lengths, repeats=32, interleaveGate=None):
     else:
         raise Exception("Can only handle one or two qubits.")
 
-    # Create lists of random integers 
+    # Create lists of random integers
     # Subtract one from length for recovery gate
     seqs = []
     for length in lengths:
@@ -95,7 +95,7 @@ def create_RB_seqs(numQubits, lengths, repeats=32, interleaveGate=None):
 @qgl2decl
 def SingleQubitRB(qubit: qbit, seqs, showPlot=False):
     """
-    Single qubit randomized benchmarking using 90 and 180 generators. 
+    Single qubit randomized benchmarking using 90 and 180 generators.
 
     Parameters
     ----------
@@ -151,7 +151,7 @@ def SingleQubitRB(qubit: qbit, seqs, showPlot=False):
 @qgl2decl
 def TwoQubitRB(q1: qbit, q2: qbit, seqs, showPlot=False, suffix=""):
     """
-    Two qubit randomized benchmarking using 90 and 180 single qubit generators and ZX90 
+    Two qubit randomized benchmarking using 90 and 180 single qubit generators and ZX90
 
     Parameters
     ----------
@@ -198,7 +198,7 @@ def TwoQubitRB(q1: qbit, q2: qbit, seqs, showPlot=False, suffix=""):
 @qgl2decl
 def SingleQubitRB_AC(qubit: qbit, seqs, showPlot=False):
     """
-    Single qubit randomized benchmarking using atomic Clifford pulses. 
+    Single qubit randomized benchmarking using atomic Clifford pulses.
 
     Parameters
     ----------
@@ -258,7 +258,7 @@ def getPulseSeq(qubit: qbit, pulseSeqStr) -> sequence:
 @qgl2decl
 def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
     """
-    Single qubit interleaved randomized benchmarking using atomic Clifford pulses. 
+    Single qubit interleaved randomized benchmarking using atomic Clifford pulses.
 
     Parameters
     ----------
@@ -351,7 +351,7 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
 @qgl2decl
 def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False):
     """
-    Single qubit randomized benchmarking using atomic Clifford pulses. 
+    Single qubit randomized benchmarking using atomic Clifford pulses.
 
     Parameters
     ----------
@@ -436,11 +436,11 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False
 @qgl2decl
 def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
     """
-    Simultaneous randomized benchmarking on multiple qubits using atomic Clifford pulses. 
+    Simultaneous randomized benchmarking on multiple qubits using atomic Clifford pulses.
 
     Parameters
     ----------
-    qubits : iterable of logical channels to implement seqs on (list or tuple) 
+    qubits : iterable of logical channels to implement seqs on (list or tuple)
     seqs : a tuple of sequences created for each qubit in qubits
     showPlot : whether to plot (boolean)
 
@@ -507,16 +507,16 @@ def main():
     # Set up 2 qbits, following model in QGL/test/test_Sequences
 
     # FIXME: Cannot use these in current QGL2 compiler, because
-    # a: QGL2 doesn't understand creating class instances, and 
+    # a: QGL2 doesn't understand creating class instances, and
     # b: QGL2 currently only understands the fake Qbits
 #    qg1 = LogicalMarkerChannel(label="q1-gate")
 #    q1 = Qubit(label='q1', gate_chan=qg1)
-#    q1.pulseParams['length'] = 30e-9
-#    q1.pulseParams['phase'] = pi/2
+#    q1.pulse_params['length'] = 30e-9
+#    q1.pulse_params['phase'] = pi/2
 #    qg2 = LogicalMarkerChannel(label="q2-gate")
 #    q2 = Qubit(label='q2', gate_chan=qg2)
-#    q2.pulseParams['length'] = 30e-9
-#    q2.pulseParams['phase'] = pi/2
+#    q2.pulse_params['length'] = 30e-9
+#    q2.pulse_params['phase'] = pi/2
 
 #    sTrig = LogicalMarkerChannel(label='slaveTrig')
 #    dTrig = LogicalMarkerChannel(label='digitizerTrig')
@@ -529,13 +529,13 @@ def main():
 #    crgate = LogicalMarkerChannel(label='cr-gate')
 
 #    cr = Edge(label="cr", source = q1, target = q2, gate_chan = crgate )
-#    cr.pulseParams['length'] = 30e-9
-#    cr.pulseParams['phase'] = pi/4
+#    cr.pulse_params['length'] = 30e-9
+#    cr.pulse_params['phase'] = pi/4
 
 #    mq1q2g = LogicalMarkerChannel(label='M-q1q2-gate')
 #    m12 = Measurement(label='M-q1q2', gate_chan = mq1q2g, trig_chan=dTrig)
 
-#    ChannelLibraries.channelLib = ChannelLibraries.ChannelLibraries()
+#    ChannelLibraries.channelLib = ChannelLibraries.ChannelLibrary(blank=True)
 #    ChannelLibraries.channelLib.channelDict = {
 #        'q1-gate': qg1,
 #        'q1': q1,
