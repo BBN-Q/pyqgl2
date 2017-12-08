@@ -21,13 +21,13 @@ def InversionRecoveryq1(qubit: qbit, delays, showPlot=False, calRepeats=2, suffi
 
     Parameters
     ----------
-    qubit : logical channel to implement sequence (LogicalChannel) 
+    qubit : logical channel to implement sequence (LogicalChannel)
     delays : delays after inversion before measurement (iterable; seconds)
     showPlot : whether to plot (boolean)
     calRepeats : how many repetitions of calibration pulses (int)
     """
 
-    # Original: 
+    # Original:
     # # Create the basic sequences
     # seqs = [[X(qubit), Id(qubit, d), MEAS(qubit)] for d in delays]
 
@@ -65,13 +65,13 @@ def InversionRecovery(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=
 
     Parameters
     ----------
-    qubit : logical channel to implement sequence (LogicalChannel) 
+    qubit : logical channel to implement sequence (LogicalChannel)
     delays : delays after inversion before measurement (iterable; seconds)
     showPlot : whether to plot (boolean)
     calRepeats : how many repetitions of calibration pulses (int)
     """
 
-    # Original: 
+    # Original:
     # # Create the basic sequences
     # seqs = [[X(qubit), Id(qubit, d), MEAS(qubit)] for d in delays]
 
@@ -106,7 +106,7 @@ def Ramseyq1(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=
 
     Parameters
     ----------
-    qubit : logical channel to implement sequence (LogicalChannel) 
+    qubit : logical channel to implement sequence (LogicalChannel)
     pulseSpacings : pulse spacings (iterable; seconds)
     TPPIFreq : frequency for TPPI phase updates of second Ramsey pulse (Hz)
     showPlot : whether to plot (boolean)
@@ -118,7 +118,7 @@ def Ramseyq1(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=
     # phases = 2*pi*TPPIFreq*pulseSpacings
 
     # # Create the basic Ramsey sequence
-    # seqs = [[X90(qubit), Id(qubit, d), U90(qubit, phase=phase), MEAS(qubit)] 
+    # seqs = [[X90(qubit), Id(qubit, d), U90(qubit, phase=phase), MEAS(qubit)]
     #         for d,phase in zip(pulseSpacings, phases)]
 
     # # Tack on the calibration scalings
@@ -220,7 +220,7 @@ def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2,
 
     Parameters
     ----------
-    qubit : logical channel to implement sequence (LogicalChannel) 
+    qubit : logical channel to implement sequence (LogicalChannel)
     pulseSpacings : pulse spacings (iterable; seconds)
     TPPIFreq : frequency for TPPI phase updates of second Ramsey pulse (Hz)
     showPlot : whether to plot (boolean)
@@ -232,7 +232,7 @@ def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2,
     # phases = 2*pi*TPPIFreq*pulseSpacings
 
     # # Create the basic Ramsey sequence
-    # seqs = [[X90(qubit), Id(qubit, d), U90(qubit, phase=phase), MEAS(qubit)] 
+    # seqs = [[X90(qubit), Id(qubit, d), U90(qubit, phase=phase), MEAS(qubit)]
     #         for d,phase in zip(pulseSpacings, phases)]
 
     # # Tack on the calibration scalings
@@ -271,7 +271,7 @@ def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2,
 
 # Imports for testing only
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement
-import QGL.ChannelLibrary as ChannelLibrary
+import QGL.ChannelLibraries as ChannelLibraries
 from qgl2.qgl1 import QubitFactory
 import numpy as np
 from math import pi
@@ -281,7 +281,7 @@ def main():
     # Set up 2 qbits, following model in QGL/test/test_Sequences
 
     # FIXME: Cannot use these in current QGL2 compiler, because
-    # a: QGL2 doesn't understand creating class instances, and 
+    # a: QGL2 doesn't understand creating class instances, and
     # b: QGL2 currently only understands the fake Qbits
 #    qg1 = LogicalMarkerChannel(label="q1-gate")
 #    q1 = Qubit(label='q1', gateChan=qg1)
@@ -293,8 +293,8 @@ def main():
 #    Mq1gate = LogicalMarkerChannel(label='M-q1-gate')
 #    m = Measurement(label='M-q1', gateChan = Mq1gate, trigChan = dTrig)
 
-#    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
-#    ChannelLibrary.channelLib.channelDict = {
+#    ChannelLibraries.channelLib = ChannelLibraries.ChannelLibraries()
+#    ChannelLibraries.channelLib.channelDict = {
 #        'q1-gate': qg1,
 #        'q1': q1,
 #        'slaveTrig': sTrig,
@@ -302,7 +302,7 @@ def main():
 #        'M-q1': m,
 #        'M-q1-gate': Mq1gate
 #    }
-#    ChannelLibrary.channelLib.build_connectivity_graph()
+#    ChannelLibraries.channelLib.build_connectivity_graph()
 
     # Use stub Qubits, but comment this out when running directly.
     q1 = QubitFactory("q1")

@@ -14,7 +14,7 @@ Sample commandline:
 
 ```
 <qgl2>/src/python $ python pyqgl2/main.py qgl2/basic_sequences/RabiMin.py -m doRabiAmp
-Using ChannelLibrary from config
+Using ChannelLibraries from config
 Compiled 1 sequences.
 ['<QGL>/QGL/awg/qgl2main/test/test-APS1.h5', '<QGL>/QGL/awg/qgl2main/test/test-APS2.h5']
 ```

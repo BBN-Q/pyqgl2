@@ -15,7 +15,7 @@ Some current limitations of the QGL2 language
   from qgl2.basic_sequences.qgl2_plumbing import init
 * QGL2 uses read-only qubits, so you can read their
   parameters, but cannot edit them. Note also that the full QGL
-  ChannelLibrary is not generally available. See issue #76.
+  ChannelLibraries is not generally available. See issue #76.
 * QGL2 main function cannot take arguments, specifically Qubits. See
   issue #62.
 * There is no current good way to do control flow based on measurement

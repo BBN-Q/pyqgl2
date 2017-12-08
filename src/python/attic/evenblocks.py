@@ -73,7 +73,7 @@ from qgl2.qgl1control import Barrier, WaitSome
 from QGL.PulseSequencer import Pulse, CompositePulse, PulseBlock
 from QGL.BlockLabel import BlockLabel
 from QGL.PulsePrimitives import Id
-from QGL.ChannelLibrary import QubitFactory
+from QGL.ChannelLibraries import QubitFactory
 
 from copy import copy
 import logging
@@ -1428,7 +1428,7 @@ if __name__ == '__main__':
 #             MEAS(q)
 #             Barrier
 
-        from QGL.ChannelLibrary import QubitFactory
+        from QGL.ChannelLibraries import QubitFactory
         from QGL.BlockLabel import BlockLabel
         from qgl2.qgl1control import Barrier
         from QGL.ControlFlow import Sync
@@ -1524,7 +1524,7 @@ if __name__ == '__main__':
 #X(q)
 #Repeat(loopstart)
 #BARRIER - becomes ID
-        from QGL.ChannelLibrary import QubitFactory
+        from QGL.ChannelLibraries import QubitFactory
         from QGL.BlockLabel import BlockLabel
         from qgl2.qgl1control import Barrier
         from QGL.ControlFlow import Sync
@@ -1565,7 +1565,7 @@ if __name__ == '__main__':
         return seqs
 
     def testWait():
-        from QGL.ChannelLibrary import QubitFactory
+        from QGL.ChannelLibraries import QubitFactory
         from QGL.BlockLabel import BlockLabel
         from qgl2.qgl1control import Barrier
         from QGL.ControlFlow import Sync, Repeat, LoadRepeat
@@ -1614,7 +1614,7 @@ if __name__ == '__main__':
         return seqs
 
     def testWaitSome():
-        from QGL.ChannelLibrary import QubitFactory
+        from QGL.ChannelLibraries import QubitFactory
         from QGL.BlockLabel import BlockLabel
         from qgl2.qgl1control import Barrier
         from QGL.ControlFlow import Sync, Repeat, LoadRepeat
@@ -1677,7 +1677,7 @@ if __name__ == '__main__':
         return seqs
 
     def testCMP():
-        from QGL.ChannelLibrary import QubitFactory
+        from QGL.ChannelLibraries import QubitFactory
         from QGL.BlockLabel import BlockLabel
         from qgl2.qgl1control import Barrier
         from QGL.ControlFlow import Sync, Repeat, LoadRepeat
@@ -1743,7 +1743,7 @@ if __name__ == '__main__':
         return seqs
 
     def testRepeat():
-        from QGL.ChannelLibrary import QubitFactory
+        from QGL.ChannelLibraries import QubitFactory
         from QGL.BlockLabel import BlockLabel
         from qgl2.qgl1control import Barrier
         from QGL.ControlFlow import Sync, Repeat, LoadRepeat
@@ -1815,7 +1815,7 @@ X(q)
 BARRIER - becomes Id
 Repeat(loopstart)
         '''
-        from QGL.ChannelLibrary import QubitFactory
+        from QGL.ChannelLibraries import QubitFactory
         from QGL.BlockLabel import BlockLabel
         from qgl2.qgl1control import Barrier
         from QGL.ControlFlow import Sync
@@ -1856,7 +1856,7 @@ Repeat(loopstart)
         return seqs
  
     def testFunc():
-        from QGL.ChannelLibrary import QubitFactory
+        from QGL.ChannelLibraries import QubitFactory
         from qgl2.qgl1control import Barrier
         from QGL.ControlFlow import Sync
         from QGL.ControlFlow import Wait

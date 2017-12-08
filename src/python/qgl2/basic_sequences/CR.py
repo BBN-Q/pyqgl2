@@ -4,7 +4,7 @@ from qgl2.qgl2 import qgl2decl, qbit, qgl2main, concur
 
 from QGL.PulsePrimitives import Id, X, MEAS, X90, flat_top_gaussian, echoCR
 from QGL.Compiler import compile_to_hardware
-from QGL.ChannelLibrary import EdgeFactory
+from QGL.ChannelLibraries import EdgeFactory
 
 from qgl2.basic_sequences.helpers import create_cal_seqs
 from qgl2.basic_sequences.new_helpers import addMeasPulses, addCalibration, compileAndPlot, measConcurrently
@@ -297,7 +297,7 @@ def EchoCRPhaseq1(controlQ: qbit, targetQ: qbit, phases, riseFall=40e-9, amp=1, 
 # Imports for testing only
 from qgl2.qgl1 import QubitFactory, Qubit
 from QGL.Channels import Qubit, LogicalMarkerChannel, Edge
-import QGL.ChannelLibrary as ChannelLibrary
+import QGL.ChannelLibraries as ChannelLibraries
 import numpy as np
 from math import pi
 
@@ -325,8 +325,8 @@ def main():
 #    cr.pulseParams['length'] = 30e-9
 #    cr.pulseParams['phase'] = pi/4
 
-#    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
-#    ChannelLibrary.channelLib.channelDict = {
+#    ChannelLibraries.channelLib = ChannelLibraries.ChannelLibraries()
+#    ChannelLibraries.channelLib.channelDict = {
 #        'q1-gate': qg1,
 #        'q1': q1,
 #        'q2-gate': qg2,
@@ -334,7 +334,7 @@ def main():
 #        'cr-gate': crgate,
 #        'cr': cr
 #    }
-#    ChannelLibrary.channelLib.build_connectivity_graph()
+#    ChannelLibraries.channelLib.build_connectivity_graph()
 
     # Use stub Qubits, but comment this out when running directly.
     q1 = QubitFactory("q1")

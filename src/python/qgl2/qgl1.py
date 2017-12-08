@@ -120,12 +120,12 @@ def Edge(label, source: qreg, target: qreg, gateChan, **kwargs) -> qreg:
 def Qubit(label=None, gateChan=None, **kwargs) -> qreg:
     print('Qubit')
 
-@qgl2stub('QGL.ChannelLibrary')
+@qgl2stub('QGL.ChannelLibraries')
 def EdgeFactory(source: qreg, target: qreg) -> qreg:
     # Is that the right return?
     print('EdgeFactory')
 
-@qgl2stub('QGL.ChannelLibrary')
+@qgl2stub('QGL.ChannelLibraries')
 def QubitFactory(label, **kwargs) -> qreg:
     print('QubitFactory')
 
