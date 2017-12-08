@@ -510,30 +510,30 @@ def main():
     # a: QGL2 doesn't understand creating class instances, and 
     # b: QGL2 currently only understands the fake Qbits
 #    qg1 = LogicalMarkerChannel(label="q1-gate")
-#    q1 = Qubit(label='q1', gateChan=qg1)
+#    q1 = Qubit(label='q1', gate_chan=qg1)
 #    q1.pulseParams['length'] = 30e-9
 #    q1.pulseParams['phase'] = pi/2
 #    qg2 = LogicalMarkerChannel(label="q2-gate")
-#    q2 = Qubit(label='q2', gateChan=qg2)
+#    q2 = Qubit(label='q2', gate_chan=qg2)
 #    q2.pulseParams['length'] = 30e-9
 #    q2.pulseParams['phase'] = pi/2
 
 #    sTrig = LogicalMarkerChannel(label='slaveTrig')
 #    dTrig = LogicalMarkerChannel(label='digitizerTrig')
 #    Mq1gate = LogicalMarkerChannel(label='M-q1-gate')
-#    m1 = Measurement(label='M-q1', gateChan = Mq1gate, trigChan = dTrig)
+#    m1 = Measurement(label='M-q1', gate_chan = Mq1gate, trig_chan = dTrig)
 #    Mq2gate = LogicalMarkerChannel(label='M-q2-gate')
-#    m2 = Measurement(label='M-q2', gateChan = Mq2gate, trigChan = dTrig)
+#    m2 = Measurement(label='M-q2', gate_chan = Mq2gate, trig_chan = dTrig)
 
     # this block depends on the existence of q1 and q2
 #    crgate = LogicalMarkerChannel(label='cr-gate')
 
-#    cr = Edge(label="cr", source = q1, target = q2, gateChan = crgate )
+#    cr = Edge(label="cr", source = q1, target = q2, gate_chan = crgate )
 #    cr.pulseParams['length'] = 30e-9
 #    cr.pulseParams['phase'] = pi/4
 
 #    mq1q2g = LogicalMarkerChannel(label='M-q1q2-gate')
-#    m12 = Measurement(label='M-q1q2', gateChan = mq1q2g, trigChan=dTrig)
+#    m12 = Measurement(label='M-q1q2', gate_chan = mq1q2g, trig_chan=dTrig)
 
 #    ChannelLibraries.channelLib = ChannelLibraries.ChannelLibraries()
 #    ChannelLibraries.channelLib.channelDict = {
@@ -567,7 +567,7 @@ def main():
     # The original unit test had this commeent:
     """  Fails on APS1, APS2, and Tek7000 due to:
     File "QGL\PatternUtils.py", line 129, in add_gate_pulses
-    if has_gate(chan) and not pulse.isZero and not (chan.gateChan
+    if has_gate(chan) and not pulse.isZero and not (chan.gate_chan
     AttributeError: 'CompositePulse' object has no attribute 'isZero'
     """
     np.random.seed(20152606) # set seed for create_RB_seqs()

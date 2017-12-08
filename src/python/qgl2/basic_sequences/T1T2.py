@@ -284,14 +284,14 @@ def main():
     # a: QGL2 doesn't understand creating class instances, and
     # b: QGL2 currently only understands the fake Qbits
 #    qg1 = LogicalMarkerChannel(label="q1-gate")
-#    q1 = Qubit(label='q1', gateChan=qg1)
+#    q1 = Qubit(label='q1', gate_chan=qg1)
 #    q1.pulseParams['length'] = 30e-9
 #    q1.pulseParams['phase'] = pi/2
 #    sTrig = LogicalMarkerChannel(label='slaveTrig')
 #    dTrig = LogicalMarkerChannel(label='digitizerTrig')
 #    Mq1 = '';
 #    Mq1gate = LogicalMarkerChannel(label='M-q1-gate')
-#    m = Measurement(label='M-q1', gateChan = Mq1gate, trigChan = dTrig)
+#    m = Measurement(label='M-q1', gate_chan = Mq1gate, trig_chan = dTrig)
 
 #    ChannelLibraries.channelLib = ChannelLibraries.ChannelLibraries()
 #    ChannelLibraries.channelLib.channelDict = {

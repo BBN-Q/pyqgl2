@@ -228,7 +228,7 @@ def main():
     # a: QGL2 doesn't understand creating class instances, and 
     # b: QGL2 currently only understands the fake Qbits
 #    qg1 = LogicalMarkerChannel(label="q1-gate")
-#    q1 = Qubit(label='q1', gateChan=qg1)
+#    q1 = Qubit(label='q1', gate_chan=qg1)
     q1 = QubitFactory(label='q1')
 #    q1.pulseParams['length'] = 30e-9
 #    q1.pulseParams['phase'] = pi/2

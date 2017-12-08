@@ -109,7 +109,7 @@ def U(qubit: qreg, phase=0, **kwargs) -> pulse:
 # Note that this is really a class
 #def Edge(**kwargs) -> qreg:
 @qgl2stub('QGL.Channels')
-def Edge(label, source: qreg, target: qreg, gateChan, **kwargs) -> qreg:
+def Edge(label, source: qreg, target: qreg, gate_chan, **kwargs) -> qreg:
     # FIXME: Can take source and target which are qregs
     # FIXME: Is qreg the right return type?
     print('Edge')
@@ -117,7 +117,7 @@ def Edge(label, source: qreg, target: qreg, gateChan, **kwargs) -> qreg:
 # Note that this is really a class
 #def Qubit(**kwargs) -> qreg:
 @qgl2stub('QGL.Channels')
-def Qubit(label=None, gateChan=None, **kwargs) -> qreg:
+def Qubit(label=None, gate_chan=None, **kwargs) -> qreg:
     print('Qubit')
 
 @qgl2stub('QGL.ChannelLibraries')
