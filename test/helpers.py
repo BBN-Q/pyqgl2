@@ -3,8 +3,8 @@
 Utilities for creating a basic channel configuration for testing.
 '''
 
-from QGL.ChannelLibrary import EdgeFactory, MeasFactory, QubitFactory
-from QGL import ChannelLibrary
+from QGL.ChannelLibraries import EdgeFactory, MeasFactory, QubitFactory
+from QGL import ChannelLibraries
 from QGL.Channels import Edge, Measurement
 from QGL.PulseSequencer import Pulse, CompositePulse
 from QGL.PatternUtils import flatten
@@ -18,8 +18,8 @@ from math import pi
 def channel_setup(new=True):
     # new indicates replace any existing library
     # Otherwise if there is an existing library, use it
-    if not new and len(ChannelLibrary.channelLib.keys()) != 0:
-        create_channel_library(ChannelLibrary.channelLib.channelDict)
+    if not new and len(ChannelLibraries.channelLib.keys()) != 0:
+        create_channel_library(ChannelLibraries.channelLib.channelDict)
     else:
         create_channel_library(new=True)
 
@@ -129,15 +129,15 @@ def create_channel_library(channels=dict(), new=False):
     finalize_map(mapping, channels, new)
     return channels
 
-# Store the given channels in the QGL ChannelLibrary
+# Store the given channels in the QGL ChannelLibraries
 def finalize_map(mapping, channels, new=False):
     for name,value in mapping.items():
         channels[name].physChan = channels[value]
 
     if new:
-        ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
-    ChannelLibrary.channelLib.channelDict = channels
-    ChannelLibrary.channelLib.build_connectivity_graph()
+        ChannelLibraries.channelLib = ChannelLibraries.ChannelLibrary()
+    ChannelLibraries.channelLib.channelDict = channels
+    ChannelLibraries.channelLib.build_connectivity_graph()
 
 def discard_zero_Ids(seqs):
     # assume seqs has a structure like [[entry0, entry1, ..., entryN]]
