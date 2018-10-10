@@ -28,6 +28,9 @@ def channel_setup(new=True):
 # It creates channels that are taken from test_Sequences APS2Helper
 def create_channel_library(channels=dict(), new=False):
     from QGL.Channels import LogicalMarkerChannel, PhysicalQuadratureChannel, PhysicalMarkerChannel
+
+    ChannelLibraries.ChannelLibrary(blank=True)
+
     qubit_names = ['q1','q2','q3']
     logical_names = ['digitizerTrig', 'slaveTrig']
 
