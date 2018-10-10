@@ -7,11 +7,11 @@ import numpy as np
 # a local copy of QGL.PulsePrimitives, because pulling in
 # QGL/__init__.py causes QGL2 grief.
 #
-def local_tanh(amp=1, length=0, sigma=0, cutoff=2, samplingRate=1e9, **params):
+def local_tanh(amp=1, length=0, sigma=0, cutoff=2, sampling_rate=1e9, **params):
     '''
     A rounded constant shape from the sum of two tanh shapes.
     '''
-    numPts = np.round(length * samplingRate)
+    numPts = np.round(length * sampling_rate)
     xPts = np.linspace(-length / 2, length / 2, numPts)
     x1 = -length / 2 + cutoff * sigma
     x2 = +length / 2 - cutoff * sigma

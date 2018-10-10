@@ -24,7 +24,7 @@ def sweep_gateDelay(qubit: qbit, sweepPts):
 
     # Not apparently used?
     # Original:
-#    generator = qubit.physChan.generator
+#    generator = qubit.phys_chan.generator
 #    oldDelay = generator.gateDelay
 
 #    for ct, delay in enumerate(sweepPts):

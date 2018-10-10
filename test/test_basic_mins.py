@@ -305,7 +305,7 @@ class TestDecoupling(unittest.TestCase):
 
         # Create numPulses sequences
         numPulses = [0, 2, 4, 6]
-        pulseSpacing = 500e-9 - q.pulseParams['length']
+        pulseSpacing = 500e-9 - q.pulse_params['length']
         calRepeats = 2
 
         def addt180t(q, pulseSpacing, rep):

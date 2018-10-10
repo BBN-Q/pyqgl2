@@ -45,11 +45,11 @@ def create_channel_library(channels=dict(), new=False):
         mg = LogicalMarkerChannel(label=mgName)
         qg = LogicalMarkerChannel(label=qgName)
 
-        m = MeasFactory(label=mName, gateChan = mg, trigChan=channels['digitizerTrig'])
+        m = MeasFactory(label=mName, gate_chan = mg, trig_chan=channels['digitizerTrig'])
 
-        q = QubitFactory(label=name, gateChan=qg)
-        q.pulseParams['length'] = 30e-9
-        q.pulseParams['phase'] = pi/2
+        q = QubitFactory(label=name, gate_chan=qg)
+        q.pulse_params['length'] = 30e-9
+        q.pulse_params['phase'] = pi/2
 
         channels[name] = q
         channels[mName] = m
@@ -64,14 +64,14 @@ def create_channel_library(channels=dict(), new=False):
     try:
         cr = EdgeFactory(q1, q2)
     except:
-        cr = Edge(label="cr", source = q1, target = q2, gateChan = channels['cr-gate'] )
-    cr.pulseParams['length'] = 30e-9
-    cr.pulseParams['phase'] = pi/4
+        cr = Edge(label="cr", source = q1, target = q2, gate_chan = channels['cr-gate'] )
+    cr.pulse_params['length'] = 30e-9
+    cr.pulse_params['phase'] = pi/4
     channels["cr"] = cr
 
     mq1q2g = LogicalMarkerChannel(label='M-q1q2-gate')
     channels['M-q1q2-gate']  = mq1q2g
-    channels['M-q1q2']       = Measurement(label='M-q1q2', gateChan = mq1q2g, trigChan=channels['digitizerTrig'])
+    channels['M-q1q2']       = Measurement(label='M-q1q2', gate_chan = mq1q2g, trig_chan=channels['digitizerTrig'])
 
     # Add a 2nd edge from q2 back to q1 to support edgeTest4 (which is weird)
     channels['cr2-gate'] = LogicalMarkerChannel(label='cr2-gate')
@@ -79,21 +79,21 @@ def create_channel_library(channels=dict(), new=False):
     try:
         cr2 = EdgeFactory(q2, q1)
     except:
-        cr2 = Edge(label="cr2", source = q2, target = q1, gateChan = channels['cr2-gate'] )
-    cr2.pulseParams['length'] = 30e-9
-    cr2.pulseParams['phase'] = pi/4
+        cr2 = Edge(label="cr2", source = q2, target = q1, gate_chan = channels['cr2-gate'] )
+    cr2.pulse_params['length'] = 30e-9
+    cr2.pulse_params['phase'] = pi/4
     channels["cr2"] = cr2
 
     mq2q1g = LogicalMarkerChannel(label='M-q2q1-gate')
     channels['M-q2q1-gate']  = mq2q1g
-    channels['M-q2q1']       = Measurement(label='M-q2q1', gateChan = mq2q1g, trigChan=channels['digitizerTrig'])
+    channels['M-q2q1']       = Measurement(label='M-q2q1', gate_chan = mq2q1g, trig_chan=channels['digitizerTrig'])
 
     # Now assign physical channels
     for name in ['APS1', 'APS2', 'APS3', 'APS4', 'APS5', 'APS6',
                  'APS7', 'APS8', 'APS9', 'APS10']:
         channelName = name + '-12'
         channel = PhysicalQuadratureChannel(label=channelName)
-        channel.samplingRate = 1.2e9
+        channel.sampling_rate = 1.2e9
         channel.instrument = name
         channel.translator = 'APS2Pattern'
         channels[channelName] = channel
@@ -101,7 +101,7 @@ def create_channel_library(channels=dict(), new=False):
         for m in range(1,5):
             channelName = "{0}-12m{1}".format(name,m)
             channel = PhysicalMarkerChannel(label=channelName)
-            channel.samplingRate = 1.2e9
+            channel.sampling_rate = 1.2e9
             channel.instrument = name
             channel.translator = 'APS2Pattern'
             channels[channelName] = channel
@@ -135,7 +135,7 @@ def create_channel_library(channels=dict(), new=False):
 # Store the given channels in the QGL ChannelLibraries
 def finalize_map(mapping, channels, new=False):
     for name,value in mapping.items():
-        channels[name].physChan = channels[value]
+        channels[name].phys_chan = channels[value]
 
     if new:
         ChannelLibraries.channelLib = ChannelLibraries.ChannelLibrary()

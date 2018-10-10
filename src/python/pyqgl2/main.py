@@ -357,8 +357,8 @@ if __name__ == '__main__':
         print("Memory usage: {} MB".format(process.memory_info().rss // (1 << 20)))
 
     import QGL
-    if (QGL.ChannelLibrary.channelLib and
-            ('slaveTrig' in QGL.ChannelLibrary.channelLib)):
+    if (QGL.ChannelLibraries.channelLib and
+            ('slaveTrig' in QGL.ChannelLibraries.channelLib)):
         print("Using ChannelLibrary from config")
     elif (opts.create_channels or opts.verbose or
             opts.intermediate_output != '' or opts.debug_level < 3):
@@ -383,7 +383,7 @@ if __name__ == '__main__':
     else:
         # Now import the QGL1 things we need
         from QGL.PulseSequencePlotter import plot_pulse_files
-        from QGL.ChannelLibrary import QubitFactory
+        from QGL.ChannelLibraries import QubitFactory
 
         # Now execute the returned function, which should produce a list of sequences
         sequences = resFunction()

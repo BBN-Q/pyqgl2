@@ -106,7 +106,7 @@ def HahnEchoq1(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=F
 
 @qgl2decl
 def idPulse(qubit: qbit, pulseSpacing):
-    Id(qubit, (pulseSpacing - qubit.pulseParams['length'])/2)
+    Id(qubit, (pulseSpacing - qubit.pulse_params['length'])/2)
 
 # FIXME: QGL2 can't take arguments yet
 # FIXME: Don't do the compilation in the function that generates the sequence
@@ -128,8 +128,8 @@ def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
 
     # Original:
     # # First setup the t-180-t block
-    # CPMGBlock = [Id(qubit, (pulseSpacing-qubit.pulseParams['length'])/2),
-    #              Y(qubit), Id(qubit, (pulseSpacing-qubit.pulseParams['length'])/2)]
+    # CPMGBlock = [Id(qubit, (pulseSpacing-qubit.pulse_params['length'])/2),
+    #              Y(qubit), Id(qubit, (pulseSpacing-qubit.pulse_params['length'])/2)]
 
     # seqs = [[X90(qubit)] + CPMGBlock*rep + [X90(qubit), MEAS(qubit)] for rep in numPulses]
 
@@ -177,8 +177,8 @@ def CPMGq1(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
 
     # Original:
     # # First setup the t-180-t block
-    # CPMGBlock = [Id(qubit, (pulseSpacing-qubit.pulseParams['length'])/2),
-    #              Y(qubit), Id(qubit, (pulseSpacing-qubit.pulseParams['length'])/2)]
+    # CPMGBlock = [Id(qubit, (pulseSpacing-qubit.pulse_params['length'])/2),
+    #              Y(qubit), Id(qubit, (pulseSpacing-qubit.pulse_params['length'])/2)]
 
     # seqs = [[X90(qubit)] + CPMGBlock*rep + [X90(qubit), MEAS(qubit)] for rep in numPulses]
 
@@ -192,7 +192,7 @@ def CPMGq1(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     #     plot_pulse_files(fileNames)
 
     # First setup the t-180-t block
-    idPulse = Id(qubit, (pulseSpacing - qubit.pulseParams['length'])/2)
+    idPulse = Id(qubit, (pulseSpacing - qubit.pulse_params['length'])/2)
     CPMGBlock = [
         idPulse,
         Y(qubit),
@@ -228,10 +228,10 @@ def main():
     # a: QGL2 doesn't understand creating class instances, and 
     # b: QGL2 currently only understands the fake Qbits
 #    qg1 = LogicalMarkerChannel(label="q1-gate")
-#    q1 = Qubit(label='q1', gateChan=qg1)
+#    q1 = Qubit(label='q1', gate_chan=qg1)
     q1 = QubitFactory(label='q1')
-#    q1.pulseParams['length'] = 30e-9
-#    q1.pulseParams['phase'] = pi/2
+#    q1.pulse_params['length'] = 30e-9
+#    q1.pulse_params['phase'] = pi/2
 
     # But the current qgl2 compiler doesn't understand Qubits, only
     # Qbits. So use that instead when running through the QGL2

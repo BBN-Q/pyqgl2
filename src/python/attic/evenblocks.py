@@ -73,7 +73,7 @@ from qgl2.qgl1control import Barrier, WaitSome
 from QGL.PulseSequencer import Pulse, CompositePulse, PulseBlock
 from QGL.BlockLabel import BlockLabel
 from QGL.PulsePrimitives import Id
-from QGL.ChannelLibrary import QubitFactory
+from QGL.ChannelLibraries import QubitFactory
 
 from copy import copy
 import logging

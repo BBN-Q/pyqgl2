@@ -11,7 +11,7 @@ def flipflop_seqs(dragParam, maxNumFFs, qubit: qreg):
     """ Helper function to create a list of sequences with a specified drag parameter. """
     # QGL2 qubits are read only.
     # So instead, supply the dragScaling as an explicit kwarg to all pulses
-    # qubit.pulseParams['dragScaling'] = dragParam
+    # qubit.pulse_params['dragScaling'] = dragParam
     for rep in range(maxNumFFs):
         init(qubit)
         X90(qubit, dragScaling=dragParam)
@@ -25,7 +25,7 @@ def flipflop_seqs(dragParam, maxNumFFs, qubit: qreg):
 @qgl2decl
 def doFlipFlop(qubit:qreg, dragParamSweep, maxNumFFs):
 
-    # QGL2 qubits are read only, so can't modify qubit.pulseParams[dragScaling],
+    # QGL2 qubits are read only, so can't modify qubit.pulse_params[dragScaling],
     # So no need to save this off and reset afterwards
     for dragParam in dragParamSweep:
         # Id sequence for reference
