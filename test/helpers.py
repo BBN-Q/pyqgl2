@@ -138,7 +138,7 @@ def finalize_map(mapping, channels, new=False):
         channels[name].phys_chan = channels[value]
 
     if new:
-        ChannelLibraries.channelLib = ChannelLibraries.ChannelLibrary()
+        ChannelLibraries.channelLib = ChannelLibraries.ChannelLibrary(blank=True)
     ChannelLibraries.channelLib.channelDict = channels
     ChannelLibraries.channelLib.build_connectivity_graph()
 
@@ -304,7 +304,7 @@ def get_cal_seqs_1qubit(qubit, calRepeats=2):
     for pulse in [Id, X]:
         for _ in range(calRepeats):
             calSeq += [
-                qwait((qubit,)),
+                qwait(channels=(qubit,)),
                 pulse(qubit),
                 Barrier(qubit),
                 MEAS(qubit)
@@ -320,7 +320,7 @@ def get_cal_seqs_2qubits(q1, q2, calRepeats=2):
     for pulseSet in [(Id, Id), (Id, X), (X, Id), (X, X)]:
         for _ in range(calRepeats):
             calseq += [
-                qwait((q1, q2)),
+                qwait(channels=(q1, q2)),
                 pulseSet[0](q1),
                 pulseSet[1](q2),
                 Barrier(q1, q2),
