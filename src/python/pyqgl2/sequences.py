@@ -10,6 +10,7 @@ import sys
 from pyqgl2.ast_util import ast2str, NodeError
 from pyqgl2.quickcopy import quickcopy
 from pyqgl2.qreg import is_qbit_create
+from pyqgl2.qval import is_qval_create
 
 class SequenceExtractor(object):
     """
@@ -50,8 +51,9 @@ class SequenceExtractor(object):
                     isinstance(subnode.func, ast.Name)):
                 funcname = subnode.func.id
 
-                # QRegister calls will be stripped by find_sequences, so skip
-                if funcname == 'QRegister':
+                # QRegister/QValue calls will be stripped by
+                # find_sequences, so skip
+                if funcname == 'QRegister' or funcname == 'QValue':
                     continue
 
                 # If we created a node without an qgl_fname,
@@ -237,7 +239,8 @@ class SequenceExtractor(object):
             # print("Line %d of %d" % (lineNo+1, len(node.body)))
             stmnt = node.body[lineNo]
             # print("Looking at stmnt %s" % stmnt)
-            if is_qbit_create(stmnt):
+            if is_qbit_create(stmnt) or is_qval_create(stmnt):
+                print('skipping over [%s]' % ast2str(stmnt))
                 # drop it
                 continue
 
