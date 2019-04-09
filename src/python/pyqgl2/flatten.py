@@ -166,15 +166,17 @@ class Flattener(ast.NodeTransformer):
     def visit_Assign(self, node):
         """
         Flatten an assignment. The only assignments we should see
-        are Qubits, measurements, and runtime computations. If we see a
-        measurement, we need to schedule the pulse (the RHS). A runtime
-        computation is passed through as an opaque STORE command.
+        are Qubits, QValues, measurements, and runtime computations.
+        If we see a measurement, we need to schedule the pulse (the RHS).
+        A runtime computation is passed through as an opaque STORE command.
         """
         if not isinstance(node.value, ast.Call):
             NodeError.error_msg(node,
                 "Unexpected assignment [%s]" % ast2str(node))
         if hasattr(node, 'qgl2_type'):
             if node.qgl2_type == 'qbit':
+                return node
+            elif node.qgl2_type == 'qval':
                 return node
             elif node.qgl2_type == 'measurement':
                 new_node = ast.Expr(value=node.value)
