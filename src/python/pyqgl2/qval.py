@@ -40,13 +40,16 @@ class QValueAllocator(object):
     # an otherwise inaccessible prefix
     #
     ANON_PREFIX = '__qv_'
-    ANON_COUNTER = 0
+
+    _INITIAL_ANON_COUNTER = 0
+    ANON_COUNTER = _INITIAL_ANON_COUNTER
 
     # The next address available to allocate.  Each address
     # is 32 bits wide.  We don't start at 0 in order to set
     # aside some special locations.
     #
-    NEXT_ADDR = 16
+    _INITIAL_NEXT_ADDR = 16
+    NEXT_ADDR = _INITIAL_NEXT_ADDR
 
     # Don't permit anything larger than this address to be
     # allocated
@@ -54,16 +57,29 @@ class QValueAllocator(object):
     # FIXME: this is a placeholder for the correct value,
     # which should be initialized at the start of each run
     #
-    MAX_ADDR = 1023
+    _INITIAL_MAX_ADDR = 1023
+    MAX_ADDR = _INITIAL_MAX_ADDR
 
     @staticmethod
-    def alloc(node, size, name=None):
+    def _reset():
+        """
+        Reset the state of the QValue allocator
+
+        Primarily intended for use in unit tests; destructive
+        if used during the scope of allocated QValues
+        """
+
+        QValueAllocator.ANON_COUNTER = QValueAllocator._INITIAL_ANON_COUNTER
+        QValueAllocator.NEXT_ADDR = QValueAllocator._INITIAL_NEXT_ADDR
+        QValueAllocator.MAX_ADDR = QValueAllocator._INITIAL_MAX_ADDR
+
+        QValueAllocator.ALLOCATED = dict()
+
+    @staticmethod
+    def alloc(size, name=None):
         """
         Allocate space of the given size, and bind it to the given
         name (if provided, or a nonce name, otherwise)
-
-        The node is used only to create meaningful diagnostic
-        messages if there is an error of any kind
 
         Return the base address of the space reserved for the value
         """
@@ -73,13 +89,9 @@ class QValueAllocator(object):
         # FIXME: we're limiting things to single words for now.
         #
         if size < 1:
-            NodeError.error_msg(
-                    node, 'alloc size < 1 (= %d)' % size)
-            return None, None, None
+            raise NameError('alloc size < 1 (= %d)' % size)
         elif size > 32:
-            NodeError.error_msg(
-                    node, 'alloc size > 32 (= %d)' % size)
-            return None, None, None
+            raise NameError('alloc size > 32 (= %d)' % size)
 
         if not name:
             name = '%s%d' % (
@@ -90,10 +102,8 @@ class QValueAllocator(object):
             # make sure that the name is valid
             #
             if name.startswith(QValueAllocator.ANON_PREFIX):
-                NodeError.error_msg(
-                        node,
+                raise NameError(
                         'name (%s) cannot start with anonymous prefix' % name)
-                return None, None, None
 
             # if the name is already in use, make sure that
             # it matches.  Names cannot be redefined yet.
@@ -102,14 +112,13 @@ class QValueAllocator(object):
             if bound_size == size:
                 return (name, bound_size, bound_addr)
             elif bound_size:
-                NodeError.error_msg(
-                        node, 'cannot change size of (%s) from %d to %d' % (
+                raise NameError(
+                        'cannot change size of QValue (%s) from %d to %d' % (
                             name, bound_size, size))
-                return None, None, None
 
         if QValueAllocator.NEXT_ADDR > QValueAllocator.MAX_ADDR:
-            NodeError.error_msg(
-                    node, 'no more space to allocate QValue')
+            raise NameError('no more space to allocate QValue')
+
         addr = QValueAllocator.NEXT_ADDR
 
         # FIXME: to be able to handle multi-word qvalues, we
@@ -145,21 +154,67 @@ class QValue(object):
     Use QValue.factory() to create instances from AST nodes.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, name=None, qreg=None, size=None):
         """
         """
 
-        if 'name' in kwargs:
-            pass
+        if name is not None:
+            if not isinstance(name, str):
+                raise NameError('name must be an int')
 
-        if 'qreg' in kwargs:
+        if qreg is not None and size is not None:
+            raise NameError('cannot specify both qreg and size')
+        elif qreg is not None:
+            # TODO: get the size from the QRegister
             pass
+        elif size is not None:
+            if not isinstance(size, int):
+                raise NameError('size must be an int')
+        else:
+            size = 32
 
-        if 'size' in kwargs:
-            pass
+        self.name, self.size, self.addr = QValueAllocator.alloc(
+                size=size, name=name)
 
-        if 'addr' in kwargs:
-            pass
+        print('HEY %s %d %d' % (self.name, self.size, self.addr))
+
+
+    @staticmethod
+    def factory(node, local_vars):
+        try:
+            # TODO: don't ignore all the parameters...
+            return QValue()
+        except NameError as exc:
+            NodeError.error(target, str(exc))
+            return None
+
+
+def is_qval_create(node):
+    """
+    Returns True if node represents a QValue creation and assignment.
+
+    There are several sloppy assumptions here.
+    """
+
+    if not isinstance(node, ast.Assign):
+        return False
+
+    # Only handles simple assignments; not tuples
+    # TODO: handle tuples
+    if len(node.targets) != 1:
+        return False
+
+    if not isinstance(node.value, ast.Call):
+        return False
+
+    if not isinstance(node.value.func, ast.Name):
+        return False
+
+    if node.value.func.id != QGL2.QVAL_ALLOC:
+        return False
+
+    return True
+
 
 if __name__ == '__main__':
 
@@ -174,6 +229,12 @@ if __name__ == '__main__':
         print(c)
         print(d)
 
+        a = QValueAllocator.alloc(None, 31, 'foo')
+        b = QValueAllocator.alloc(None, 4, 'bar')
+        print(a)
+        print(b)
+
+        QValueAllocator._reset()
         a = QValueAllocator.alloc(None, 31, 'foo')
         b = QValueAllocator.alloc(None, 4, 'bar')
         print(a)
