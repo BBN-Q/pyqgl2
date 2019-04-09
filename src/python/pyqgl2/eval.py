@@ -19,6 +19,7 @@ from pyqgl2.inline import TempVarManager
 from pyqgl2.qgl2_check import QGL2check
 from pyqgl2.qreg import is_qbit_create
 from pyqgl2.qreg import QRegister, QReference
+from pyqgl2.qval import QValue, is_qval_create
 from pyqgl2.quickcopy import quickcopy
 
 def insert_keyword(kwargs, key, value):
@@ -1562,6 +1563,25 @@ class EvalTransformer(object):
                     local_variables[sym_name] = qreg
                     # print('EV: QBIT CREATE %s' % ast.dump(stmnt))
                     stmnt.qgl2_type = 'qbit'
+                    new_body.append(stmnt)
+                    continue
+
+                if is_qval_create(stmnt):
+                    self.rewriter.rewrite(stmnt.value)
+                    local_variables = self.eval_state.locals_stack[-1]
+
+                    try:
+                        qval = QValue.factory(stmnt, local_variables)
+                        if not qval:
+                            continue
+                    except NameError as exc:
+                        NodeError.error_msg(stmnt, str(exc))
+                        continue
+
+                    sym_name = stmnt.targets[0].id
+
+                    local_variables[sym_name] = qval
+                    stmnt.qgl2_type = 'qval'
                     new_body.append(stmnt)
                     continue
 
