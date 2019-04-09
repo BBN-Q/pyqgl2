@@ -133,6 +133,7 @@ class QRegister(object):
                 except:
                     NodeError.error_msg(node,
                         "Unhandled qreg subscript [%s]" % ast2str(arg))
+                    return None
                 sub_qubits = parent_qreg.qubits[arg_val.idx]
                 if hasattr(sub_qubits, '__iter__'):
                     arg_values.extend("q" + str(n) for n in sub_qubits)
@@ -141,6 +142,7 @@ class QRegister(object):
             else:
                 NodeError.error_msg(node,
                     "Unhandled argument to QRegister [%s]" % ast2str(arg))
+                return None
 
         return QRegister(*arg_values)
 

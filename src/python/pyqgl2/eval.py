@@ -1547,7 +1547,14 @@ class EvalTransformer(object):
                     self.rewriter.rewrite(stmnt.value)
                     local_variables = self.eval_state.locals_stack[-1]
 
-                    qreg = QRegister.factory(stmnt, local_variables)
+                    try:
+                        qreg = QRegister.factory(stmnt, local_variables)
+                        if not qreg:
+                            continue
+                    except NameError as exc:
+                        NodeError.error_msg(stmnt, str(exc))
+                        continue
+
                     sym_name = stmnt.targets[0].id
 
                     self.allocated_qbits[qreg.use_name()] = qreg
