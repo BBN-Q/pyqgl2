@@ -979,8 +979,8 @@ class NameRedirector(ast.NodeTransformer):
                         value=ast.Name(id=self.table_name, ctx=ast.Load()),
                         slice=ast.Index(value=ast.Str(s=name)))
         else:
-            NodeError.warning_msg(node,
-                "Could not represent the value [%s] of [%s] as an AST node" % (value, name))
+            # NodeError.warning_msg(node,
+            #     "Could not represent the value [%s] of [%s] as an AST node" % (value, name))
             redirection = ast.Subscript(
                     value=ast.Name(id=self.table_name, ctx=ast.Load()),
                     slice=ast.Index(value=ast.Str(s=name)))
