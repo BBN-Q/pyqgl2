@@ -570,8 +570,8 @@ class NameSpace(object):
             #
             if isinstance(expr, ast.AST) and hasattr(expr, 'qgl_fname'):
                 NodeError.error_msg(expr,
-                        ('ast eval failure [%s]: type %s %s' %
-                            (expr_str.strip(), str(type(exc)), str(exc))))
+                        ('ast eval failure [%s]: %s' %
+                            (expr_str.strip(), str(exc))))
             else:
                 print('eval failure [%s]: %s' % (expr_str.strip(), str(exc)))
             return False, None
