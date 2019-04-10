@@ -1,5 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
+from qgl2.qgl1 import MEASA
 from qgl2.qgl2 import qreg, pulse, control, qgl2decl, qgl2stub
 
 # init will demarcate the beginning of a list of
@@ -29,3 +30,12 @@ def init(q: qreg) -> control:
     """
 
     return
+
+@qgl2decl
+def QMeas(q: qreg, qval=None):
+
+    maddr = 0
+    if qval is not None:
+        maddr = qval.addr
+
+    MEASA(q, maddr=maddr)
