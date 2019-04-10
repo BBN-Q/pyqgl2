@@ -7,7 +7,7 @@ In order to be recognized by the compiler, you should include
 the following snippet at the start of each module that uses
 QGL2 constructs:
 
-from qgl2.qgl2 import qgl2decl, qgl2main, QRegister
+from qgl2.qgl2 import qgl2decl, qgl2main, QRegister, QValue
 from qgl2.qgl2 import classical, pulse, qbit, qbit_list, sequence, control
 """
 
@@ -85,6 +85,11 @@ def qgl2meas(import_path=None):
 
 def QRegister(*args):
     pass
+
+
+def QValue(*args, **kwargs):
+    pass
+
 
 # Symbols used for method signature annotation.  Their value has
 # no meaning; they're only assigned a value so that Python considers
