@@ -101,6 +101,10 @@ def CNOT(controlQ: qreg, targetQ: qreg, **kwargs) -> pulse:
 def MEAS(q: qreg, *args, **kwargs) -> pulse:
     print('MEAS')
 
+@qgl2meas('QGL.PulsePrimitives')
+def MEASA(q: qreg, maddr, *args, **kwargs) -> pulse:
+    print('MEASA')
+
 # Our uses of U never supply any extra kwargs
 @qgl2stub('QGL.PulsePrimitives')
 def U(qubit: qreg, phase=0, **kwargs) -> pulse:
