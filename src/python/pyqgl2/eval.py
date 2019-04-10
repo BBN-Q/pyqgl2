@@ -1465,6 +1465,55 @@ class EvalTransformer(object):
             #
             QGL2check(value, type_name, fp_name, func, src, row, col)
 
+    def build_measurement(self, node):
+
+        namespace = self.eval_state.importer.path2namespace[node.qgl_fname]
+        local_variables = self.eval_state.locals_stack[-1]
+
+        args, kwargs = compute_actuals(
+                node.value, self.eval_state.importer,
+                local_variables=local_variables)
+
+        if len(args) != 1:
+            NodeError.error_msg(
+                    node.value, 'MEAS requires a QRegister parameter')
+            return None
+        if not isinstance(args[0], QRegister):
+            NodeError.error_msg(
+                    node.value, 'MEAS 1st parameter must be a QRegister')
+            return None
+
+        if len(kwargs) > 1 or 'qval' not in kwargs:
+            NodeError.error_msg(
+                    node.value, 'MEAS only has a \'qval\' keyword parameter')
+            return None
+
+        if not isinstance(kwargs['qval'], QValue):
+            NodeError.error_msg(
+                    node.value, 'qval parameter must be a QValue')
+            return None
+
+        if 'qval' not in kwargs:
+            maddr = 0
+        else:
+            maddr = kwargs['qval'].addr
+
+        print('CHOOSING MADDR %d' % maddr)
+
+        print('ARGS %s' % node.value.args[0].id)
+        txt = 'MEASA(%s, maddr=%d)' % (node.value.args[0].id, maddr)
+        print('CHOOSING txt %s' % txt)
+        new_stmnt = expr2ast(txt)
+
+        print('NEW %s' % ast.dump(new_stmnt))
+
+        print('LOC %s' % str(local_variables))
+
+        pyqgl2.ast_util.copy_all_loc(new_stmnt, node, recurse=True)
+
+        return new_stmnt
+
+
     def do_body(self, body):
 
         new_body = list()
@@ -1682,8 +1731,6 @@ class EvalTransformer(object):
                     stmnt.qgl2_type = 'stub'
                     new_body.append(stmnt)
                 elif call_type == self.eval_state.QGL2MEAS:
-                    # A measurement where the user does not want to store
-                    # the return value. Just schedule the control part.
                     stmnt.qgl2_type = 'measurement'
                     new_body.append(stmnt)
                 elif call_type == self.eval_state.NONQGL2:
