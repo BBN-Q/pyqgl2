@@ -154,7 +154,7 @@ class QValue(object):
     Use QValue.factory() to create instances from AST nodes.
     """
 
-    def __init__(self, name=None, qreg=None, size=None):
+    def __init__(self, name=None, qreg=None, size=None, **kwargs):
         """
         """
 
@@ -176,16 +176,35 @@ class QValue(object):
         self.name, self.size, self.addr = QValueAllocator.alloc(
                 size=size, name=name)
 
-        print('HEY %s %d %d' % (self.name, self.size, self.addr))
-
-
     @staticmethod
     def factory(node, local_vars):
+
+        call_params = dict()
+
+        for kwarg in node.value.keywords:
+            if kwarg.arg not in ['name', 'qreg', 'size']:
+                NodeError.error_msg(
+                        node, 'unexpected parameter [%s]' % kwarg.arg)
+                continue
+
+            # This shouldn't happen, because the AST parser checks for
+            # repeated keyword parameters... But just in case.
+            #
+            if kwarg.arg in call_params:
+                NodeError.error_msg(
+                        node, 'parameter seen more than once [%s]' % kwarg.arg)
+                continue
+
+            call_params[kwarg.arg] = eval(
+                    ast2str(kwarg.value), None, local_vars)
+
+        if NodeError.error_detected():
+            return None
+
         try:
-            # TODO: don't ignore all the parameters...
-            return QValue()
+            return QValue(**call_params)
         except NameError as exc:
-            NodeError.error(target, str(exc))
+            NodeError.error_msg(node, str(exc))
             return None
 
 
