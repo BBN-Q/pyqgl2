@@ -779,9 +779,9 @@ class NameSpaces(object):
 
         try:
             return self.read_import_str(text, path)
-        except BaseException as exc:
-            NodeError.fatal_msg(None,
-                    'failed to import [%s]: %s %s' % (path, type(exc), exc))
+        except SyntaxError as exc:
+            NodeError.fatal_msg(
+                    None, 'failed to import [%s]: %s' % (path, str(exc)))
             return None
 
 
