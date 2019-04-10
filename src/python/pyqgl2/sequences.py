@@ -240,7 +240,7 @@ class SequenceExtractor(object):
             stmnt = node.body[lineNo]
             # print("Looking at stmnt %s" % stmnt)
             if is_qbit_create(stmnt) or is_qval_create(stmnt):
-                print('skipping over [%s]' % ast2str(stmnt))
+                # print('skipping over [%s]' % ast2str(stmnt))
                 # drop it
                 continue
 
