@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl1 import MEASA
+from qgl2.qgl1 import MEASA, Invalidate
 from qgl2.qgl2 import qreg, pulse, control, qgl2decl, qgl2stub
 
 # init will demarcate the beginning of a list of
@@ -38,4 +38,5 @@ def QMeas(q: qreg, qval=None):
     if qval is not None:
         maddr = qval.addr
 
+    Invalidate(maddr, 0x1)
     MEASA(q, maddr=maddr)
