@@ -34,7 +34,7 @@ class TestG24(unittest.TestCase):
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        expected_seq = [ MEASA(q1, 0) ]
+        expected_seq = [ Invalidate(0, nmeas=1), MEASA(q1, 0) ]
 
         assertPulseSequenceEqual(self, seqs, expected_seq)
 
@@ -49,7 +49,7 @@ class TestG24(unittest.TestCase):
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        expected_seq = [ MEASA(q1, 16) ]
+        expected_seq = [ Invalidate(16, nmeas=1), MEASA(q1, 16) ]
 
         assertPulseSequenceEqual(self, seqs, expected_seq)
 
@@ -98,7 +98,24 @@ class TestG24(unittest.TestCase):
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
-        expected_seq = [ MEASA(q1, 19) ]
+        expected_seq = [ Invalidate(19, nmeas=1), MEASA(q1, 19) ]
+
+        print('SEQ5 %s' % str(expected_seq))
+
+        assertPulseSequenceEqual(self, seqs, expected_seq)
+
+    def test_g24_6(self):
+        """
+        Minimal program that does something with runtime values
+        """
+
+        q1 = QubitFactory('q1')
+
+        resFunction = compile_function('test/code/g24.py', 't6')
+        seqs = resFunction()
+        seqs = testable_sequence(seqs)
+
+        expected_seq = [ Invalidate(16, nmeas=1), MEASA(q1, 16) ]
 
         assertPulseSequenceEqual(self, seqs, expected_seq)
 
