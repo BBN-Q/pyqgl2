@@ -215,3 +215,7 @@ def Repeat(target) -> control:
 def BlockLabel(label):
     # label is a string, output is a BlockLabel
     pass
+
+@qgl2stub('QGL.TdmInstructions')
+def Invalidate(addr, nmeas, channel=None, tdm=True) -> control:
+    pass
