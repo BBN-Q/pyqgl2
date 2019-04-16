@@ -21,8 +21,9 @@ from qgl2.qgl1 import Id, X, MEAS
 @qgl2decl
 def reset():
   q = QRegister(1)
-  m = MEAS(q)
-  if m:
+  v = QValue(1)
+  QMeas(q, v)
+  if QConditional(v)
     X(q)
   else:
     Id(q)
@@ -71,7 +72,7 @@ def qft(qs: qreg):
 ```
 
 By embedding in Python powerful metaprogramming of sequences is possible. For
-example process tomography on a two qubit sequence comes a function.
+example process tomography on a two qubit sequence becomes a function.
 
 ```python
 @qgl2decl
