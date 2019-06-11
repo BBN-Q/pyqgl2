@@ -4,7 +4,7 @@
 # how to handle these functions
 
 # The annotations are defined in here
-from qgl2.qgl2 import qreg, pulse, qgl2stub, qgl2meas, qreg_list, control
+from qgl2.qgl2 import qreg, pulse, qgl2stub, qgl2meas, control
 
 # Many uses of Id supply a delay. That's the length: an int or float
 # FIXME: Do we need to include that explicitly?
@@ -96,7 +96,6 @@ def CNOT(controlQ: qreg, targetQ: qreg, **kwargs) -> pulse:
 # FIXME: QGL2 can't handle *args
 # Calls include: qubit, 2 qubits, qreg list. But so far
 # our qgl2 uses are just with a single qreg
-#def MEAS(*args: qreg_list, **kwargs) -> pulse:
 @qgl2meas('QGL.PulsePrimitives')
 def MEAS(q: qreg, *args, **kwargs) -> pulse:
     print('MEAS')
@@ -126,8 +125,16 @@ def EdgeFactory(source: qreg, target: qreg) -> qreg:
     print('EdgeFactory')
 
 @qgl2stub('QGL.ChannelLibraries')
-def QubitFactory(label, **kwargs) -> qreg:
+def QubitFactory(label) -> qreg:
     print('QubitFactory')
+
+@qgl2stub('QGL.ChannelLibraries')
+def MeasFactory(label) -> qreg:
+    print('MeasFactory')
+
+@qgl2stub('QGL.ChannelLibraries')
+def MarkerFactory(label) -> qreg:
+    print('MarkerFactory')
 
 # This is used just in testing mains
 # Note that this is really a class
@@ -211,3 +218,14 @@ def Repeat(target) -> control:
 def BlockLabel(label):
     # label is a string, output is a BlockLabel
     pass
+
+# FIXME: I'd like to allow a reference to QGL.ChannelLibraries.channelLib static; how?
+
+# FIXME: I'd like to add these methods on the CL object, but how?
+# @qgl2stub('QGL.ChannelLibraries')
+# def new_qubit(label, **kwargs) -> qreg:
+#     pass
+
+# @qgl2stub('QGL.ChannelLibraries')
+# def new_edge(source, target):
+#    pass
