@@ -55,16 +55,20 @@ class QRegister(object):
             for arg in args:
                 # assume names are of the form "qN"
                 # TODO throw an error if the provided string doesn't have that form
-                idx = int(arg[1:])
+                try:
+                    idx = int(arg[1:])
+                except ValueError as ve:
+                    raise ValueError(f"QRegister names must be of the form q<int>: '{arg}'")
                 self.qubits.append(idx)
         elif all(isinstance(x, QRegister) for x in args):
             # concatenated register
             for arg in args:
+                # FIXME: What overlaps does this disallow?
                 if arg.qubits in self.qubits:
-                    raise NameError("Non-disjoint qubit sets in concatenated registers")
+                    raise NameError(f"Non-disjoint qubit sets in concatenated registers. {arg} has duplicates with others in {args}")
                 self.qubits.extend(arg.qubits)
         else:
-            raise NameError("Invalid QRegister constructor.")
+            raise NameError(f"Invalid QRegister constructor 'QRegister({args})'.")
 
         # add qubits to KNOWN_QUBITS
         for q in self.qubits:
