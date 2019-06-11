@@ -191,7 +191,7 @@ class TestTopLevelBinding(unittest.TestCase):
         self.assertEqual(seqs, expectedseq)
 
     def test_main5(self):
-        # qbit_list
+        # qreg list of qubits
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
         qs = [q1, q2]
