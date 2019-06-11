@@ -61,7 +61,12 @@ def parse_args(argv):
 
     parser.add_argument('-C',
             dest='create_channels', default=False, action='store_true',
-            help='create default channels, if not are provided')
+            help='create default channels, if none are provided')
+
+    # db_resource_name to load using ChannelLibraries() constructor.
+    # No default,
+    parser.add_argument('-cl', dest='channel_library', type=str, metavar='CHANNEL_LIBRARY', default=None,
+                        help='Name of Channel Library to load')
 
     parser.add_argument('-D', '--debug-level',
             dest='debug_level', type=int, metavar='LEVEL',
@@ -102,6 +107,9 @@ def parse_args(argv):
             default=False, action='store_true',
             help='Run in verbose mode')
 
+    parser.add_argument('-hw', dest='tohw', default=False, action='store_true',
+                        help='Compile sequences to hardware (default %(default)s)')
+
     options = parser.parse_args(argv)
 
     # for the sake of consistency and brevity, convert the path
@@ -124,7 +132,11 @@ def parse_args(argv):
 
     return options
 
-
+# Takes filename (relative path), name of main (-m arg)
+# If no main, look for function in the file with decorator @qgl2main
+# toplevel_bindings is list of arguments the function takes
+# saveOutput: save the generated qgl1 program? See -o flag
+# intermediate_output: name of file to save intermediate/debug output to; see -S flag
 def compile_function(filename,
                     main_name=None,
                     toplevel_bindings=None,
@@ -203,7 +215,7 @@ def compile_function(filename,
     # is enough to handle fairly deeply-nested, complex non-recursive
     # programs.  What we do is iterate until we converge (the outcome
     # stops changing) or we hit this limit.  We should attempt at this
-    # point attempt prove that the expansion is divergent, but we don't
+    # point to prove that the expansion is divergent, but we don't
     # do this, but instead assume the worst if the program is complex
     # enough to look like it's "probably" divergent.
     #
@@ -329,7 +341,6 @@ def compile_function(filename,
     NodeError.halt_on_error()
     return qgl1_main
 
-
 def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     '''
     Custom compile_to_hardware for QGL2
@@ -339,6 +350,7 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
     from QGL.Scheduler import schedule
 
     scheduled_seq = schedule(seqs)
+
     return compile_to_hardware([scheduled_seq], filename, suffix)
 
 ######
@@ -357,15 +369,31 @@ if __name__ == '__main__':
         print("Memory usage: {} MB".format(process.memory_info().rss // (1 << 20)))
 
     import QGL
+
+    # Handle option asking to use an existing channel library
+    if opts.channel_library is not None:
+        cl = None
+        try:
+            # This will load or create a file of the given name,
+            # unless the name is the special ":memory:"
+            cl = QGL.ChannelLibraries.ChannelLibrary(db_resource_name=opts.channel_library)
+            qcnt = len(cl.qubits())
+            print(f"Loaded Channel Library from '{opts.channel_library}' with {qcnt} qubits")
+        except Exception as e:
+            print(f"Failed to load Channel Library from '{opts.channel_library}': {e}")
+
+    # We require that the CL have a slave trigger to be usable currently, otherwise
+    # We create a new one if so requested, or we give up.
     if (QGL.ChannelLibraries.channelLib and
-            ('slaveTrig' in QGL.ChannelLibraries.channelLib)):
+            ('slave_trig' in QGL.ChannelLibraries.channelLib)):
         print("Using ChannelLibrary from config")
     elif (opts.create_channels or opts.verbose or
             opts.intermediate_output != '' or opts.debug_level < 3):
-        print("Using APS2ish 3 qubit test channel library")
+        print("Will create and use APS2ish 3 qubit test channel library")
         # Hack. Create a basic channel library for testing
-        import test.helpers
-        test.helpers.channel_setup()
+        # FIXME: Allow supplying a CL file to read?
+        import test_cl
+        test_cl.create_default_channelLibrary(opts.tohw)
     else:
         print('No valid ChannelLibrary found')
         sys.exit(1)
@@ -374,16 +402,16 @@ if __name__ == '__main__':
             opts.filename, opts.main_name,
             toplevel_bindings=None, saveOutput=opts.saveOutput,
             intermediate_output=opts.intermediate_output)
+
     if not resFunction:
         # If there aren't any Qubit operations, then we're
         # done.  The program may have been executed for
         # non-quantum effects.
         #
-        print('the program contains no Qubit operations?')
+        print("The program in {} contains no Qubit operations?".format(opts.filename))
     else:
         # Now import the QGL1 things we need
         from QGL.PulseSequencePlotter import plot_pulse_files
-        from QGL.ChannelLibraries import QubitFactory
 
         # Now execute the returned function, which should produce a list of sequences
         sequences = resFunction()
@@ -397,11 +425,21 @@ if __name__ == '__main__':
             set_log_level()
 
         # Now we have a QGL1 list of sequences we can act on
-        fileNames = qgl2_compile_to_hardware(sequences, opts.prefix,
-                                        opts.suffix)
-        print(fileNames)
-        if opts.showplot:
-            plot_pulse_files(fileNames)
+
+        if opts.tohw:
+            print("Compiling sequences to hardware\n")
+            fileNames = qgl2_compile_to_hardware(sequences, opts.prefix,
+                                                 opts.suffix)
+            print(fileNames)
+            if opts.showplot:
+                plot_pulse_files(fileNames)
+        else:
+            print("\nGenerated sequences:\n")
+            from QGL.Scheduler import schedule
+
+            scheduled_seq = schedule(sequences)
+            from IPython.lib.pretty import pretty
+            print(pretty(scheduled_seq))
 
     if opts.verbose:
         print("Memory usage: {} MB".format(process.memory_info().rss // (1 << 20)))
