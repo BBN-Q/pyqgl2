@@ -1,9 +1,9 @@
 
-from qgl2.qgl2 import concur, qbit, qgl2decl, Qbit
+from qgl2.qgl2 import concur, qreg, qgl2decl
 from qgl2.qgl2 import Qbit
 
 @qgl2decl
-def func_a(a: qbit, b: qbit, c: qbit):
+def func_a(a: qreg, b: qreg, c: qreg):
 
     with concur:
         for q in [a, b, c]:
@@ -13,11 +13,11 @@ def func_a(a: qbit, b: qbit, c: qbit):
                     f(q, x)
 
 @qgl2decl
-def func_c(a: qbit, x: classical):
+def func_c(a: qreg, x: classical):
     Id(a) + X90(a, x)
 
 @qgl2decl
-def func_d(a: qbit, x: classical):
+def func_d(a: qreg, x: classical):
     Id(a) + Y90(a, x)
 
 @qgl2main
