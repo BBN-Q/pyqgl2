@@ -13,7 +13,7 @@ def create_cal_seqs(qubits: qreg, numRepeats):
 
     Parameters
     ----------
-    qubits : a QRegister
+    qubits : a QRegister of channels to calibrate
     numRepeats : number of times to repeat calibration sequences (int)
     """
     # Make all combinations for qubit calibration states for n qubits and repeat
