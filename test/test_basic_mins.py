@@ -20,13 +20,17 @@ class TestAllXY(unittest.TestCase):
         channel_setup()
 
     def test_AllXY(self):
+        # QGL1 uses QubitFactory, QGL2 uses QRegister
         q1 = QubitFactory('q1')
-        qr = QRegister('q1')
+        qr = QRegister(1)
+
+        # Specify the QGL1 we expect QGL2 to generate
+        # Note in this case we specify only a sample of the start
         expectedseq = []
         # Expect a single sequence 4 * 2 * 21 pulses long
         # Expect it to start like this:
         expectedseq += [
-            qwait(channels=(q1,)),
+            qwait(channels=(q1,)), # aka init(q1) aka Wait(q1)
             Id(q1),
             Id(q1),
             MEAS(q1),
@@ -42,16 +46,23 @@ class TestAllXY(unittest.TestCase):
         # NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
         # DebugMsg.set_level(0)
 
+        # Now compile the QGL2 to produce the function that would generate the expected sequence.
+        # Supply the path to the QGL2, the main function in that file, and a list of the args to that function.
         # Can optionally supply saveOutput=True to save the qgl1.py
         # file,
         # and intermediate_output="path-to-output-file" to save
         # intermediate products
         resFunction = compile_function("src/python/qgl2/basic_sequences/AllXYMin.py",
-                                      "doAllXY",
-                                      (qr,))
+                                      "AllXY",
+                                       (qr,))
+        # Run the QGL2. Note that the generated function takes no arguments itself
         seqs = resFunction()
+        # Transform the returned sequences into the canonical form for comparing
+        # to the explicit QGL1 version above.
+        # EG, 'flatten' any embedded lists of sequences.
         seqs = testable_sequence(seqs)
 
+        # Assert that the QGL1 is the same as the generated QGL2
         self.assertEqual(len(seqs), 4*21*2)
         assertPulseSequenceEqual(self, seqs[:len(expectedseq)], expectedseq)
 
@@ -118,6 +129,9 @@ class TestCR(unittest.TestCase):
     def test_PiRabi(self):
         controlQ = QubitFactory('q1')
         targetQ = QubitFactory('q2')
+        controlQR = QRegister('q1')
+        targetQR = QRegister('q2')
+        qr = QRegister('q1', 'q2')
         edge = EdgeFactory(controlQ, targetQ)
         # FIXME: Better values!?
         lengths = np.linspace(0, 4e-6, 11)
@@ -155,7 +169,10 @@ class TestCR(unittest.TestCase):
         expected_seq = testable_sequence(expected_seq)
 
         resFunction = compile_function("src/python/qgl2/basic_sequences/CRMin.py",
-                                      "doPiRabi")
+#                                      "doPiRabi")
+                                       "PiRabi", (controlQR, targetQR, lengths, riseFall, amp, phase, calRepeats))
+#        resFunction = compile_function("src/python/qgl2/basic_sequences/CR.py",
+#                                       "PiRabi", (controlQR, targetQR, lengths, riseFall, amp, phase, calRepeats, False))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -685,6 +702,6 @@ class TestT1T2(unittest.TestCase):
 
 if __name__ == '__main__':
     # To test everything in this file (say, using cProfile)
-    unittest.main("test.test_basic_mins")
+#    unittest.main("test.test_basic_mins")
     # To run just 1 test from this file, try something like:
-    # unittest.main("test.test_basic_mins", "TestBasicMins.test_AllXY")
+    unittest.main("test.test_basic_mins", "TestCR.test_PiRabi")
