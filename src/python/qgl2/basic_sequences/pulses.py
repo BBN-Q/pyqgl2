@@ -4,7 +4,7 @@
 
 import numpy as np
 
-# a local copy of QGL.PulsePrimitives, because pulling in
+# a local copy of QGL.PulseShapes.tanh, because pulling in
 # QGL/__init__.py causes QGL2 grief.
 #
 def local_tanh(amp=1, length=0, sigma=0, cutoff=2, sampling_rate=1e9, **params):
