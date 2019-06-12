@@ -4,13 +4,14 @@
 Sequences for optimizing gating timing.
 """
 
-from qgl2.qgl2 import qgl2decl, qbit
+from qgl2.qgl2 import qgl2decl, qreg
 
-from QGL.PulsePrimitives import Id, MEAS, X90
+from qgl2.qgl1 import Id, X90, MEAS
+
 from QGL.Compiler import compile_to_hardware
 
 @qgl2decl
-def sweep_gateDelay(qubit: qbit, sweepPts):
+def sweep_gateDelay(qubit: qreg, sweepPts):
     """
     Sweep the gate delay associated with a qubit channel using a simple Id, Id, X90, X90
     seqeuence.
@@ -23,6 +24,9 @@ def sweep_gateDelay(qubit: qbit, sweepPts):
     raise NotImplementedError("Not implemented")
 
     # Not apparently used?
+
+    # Problem in doing in QGL2: Need params of the real qubit, which we don't have
+
     # Original:
 #    generator = qubit.phys_chan.generator
 #    oldDelay = generator.gateDelay
