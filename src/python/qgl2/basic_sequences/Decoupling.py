@@ -2,7 +2,7 @@
 
 # See DecouplingMin for versions that work better in QGL2
 
-from qgl2.qgl2 import qgl2decl, qbit, qgl2main
+from qgl2.qgl2 import qgl2decl, qreg, qgl2main
 
 from QGL.PulsePrimitives import X90, Id, Y, U90, MEAS
 from QGL.Compiler import compile_to_hardware
@@ -16,7 +16,7 @@ from math import pi
 # FIXME: QGL2 can't take arguments yet
 # FIXME: Don't do the compilation in the function that generates the sequence
 @qgl2decl
-def HahnEcho(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=False):
+def HahnEcho(qubit: qreg, pulseSpacings, periods = 0, calRepeats=2, showPlot=False):
     """
     A single pulse Hahn echo with variable phase of second pi/2 pulse. 
 
@@ -59,7 +59,7 @@ def HahnEcho(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=Fal
     # generates to compileAndPlot
     compileAndPlot('Echo/Echo', showPlot)
 
-def HahnEchoq1(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=False):
+def HahnEchoq1(qubit: qreg, pulseSpacings, periods = 0, calRepeats=2, showPlot=False):
     """
     A single pulse Hahn echo with variable phase of second pi/2 pulse. 
 
@@ -105,14 +105,14 @@ def HahnEchoq1(qubit: qbit, pulseSpacings, periods = 0, calRepeats=2, showPlot=F
     compileAndPlot(seqs, 'Echo/Echo', showPlot)
 
 @qgl2decl
-def idPulse(qubit: qbit, pulseSpacing):
+def idPulse(qubit: qreg, pulseSpacing):
     Id(qubit, (pulseSpacing - qubit.pulse_params['length'])/2)
 
 # FIXME: QGL2 can't take arguments yet
 # FIXME: Don't do the compilation in the function that generates the sequence
 # No nested QGL2 functions; can have 1 call another though
 @qgl2decl
-def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
+def CPMG(qubit: qreg, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     """
     CPMG pulse train with fixed pulse spacing. Note this pulse spacing is centre to centre,
     i.e. it accounts for the pulse width
@@ -161,7 +161,7 @@ def CPMG(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     # generates to compileAndPlot
     compileAndPlot('CPMG/CPMG', showPlot)
 
-def CPMGq1(qubit: qbit, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
+def CPMGq1(qubit: qreg, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     """
     CPMG pulse train with fixed pulse spacing. Note this pulse spacing is centre to centre,
     i.e. it accounts for the pulse width

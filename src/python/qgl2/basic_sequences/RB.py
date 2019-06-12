@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qbit_list, pulse, concur
+from qgl2.qgl2 import qgl2decl, qreg, pulse, concur
 
 from QGL.PulsePrimitives import MEAS, Id, X, AC
 from QGL.PulseSequencePlotter import plot_pulse_files
@@ -93,7 +93,7 @@ def create_RB_seqs(numQubits, lengths, repeats=32, interleaveGate=None):
     return seqs
 
 @qgl2decl
-def SingleQubitRB(qubit: qbit, seqs, showPlot=False):
+def SingleQubitRB(qubit: qreg, seqs, showPlot=False):
     """
     Single qubit randomized benchmarking using 90 and 180 generators. 
 
@@ -149,7 +149,7 @@ def SingleQubitRB(qubit: qbit, seqs, showPlot=False):
     compileAndPlot('RB/RB', showPlot)
 
 @qgl2decl
-def TwoQubitRB(q1: qbit, q2: qbit, seqs, showPlot=False, suffix=""):
+def TwoQubitRB(q1: qreg, q2: qreg, seqs, showPlot=False, suffix=""):
     """
     Two qubit randomized benchmarking using 90 and 180 single qubit generators and ZX90 
 
@@ -196,7 +196,7 @@ def TwoQubitRB(q1: qbit, q2: qbit, seqs, showPlot=False, suffix=""):
     compileAndPlot('RB/RB', showPlot, suffix=suffix)
 
 @qgl2decl
-def SingleQubitRB_AC(qubit: qbit, seqs, showPlot=False):
+def SingleQubitRB_AC(qubit: qreg, seqs, showPlot=False):
     """
     Single qubit randomized benchmarking using atomic Clifford pulses. 
 
@@ -241,7 +241,7 @@ def SingleQubitRB_AC(qubit: qbit, seqs, showPlot=False):
     compileAndPlot('RB/RB', showPlot)
 
 @qgl2decl
-def doACPulse(qubit: qbit, cliffNum) -> sequence:
+def doACPulse(qubit: qreg, cliffNum) -> sequence:
     if cliffNum == 24:
         cliffNum = 0
     if cliffNum > 24:
@@ -249,14 +249,14 @@ def doACPulse(qubit: qbit, cliffNum) -> sequence:
     AC(qubit, cliffNum)
 
 @qgl2decl
-def getPulseSeq(qubit: qbit, pulseSeqStr) -> sequence:
+def getPulseSeq(qubit: qreg, pulseSeqStr) -> sequence:
     init(qubit)
     for pulseStr in pulseSeqStr:
         doACPulse(qubit, int(pulseStr))
     MEAS(qubit)
 
 @qgl2decl
-def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
+def SingleQubitIRB_AC(qubit: qreg, seqFile, showPlot=False):
     """
     Single qubit interleaved randomized benchmarking using atomic Clifford pulses. 
 
@@ -349,7 +349,7 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
         plot_pulse_Files(fileNames)
 
 @qgl2decl
-def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False):
+def SingleQubitRBT(qubit: qreg, seqFileDir, analyzedPulse: pulse, showPlot=False):
     """
     Single qubit randomized benchmarking using atomic Clifford pulses. 
 
@@ -434,7 +434,7 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False
 
 # FIXME: No args
 @qgl2decl
-def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
+def SimultaneousRB_AC(qubits: qreg, seqs, showPlot=False):
     """
     Simultaneous randomized benchmarking on multiple qubits using atomic Clifford pulses. 
 

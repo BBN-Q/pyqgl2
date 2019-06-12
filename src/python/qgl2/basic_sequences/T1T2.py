@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qgl2main
+from qgl2.qgl2 import qgl2decl, qreg, qgl2main
 
 from QGL.PulsePrimitives import X, Id, MEAS, X90, U90
 from QGL.Compiler import compile_to_hardware
@@ -15,7 +15,7 @@ from qgl2.qgl1 import Sync, Wait
 from scipy.constants import pi
 import numpy as np
 
-def InversionRecoveryq1(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=False):
+def InversionRecoveryq1(qubit: qreg, delays, showPlot=False, calRepeats=2, suffix=False):
     """
     Inversion recovery experiment to measure qubit T1
 
@@ -59,7 +59,7 @@ def InversionRecoveryq1(qubit: qbit, delays, showPlot=False, calRepeats=2, suffi
     compileAndPlot(seqs, fullLabel, showPlot)
 
 @qgl2decl
-def InversionRecovery(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=False):
+def InversionRecovery(qubit: qreg, delays, showPlot=False, calRepeats=2, suffix=False):
     """
     Inversion recovery experiment to measure qubit T1
 
@@ -100,7 +100,7 @@ def InversionRecovery(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=
     # generates to compileAndPlot
     compileAndPlot(fullLabel, showPlot)
 
-def Ramseyq1(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2, suffix=False):
+def Ramseyq1(qubit: qreg, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2, suffix=False):
     """
     Variable pulse spacing Ramsey (pi/2 - tau - pi/2) with optional TPPI.
 
@@ -157,7 +157,7 @@ def Ramseyq1(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=
     # QGL2 compiler
     compileAndPlot(seqs, fullLabel, showPlot)
 
-# produce a Ramsey sequence on qbit named q
+# produce a Ramsey sequence on qreg named q
 # pulse spacings: 100ns to 10us step by 100ns
 # TPPIFreq: 1Mhz (arg is in hz)
 @qgl2decl
@@ -214,7 +214,7 @@ def doRamsey():
     create_cal_seqs((q,), calRepeats)
 
 @qgl2decl
-def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2, suffix=False):
+def Ramsey(qubit: qreg, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2, suffix=False):
     """
     Variable pulse spacing Ramsey (pi/2 - tau - pi/2) with optional TPPI.
 
@@ -278,7 +278,7 @@ from math import pi
 
 @qgl2main
 def main():
-    # Set up 2 qbits, following model in QGL/test/test_Sequences
+    # Set up 2 qregs, following model in QGL/test/test_Sequences
 
     # FIXME: Cannot use these in current QGL2 compiler, because
     # a: QGL2 doesn't understand creating class instances, and 
