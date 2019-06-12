@@ -52,7 +52,7 @@ class TestAllXY(unittest.TestCase):
         # file,
         # and intermediate_output="path-to-output-file" to save
         # intermediate products
-        resFunction = compile_function("src/python/qgl2/basic_sequences/AllXYMin.py",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/AllXY.py",
                                       "AllXY",
                                        (qr,))
         # Run the QGL2. Note that the generated function takes no arguments itself
@@ -704,4 +704,5 @@ if __name__ == '__main__':
     # To test everything in this file (say, using cProfile)
 #    unittest.main("test.test_basic_mins")
     # To run just 1 test from this file, try something like:
-    unittest.main("test.test_basic_mins", "TestCR.test_PiRabi")
+#    unittest.main("test.test_basic_mins", "TestCR.test_PiRabi")
+    unittest.main("test.test_basic_mins", "TestAllXY.test_AllXY")
