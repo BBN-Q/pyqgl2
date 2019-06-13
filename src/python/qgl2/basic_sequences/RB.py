@@ -496,7 +496,7 @@ def SimultaneousRB_AC(qubits: qreg, seqs, showPlot=False):
 # Imports for testing only
 from qgl2.qgl2 import qgl2main
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement, Edge
-from QGL import ChannelLibrary
+from QGL import ChannelLibraries
 from qgl2.qgl1 import Qubit, QubitFactory
 import numpy as np
 from math import pi
@@ -535,8 +535,8 @@ def main():
 #    mq1q2g = LogicalMarkerChannel(label='M-q1q2-gate')
 #    m12 = Measurement(label='M-q1q2', gate_chan = mq1q2g, trig_chan=dTrig)
 
-#    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
-#    ChannelLibrary.channelLib.channelDict = {
+#    ChannelLibraries.channelLib = ChannelLibraries.ChannelLibrary(blank=True)
+#    ChannelLibraries.channelLib.channelDict = {
 #        'q1-gate': qg1,
 #        'q1': q1,
 #        'q2-gate': qg2,
@@ -552,7 +552,7 @@ def main():
 #        'M-q1q2-gate': mq1q2g,
 #        'M-q1q2': m12
 #    }
-#    ChannelLibrary.channelLib.build_connectivity_graph()
+#    ChannelLibraries.channelLib.build_connectivity_graph()
 
     # Use stub Qubits, but comment this out when running directly.
     q1 = QubitFactory("q1")

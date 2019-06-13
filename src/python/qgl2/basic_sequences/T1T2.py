@@ -271,7 +271,7 @@ def Ramsey(qubit: qreg, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2,
 
 # Imports for testing only
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement
-import QGL.ChannelLibraries as ChannelLibrary
+import QGL.ChannelLibraries as ChannelLibraries
 from qgl2.qgl1 import QubitFactory
 import numpy as np
 from math import pi
@@ -293,8 +293,8 @@ def main():
 #    Mq1gate = LogicalMarkerChannel(label='M-q1-gate')
 #    m = Measurement(label='M-q1', gate_chan = Mq1gate, trig_chan = dTrig)
 
-#    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
-#    ChannelLibrary.channelLib.channelDict = {
+#    ChannelLibraries.channelLib = ChannelLibraries.ChannelLibrary(blank=True)
+#    ChannelLibraries.channelLib.channelDict = {
 #        'q1-gate': qg1,
 #        'q1': q1,
 #        'slaveTrig': sTrig,
