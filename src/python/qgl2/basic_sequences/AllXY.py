@@ -57,8 +57,8 @@ def main():
     import pyqgl2.test_cl
     from pyqgl2.main import compile_function, qgl2_compile_to_hardware
     
-    toHW = False
-    plotPulses = False
+    toHW = True
+    plotPulses = True
     pyqgl2.test_cl.create_default_channelLibrary(toHW, True)
     
 #    # To turn on verbose logging in compile_function
@@ -76,7 +76,8 @@ def main():
 
     # Pass in a QRegister NOT the real Qubit
     q = QRegister(1)
-    resFunction = compile_function("src/python/qgl2/basic_sequences/AllXYMin.py",
+    # FIXME: Note this relative path...
+    resFunction = compile_function("src/python/qgl2/basic_sequences/AllXY.py",
                                                "AllXY",
                                                (q,))
     # Run the QGL2. Note that the generated function takes no arguments itself
@@ -85,9 +86,10 @@ def main():
         print("Compiling sequences to hardware\n")
         # file prefix AllXY/AllXY, no suffix
         fileNames = qgl2_compile_to_hardware(sequences, 'AllXY/AllXY')
-        print(fileNames)
+        print(f"Compiled sequences; metafile = {fileNames}")
         if plotPulses:
             from QGL.PulseSequencePlotter import plot_pulse_files
+            # FIXME: As called, this returns a graphical object to display
             plot_pulse_files(fileNames)
     else:
         print("\nGenerated sequences:\n")
