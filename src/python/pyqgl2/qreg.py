@@ -50,6 +50,9 @@ class QRegister(object):
                 if ct not in QRegister.KNOWN_QUBITS:
                     self.qubits.append(ct)
                 ct += 1
+        elif len(args) == 1 and isinstance(args[0], QRegister):
+            # duplicates the QRegister; allows failsafe creating QRegiser whatever the arg
+            self.qubits = args[0].qubits
         elif all(isinstance(x, str) for x in args):
             # named qubits
             for arg in args:
