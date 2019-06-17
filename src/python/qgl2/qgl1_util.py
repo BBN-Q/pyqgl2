@@ -4,7 +4,7 @@
 
 from QGL.ChannelLibraries import EdgeFactory
 from QGL.ControlFlow import Sync, Wait
-from QGL.PulsePrimitives import flat_top_gaussian
+from QGL.PulsePrimitives import flat_top_gaussian, Id
 
 def init_real(*args):
     return Wait(args)
@@ -15,3 +15,8 @@ def flat_top_gaussian_edge_impl(
 
     CRchan = EdgeFactory(source, target)
     return flat_top_gaussian(CRchan, riseFall, length, amp, phase, label)
+
+# Helper for CPMG
+# See issue #37
+def idPulseCentered(qubit, pulseSpacing):
+    return Id(qubit, length=(pulseSpacing - qubit.pulse_params["length"]) / 2)

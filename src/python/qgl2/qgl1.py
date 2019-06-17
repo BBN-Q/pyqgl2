@@ -4,7 +4,7 @@
 # how to handle these functions
 
 # The annotations are defined in here
-from qgl2.qgl2 import qreg, pulse, qgl2stub, qgl2meas, control
+from qgl2.qgl2 import qreg, pulse, qgl2stub, qgl2meas, control, classical
 
 # Many uses of Id supply a delay. That's the length: an int or float
 # FIXME: Do we need to include that explicitly?
@@ -84,10 +84,14 @@ def flat_top_gaussian_edge(source: qreg, target: qreg, riseFall,
                            length, amp, phase=0, label="flat_top_gussian") -> pulse:
     print('flat_top_gaussian_edge')
 
+# Helper for CPMG, to get around not being able to access qubit params (issue #37)
+@qgl2stub('qgl2.qgl1_util', 'idPulseCentered')
+def idPulseCentered(qubit: qreg, pulseSpacing) -> pulse:
+    print("Id(qubit, length=(pulseSpacing - qubit.pulse_params['length']) / 2)")
+
 @qgl2stub('QGL.PulsePrimitives')
 def echoCR(controlQ: qreg, targetQ: qreg, amp=1, phase=0, length=200e-9, riseFall=20e-9, lastPi=True) -> pulse:
     print('echoCR')
-
 
 @qgl2stub('QGL.PulsePrimitives')
 def CNOT(controlQ: qreg, targetQ: qreg, **kwargs) -> pulse:
