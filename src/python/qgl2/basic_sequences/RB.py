@@ -8,7 +8,7 @@ from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
 from QGL.Compiler import compile_to_hardware
 
 from qgl2.basic_sequences.helpers import create_cal_seqs
-from qgl2.basic_sequences.new_helpers import compileAndPlot
+
 from qgl2.util import init
 
 from csv import reader
@@ -146,7 +146,7 @@ def SingleQubitRB(qubit: qreg, seqs, showPlot=False):
     # FIXME: Do this in calling function instead
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot('RB/RB', showPlot)
+#    compileAndPlot('RB/RB', showPlot)
 
 @qgl2decl
 def TwoQubitRB(q1: qreg, q2: qreg, seqs, showPlot=False, suffix=""):
@@ -193,7 +193,7 @@ def TwoQubitRB(q1: qreg, q2: qreg, seqs, showPlot=False, suffix=""):
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot('RB/RB', showPlot, suffix=suffix)
+#    compileAndPlot('RB/RB', showPlot, suffix=suffix)
 
 @qgl2decl
 def SingleQubitRB_AC(qubit: qreg, seqs, showPlot=False):
@@ -238,7 +238,7 @@ def SingleQubitRB_AC(qubit: qreg, seqs, showPlot=False):
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot('RB/RB', showPlot)
+#    compileAndPlot('RB/RB', showPlot)
 
 @qgl2decl
 def doACPulse(qubit: qreg, cliffNum) -> sequence:
@@ -491,7 +491,7 @@ def SimultaneousRB_AC(qubits: qreg, seqs, showPlot=False):
 
     # FIXME: Do this from calling function, not here
     # QGL2 compiler must supply missing list of sequences argument
-    compileAndPlot('RB/RB', showPlot)
+#    compileAndPlot('RB/RB', showPlot)
 
 # Imports for testing only
 from qgl2.qgl2 import qgl2main

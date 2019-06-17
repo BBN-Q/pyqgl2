@@ -8,7 +8,7 @@ from QGL.PulsePrimitives import X90, Id, Y, U90, MEAS
 from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 from qgl2.basic_sequences.helpers import create_cal_seqs
-from qgl2.basic_sequences.new_helpers import addCalibration, compileAndPlot
+#from qgl2.basic_sequences.new_helpers import addCalibration, compileAndPlot
 from qgl2.util import init
 
 from math import pi
@@ -57,7 +57,7 @@ def HahnEcho(qubit: qreg, pulseSpacings, periods = 0, calRepeats=2, showPlot=Fal
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot('Echo/Echo', showPlot)
+#    compileAndPlot('Echo/Echo', showPlot)
 
 def HahnEchoq1(qubit: qreg, pulseSpacings, periods = 0, calRepeats=2, showPlot=False):
     """
@@ -98,11 +98,11 @@ def HahnEchoq1(qubit: qreg, pulseSpacings, periods = 0, calRepeats=2, showPlot=F
             U90(qubit, phase=2*pi*periods/len(pulseSpacings)*k),
             MEAS(qubit)
         ])
-    seqs = addCalibration(seqs, (qubit,), calRepeats)
+#    seqs = addCalibration(seqs, (qubit,), calRepeats)
 
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
-    compileAndPlot(seqs, 'Echo/Echo', showPlot)
+#    compileAndPlot(seqs, 'Echo/Echo', showPlot)
 
 @qgl2decl
 def idPulse(qubit: qreg, pulseSpacing):
@@ -159,7 +159,7 @@ def CPMG(qubit: qreg, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot('CPMG/CPMG', showPlot)
+#    compileAndPlot('CPMG/CPMG', showPlot)
 
 def CPMGq1(qubit: qreg, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
     """
@@ -208,11 +208,11 @@ def CPMGq1(qubit: qreg, numPulses, pulseSpacing, calRepeats=2, showPlot=False):
         )
 
     # Tack on calibration
-    seqs = addCalibration(seqs, (qubit,), calRepeats)
+#    seqs = addCalibration(seqs, (qubit,), calRepeats)
 
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
-    compileAndPlot(seqs, 'CPMG/CPMG', showPlot)
+#    compileAndPlot(seqs, 'CPMG/CPMG', showPlot)
 
 # Imports for testing only
 #from QGL.Channels import Qubit, LogicalMarkerChannel

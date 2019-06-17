@@ -5,7 +5,6 @@ from qgl2.qgl1 import Id, MEAS, X
 from qgl2.util import init
 
 from qgl2.basic_sequences.helpers import create_cal_seqs
-from qgl2.basic_sequences.new_helpers import compileAndPlot
 
 from itertools import product
 
@@ -95,4 +94,4 @@ def Reset(qubits: qreg, measDelay = 1e-6, signVec = None,
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot('Reset/Reset', showPlot)
+#    compileAndPlot('Reset/Reset', showPlot)

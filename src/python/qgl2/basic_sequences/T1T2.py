@@ -7,7 +7,7 @@ from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 from qgl2.basic_sequences.helpers import create_cal_seqs
-from qgl2.basic_sequences.new_helpers import addCalibration, compileAndPlot
+#from qgl2.basic_sequences.new_helpers import addCalibration, compileAndPlot
 from qgl2.util import init
 from qgl2.qgl1 import X90, Id, U90, MEAS, X, QubitFactory
 from qgl2.qgl1 import Sync, Wait
@@ -48,7 +48,7 @@ def InversionRecoveryq1(qubit: qreg, delays, showPlot=False, calRepeats=2, suffi
         seqs.append(seq)
 
     # Tack on calibration
-    seqs = addCalibration(seqs, (qubit,), calRepeats)
+#    seqs = addCalibration(seqs, (qubit,), calRepeats)
 
     # Calculate label
     label = 'T1'+('_'+qubit.label)*suffix
@@ -56,7 +56,7 @@ def InversionRecoveryq1(qubit: qreg, delays, showPlot=False, calRepeats=2, suffi
 
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
-    compileAndPlot(seqs, fullLabel, showPlot)
+#    compileAndPlot(seqs, fullLabel, showPlot)
 
 @qgl2decl
 def InversionRecovery(qubit: qreg, delays, showPlot=False, calRepeats=2, suffix=False):
@@ -98,7 +98,7 @@ def InversionRecovery(qubit: qreg, delays, showPlot=False, calRepeats=2, suffix=
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot(fullLabel, showPlot)
+#    compileAndPlot(fullLabel, showPlot)
 
 def Ramseyq1(qubit: qreg, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2, suffix=False):
     """
@@ -147,7 +147,7 @@ def Ramseyq1(qubit: qreg, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=
         seqs.append(seq)
 
     # Tack on calibration
-    seqs = addCalibration(seqs, (qubit,), calRepeats)
+#    seqs = addCalibration(seqs, (qubit,), calRepeats)
 
     # Calculate label
     label = 'Ramsey'+('_'+qubit.label)*suffix
@@ -155,7 +155,7 @@ def Ramseyq1(qubit: qreg, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=
 
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
-    compileAndPlot(seqs, fullLabel, showPlot)
+#    compileAndPlot(seqs, fullLabel, showPlot)
 
 # produce a Ramsey sequence on qreg named q
 # pulse spacings: 100ns to 10us step by 100ns
@@ -267,7 +267,7 @@ def Ramsey(qubit: qreg, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2,
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot(fullLabel, showPlot)
+#    compileAndPlot(fullLabel, showPlot)
 
 # Imports for testing only
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement

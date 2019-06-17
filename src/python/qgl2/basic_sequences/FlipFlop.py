@@ -8,7 +8,7 @@ from QGL.PulseSequencePlotter import plot_pulse_files
 
 from itertools import chain
 
-from qgl2.basic_sequences.new_helpers import addMeasPulse, compileAndPlot
+#from qgl2.basic_sequences.new_helpers import addMeasPulse, compileAndPlot
 from qgl2.util import init
 
 def FlipFlopq1(qubit: qreg, dragParamSweep, maxNumFFs=10, showPlot=False):
@@ -82,11 +82,11 @@ def FlipFlopq1(qubit: qreg, dragParamSweep, maxNumFFs=10, showPlot=False):
     seqs.append([X(qubit)])
 
     # Add the measurment block to every sequence
-    seqs = addMeasPulse(seqs, qubit)
+#    seqs = addMeasPulse(seqs, qubit)
 
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
-    compileAndPlot(seqs, 'FlipFlop/FlipFlop', showPlot)
+#    compileAndPlot(seqs, 'FlipFlop/FlipFlop', showPlot)
 
 @qgl2decl
 def flipflop_seqs(dragScaling, maxNumFFs, qubit: qreg):
@@ -196,7 +196,7 @@ def FlipFlop(qubit: qreg, dragParamSweep, maxNumFFs=10, showPlot=False):
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot('FlipFlop/FlipFlop', showPlot)
+#    compileAndPlot('FlipFlop/FlipFlop', showPlot)
 
 # Imports for testing only
 from QGL.Channels import Qubit, LogicalMarkerChannel

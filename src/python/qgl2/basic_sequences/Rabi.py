@@ -8,7 +8,7 @@ from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 from qgl2.basic_sequences.helpers import create_cal_seqs
-from qgl2.basic_sequences.new_helpers import compileAndPlot
+
 from qgl2.util import init
 from pyqgl2.main import compile_function
 
