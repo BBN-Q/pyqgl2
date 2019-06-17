@@ -1,13 +1,13 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qreg
-from qgl2.qgl1 import Id, X, MEAS, Barrier
+from qgl2.qgl2 import qgl2decl, qreg, pulse, QRegister
+from qgl2.qgl1 import Id, X, MEAS, Barrier, qwait
 from qgl2.util import init
 
 from itertools import product
 
 @qgl2decl
-def create_cal_seqs(qubits: qreg, numRepeats):
+def create_cal_seqs(qubits: qreg, numRepeats, measChans=None, waitcmp=False, delay=None):
     """
     Helper function to create a set of calibration sequences.
 
@@ -15,7 +15,13 @@ def create_cal_seqs(qubits: qreg, numRepeats):
     ----------
     qubits : a QRegister of channels to calibrate
     numRepeats : number of times to repeat calibration sequences (int)
+    measChans : QRegister of channels to measure; default is to use qubits
+    waitcmp = True if the sequence contains branching; default False
+    delay: optional time between state preparation and measurement (s)
     """
+    if measChans is None:
+        measChans = qubits
+
     # Make all combinations for qubit calibration states for n qubits and repeat
 
     # Assuming numRepeats=2 and qubits are q1, q2
@@ -35,5 +41,18 @@ def create_cal_seqs(qubits: qreg, numRepeats):
             init(qubits)
             for pulse, qubit in zip(pulseSet, qubits):
                 pulse(qubit)
-            Barrier(qubits)
-            MEAS(qubits)
+            if delay:
+                # Add optional delay before measurement
+                Id(qubits(0), length=delay)
+            Barrier(measChans)
+            MEAS(measChans)
+            # If branching do wait
+            if waitcmp:
+                qwait(kind='CMP')
+
+@qgl2decl
+def measConcurrently(listNQubits: qreg) -> pulse:
+    '''Concurrently measure given QRegister of qubits.'''
+    qr = QRegister(listNQubits)
+    Barrier(qr)
+    MEAS(qr)
