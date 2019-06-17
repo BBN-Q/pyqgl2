@@ -76,12 +76,12 @@ def AC(qubit: qreg, cliffNum) -> pulse:
     print('AC')
 
 @qgl2stub('QGL.PulsePrimitives')
-def flat_top_gaussian(chan: qreg, riseFall, length, amp, phase=0) -> pulse:
+def flat_top_gaussian(chan: qreg, riseFall, length, amp, phase=0, label="flat_top_gaussian") -> pulse:
     print('flat_top_gaussian')
 
 @qgl2stub('qgl2.qgl1_util', 'flat_top_gaussian_edge_impl')
 def flat_top_gaussian_edge(source: qreg, target: qreg, riseFall,
-                           length, amp, phase=0) -> pulse:
+                           length, amp, phase=0, label="flat_top_gussian") -> pulse:
     print('flat_top_gaussian_edge')
 
 @qgl2stub('QGL.PulsePrimitives')

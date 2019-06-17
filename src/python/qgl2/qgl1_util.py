@@ -10,7 +10,8 @@ def init_real(*args):
     return Wait(args)
 
 def flat_top_gaussian_edge_impl(
-        source, target, riseFall, length, amp, phase=0):
+        source, target, riseFall, length, amp, phase=0, label="flat_top_gaussian"):
+    '''Retrieve the edge from source to target and do a flat_top_gaussian on it'''
 
     CRchan = EdgeFactory(source, target)
-    return flat_top_gaussian(CRchan, riseFall, length, amp, phase=0)
+    return flat_top_gaussian(CRchan, riseFall, length, amp, phase, label)
