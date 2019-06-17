@@ -245,11 +245,15 @@ def compile_function(filename,
                 ('expansion did not converge after %d iterations' % MAX_ITERS))
 
     # transform passed toplevel_bindings into a local_context dictionary
+
+    # FIXME: If the qgl2main provides a default for an arg
+    # that is 'missing', then don't count it as missing
+
     arg_names = [x.arg for x in ptree1.args.args]
     if isinstance(toplevel_bindings, tuple):
         if len(arg_names) != len(toplevel_bindings):
             NodeError.error_msg(None,
-                'Invalid number of arguments supplied to qgl2main')
+                                'Invalid number of arguments supplied to qgl2main (got %d, expected %d)' % (len(toplevel_bindings), len(arg_names)))
         local_context = {name: quickcopy(value) for name, value in zip(arg_names, toplevel_bindings)}
     elif isinstance(toplevel_bindings, dict):
         invalid_args = toplevel_bindings.keys() - arg_names
