@@ -133,7 +133,6 @@ class TestCR(unittest.TestCase):
         targetQR = QRegister('q2')
         qr = QRegister('q1', 'q2')
         edge = EdgeFactory(controlQ, targetQ)
-        # FIXME: Better values!?
         lengths = np.linspace(0, 4e-6, 11)
         riseFall=40e-9
         amp=1
@@ -168,11 +167,8 @@ class TestCR(unittest.TestCase):
         expected_seq += calseq
         expected_seq = testable_sequence(expected_seq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/CRMin.py",
-#                                      "doPiRabi")
+        resFunction = compile_function("src/python/qgl2/basic_sequences/CR.py",
                                        "PiRabi", (controlQR, targetQR, lengths, riseFall, amp, phase, calRepeats))
-#        resFunction = compile_function("src/python/qgl2/basic_sequences/CR.py",
-#                                       "PiRabi", (controlQR, targetQR, lengths, riseFall, amp, phase, calRepeats, False))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -182,12 +178,16 @@ class TestCR(unittest.TestCase):
     def test_EchoCRLen(self):
         controlQ = QubitFactory('q1')
         targetQ = QubitFactory('q2')
+        cR = QRegister('q1')
+        tR = QRegister('q2')
         # FIXME: Better values!?
         lengths = np.linspace(0, 2e-6, 11)
         riseFall=40e-9
         amp=1
         phase=0
         calRepeats=2
+        canc_amp=0
+        canc_phase=np.pi/2
 
         expected_seq = []
         # Seq1
@@ -195,8 +195,8 @@ class TestCR(unittest.TestCase):
             expected_seq += [
                 qwait(channels=(controlQ, targetQ)),
                 Id(controlQ),
-                echoCR(controlQ, targetQ, length=l, phase=phase,
-                       riseFall=riseFall),
+                echoCR(controlQ, targetQ, length=l, phase=phase, amp=amp, 
+                       riseFall=riseFall, canc_amp=canc_amp, canc_phase=canc_phase),
                 Id(controlQ),
                 Barrier(controlQ, targetQ),
                 MEAS(controlQ),
@@ -207,8 +207,8 @@ class TestCR(unittest.TestCase):
             expected_seq += [
                 qwait(channels=(controlQ, targetQ)),
                 X(controlQ),
-                echoCR(controlQ, targetQ, length=l, phase=phase,
-                       riseFall=riseFall),
+                echoCR(controlQ, targetQ, length=l, phase=phase, amp=amp,
+                       riseFall=riseFall, canc_amp=canc_amp, canc_phase=canc_phase),
                 X(controlQ),
                 Barrier(controlQ, targetQ),
                 MEAS(controlQ),
@@ -220,8 +220,9 @@ class TestCR(unittest.TestCase):
         expected_seq += cal_seqs
         expected_seq = testable_sequence(expected_seq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/CRMin.py",
-                                      "doEchoCRLen")
+        resFunction = compile_function("src/python/qgl2/basic_sequences/CR.py",
+                                       "EchoCRLen",
+                                       (cR, tR, lengths, riseFall, amp, phase, calRepeats, canc_amp, canc_phase)   )
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -231,11 +232,15 @@ class TestCR(unittest.TestCase):
     def test_EchoCRPhase(self):
         controlQ = QubitFactory('q1')
         targetQ = QubitFactory('q2')
+        cR = QRegister('q1')
+        tR = QRegister('q2')
         phases = np.linspace(0, pi/2, 11)
         riseFall=40e-9
         amp=1
         length=100e-9
         calRepeats=2
+        canc_amp=0
+        canc_phase=np.pi/2
         expected_seq = []
 
         # Seq1
@@ -243,8 +248,9 @@ class TestCR(unittest.TestCase):
             expected_seq += [
                 qwait(channels=(controlQ, targetQ)),
                 Id(controlQ),
-                echoCR(controlQ, targetQ, length=length, phase=p,
-                       riseFall=riseFall),
+                echoCR(controlQ, targetQ, length=length, phase=p, amp=amp,
+                       riseFall=riseFall, canc_amp=canc_amp, canc_phase=canc_phase),
+                Barrier(controlQ, targetQ),
                 X90(targetQ),
                 Id(controlQ),
                 Barrier(controlQ, targetQ),
@@ -257,8 +263,9 @@ class TestCR(unittest.TestCase):
             expected_seq += [
                 qwait(channels=(controlQ, targetQ)),
                 X(controlQ),
-                echoCR(controlQ, targetQ, length=length, phase=p,
-                       riseFall=riseFall),
+                echoCR(controlQ, targetQ, length=length, phase=p, amp=amp,
+                       riseFall=riseFall, canc_amp=canc_amp, canc_phase=canc_phase),
+                Barrier(controlQ, targetQ),
                 X90(targetQ),
                 X(controlQ),
                 Barrier(controlQ, targetQ),
@@ -271,8 +278,10 @@ class TestCR(unittest.TestCase):
         expected_seq += cal_seqs
         expected_seq = testable_sequence(expected_seq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/CRMin.py",
-                                      "doEchoCRPhase")
+        resFunction = compile_function("src/python/qgl2/basic_sequences/CR.py",
+                                       "EchoCRPhase",
+                                       (cR, tR, phases, riseFall, amp, length, calRepeats, canc_amp, canc_phase))
+
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
