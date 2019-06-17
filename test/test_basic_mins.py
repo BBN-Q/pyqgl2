@@ -317,8 +317,8 @@ class TestDecoupling(unittest.TestCase):
 
         expectedseq = testable_sequence(expectedseq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/DecouplingMin.py",
-                                      "doHahnEcho",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/Decoupling.py",
+                                      "HahnEcho",
                                       (qr, pulseSpacings, periods, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -331,16 +331,17 @@ class TestDecoupling(unittest.TestCase):
 
         # Create numPulses sequences
         numPulses = [0, 2, 4, 6]
-        pulseSpacing = 500e-9 - q.pulse_params['length']
+        pulseSpacing = 500e-9
+        pulseSpacingDiff = pulseSpacing - q.pulse_params['length']
         calRepeats = 2
 
-        def addt180t(q, pulseSpacing, rep):
+        def addt180t(q, pulseSpacingDiff, rep):
             t180t = []
             for _ in range(rep):
                 t180t += [
-                    Id(q, pulseSpacing/2),
+                    Id(q, pulseSpacingDiff/2),
                     Y(q),
-                    Id(q, pulseSpacing/2)
+                    Id(q, pulseSpacingDiff/2)
                 ]
             return t180t
 
@@ -350,7 +351,7 @@ class TestDecoupling(unittest.TestCase):
                 qwait(channels=(q,)),
                 X90(q)
             ]
-            expectedseq += addt180t(q, pulseSpacing, rep)
+            expectedseq += addt180t(q, pulseSpacingDiff, rep)
             expectedseq += [
                 X90(q),
                 MEAS(q)
@@ -362,8 +363,8 @@ class TestDecoupling(unittest.TestCase):
 
         expectedseq = testable_sequence(expectedseq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/DecouplingMin.py",
-                                      "doCPMG",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/Decoupling.py",
+                                      "CPMG",
                                       (qr, numPulses, pulseSpacing, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
