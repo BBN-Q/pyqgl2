@@ -139,8 +139,10 @@ def main():
                           ]:
 
         print(f"\nRun {func}...")
-        # FIXME: Note this relative path...
-        resFunc = compile_function("src/python/qgl2/basic_sequences/Decoupling.py", func, args)
+        # Here we know the function is in the current file
+        # You could use os.path.dirname(os.path.realpath(__file)) to find files relative to this script,
+        # Or os.getcwd() to get files relative to where you ran from. Or always use absolute paths.
+        resFunc = compile_function(__file__, func, args)
         # Run the QGL2. Note that the generated function takes no arguments itself
         seq = resFunc()
         if toHW:

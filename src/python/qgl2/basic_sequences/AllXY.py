@@ -76,8 +76,10 @@ def main():
 
     # Pass in a QRegister NOT the real Qubit
     q = QRegister(1)
-    # FIXME: Note this relative path...
-    resFunction = compile_function("src/python/qgl2/basic_sequences/AllXY.py",
+    # Here we know the function is in the current file
+    # You could use os.path.dirname(os.path.realpath(__file)) to find files relative to this script,
+    # Or os.getcwd() to get files relative to where you ran from. Or always use absolute paths.
+    resFunction = compile_function(__file__,
                                                "AllXY",
                                                (q,))
     # Run the QGL2. Note that the generated function takes no arguments itself
