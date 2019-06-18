@@ -1,7 +1,7 @@
 
 from qgl2.qgl2 import concur, seq
 from qgl2.qgl2 import qgl2decl, qgl2main
-from qgl2.qgl2 import classical, pulse, qbit, qbit_list
+from qgl2.qgl2 import classical, pulse, qreg
 from qgl2.qgl1 import QubitFactory
 
 # Note that for this next import to work you must run from the directory containing this file

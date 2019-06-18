@@ -8,7 +8,7 @@ from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 from qgl2.basic_sequences.helpers import create_cal_seqs
-from qgl2.basic_sequences.new_helpers import compileAndPlot
+
 from qgl2.util import init
 from pyqgl2.main import compile_function
 
@@ -16,12 +16,12 @@ from functools import reduce
 import operator
 import os.path
 
-from qgl2.qgl2 import qgl2decl, qbit, qbit_list, qgl2main, concur
+from qgl2.qgl2 import qgl2decl, qreg, qgl2main, concur
 from qgl2.qgl1 import Utheta, MEAS, X, Id, QubitFactory
 import numpy as np
 
 @qgl2decl
-def doRabiAmp(q:qbit, amps, phase):
+def doRabiAmp(q:qreg, amps, phase):
     for amp in np.linspace(0,1,11):
         init(q)
         Utheta(q, amp=amp, phase=phase)
@@ -53,7 +53,7 @@ def RabiAmp(qubit, amps, phase=0, showPlot=False):
         plot_pulse_files(fileNames)
 
 @qgl2decl
-def doRabiWidth(q:qbit, widths, amp, phase, shape):
+def doRabiWidth(q:qreg, widths, amp, phase, shape):
     for l in widths:
         init(q)
         # FIXME: QGL2 loses the import needed for this QGL function
@@ -87,8 +87,8 @@ def RabiWidth(qubit, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh, show
         plot_pulse_files(fileNames)
 
 @qgl2decl
-def doRabiAmp_NQubits(qubits: qbit_list, amps, phase,
-                    measChans: qbit_list, docals, calRepeats):
+def doRabiAmp_NQubits(qubits: qreg, amps, phase,
+                    measChans: qreg, docals, calRepeats):
     for amp in amps:
         with concur:
             for q in qubits:
@@ -133,7 +133,7 @@ def RabiAmp_NQubitsq1(qubits, amps, phase=0, showPlot=False,
         plot_pulse_files(fileNames)
 
 @qgl2decl
-def doRabiAmpPi(qubit: qbit, mqubit: qbit, amps, phase):
+def doRabiAmpPi(qubit: qreg, mqubit: qreg, amps, phase):
     for amp in amps:
         with concur:
             init(qubit)
@@ -143,7 +143,7 @@ def doRabiAmpPi(qubit: qbit, mqubit: qbit, amps, phase):
         X(mqubit)
         MEAS(mqubit)
 
-def RabiAmpPi(qubit: qbit, mqubit: qbit, amps, phase=0, showPlot=False):
+def RabiAmpPi(qubit: qreg, mqubit: qreg, amps, phase=0, showPlot=False):
     """
     Variable amplitude Rabi nutation experiment.
 
@@ -168,7 +168,7 @@ def RabiAmpPi(qubit: qbit, mqubit: qbit, amps, phase=0, showPlot=False):
         plot_pulse_files(fileNames)
 
 @qgl2decl
-def doSingleShot(qubit: qbit):
+def doSingleShot(qubit: qreg):
     """
     2-segment sequence with qubit prepared in |0> and |1>, useful for single-shot fidelity measurements and kernel calibration
     """
@@ -179,7 +179,7 @@ def doSingleShot(qubit: qbit):
     X(qubit)
     MEAS(qubit)
 
-def SingleShot(qubit: qbit, showPlot=False):
+def SingleShot(qubit: qreg, showPlot=False):
     """
     2-segment sequence with qubit prepared in |0> and |1>, useful for single-shot fidelity measurements and kernel calibration
     """
@@ -197,7 +197,7 @@ def SingleShot(qubit: qbit, showPlot=False):
         plot_pulse_files(fileNames)
 
 @qgl2decl
-def doPulsedSpec(qubit: qbit, specOn):
+def doPulsedSpec(qubit: qreg, specOn):
     init(qubit)
     if specOn:
         X(qubit)
@@ -223,7 +223,7 @@ def PulsedSpec(qubit, specOn=True, showPlot=False):
         plot_pulse_files(fileNames)
 
 @qgl2decl
-def doSwap(qubit: qbit, mqubit: qbit, delays):
+def doSwap(qubit: qreg, mqubit: qreg, delays):
     # Original:
     # seqs = [[X(qubit), X(mqubit), Id(mqubit, d), MEAS(mqubit)*MEAS(qubit)] for d in delays] + create_cal_seqs((mqubit,qubit), 2, measChans=(mqubit,qubit))
 

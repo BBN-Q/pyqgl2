@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qbit_list, pulse, concur
+from qgl2.qgl2 import qgl2decl, qreg, pulse, concur
 
 from QGL.PulsePrimitives import MEAS, Id, X, AC
 from QGL.PulseSequencePlotter import plot_pulse_files
@@ -8,7 +8,7 @@ from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
 from QGL.Compiler import compile_to_hardware
 
 from qgl2.basic_sequences.helpers import create_cal_seqs
-from qgl2.basic_sequences.new_helpers import compileAndPlot
+
 from qgl2.util import init
 
 from csv import reader
@@ -93,7 +93,7 @@ def create_RB_seqs(numQubits, lengths, repeats=32, interleaveGate=None):
     return seqs
 
 @qgl2decl
-def SingleQubitRB(qubit: qbit, seqs, showPlot=False):
+def SingleQubitRB(qubit: qreg, seqs, showPlot=False):
     """
     Single qubit randomized benchmarking using 90 and 180 generators. 
 
@@ -146,10 +146,10 @@ def SingleQubitRB(qubit: qbit, seqs, showPlot=False):
     # FIXME: Do this in calling function instead
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot('RB/RB', showPlot)
+#    compileAndPlot('RB/RB', showPlot)
 
 @qgl2decl
-def TwoQubitRB(q1: qbit, q2: qbit, seqs, showPlot=False, suffix=""):
+def TwoQubitRB(q1: qreg, q2: qreg, seqs, showPlot=False, suffix=""):
     """
     Two qubit randomized benchmarking using 90 and 180 single qubit generators and ZX90 
 
@@ -193,10 +193,10 @@ def TwoQubitRB(q1: qbit, q2: qbit, seqs, showPlot=False, suffix=""):
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot('RB/RB', showPlot, suffix=suffix)
+#    compileAndPlot('RB/RB', showPlot, suffix=suffix)
 
 @qgl2decl
-def SingleQubitRB_AC(qubit: qbit, seqs, showPlot=False):
+def SingleQubitRB_AC(qubit: qreg, seqs, showPlot=False):
     """
     Single qubit randomized benchmarking using atomic Clifford pulses. 
 
@@ -238,10 +238,10 @@ def SingleQubitRB_AC(qubit: qbit, seqs, showPlot=False):
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot('RB/RB', showPlot)
+#    compileAndPlot('RB/RB', showPlot)
 
 @qgl2decl
-def doACPulse(qubit: qbit, cliffNum) -> sequence:
+def doACPulse(qubit: qreg, cliffNum) -> sequence:
     if cliffNum == 24:
         cliffNum = 0
     if cliffNum > 24:
@@ -249,14 +249,14 @@ def doACPulse(qubit: qbit, cliffNum) -> sequence:
     AC(qubit, cliffNum)
 
 @qgl2decl
-def getPulseSeq(qubit: qbit, pulseSeqStr) -> sequence:
+def getPulseSeq(qubit: qreg, pulseSeqStr) -> sequence:
     init(qubit)
     for pulseStr in pulseSeqStr:
         doACPulse(qubit, int(pulseStr))
     MEAS(qubit)
 
 @qgl2decl
-def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
+def SingleQubitIRB_AC(qubit: qreg, seqFile, showPlot=False):
     """
     Single qubit interleaved randomized benchmarking using atomic Clifford pulses. 
 
@@ -349,7 +349,7 @@ def SingleQubitIRB_AC(qubit: qbit, seqFile, showPlot=False):
         plot_pulse_Files(fileNames)
 
 @qgl2decl
-def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False):
+def SingleQubitRBT(qubit: qreg, seqFileDir, analyzedPulse: pulse, showPlot=False):
     """
     Single qubit randomized benchmarking using atomic Clifford pulses. 
 
@@ -434,7 +434,7 @@ def SingleQubitRBT(qubit: qbit, seqFileDir, analyzedPulse: pulse, showPlot=False
 
 # FIXME: No args
 @qgl2decl
-def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
+def SimultaneousRB_AC(qubits: qreg, seqs, showPlot=False):
     """
     Simultaneous randomized benchmarking on multiple qubits using atomic Clifford pulses. 
 
@@ -491,12 +491,12 @@ def SimultaneousRB_AC(qubits: qbit_list, seqs, showPlot=False):
 
     # FIXME: Do this from calling function, not here
     # QGL2 compiler must supply missing list of sequences argument
-    compileAndPlot('RB/RB', showPlot)
+#    compileAndPlot('RB/RB', showPlot)
 
 # Imports for testing only
 from qgl2.qgl2 import qgl2main
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement, Edge
-from QGL import ChannelLibrary
+from QGL import ChannelLibraries
 from qgl2.qgl1 import Qubit, QubitFactory
 import numpy as np
 from math import pi
@@ -535,8 +535,8 @@ def main():
 #    mq1q2g = LogicalMarkerChannel(label='M-q1q2-gate')
 #    m12 = Measurement(label='M-q1q2', gate_chan = mq1q2g, trig_chan=dTrig)
 
-#    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
-#    ChannelLibrary.channelLib.channelDict = {
+#    ChannelLibraries.channelLib = ChannelLibraries.ChannelLibrary(blank=True)
+#    ChannelLibraries.channelLib.channelDict = {
 #        'q1-gate': qg1,
 #        'q1': q1,
 #        'q2-gate': qg2,
@@ -552,7 +552,7 @@ def main():
 #        'M-q1q2-gate': mq1q2g,
 #        'M-q1q2': m12
 #    }
-#    ChannelLibrary.channelLib.build_connectivity_graph()
+#    ChannelLibraries.channelLib.build_connectivity_graph()
 
     # Use stub Qubits, but comment this out when running directly.
     q1 = QubitFactory("q1")

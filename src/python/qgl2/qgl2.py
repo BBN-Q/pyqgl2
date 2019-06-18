@@ -8,7 +8,7 @@ the following snippet at the start of each module that uses
 QGL2 constructs:
 
 from qgl2.qgl2 import qgl2decl, qgl2main, QRegister
-from qgl2.qgl2 import classical, pulse, qbit, qbit_list, sequence, control
+from qgl2.qgl2 import classical, pulse, qreg, sequence, control
 """
 
 from functools import wraps
@@ -83,6 +83,9 @@ def qgl2meas(import_path=None):
 
     return deco
 
+# FIXME: Explain what this and the constants below are
+# A QRegister is a QGL2 container for 1+ qubits, in a specific order. The same qubit
+# should not appear more than once in a single QRegister
 def QRegister(*args):
     pass
 
@@ -92,9 +95,12 @@ def QRegister(*args):
 #
 # These names might need to change if they are confused with local symbols
 #
-classical = True
-qreg = True
-qreg_list = True
-pulse = True
+# Classical (no quantum) value
+classical = True 
+# A QRegister (of 1+ qubits)
+qreg = True 
+# For a function that generates a pulse
+pulse = True 
 sequence = True
-control = True
+# A control pulse
+control = True 

@@ -20,13 +20,17 @@ class TestAllXY(unittest.TestCase):
         channel_setup()
 
     def test_AllXY(self):
+        # QGL1 uses QubitFactory, QGL2 uses QRegister
         q1 = QubitFactory('q1')
-        qr = QRegister('q1')
+        qr = QRegister(1)
+
+        # Specify the QGL1 we expect QGL2 to generate
+        # Note in this case we specify only a sample of the start
         expectedseq = []
         # Expect a single sequence 4 * 2 * 21 pulses long
         # Expect it to start like this:
         expectedseq += [
-            qwait(channels=(q1,)),
+            qwait(channels=(q1,)), # aka init(q1) aka Wait(q1)
             Id(q1),
             Id(q1),
             MEAS(q1),
@@ -42,16 +46,23 @@ class TestAllXY(unittest.TestCase):
         # NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
         # DebugMsg.set_level(0)
 
+        # Now compile the QGL2 to produce the function that would generate the expected sequence.
+        # Supply the path to the QGL2, the main function in that file, and a list of the args to that function.
         # Can optionally supply saveOutput=True to save the qgl1.py
         # file,
         # and intermediate_output="path-to-output-file" to save
         # intermediate products
-        resFunction = compile_function("src/python/qgl2/basic_sequences/AllXYMin.py",
-                                      "doAllXY",
-                                      (qr,))
+        resFunction = compile_function("src/python/qgl2/basic_sequences/AllXY.py",
+                                      "AllXY",
+                                       (qr,))
+        # Run the QGL2. Note that the generated function takes no arguments itself
         seqs = resFunction()
+        # Transform the returned sequences into the canonical form for comparing
+        # to the explicit QGL1 version above.
+        # EG, 'flatten' any embedded lists of sequences.
         seqs = testable_sequence(seqs)
 
+        # Assert that the QGL1 is the same as the generated QGL2
         self.assertEqual(len(seqs), 4*21*2)
         assertPulseSequenceEqual(self, seqs[:len(expectedseq)], expectedseq)
 
@@ -118,8 +129,10 @@ class TestCR(unittest.TestCase):
     def test_PiRabi(self):
         controlQ = QubitFactory('q1')
         targetQ = QubitFactory('q2')
+        controlQR = QRegister('q1')
+        targetQR = QRegister('q2')
+        qr = QRegister('q1', 'q2')
         edge = EdgeFactory(controlQ, targetQ)
-        # FIXME: Better values!?
         lengths = np.linspace(0, 4e-6, 11)
         riseFall=40e-9
         amp=1
@@ -154,8 +167,8 @@ class TestCR(unittest.TestCase):
         expected_seq += calseq
         expected_seq = testable_sequence(expected_seq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/CRMin.py",
-                                      "doPiRabi")
+        resFunction = compile_function("src/python/qgl2/basic_sequences/CR.py",
+                                       "PiRabi", (controlQR, targetQR, lengths, riseFall, amp, phase, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -165,12 +178,16 @@ class TestCR(unittest.TestCase):
     def test_EchoCRLen(self):
         controlQ = QubitFactory('q1')
         targetQ = QubitFactory('q2')
+        cR = QRegister('q1')
+        tR = QRegister('q2')
         # FIXME: Better values!?
         lengths = np.linspace(0, 2e-6, 11)
         riseFall=40e-9
         amp=1
         phase=0
         calRepeats=2
+        canc_amp=0
+        canc_phase=np.pi/2
 
         expected_seq = []
         # Seq1
@@ -178,8 +195,8 @@ class TestCR(unittest.TestCase):
             expected_seq += [
                 qwait(channels=(controlQ, targetQ)),
                 Id(controlQ),
-                echoCR(controlQ, targetQ, length=l, phase=phase,
-                       riseFall=riseFall),
+                echoCR(controlQ, targetQ, length=l, phase=phase, amp=amp, 
+                       riseFall=riseFall, canc_amp=canc_amp, canc_phase=canc_phase),
                 Id(controlQ),
                 Barrier(controlQ, targetQ),
                 MEAS(controlQ),
@@ -190,8 +207,8 @@ class TestCR(unittest.TestCase):
             expected_seq += [
                 qwait(channels=(controlQ, targetQ)),
                 X(controlQ),
-                echoCR(controlQ, targetQ, length=l, phase=phase,
-                       riseFall=riseFall),
+                echoCR(controlQ, targetQ, length=l, phase=phase, amp=amp,
+                       riseFall=riseFall, canc_amp=canc_amp, canc_phase=canc_phase),
                 X(controlQ),
                 Barrier(controlQ, targetQ),
                 MEAS(controlQ),
@@ -203,8 +220,9 @@ class TestCR(unittest.TestCase):
         expected_seq += cal_seqs
         expected_seq = testable_sequence(expected_seq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/CRMin.py",
-                                      "doEchoCRLen")
+        resFunction = compile_function("src/python/qgl2/basic_sequences/CR.py",
+                                       "EchoCRLen",
+                                       (cR, tR, lengths, riseFall, amp, phase, calRepeats, canc_amp, canc_phase)   )
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -214,11 +232,15 @@ class TestCR(unittest.TestCase):
     def test_EchoCRPhase(self):
         controlQ = QubitFactory('q1')
         targetQ = QubitFactory('q2')
+        cR = QRegister('q1')
+        tR = QRegister('q2')
         phases = np.linspace(0, pi/2, 11)
         riseFall=40e-9
         amp=1
         length=100e-9
         calRepeats=2
+        canc_amp=0
+        canc_phase=np.pi/2
         expected_seq = []
 
         # Seq1
@@ -226,8 +248,9 @@ class TestCR(unittest.TestCase):
             expected_seq += [
                 qwait(channels=(controlQ, targetQ)),
                 Id(controlQ),
-                echoCR(controlQ, targetQ, length=length, phase=p,
-                       riseFall=riseFall),
+                echoCR(controlQ, targetQ, length=length, phase=p, amp=amp,
+                       riseFall=riseFall, canc_amp=canc_amp, canc_phase=canc_phase),
+                Barrier(controlQ, targetQ),
                 X90(targetQ),
                 Id(controlQ),
                 Barrier(controlQ, targetQ),
@@ -240,8 +263,9 @@ class TestCR(unittest.TestCase):
             expected_seq += [
                 qwait(channels=(controlQ, targetQ)),
                 X(controlQ),
-                echoCR(controlQ, targetQ, length=length, phase=p,
-                       riseFall=riseFall),
+                echoCR(controlQ, targetQ, length=length, phase=p, amp=amp,
+                       riseFall=riseFall, canc_amp=canc_amp, canc_phase=canc_phase),
+                Barrier(controlQ, targetQ),
                 X90(targetQ),
                 X(controlQ),
                 Barrier(controlQ, targetQ),
@@ -254,8 +278,10 @@ class TestCR(unittest.TestCase):
         expected_seq += cal_seqs
         expected_seq = testable_sequence(expected_seq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/CRMin.py",
-                                      "doEchoCRPhase")
+        resFunction = compile_function("src/python/qgl2/basic_sequences/CR.py",
+                                       "EchoCRPhase",
+                                       (cR, tR, phases, riseFall, amp, length, calRepeats, canc_amp, canc_phase))
+
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -291,8 +317,8 @@ class TestDecoupling(unittest.TestCase):
 
         expectedseq = testable_sequence(expectedseq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/DecouplingMin.py",
-                                      "doHahnEcho",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/Decoupling.py",
+                                      "HahnEcho",
                                       (qr, pulseSpacings, periods, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -305,16 +331,17 @@ class TestDecoupling(unittest.TestCase):
 
         # Create numPulses sequences
         numPulses = [0, 2, 4, 6]
-        pulseSpacing = 500e-9 - q.pulse_params['length']
+        pulseSpacing = 500e-9
+        pulseSpacingDiff = pulseSpacing - q.pulse_params['length']
         calRepeats = 2
 
-        def addt180t(q, pulseSpacing, rep):
+        def addt180t(q, pulseSpacingDiff, rep):
             t180t = []
             for _ in range(rep):
                 t180t += [
-                    Id(q, pulseSpacing/2),
+                    Id(q, pulseSpacingDiff/2),
                     Y(q),
-                    Id(q, pulseSpacing/2)
+                    Id(q, pulseSpacingDiff/2)
                 ]
             return t180t
 
@@ -324,7 +351,7 @@ class TestDecoupling(unittest.TestCase):
                 qwait(channels=(q,)),
                 X90(q)
             ]
-            expectedseq += addt180t(q, pulseSpacing, rep)
+            expectedseq += addt180t(q, pulseSpacingDiff, rep)
             expectedseq += [
                 X90(q),
                 MEAS(q)
@@ -336,8 +363,8 @@ class TestDecoupling(unittest.TestCase):
 
         expectedseq = testable_sequence(expectedseq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/DecouplingMin.py",
-                                      "doCPMG",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/Decoupling.py",
+                                      "CPMG",
                                       (qr, numPulses, pulseSpacing, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -685,6 +712,7 @@ class TestT1T2(unittest.TestCase):
 
 if __name__ == '__main__':
     # To test everything in this file (say, using cProfile)
-    unittest.main("test.test_basic_mins")
+#    unittest.main("test.test_basic_mins")
     # To run just 1 test from this file, try something like:
-    # unittest.main("test.test_basic_mins", "TestBasicMins.test_AllXY")
+#    unittest.main("test.test_basic_mins", "TestCR.test_PiRabi")
+    unittest.main("test.test_basic_mins", "TestAllXY.test_AllXY")

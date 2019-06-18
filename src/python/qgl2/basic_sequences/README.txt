@@ -17,7 +17,7 @@ Qubits) must be hard coded in the `do*` methods in `*Min.py`. See
 issue #62, etc.
 * We don't yet have a good way to use the result of a `MEAS`, as in
 `Reset` in `Feedback.py`. See issue #66.
-* Qubits are not full objects so you can't use the `pulseParams`, as
+* Qubits are not full objects so you can't use the `pulse_params`, as
 in `doCPMG` or `doFlipFlop`. See issue #65.
 * Various file reading methods fail, so Clifford sequence functions as
 in `RB.py` fail. See issue #67, 68, 69.

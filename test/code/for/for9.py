@@ -1,13 +1,13 @@
 
-from qgl2.qgl2 import concur, qbit, qgl2decl, Qbit
+from qgl2.qgl2 import concur, qreg, qgl2decl
 from qgl2.qgl2 import Qbit
 
 @qgl2decl
-def MEAS(q: qbit):
+def MEAS(q: qreg):
     CHANMEAS(q)
 
 @qgl2decl
-def setup(a: qbit, b: qbit, c: qbit):
+def setup(a: qreg, b: qreg, c: qreg):
 
     with concur:
         for q in [a, b, c]:

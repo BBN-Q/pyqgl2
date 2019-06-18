@@ -1,13 +1,13 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qgl2main
+from qgl2.qgl2 import qgl2decl, qreg, qgl2main
 
 from QGL.PulsePrimitives import X, Id, MEAS, X90, U90
 from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
 from qgl2.basic_sequences.helpers import create_cal_seqs
-from qgl2.basic_sequences.new_helpers import addCalibration, compileAndPlot
+#from qgl2.basic_sequences.new_helpers import addCalibration, compileAndPlot
 from qgl2.util import init
 from qgl2.qgl1 import X90, Id, U90, MEAS, X, QubitFactory
 from qgl2.qgl1 import Sync, Wait
@@ -15,7 +15,7 @@ from qgl2.qgl1 import Sync, Wait
 from scipy.constants import pi
 import numpy as np
 
-def InversionRecoveryq1(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=False):
+def InversionRecoveryq1(qubit: qreg, delays, showPlot=False, calRepeats=2, suffix=False):
     """
     Inversion recovery experiment to measure qubit T1
 
@@ -48,7 +48,7 @@ def InversionRecoveryq1(qubit: qbit, delays, showPlot=False, calRepeats=2, suffi
         seqs.append(seq)
 
     # Tack on calibration
-    seqs = addCalibration(seqs, (qubit,), calRepeats)
+#    seqs = addCalibration(seqs, (qubit,), calRepeats)
 
     # Calculate label
     label = 'T1'+('_'+qubit.label)*suffix
@@ -56,10 +56,10 @@ def InversionRecoveryq1(qubit: qbit, delays, showPlot=False, calRepeats=2, suffi
 
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
-    compileAndPlot(seqs, fullLabel, showPlot)
+#    compileAndPlot(seqs, fullLabel, showPlot)
 
 @qgl2decl
-def InversionRecovery(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=False):
+def InversionRecovery(qubit: qreg, delays, showPlot=False, calRepeats=2, suffix=False):
     """
     Inversion recovery experiment to measure qubit T1
 
@@ -98,9 +98,9 @@ def InversionRecovery(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot(fullLabel, showPlot)
+#    compileAndPlot(fullLabel, showPlot)
 
-def Ramseyq1(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2, suffix=False):
+def Ramseyq1(qubit: qreg, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2, suffix=False):
     """
     Variable pulse spacing Ramsey (pi/2 - tau - pi/2) with optional TPPI.
 
@@ -147,7 +147,7 @@ def Ramseyq1(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=
         seqs.append(seq)
 
     # Tack on calibration
-    seqs = addCalibration(seqs, (qubit,), calRepeats)
+#    seqs = addCalibration(seqs, (qubit,), calRepeats)
 
     # Calculate label
     label = 'Ramsey'+('_'+qubit.label)*suffix
@@ -155,9 +155,9 @@ def Ramseyq1(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=
 
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
-    compileAndPlot(seqs, fullLabel, showPlot)
+#    compileAndPlot(seqs, fullLabel, showPlot)
 
-# produce a Ramsey sequence on qbit named q
+# produce a Ramsey sequence on qreg named q
 # pulse spacings: 100ns to 10us step by 100ns
 # TPPIFreq: 1Mhz (arg is in hz)
 @qgl2decl
@@ -214,7 +214,7 @@ def doRamsey():
     create_cal_seqs((q,), calRepeats)
 
 @qgl2decl
-def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2, suffix=False):
+def Ramsey(qubit: qreg, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2, suffix=False):
     """
     Variable pulse spacing Ramsey (pi/2 - tau - pi/2) with optional TPPI.
 
@@ -267,18 +267,18 @@ def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2,
 
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot(fullLabel, showPlot)
+#    compileAndPlot(fullLabel, showPlot)
 
 # Imports for testing only
 from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement
-import QGL.ChannelLibraries as ChannelLibrary
+import QGL.ChannelLibraries as ChannelLibraries
 from qgl2.qgl1 import QubitFactory
 import numpy as np
 from math import pi
 
 @qgl2main
 def main():
-    # Set up 2 qbits, following model in QGL/test/test_Sequences
+    # Set up 2 qregs, following model in QGL/test/test_Sequences
 
     # FIXME: Cannot use these in current QGL2 compiler, because
     # a: QGL2 doesn't understand creating class instances, and 
@@ -293,8 +293,8 @@ def main():
 #    Mq1gate = LogicalMarkerChannel(label='M-q1-gate')
 #    m = Measurement(label='M-q1', gate_chan = Mq1gate, trig_chan = dTrig)
 
-#    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
-#    ChannelLibrary.channelLib.channelDict = {
+#    ChannelLibraries.channelLib = ChannelLibraries.ChannelLibrary(blank=True)
+#    ChannelLibraries.channelLib.channelDict = {
 #        'q1-gate': qg1,
 #        'q1': q1,
 #        'slaveTrig': sTrig,

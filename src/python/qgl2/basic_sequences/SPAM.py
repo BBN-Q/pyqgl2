@@ -2,20 +2,20 @@
 
 # See SPAMMin for cleaner QGL2 versions
 
-from qgl2.qgl2 import qgl2decl, qbit, qgl2main, pulse
+from qgl2.qgl2 import qgl2decl, qreg, qgl2main, pulse
 
 from QGL.PulsePrimitives import X, U, Y90, X90, MEAS, Id
 from QGL.Compiler import compile_to_hardware
 from QGL.PulseSequencePlotter import plot_pulse_files
 
-from qgl2.basic_sequences.new_helpers import compileAndPlot, addMeasPulse
+#from qgl2.basic_sequences.new_helpers import compileAndPlot, addMeasPulse
 from qgl2.util import init
 
 from itertools import chain
 from numpy import pi
 
 @qgl2decl
-def spam_seqs(angle, qubit: qbit, maxSpamBlocks=10):
+def spam_seqs(angle, qubit: qreg, maxSpamBlocks=10):
     """ Helper function to create a list of sequences increasing SPAM blocks with a given angle. """
     #SPAMBlock = [X(qubit), U(qubit, phase=pi/2+angle), X(qubit), U(qubit, phase=pi/2+angle)]
     #return [[Y90(qubit)] + SPAMBlock*rep + [X90(qubit)] for rep in range(maxSpamBlocks)]
@@ -31,7 +31,7 @@ def spam_seqs(angle, qubit: qbit, maxSpamBlocks=10):
         MEAS(qubit)
 
 @qgl2decl
-def SPAM(qubit: qbit, angleSweep, maxSpamBlocks=10, showPlot=False):
+def SPAM(qubit: qreg, angleSweep, maxSpamBlocks=10, showPlot=False):
     """
     X-Y sequence (X-Y-X-Y)**n to determine quadrature angles or mixer correction.
 
@@ -80,9 +80,9 @@ def SPAM(qubit: qbit, angleSweep, maxSpamBlocks=10, showPlot=False):
     # FIXME: Do this in caller
     # Here we rely on the QGL compiler to pass in the sequence it
     # generates to compileAndPlot
-    compileAndPlot('SPAM/SPAM', showPlot)
+#    compileAndPlot('SPAM/SPAM', showPlot)
 
-def SPAMq1(qubit: qbit, angleSweep, maxSpamBlocks=10, showPlot=False):
+def SPAMq1(qubit: qreg, angleSweep, maxSpamBlocks=10, showPlot=False):
     """
     X-Y sequence (X-Y-X-Y)**n to determine quadrature angles or mixer correction.
 
@@ -145,11 +145,11 @@ def SPAMq1(qubit: qbit, angleSweep, maxSpamBlocks=10, showPlot=False):
     seqs.append([X(qubit)])
 
     # # Add the measurment block to every sequence
-    seqs = addMeasPulse(seqs, qubit)
+#    seqs = addMeasPulse(seqs, qubit)
 
     # Be sure to un-decorate this function to make it work without the
     # QGL2 compiler
-    compileAndPlot(seqs, 'SPAM/SPAM', showPlot)
+#    compileAndPlot(seqs, 'SPAM/SPAM', showPlot)
 
 # Imports for testing only
 from QGL.Channels import Qubit, LogicalMarkerChannel

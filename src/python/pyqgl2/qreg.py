@@ -50,21 +50,28 @@ class QRegister(object):
                 if ct not in QRegister.KNOWN_QUBITS:
                     self.qubits.append(ct)
                 ct += 1
+        elif len(args) == 1 and isinstance(args[0], QRegister):
+            # duplicates the QRegister; allows failsafe creating QRegiser whatever the arg
+            self.qubits = args[0].qubits
         elif all(isinstance(x, str) for x in args):
             # named qubits
             for arg in args:
                 # assume names are of the form "qN"
                 # TODO throw an error if the provided string doesn't have that form
-                idx = int(arg[1:])
+                try:
+                    idx = int(arg[1:])
+                except ValueError as ve:
+                    raise ValueError(f"QRegister names must be of the form q<int>: '{arg}'")
                 self.qubits.append(idx)
         elif all(isinstance(x, QRegister) for x in args):
             # concatenated register
             for arg in args:
+                # FIXME: What overlaps does this disallow?
                 if arg.qubits in self.qubits:
-                    raise NameError("Non-disjoint qubit sets in concatenated registers")
+                    raise NameError(f"Non-disjoint qubit sets in concatenated registers. {arg} has duplicates with others in {args}")
                 self.qubits.extend(arg.qubits)
         else:
-            raise NameError("Invalid QRegister constructor.")
+            raise NameError(f"Invalid QRegister constructor 'QRegister({args})'.")
 
         # add qubits to KNOWN_QUBITS
         for q in self.qubits:

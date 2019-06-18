@@ -12,135 +12,142 @@ from QGL.PulsePrimitives import Id, X, MEAS
 from QGL.ControlFlow import qsync, qwait, ControlInstruction, Goto, Barrier
 from QGL.BlockLabel import BlockLabel
 
+from pyqgl2.test_cl import create_default_channelLibrary
+
 import collections
 from math import pi
 
 def channel_setup(new=True):
     # new indicates replace any existing library
     # Otherwise if there is an existing library, use it
-    if not new and len(ChannelLibraries.channelLib.keys()) != 0:
-        create_channel_library(ChannelLibraries.channelLib.channelDict)
+    # FIXME: For now, supplying first arg false meaning do not create physical channel mappings
+    if not new and ChannelLibraries.channelLib is not None and len(ChannelLibraries.channelLib.keys()) != 0:
+        create_default_channelLibrary(False, False)
+        # create_channel_library(ChannelLibraries.channelLib.channelDict)
     else:
-        create_channel_library(new=True)
+        create_default_channelLibrary(False, True)
+        # create_channel_library(new=True)
 
-# Create a basic channel library
-# Code stolen from QGL's test_Sequences
-# It creates channels that are taken from test_Sequences APS2Helper
-def create_channel_library(channels=dict(), new=False):
-    from QGL.Channels import LogicalMarkerChannel, PhysicalQuadratureChannel, PhysicalMarkerChannel
+# # OBE: Create a basic channel library
+# # Code stolen from QGL's test_Sequences
+# # It creates channels that are taken from test_Sequences APS2Helper
+# def create_channel_library(channels=dict(), new=False):
+#     from QGL.Channels import LogicalMarkerChannel, PhysicalQuadratureChannel, PhysicalMarkerChannel
 
-    ChannelLibraries.ChannelLibrary(blank=True)
+#     ChannelLibraries.ChannelLibrary(blank=True)
 
-    qubit_names = ['q1','q2','q3']
-    logical_names = ['digitizerTrig', 'slaveTrig']
+#     qubit_names = ['q1','q2','q3']
+#     logical_names = ['digitizerTrig', 'slaveTrig']
 
-    for name in logical_names:
-        channels[name] = LogicalMarkerChannel(label=name)
+#     for name in logical_names:
+#         channels[name] = LogicalMarkerChannel(label=name)
 
-    for name in qubit_names:
-        mName = 'M-' + name
-        mgName = 'M-' + name + '-gate'
-        qgName = name + '-gate'
+#     for name in qubit_names:
+#         mName = 'M-' + name
+#         mgName = 'M-' + name + '-gate'
+#         qgName = name + '-gate'
 
-        mg = LogicalMarkerChannel(label=mgName)
-        qg = LogicalMarkerChannel(label=qgName)
+#         mg = LogicalMarkerChannel(label=mgName)
+#         qg = LogicalMarkerChannel(label=qgName)
 
-        m = MeasFactory(label=mName, gate_chan = mg, trig_chan=channels['digitizerTrig'])
+#         m = MeasFactory(label=mName, gate_chan = mg, trig_chan=channels['digitizerTrig'])
 
-        q = QubitFactory(label=name, gate_chan=qg)
-        q.pulse_params['length'] = 30e-9
-        q.pulse_params['phase'] = pi/2
+#         q = QubitFactory(label=name, gate_chan=qg)
+#         q.pulse_params['length'] = 30e-9
+#         q.pulse_params['phase'] = pi/2
 
-        channels[name] = q
-        channels[mName] = m
-        channels[mgName]  = mg
-        channels[qgName]  = qg
+#         channels[name] = q
+#         channels[mName] = m
+#         channels[mgName]  = mg
+#         channels[qgName]  = qg
 
-    # this block depends on the existence of q1 and q2
-    channels['cr-gate'] = LogicalMarkerChannel(label='cr-gate')
+#     # this block depends on the existence of q1 and q2
+#     channels['cr-gate'] = LogicalMarkerChannel(label='cr-gate')
 
-    q1, q2 = channels['q1'], channels['q2']
-    cr = None
-    try:
-        cr = EdgeFactory(q1, q2)
-    except:
-        cr = Edge(label="cr", source = q1, target = q2, gate_chan = channels['cr-gate'] )
-    cr.pulse_params['length'] = 30e-9
-    cr.pulse_params['phase'] = pi/4
-    channels["cr"] = cr
+#     q1, q2 = channels['q1'], channels['q2']
+#     cr = None
+#     try:
+#         cr = EdgeFactory(q1, q2)
+#     except:
+#         cr = Edge(label="cr", source = q1, target = q2, gate_chan = channels['cr-gate'] )
+#     cr.pulse_params['length'] = 30e-9
+#     cr.pulse_params['phase'] = pi/4
+#     channels["cr"] = cr
 
-    mq1q2g = LogicalMarkerChannel(label='M-q1q2-gate')
-    channels['M-q1q2-gate']  = mq1q2g
-    channels['M-q1q2']       = Measurement(label='M-q1q2', gate_chan = mq1q2g, trig_chan=channels['digitizerTrig'])
+#     mq1q2g = LogicalMarkerChannel(label='M-q1q2-gate')
+#     channels['M-q1q2-gate']  = mq1q2g
+#     channels['M-q1q2']       = Measurement(label='M-q1q2', gate_chan = mq1q2g, trig_chan=channels['digitizerTrig'])
 
-    # Add a 2nd edge from q2 back to q1 to support edgeTest4 (which is weird)
-    channels['cr2-gate'] = LogicalMarkerChannel(label='cr2-gate')
-    cr2 = None
-    try:
-        cr2 = EdgeFactory(q2, q1)
-    except:
-        cr2 = Edge(label="cr2", source = q2, target = q1, gate_chan = channels['cr2-gate'] )
-    cr2.pulse_params['length'] = 30e-9
-    cr2.pulse_params['phase'] = pi/4
-    channels["cr2"] = cr2
+#     # Add a 2nd edge from q2 back to q1 to support edgeTest4 (which is weird)
+#     channels['cr2-gate'] = LogicalMarkerChannel(label='cr2-gate')
+#     cr2 = None
+#     try:
+#         cr2 = EdgeFactory(q2, q1)
+#     except:
+#         cr2 = Edge(label="cr2", source = q2, target = q1, gate_chan = channels['cr2-gate'] )
+#     cr2.pulse_params['length'] = 30e-9
+#     cr2.pulse_params['phase'] = pi/4
+#     channels["cr2"] = cr2
 
-    mq2q1g = LogicalMarkerChannel(label='M-q2q1-gate')
-    channels['M-q2q1-gate']  = mq2q1g
-    channels['M-q2q1']       = Measurement(label='M-q2q1', gate_chan = mq2q1g, trig_chan=channels['digitizerTrig'])
+#     mq2q1g = LogicalMarkerChannel(label='M-q2q1-gate')
+#     channels['M-q2q1-gate']  = mq2q1g
+#     channels['M-q2q1']       = Measurement(label='M-q2q1', gate_chan = mq2q1g, trig_chan=channels['digitizerTrig'])
 
-    # Now assign physical channels
-    for name in ['APS1', 'APS2', 'APS3', 'APS4', 'APS5', 'APS6',
-                 'APS7', 'APS8', 'APS9', 'APS10']:
-        channelName = name + '-12'
-        channel = PhysicalQuadratureChannel(label=channelName)
-        channel.sampling_rate = 1.2e9
-        channel.instrument = name
-        channel.translator = 'APS2Pattern'
-        channels[channelName] = channel
+#     # Now assign physical channels
+#     for name in ['APS1', 'APS2', 'APS3', 'APS4', 'APS5', 'APS6',
+#                  'APS7', 'APS8', 'APS9', 'APS10']:
+#         channelName = name + '-12'
+#         channel = PhysicalQuadratureChannel(label=channelName)
+#         channel.sampling_rate = 1.2e9
+#         channel.instrument = name
+#         channel.translator = 'APS2Pattern'
+#         channels[channelName] = channel
 
-        for m in range(1,5):
-            channelName = "{0}-12m{1}".format(name,m)
-            channel = PhysicalMarkerChannel(label=channelName)
-            channel.sampling_rate = 1.2e9
-            channel.instrument = name
-            channel.translator = 'APS2Pattern'
-            channels[channelName] = channel
+#         for m in range(1,5):
+#             channelName = "{0}-12m{1}".format(name,m)
+#             channel = PhysicalMarkerChannel(label=channelName)
+#             channel.sampling_rate = 1.2e9
+#             channel.instrument = name
+#             channel.translator = 'APS2Pattern'
+#             channels[channelName] = channel
 
-    mapping = {	'digitizerTrig' : 'APS1-12m1',
-                'slaveTrig'     : 'APS1-12m2',
-                'q1'            : 'APS1-12',
-                'q1-gate'       : 'APS1-12m3',
-                'M-q1'          : 'APS2-12',
-                'M-q1-gate'     : 'APS2-12m1',
-                'q2'            : 'APS3-12',
-                'q2-gate'       : 'APS3-12m1',
-                'M-q2'          : 'APS4-12',
-                'M-q2-gate'     : 'APS4-12m1',
-                'q3'            : 'APS7-12',
-                'q3-gate'       : 'APS7-12m1',
-                'M-q3'          : 'APS8-12',
-                'M-q3-gate'     : 'APS8-12m1',
-                'cr'            : 'APS5-12',
-                'cr-gate'       : 'APS5-12m1',
-                'M-q1q2'        : 'APS6-12',
-                'M-q1q2-gate'   : 'APS6-12m1',
-                'cr2'           : 'APS9-12',
-                'cr2-gate'      : 'APS9-12m1',
-                'M-q2q1'        : 'APS10-12',
-                'M-q2q1-gate'   : 'APS10-12m1'}
+#     mapping = {	'digitizerTrig' : 'APS1-12m1',
+#                 'slaveTrig'     : 'APS1-12m2',
+#                 'q1'            : 'APS1-12',
+#                 'q1-gate'       : 'APS1-12m3',
+#                 'M-q1'          : 'APS2-12',
+#                 'M-q1-gate'     : 'APS2-12m1',
+#                 'q2'            : 'APS3-12',
+#                 'q2-gate'       : 'APS3-12m1',
+#                 'M-q2'          : 'APS4-12',
+#                 'M-q2-gate'     : 'APS4-12m1',
+#                 'q3'            : 'APS7-12',
+#                 'q3-gate'       : 'APS7-12m1',
+#                 'M-q3'          : 'APS8-12',
+#                 'M-q3-gate'     : 'APS8-12m1',
+#                 'cr'            : 'APS5-12',
+#                 'cr-gate'       : 'APS5-12m1',
+#                 'M-q1q2'        : 'APS6-12',
+#                 'M-q1q2-gate'   : 'APS6-12m1',
+#                 'cr2'           : 'APS9-12',
+#                 'cr2-gate'      : 'APS9-12m1',
+#                 'M-q2q1'        : 'APS10-12',
+#                 'M-q2q1-gate'   : 'APS10-12m1'}
 
-    finalize_map(mapping, channels, new)
-    return channels
+#     finalize_map(mapping, channels, new)
+#     return channels
 
-# Store the given channels in the QGL ChannelLibraries
-def finalize_map(mapping, channels, new=False):
-    for name,value in mapping.items():
-        channels[name].phys_chan = channels[value]
+# # OBE: Store the given channels in the QGL ChannelLibraries
+# def finalize_map(mapping, channels, new=False):
+#     for name,value in mapping.items():
+#         channels[name].phys_chan = channels[value]
 
-    if new:
-        ChannelLibraries.channelLib = ChannelLibraries.ChannelLibrary(blank=True)
-    ChannelLibraries.channelLib.channelDict = channels
-    ChannelLibraries.channelLib.build_connectivity_graph()
+#     if new:
+#         ChannelLibraries.channelLib = ChannelLibraries.ChannelLibrary(blank=True)
+#     ChannelLibraries.channelLib.channelDict = channels
+#     ChannelLibraries.channelLib.build_connectivity_graph()
+
+
 
 def discard_zero_Ids(seqs):
     # assume seqs has a structure like [[entry0, entry1, ..., entryN]]
