@@ -411,8 +411,8 @@ class TestFlipFlop(unittest.TestCase):
             X(qubit),
             MEAS(qubit)
         ]
-        resFunction = compile_function("src/python/qgl2/basic_sequences/FlipFlopMin.py",
-                                      "doFlipFlop",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/FlipFlop.py",
+                                      "FlipFlop",
                                       (qr, dragParamSweep, maxNumFFs))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
