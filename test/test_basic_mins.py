@@ -670,8 +670,8 @@ class TestT1T2(unittest.TestCase):
 
         expectedseq = testable_sequence(expectedseq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/T1T2Min.py",
-                                      "doInversionRecovery",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/T1T2.py",
+                                      "InversionRecovery",
                                       (qr, delays, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -703,8 +703,8 @@ class TestT1T2(unittest.TestCase):
 
         expectedseq = testable_sequence(expectedseq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/T1T2Min.py",
-                                      "doRamsey",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/T1T2.py",
+                                      "Ramsey",
                                       (qr, delays, TPPIFreq, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
