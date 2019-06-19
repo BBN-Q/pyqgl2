@@ -7,6 +7,7 @@
 from qgl2.qgl2 import qreg, pulse, qgl2stub, qgl2meas, control, classical
 
 # Many uses of Id supply a delay. That's the length: an int or float
+# Must use the label 'length'
 # FIXME: Do we need to include that explicitly?
 @qgl2stub('QGL.PulsePrimitives')
 def Id(channel: qreg, *args, **kwargs) -> pulse:
