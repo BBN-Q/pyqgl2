@@ -4,9 +4,7 @@
 
 from qgl2.qgl2 import qgl2decl, qreg, qgl2main, pulse
 
-from QGL.PulsePrimitives import X, U, Y90, X90, MEAS, Id
-from QGL.Compiler import compile_to_hardware
-from QGL.PulseSequencePlotter import plot_pulse_files
+from qgl2.qgl1 import X, U, Y90, X90, MEAS, Id
 
 #from qgl2.basic_sequences.new_helpers import compileAndPlot, addMeasPulse
 from qgl2.util import init
@@ -31,7 +29,7 @@ def spam_seqs(angle, qubit: qreg, maxSpamBlocks=10):
         MEAS(qubit)
 
 @qgl2decl
-def SPAM(qubit: qreg, angleSweep, maxSpamBlocks=10, showPlot=False):
+def SPAM(qubit: qreg, angleSweep, maxSpamBlocks=10):
     """
     X-Y sequence (X-Y-X-Y)**n to determine quadrature angles or mixer correction.
 
@@ -40,7 +38,6 @@ def SPAM(qubit: qreg, angleSweep, maxSpamBlocks=10, showPlot=False):
     qubit : logical channel to implement sequence (LogicalChannel) 
     angleSweep : angle shift to sweep over
     maxSpamBlocks : maximum number of XYXY block to do
-    showPlot : whether to plot (boolean)
     """
     # Original:
     # def spam_seqs(angle):
@@ -77,101 +74,67 @@ def SPAM(qubit: qreg, angleSweep, maxSpamBlocks=10, showPlot=False):
     X(qubit)
     MEAS(qubit)
 
-    # FIXME: Do this in caller
-    # Here we rely on the QGL compiler to pass in the sequence it
-    # generates to compileAndPlot
 #    compileAndPlot('SPAM/SPAM', showPlot)
 
-def SPAMq1(qubit: qreg, angleSweep, maxSpamBlocks=10, showPlot=False):
-    """
-    X-Y sequence (X-Y-X-Y)**n to determine quadrature angles or mixer correction.
-
-    Parameters
-    ----------
-    qubit : logical channel to implement sequence (LogicalChannel) 
-    angleSweep : angle shift to sweep over
-    maxSpamBlocks : maximum number of XYXY block to do
-    showPlot : whether to plot (boolean)
-    """
-    # Original:
-    # def spam_seqs(angle):
-    #     """ Helper function to create a list of sequences increasing SPAM blocks with a given angle. """
-    #     SPAMBlock = [X(qubit), U(qubit, phase=pi/2+angle), X(qubit), U(qubit, phase=pi/2+angle)]
-    #     return [[Y90(qubit)] + SPAMBlock*rep + [X90(qubit)] for rep in range(maxSpamBlocks)]
-
-    # # Insert an identity at the start of every set to mark them off
-    # seqs = list(chain.from_iterable([[[Id(qubit)]] + spam_seqs(angle) for angle in angleSweep]))
-
-    # # Add a final pi for reference
-    # seqs.append([X(qubit)])
-
-    # # Add the measurment block to every sequence
-    # measBlock = MEAS(qubit)
-    # for seq in seqs:
-    #     seq.append(measBlock)
-
-    # fileNames = compile_to_hardware(seqs, 'SPAM/SPAM')
-    # print(fileNames)
-
-    # if showPlot:
-    #     plot_pulse_files(fileNames)
-
-    def spam_seqs(angle):
-        """ Helper function to create a list of sequences increasing SPAM blocks with a given angle. """
-        #SPAMBlock = [X(qubit), U(qubit, phase=pi/2+angle), X(qubit), U(qubit, phase=pi/2+angle)]
-        #return [[Y90(qubit)] + SPAMBlock*rep + [X90(qubit)] for rep in range(maxSpamBlocks)]
-        seqs = []
-        for rep in range(maxSpamBlocks):
-            seq = []
-            seq.append(Y90(qubit))
-            for _ in range(rep):
-                seq.append(X(qubit))
-                seq.append(U(qubit, phase=pi/2+angle))
-                seq.append(X(qubit))
-                seq.append(U(qubit, phase=pi/2+angle))
-            seq.append(X90(qubit))
-            seqs.append(seq)
-        return seqs
-
-    # Insert an identity at the start of every set to mark them off
-    seqs = []
-    for angle in angleSweep:
-        seqs.append([Id(qubit)])
-        spams = spam_seqs(angle)
-        for elem in spams:
-            seqs.append(elem)
-
-    # Add a final pi for reference
-    seqs.append([X(qubit)])
-
-    # # Add the measurment block to every sequence
-#    seqs = addMeasPulse(seqs, qubit)
-
-    # Be sure to un-decorate this function to make it work without the
-    # QGL2 compiler
-#    compileAndPlot(seqs, 'SPAM/SPAM', showPlot)
-
-# Imports for testing only
-from QGL.Channels import Qubit, LogicalMarkerChannel
-from qgl2.qgl1 import Qubit, QubitFactory
-import numpy as np
-from math import pi
-
-@qgl2main
+# QGL1 function to compile the above QGL2
+# Uses main.py
+# FIXME: Use the same argument parsing
 def main():
-    # Set up 1 qbit, following model in QGL/test/test_Sequences
+    from pyqgl2.qreg import QRegister
+    import pyqgl2.test_cl
+    from pyqgl2.main import compile_function, qgl2_compile_to_hardware
+    import numpy as np
 
-    # FIXME: Cannot use these in current QGL2 compiler, because
-    # a: QGL2 doesn't understand creating class instances, and 
-    # b: QGL2 currently only understands the fake Qbits
-#    qg1 = LogicalMarkerChannel(label="q1-gate")
-#    q1 = Qubit(label='q1', gate_chan=qg1)
-#    q1.pulse_params['length'] = 30e-9
-#    q1.pulse_params['phase'] = pi/2
+    toHW = True
+    plotPulses = True
+    pyqgl2.test_cl.create_default_channelLibrary(toHW, True)
 
-    # Use stub Qubits, but comment this out when running directly.
-    q1 = QubitFactory("q1")
-    SPAM(q1, np.linspace(0, pi/2, 11))
+#    # To turn on verbose logging in compile_function
+#    from pyqgl2.ast_util import NodeError
+#    from pyqgl2.debugmsg import DebugMsg
+#    NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+#    DebugMsg.set_level(0)
+
+    # Now compile the QGL2 to produce the function that would generate the expected sequence.
+    # Supply the path to the QGL2, the main function in that file, and a list of the args to that function.
+    # Can optionally supply saveOutput=True to save the qgl1.py
+    # file,
+    # and intermediate_output="path-to-output-file" to save
+    # intermediate products
+
+    # Pass in a QRegister NOT the real Qubit
+    q = QRegister(1)
+    # SPAM(q1, np.linspace(0, pi/2, 11))
+
+    # - test_basic_mins uses np.linspace(0,1,11)
+    # Here we know the function is in the current file
+    # You could use os.path.dirname(os.path.realpath(__file)) to find files relative to this script,
+    # Or os.getcwd() to get files relative to where you ran from. Or always use absolute paths.
+    resFunction = compile_function(__file__,
+                                               "SPAM",
+                                               (q, np.linspace(0, pi/2, 11), 10))
+    # Run the QGL2. Note that the generated function takes no arguments itself
+    sequences = resFunction()
+    if toHW:
+        print("Compiling sequences to hardware\n")
+        fileNames = qgl2_compile_to_hardware(sequences, 'SPAM/SPAM')
+        print(f"Compiled sequences; metafile = {fileNames}")
+        if plotPulses:
+            from QGL.PulseSequencePlotter import plot_pulse_files
+            # FIXME: As called, this returns a graphical object to display
+            plot_pulse_files(fileNames)
+    else:
+        print("\nGenerated sequences:\n")
+        from QGL.Scheduler import schedule
+
+        scheduled_seq = schedule(sequences)
+        from IPython.lib.pretty import pretty
+        print(pretty(scheduled_seq))
 
 if __name__ == "__main__":
+    # I'd like to call pyqgl2.main but with particular args
+    # if -toHW or -showplot, pass those on
+    # to run a basic sequence, run
+    # basic_sequences/filename.py -m doTestname [-toHW [-showplt]]
+    # pyqgl2.main.__main__(sys.argv[1:]
     main()

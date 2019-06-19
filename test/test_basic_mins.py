@@ -639,8 +639,8 @@ class TestSPAM(unittest.TestCase):
             X(q),
             MEAS(q)
         ]
-        resFunction = compile_function("src/python/qgl2/basic_sequences/SPAMMin.py",
-                                      "doSPAM",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/SPAM.py",
+                                      "SPAM",
                                       (qr, angleSweep, maxSpamBlocks))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
