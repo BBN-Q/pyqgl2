@@ -86,9 +86,9 @@ def flat_top_gaussian_edge(source: qreg, target: qreg, riseFall,
     print('flat_top_gaussian_edge')
 
 # Helper for CPMG, to get around not being able to access qubit params (issue #37)
-@qgl2stub('qgl2.qgl1_util', 'idPulseCentered')
-def idPulseCentered(qubit: qreg, pulseSpacing) -> pulse:
-    print("Id(qubit, length=(pulseSpacing - qubit.pulse_params['length']) / 2)")
+@qgl2stub('qgl2.qgl1_util', 'pulseCentered')
+def pulseCentered(qbuti: qreg, pFunc, pulseSpacing) -> pulse:
+    print("pFunc(qubit, length=(pulseSpacing - qubit.pulse_params['length']) / 2)")
 
 @qgl2stub('QGL.PulsePrimitives')
 def echoCR(controlQ: qreg, targetQ: qreg, amp=1, phase=0, length=200e-9, riseFall=20e-9, lastPi=True) -> pulse:

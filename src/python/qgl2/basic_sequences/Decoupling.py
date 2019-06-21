@@ -4,7 +4,7 @@
 
 from qgl2.qgl2 import qgl2decl, qreg
 
-from qgl2.qgl1 import X90, Id, Y, U90, MEAS, idPulseCentered
+from qgl2.qgl1 import X90, Id, Y, U90, MEAS, pulseCentered
 from qgl2.basic_sequences.helpers import create_cal_seqs
 #from qgl2.basic_sequences.new_helpers import addCalibration, compileAndPlot
 from qgl2.util import init
@@ -90,9 +90,9 @@ def CPMG(qubit: qreg, numPulses, pulseSpacing, calRepeats=2):
         X90(qubit)
         # Repeat the t-180-t block rep times
         for _ in range(rep):
-            idPulseCentered(qubit, pulseSpacing)
+            pulseCentered(qubit, Id, pulseSpacing)
             Y(qubit)
-            idPulseCentered(qubit, pulseSpacing)
+            pulseCentered(qubit, Id, pulseSpacing)
         X90(qubit)
         MEAS(qubit)
 
