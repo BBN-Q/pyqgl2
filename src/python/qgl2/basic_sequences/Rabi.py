@@ -1,34 +1,16 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-# See RabiMin for more function QGL2 versions of these functions.
-
-import QGL.PulseShapes
-from QGL.PulsePrimitives import Utheta, MEAS, X, Id
-from QGL.Compiler import compile_to_hardware
-from QGL.PulseSequencePlotter import plot_pulse_files
-
-from qgl2.basic_sequences.helpers import create_cal_seqs
-
+from qgl2.basic_sequences.helpers import create_cal_seqs, measConcurrently
+from qgl2.qgl2 import qgl2decl, qreg, QRegister
+from qgl2.qgl1 import Utheta, MEAS, X, Id
 from qgl2.util import init
-from pyqgl2.main import compile_function
 
-from functools import reduce
-import operator
-import os.path
-
-from qgl2.qgl2 import qgl2decl, qreg, qgl2main, concur
-from qgl2.qgl1 import Utheta, MEAS, X, Id, QubitFactory
-import numpy as np
+# For tanh shape function
+import QGL.PulseShapes
+#import qgl2.basic_sequences.pulses
 
 @qgl2decl
-def doRabiAmp(q:qreg, amps, phase):
-    for amp in np.linspace(0,1,11):
-        init(q)
-        Utheta(q, amp=amp, phase=phase)
-        MEAS(q)
-
-# currently ignores all arguments except 'qubit'
-def RabiAmp(qubit, amps, phase=0, showPlot=False):
+def RabiAmp(qubit: qreg, amps, phase=0):
     """
     Variable amplitude Rabi nutation experiment.
 
@@ -37,30 +19,25 @@ def RabiAmp(qubit, amps, phase=0, showPlot=False):
     qubit : logical channel to implement sequence (LogicalChannel)
     amps : pulse amplitudes to sweep over (iterable)
     phase : phase of the pulse (radians)
-    showPlot : whether to plot (boolean)
     """
-    resFunction = compile_function(
-        os.path.relpath(__file__),
-        "doRabiAmp",
-        (qubit, amps, phase)
-        )
-    seqs = resFunction()
-    return seqs
+    for amp in amps:
+        init(qubit)
+        Utheta(qubit, amp=amp, phase=phase)
+        MEAS(qubit)
+#    axis_descriptor = [{
+#        'name': 'amplitude',
+#        'unit': None,
+#        'points': list(amps),
+#        'partition': 1
+#    }]
 
-    fileNames = qgl2_compile_to_hardware(seqs, "Rabi/Rabi")
-    print(fileNames)
-    if showPlot:
-        plot_pulse_files(fileNames)
+#    metafile = compile_to_hardware(seqs, 'Rabi/Rabi', axis_descriptor=axis_descriptor)
 
+# FIXME: qgl2.basic_sequences.pulses.local_tanh no longer needed?
+# This function works in the unit test, but fails when compiling to HW with an index out of bounds.
+# Note that the QGL1 RabiWidth APS1 unit test is expected to fail with OOM, but this is different.
 @qgl2decl
-def doRabiWidth(q:qreg, widths, amp, phase, shape):
-    for l in widths:
-        init(q)
-        # FIXME: QGL2 loses the import needed for this QGL function
-        Utheta(q, length=l, amp=amp, phase=phase, shapeFun=shape)
-        MEAS(q)
-
-def RabiWidth(qubit, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh, showPlot=False):
+def RabiWidth(qubit: qreg, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh):
     """
     Variable pulse width Rabi nutation experiment.
 
@@ -70,39 +47,18 @@ def RabiWidth(qubit, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh, show
     widths : pulse widths to sweep over (iterable)
     phase : phase of the pulse (radians, default = 0)
     shapeFun : shape of pulse (function, default = PulseShapes.tanh)
-    showPlot : whether to plot (boolean)
     """
 
-    resFunction = compile_function(
-        os.path.relpath(__file__),
-        "doRabiWidth"
-        (qubit, widths, amp, phase, shapeFun)
-        )
-    seqs = resFunction()
-    return seqs
-
-    fileNames = qgl2_compile_to_hardware(seqs, "Rabi/Rabi")
-    print(fileNames)
-    if showPlot:
-        plot_pulse_files(fileNames)
+    for l in widths:
+        init(qubit)
+        Utheta(qubit, length=l, amp=amp, phase=phase, shapeFun=shapeFun)
+        MEAS(qubit)
+#    metafile = compile_to_hardware(seqs, 'Rabi/Rabi',
+#        axis_descriptor=[delay_descriptor(widths)])
 
 @qgl2decl
-def doRabiAmp_NQubits(qubits: qreg, amps, phase,
-                    measChans: qreg, docals, calRepeats):
-    for amp in amps:
-        with concur:
-            for q in qubits:
-                init(q)
-                Utheta(q, amp=amp, phase=phase)
-        with concur:
-            for m in measChans:
-                MEAS(m)
-
-    if docals:
-        create_cal_seqs(qubits, calRepeats, measChans)
-
-def RabiAmp_NQubitsq1(qubits, amps, phase=0, showPlot=False,
-                    measChans=None, docals=False, calRepeats=2):
+def RabiAmp_NQubits(qubits: qreg, amps, phase=0,
+                      measChans: qreg=None, docals=False, calRepeats=2):
     """
     Variable amplitude Rabi nutation experiment for an arbitrary number of qubits simultaneously
 
@@ -115,60 +71,63 @@ def RabiAmp_NQubitsq1(qubits, amps, phase=0, showPlot=False,
     measChans : tuble of qubits to be measured (LogicalChannel)
     docals, calRepeats: enable calibration sequences, repeated calRepeats times
     """
-
     if measChans is None:
         measChans = qubits
+    allChans = QRegister(qubits, measChans)
+    for amp in amps:
+        init(allChans)
+        Utheta(qubits, amp=amp, phase=phase)
+        measConcurrently(measChans)
 
-    resFunction = compile_function(
-        os.path.relpath(__file__),
-        "doRabiWidth",
-        (qubits, amps, phase, measChans, docals, calRepeats)
-        )
-    seqs = resFunction()
-    return seqs
+    if docals:
+        create_cal_seqs(qubits, calRepeats, measChans)
 
-    fileNames = qgl2_compile_to_hardware(seqs, "Rabi/Rabi")
-    print(fileNames)
-    if showPlot:
-        plot_pulse_files(fileNames)
+#    axis_descriptor = [
+#        {
+#            'name': 'amplitude',
+#            'unit': None,
+#            'points': list(amps),
+#            'partition': 1
+#        },
+#        cal_descriptor(qubits, calRepeats)
+#    ]
+
+#    metafile = compile_to_hardware(seqs, 'Rabi/Rabi',
+#        axis_descriptor=axis_descriptor)
 
 @qgl2decl
-def doRabiAmpPi(qubit: qreg, mqubit: qreg, amps, phase):
-    for amp in amps:
-        with concur:
-            init(qubit)
-            init(mqubit)
-        X(mqubit)
-        Utheta(qubit, amp=amp, phase=phase)
-        X(mqubit)
-        MEAS(mqubit)
-
-def RabiAmpPi(qubit: qreg, mqubit: qreg, amps, phase=0, showPlot=False):
+def RabiAmpPi(qubit: qreg, mqubit: qreg, amps, phase=0):
     """
     Variable amplitude Rabi nutation experiment.
 
     Parameters
     ----------
     qubit : logical channel to implement sequence (LogicalChannel)
+    mqubit : logical measurement channel to implement sequence (LogicalChannel)
+              If None and qubit is a register of 2 qubits, then 1st is qubit and 2nd is mqubit
     amps : pulse amplitudes to sweep over (iterable)
     phase : phase of the pulse (radians)
-    showPlot : whether to plot (boolean)
     """
-    resFunction = compile_function(
-        os.path.relpath(__file__),
-        "doRabiAmpPi",
-        (qubit, mqubit, amps, phase)
-        )
-    seqs = resFunction()
-    return seqs
+    if mqubit is None:
+        mqubit = qubit
+    qNm = QRegister(qubit, mqubit)
+    for amp in amps:
+        init(qNm)
+        X(mqubit)
+        Utheta(qubit, amp=amp, phase=phase)
+        X(mqubit)
+        MEAS(mqubit)
+#    axis_descriptor = [{
+#        'name': 'amplitude',
+#        'unit': None,
+#        'points': list(amps),
+#        'partition': 1
+#    }]
 
-    fileNames = qgl2_compile_to_hardware(seqs, "Rabi/Rabi")
-    print(fileNames)
-    if showPlot:
-        plot_pulse_files(fileNames)
+#    metafile = compile_to_hardware(seqs, 'Rabi/Rabi', axis_descriptor=axis_descriptor)
 
 @qgl2decl
-def doSingleShot(qubit: qreg):
+def SingleShot(qubit: qreg):
     """
     2-segment sequence with qubit prepared in |0> and |1>, useful for single-shot fidelity measurements and kernel calibration
     """
@@ -179,51 +138,30 @@ def doSingleShot(qubit: qreg):
     X(qubit)
     MEAS(qubit)
 
-def SingleShot(qubit: qreg, showPlot=False):
-    """
-    2-segment sequence with qubit prepared in |0> and |1>, useful for single-shot fidelity measurements and kernel calibration
-    """
-    resFunction = compile_function(
-        os.path.relpath(__file__),
-        "doSingleShot",
-        (qubit,)
-        )
-    seqs = resFunction()
-    return seqs
+#    axis_descriptor = {
+#        'name': 'state',
+#        'unit': 'state',
+#        'points': ["0", "1"],
+#        'partition': 1
+#    }
 
-    fileNames = qgl2_compile_to_hardware(seqs, "SingleShot/SingleShot")
-    print(fileNames)
-    if showPlot:
-        plot_pulse_files(fileNames)
+#    metafile = compile_to_hardware(seqs, 'SingleShot/SingleShot')
 
 @qgl2decl
-def doPulsedSpec(qubit: qreg, specOn):
+def PulsedSpec(qubit: qreg, specOn=True):
+    """
+    Measurement preceded by a qubit pulse if specOn = True
+    """
     init(qubit)
     if specOn:
         X(qubit)
     else:
         Id(qubit)
     MEAS(qubit)
-
-def PulsedSpec(qubit, specOn=True, showPlot=False):
-    """
-    Measurement preceded by a qubit pulse if specOn = True
-    """
-    resFunction = compile_function(
-        os.path.relpath(__file__),
-        "doSingleShot",
-        (qubit,)
-        )
-    seqs = resFunction()
-    return seqs
-
-    fileNames = qgl2_compile_to_hardware(seqs, "Spec/Spec")
-    print(fileNames)
-    if showPlot:
-        plot_pulse_files(fileNames)
+#    metafile = compile_to_hardware(seqs, 'Spec/Spec')
 
 @qgl2decl
-def doSwap(qubit: qreg, mqubit: qreg, delays):
+def Swap(qubit: qreg, delays, mqubit: qreg =None):
     # Original:
     # seqs = [[X(qubit), X(mqubit), Id(mqubit, d), MEAS(mqubit)*MEAS(qubit)] for d in delays] + create_cal_seqs((mqubit,qubit), 2, measChans=(mqubit,qubit))
 
@@ -233,39 +171,93 @@ def doSwap(qubit: qreg, mqubit: qreg, delays):
     # if showPlot:
     #     plotWin = plot_pulse_files(fileNames)
     #     return plotWin
+    if mqubit is None:
+        mqubit = qubit
+    allChans = QRegister(qubit, mqubit)
     for d in delays:
-        with concur:
-            init(qubit)
-            init(mqubit)
+        init(allChans)
         X(qubit)
         X(mqubit)
-        Id(mqubit, d)
-        with concur:
-            MEAS(mqubit)
-            MEAS(qubit)
+        Id(mqubit, length=d)
+        measConcurrently(allChans)
 
-    create_cal_seqs((mqubit, qubit), 2)
+    create_cal_seqs(allChans, 2)
 
-def Swap(qubit, mqubit, delays, showPlot=False):
-    """
-    Variable amplitude Rabi nutation experiment.
+# A main for running the sequences here with some typical argument values
+# Here it runs all of them; could do a parse_args like main.py
+def main():
+    from pyqgl2.qreg import QRegister
+    import pyqgl2.test_cl
+    from pyqgl2.main import compile_function, qgl2_compile_to_hardware
+    import numpy as np
+    import QGL.PulseShapes
+    #from qgl2.basic_sequences.pulses import local_tanh
 
-    Parameters
-    ----------
-    qubit : logical channel to implement sequence (LogicalChannel)
-    amps : pulse amplitudes to sweep over (iterable)
-    phase : phase of the pulse (radians)
-    showPlot : whether to plot (boolean)
-    """
-    resFunction = compile_function(
-        os.path.relpath(__file__),
-        "doSwap",
-        (qubit,)
-        )
-    seqs = resFunction()
-    return seqs
+    toHW = True
+    plotPulses = False
+    pyqgl2.test_cl.create_default_channelLibrary(toHW, True)
 
-    fileNames = qgl2_compile_to_hardware(seqs, "Swap/Swap")
-    print(fileNames)
-    if showPlot:
-        plot_pulse_files(fileNames)
+#    # To turn on verbose logging in compile_function
+#    from pyqgl2.ast_util import NodeError
+#    from pyqgl2.debugmsg import DebugMsg
+#    NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+#    DebugMsg.set_level(0)
+
+    # Now compile the QGL2 to produce the function that would generate the expected sequence.
+    # Supply the path to the QGL2, the main function in that file, and a list of the args to that function.
+    # Can optionally supply saveOutput=True to save the qgl1.py
+    # file,
+    # and intermediate_output="path-to-output-file" to save
+    # intermediate products
+
+    # Pass in QRegister(s) NOT real Qubits
+    q1 = QRegister("q1")
+    q2 = QRegister("q2")
+    qr = QRegister(q1, q2)
+
+    # FIXME: See issue #44: Must supply all args to qgl2main for now
+
+#    for func, args, label in [("RabiAmp", (q1, np.linspace(0, 1, 1)), "Rabi"),
+#                              ("RabiWidth", (q1, np.linspace(0, 5e-6, 11)), "Rabi"),
+#                              ("RabiAmpPi", (q1, q2, np.linspace(0, 1, 11)), "Rabi"),
+#                              ("SingleShow", (q1,), "SingleShot"),
+#                              ("PulsedSpec", (q1,), "Spec"),
+#                              ("RabiAmp_NQubits", (qr,np.linspace(0, 5e-6, 11)), "Rabi"),
+#                              ("Swap", (q1, np.linspace(0, 5e-6, 11), "Swap"),
+#                          ]:
+
+    # FIXME: RabiWidth fails with an index out of bounds if toHW?
+    for func, args, label in [("RabiAmp", (q1, np.linspace(0, 1, 1), 0), "Rabi"),
+                              ("RabiWidth", (q1, np.linspace(0, 5e-6, 11), 1, 0, QGL.PulseShapes.tanh), "Rabi"),
+                              ("RabiAmpPi", (q1, q2, np.linspace(0, 1, 11), 0), "Rabi"),
+                              ("SingleShot", (q1,), "SingleShot"),
+                              ("PulsedSpec", (q1,True), "Spec"),
+                              ("RabiAmp_NQubits", (qr,np.linspace(0, 5e-6, 11), 0, qr, False, 2), "Rabi"),
+                              ("Swap", (q1, np.linspace(0, 5e-6, 11), q2), "Swap")
+                           ]:
+
+        print(f"\nRun {func}...")
+        # Here we know the function is in the current file
+        # You could use os.path.dirname(os.path.realpath(__file)) to find files relative to this script,
+        # Or os.getcwd() to get files relative to where you ran from. Or always use absolute paths.
+        resFunc = compile_function(__file__, func, args)
+        # Run the QGL2. Note that the generated function takes no arguments itself
+        seq = resFunc()
+        if toHW:
+            print(f"Compiling {func} sequences to hardware\n")
+            fileNames = qgl2_compile_to_hardware(seq, f'{label}/{label}')
+            print(f"Compiled sequences; metafile = {fileNames}")
+            if plotPulses:
+                from QGL.PulseSequencePlotter import plot_pulse_files
+                # FIXME: As called, this returns a graphical object to display
+                plot_pulse_files(fileNames)
+        else:
+            print(f"\nGenerated {func} sequences:\n")
+            from QGL.Scheduler import schedule
+
+            scheduled_seq = schedule(seq)
+            from IPython.lib.pretty import pretty
+            print(pretty(scheduled_seq))
+
+if __name__ == "__main__":
+    main()
