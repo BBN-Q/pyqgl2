@@ -22,7 +22,7 @@ class TestAllXY(unittest.TestCase):
     def test_AllXY(self):
         # QGL1 uses QubitFactory, QGL2 uses QRegister
         q1 = QubitFactory('q1')
-        qr = QRegister(1)
+        qr = QRegister(q1)
 
         # Specify the QGL1 we expect QGL2 to generate
         # Note in this case we specify only a sample of the start
@@ -419,14 +419,14 @@ class TestFlipFlop(unittest.TestCase):
         assertPulseSequenceEqual(self, seqs, expectedseq)
 
 ## RB isn't ready yet
-class TestRabiMin(unittest.TestCase):
+class TestRabi(unittest.TestCase):
     def setUp(self):
         channel_setup()
     ## Rabi
 
     def test_RabiAmp(self):
         q1 = QubitFactory('q1')
-        qr = QRegister('q1')
+        qr = QRegister(q1)
         amps = np.linspace(0, 1, 11)
         phase = 0
 
@@ -438,23 +438,25 @@ class TestRabiMin(unittest.TestCase):
                 MEAS(q1)
             ]
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doRabiAmp",
+        resFunction = compile_function("src/python/qgl2/basic_sequences/Rabi.py",
+                                      "RabiAmp",
                                       (qr, amps, phase))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
         assertPulseSequenceEqual(self, seqs, expectedseq)
 
-    # Fails due to import of tanh, etc. See RabiMin.py
     def test_RabiWidth(self):
-        from qgl2.basic_sequences.pulses import local_tanh
+        #from qgl2.basic_sequences.pulses import local_tanh
+        from QGL.PulseShapes import tanh
         q1 = QubitFactory('q1')
-        qr = QRegister('q1')
+        qr = QRegister(q1)
         widths = np.linspace(0, 5e-6, 11)
+        amp=1
+        phase=0
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doRabiWidth",
-                                      (qr, widths))
+        resFunction = compile_function("src/python/qgl2/basic_sequences/Rabi.py",
+                                      "RabiWidth",
+                                      (qr, widths, amp, phase, tanh))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -462,7 +464,7 @@ class TestRabiMin(unittest.TestCase):
         for l in widths:
             expectedseq += [
                 qwait(channels=(q1,)),
-                Utheta(q1, length=l, amp=1, phase=0, shapeFun=local_tanh),
+                Utheta(q1, length=l, amp=amp, phase=phase, shapeFun=tanh),
                 MEAS(q1)
             ]
 
@@ -471,12 +473,15 @@ class TestRabiMin(unittest.TestCase):
     def test_RabiAmpPi(self):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
-        qr = QRegister('q1', 'q2')
-        amps = np.linspace(0, 1, 11)
+        qr1 = QRegister(q1)
+        qr2 = QRegister(q2)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doRabiAmpPi",
-                                      (qr, amps))
+        amps = np.linspace(0, 1, 11)
+        phase=0
+
+        resFunction = compile_function("src/python/qgl2/basic_sequences/Rabi.py",
+                                      "RabiAmpPi",
+                                      (qr1, qr2, amps, phase))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -485,7 +490,7 @@ class TestRabiMin(unittest.TestCase):
             expectedseq += [
                 qwait(channels=(q1,q2)),
                 X(q2),
-                Utheta(q1, amp=amp, phase=0),
+                Utheta(q1, amp=amp, phase=phase),
                 X(q2),
                 MEAS(q2)
             ]
@@ -494,9 +499,9 @@ class TestRabiMin(unittest.TestCase):
 
     def test_SingleShot(self):
         q1 = QubitFactory('q1')
-        qr = QRegister('q1')
-        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doSingleShot",
+        qr = QRegister(q1)
+        resFunction = compile_function("src/python/qgl2/basic_sequences/Rabi.py",
+                                      "SingleShot",
                                       (qr,))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -514,9 +519,9 @@ class TestRabiMin(unittest.TestCase):
 
     def test_PulsedSpec(self):
         q1 = QubitFactory('q1')
-        qr = QRegister('q1')
-        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doPulsedSpec",
+        qr = QRegister(q1)
+        resFunction = compile_function("src/python/qgl2/basic_sequences/Rabi.py",
+                                      "PulsedSpec",
                                       (qr, True))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
@@ -532,7 +537,7 @@ class TestRabiMin(unittest.TestCase):
     def test_RabiAmp_NQubits(self):
         q1 = QubitFactory('q1')
         q2 = QubitFactory('q2')
-        qr = QRegister('q1', 'q2')
+        qr = QRegister(q1, q2)
         amps = np.linspace(0, 5e-6, 11)
         p = 0
         docals = False
@@ -544,6 +549,7 @@ class TestRabiMin(unittest.TestCase):
                 qwait(channels=(q1,q2)),
                 Utheta(q1, amp=a, phase=p),
                 Utheta(q2, amp=a, phase=p),
+                Barrier(q1, q2),
                 MEAS(q1),
                 MEAS(q2)
             ]
@@ -555,9 +561,9 @@ class TestRabiMin(unittest.TestCase):
 
         expectedseq = testable_sequence(expectedseq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doRabiAmp_NQubits",
-                                      (qr, amps, docals, calRepeats))
+        resFunction = compile_function("src/python/qgl2/basic_sequences/Rabi.py",
+                                      "RabiAmp_NQubits",
+                                      (qr, amps, p, None, docals, calRepeats))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
@@ -566,7 +572,8 @@ class TestRabiMin(unittest.TestCase):
     def test_Swap(self):
         q = QubitFactory('q1')
         mq = QubitFactory('q2')
-        qr = QRegister('q1', 'q2')
+        qr = QRegister(q)
+        mqr = QRegister(mq)
         delays = np.linspace(0, 5e-6, 11)
         expectedseq = []
         for d in delays:
@@ -586,9 +593,9 @@ class TestRabiMin(unittest.TestCase):
 
         expectedseq = testable_sequence(expectedseq)
 
-        resFunction = compile_function("src/python/qgl2/basic_sequences/RabiMin.py",
-                                      "doSwap",
-                                      (qr, delays))
+        resFunction = compile_function("src/python/qgl2/basic_sequences/Rabi.py",
+                                      "Swap",
+                                      (qr, delays, mqr))
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
