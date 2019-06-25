@@ -18,4 +18,3 @@ def local_tanh(amp=1, length=0, sigma=0, cutoff=2, sampling_rate=1e9, **params):
     x2 = +length / 2 - cutoff * sigma
     return amp * 0.5 * (np.tanh((xPts - x1) / sigma) + np.tanh(
                 (x2 - xPts) / sigma)).astype(np.complex)
-
