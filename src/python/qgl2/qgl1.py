@@ -4,7 +4,7 @@
 # how to handle these functions
 
 # The annotations are defined in here
-from qgl2.qgl2 import qreg, pulse, qgl2stub, qgl2meas, control, classical
+from qgl2.qgl2 import qreg, pulse, qgl2stub, qgl2meas, control, classical, sequence
 
 # Many uses of Id supply a delay. That's the length: an int or float
 # Must use the label 'length'
@@ -76,6 +76,10 @@ def U90(qubi: qreg, phase=0, **kwargs) -> pulse:
 def AC(qubit: qreg, cliffNum) -> pulse:
     print('AC')
 
+@qgl2stub('QGL.Cliffords')
+def clifford_seq(c, q1: qreg, q2: qreg = None) -> sequence:
+    print('clifford_seq')
+
 @qgl2stub('QGL.PulsePrimitives')
 def flat_top_gaussian(chan: qreg, riseFall, length, amp, phase=0, label="flat_top_gaussian") -> pulse:
     print('flat_top_gaussian')
@@ -87,7 +91,7 @@ def flat_top_gaussian_edge(source: qreg, target: qreg, riseFall,
 
 # Helper for CPMG, to get around not being able to access qubit params (issue #37)
 @qgl2stub('qgl2.qgl1_util', 'pulseCentered')
-def pulseCentered(qbuti: qreg, pFunc, pulseSpacing) -> pulse:
+def pulseCentered(qubit: qreg, pFunc, pulseSpacing) -> pulse:
     print("pFunc(qubit, length=(pulseSpacing - qubit.pulse_params['length']) / 2)")
 
 @qgl2stub('QGL.PulsePrimitives')
