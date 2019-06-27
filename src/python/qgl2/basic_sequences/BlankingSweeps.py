@@ -2,6 +2,7 @@
 
 """
 Sequences for optimizing gating timing.
+OBE: This assumes you modify the gateDelay on a generator. That is no longer a thing.
 """
 
 from qgl2.qgl2 import qgl2decl, qreg
@@ -27,8 +28,8 @@ def sweep_gateDelaySeqs(qubit: qreg):
 
 def sweep_gateDelay(qubit, sweepPts, qgl2func, plotPulses=False):
     """
-    Sweep the gate delay associated with a qubit channel using a simple Id, Id, X90, X90
-    sequence.
+    OBE: Sweep the gate delay associated with a qubit channel using a simple Id, Id, X90, X90
+    sequence. But the gateDelay on a generator is no longer a thing
 
     Parameters
     ---------
@@ -52,14 +53,18 @@ def sweep_gateDelay(qubit, sweepPts, qgl2func, plotPulses=False):
 
 #    generator.gateDelay = oldDelay
 
-    # Problem in doing in QGL2: Need params of the real qubit, which we don't have
-    # QGL1 (looping and doing compile) and QGL2 (generating sequences)
+    # Problem in doing in QGL2: Need params of the real qubit, which we don't have.
+    # SO, use a combo: QGL1 (looping and doing compile) and QGL2 (generating sequences)
     from pyqgl2.main import qgl2_compile_to_hardware
-    generator = qubit.phys_chan.generator
-    oldDelay = generator.gateDelay
+
+    # WONTFIX: Generators no longer have a gateDelay
+    # But this shows the kind of thing you could do when mixing QGL1 and QGL2
+    # generator = qubit.phys_chan.generator
+    # oldDelay = generator.gateDelay
+
     for ct, delay in enumerate(sweepPts):
         seqs = qgl2func()
-        generator.gateDelay = delay
+        # generator.gateDelay = delay
         metafile=qgl2_compile_to_hardware(seqs, 'BlankingSweeps/GateDelay', suffix='_{}'.format(ct+1))
         print(f"Compiled sequences; metafile = {metafile}")
         if plotPulses:
@@ -67,7 +72,7 @@ def sweep_gateDelay(qubit, sweepPts, qgl2func, plotPulses=False):
             # FIXME: As called, this returns a graphical object to display
             plot_pulse_files(metafile)
 
-    generator.gateDelay = oldDelay
+    # generator.gateDelay = oldDelay
 
 
 # QGL1 function to compile the above QGL2
@@ -81,7 +86,7 @@ def main():
     toHW = True
     plotPulses = True
     pyqgl2.test_cl.create_default_channelLibrary(toHW, True)
-    # FIXME: That doesn't put a generator on the phys_chan! Need to do cl.new_source!
+    # Note: That doesn't put a generator on the phys_chan, which we would need to really run this
 
 #    # To turn on verbose logging in compile_function
 #    from pyqgl2.ast_util import NodeError
@@ -113,9 +118,9 @@ def main():
         if qubit.phys_chan is None:
             print(f"Qubit {qubit} missing phys_chan")
             return
-        elif qubit.phys_chan.generator is None:
-            print(f"Qubit {qubit} on phys_chan {qubit.phys_chan} missing phys_chan.generator")
-            return
+#        elif qubit.phys_chan.generator is None:
+#            print(f"Qubit {qubit} on phys_chan {qubit.phys_chan} missing phys_chan.generator")
+#            return
 
         # FIXME: What's a reasonable value here?
         sweepPts = np.linspace(0, 5e-6, 11)
