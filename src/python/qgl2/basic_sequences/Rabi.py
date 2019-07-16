@@ -37,7 +37,7 @@ def RabiAmp(qubit: qreg, amps, phase=0):
 # This function works in the unit test, but fails when compiling to HW with an index out of bounds.
 # Note that the QGL1 RabiWidth APS1 unit test is expected to fail with OOM, but this is different.
 @qgl2decl
-def RabiWidth(qubit: qreg, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh):
+def RabiWidth(qubit: qreg, widths, amp=1, phase=0, shape_fun=QGL.PulseShapes.tanh):
     """
     Variable pulse width Rabi nutation experiment.
 
@@ -46,12 +46,13 @@ def RabiWidth(qubit: qreg, widths, amp=1, phase=0, shapeFun=QGL.PulseShapes.tanh
     qubit : logical channel to implement sequence (LogicalChannel)
     widths : pulse widths to sweep over (iterable)
     phase : phase of the pulse (radians, default = 0)
-    shapeFun : shape of pulse (function, default = PulseShapes.tanh)
+    shape_fun : shape of pulse (function, default = PulseShapes.tanh)
     """
 
+    # Original created 1 seq per width. This is same pulses, but in 1 sequence
     for l in widths:
         init(qubit)
-        Utheta(qubit, length=l, amp=amp, phase=phase, shapeFun=shapeFun)
+        Utheta(qubit, length=l, amp=amp, phase=phase, shape_fun=shape_fun)
         MEAS(qubit)
 #    metafile = compile_to_hardware(seqs, 'Rabi/Rabi',
 #        axis_descriptor=[delay_descriptor(widths)])
@@ -245,6 +246,8 @@ def main():
         seq = resFunc()
         if toHW:
             print(f"Compiling {func} sequences to hardware\n")
+            # To get verbose logging including showing the compiled sequences:
+            # QGL.Compiler.set_log_level()
             fileNames = qgl2_compile_to_hardware(seq, f'{label}/{label}')
             print(f"Compiled sequences; metafile = {fileNames}")
             if plotPulses:
