@@ -974,7 +974,7 @@ class NameRedirector(ast.NodeTransformer):
                         redirection.elts[ct].qgl_is_qbit = True
             except:
                 NodeError.warning_msg(node,
-                    "Could not represent the value [%s] of [%s] as an AST node" % (value, name))
+                    "Could not represent the value [%s] of [%s] (iterable) as an AST node" % (value, name))
                 redirection = ast.Subscript(
                         value=ast.Name(id=self.table_name, ctx=ast.Load()),
                         slice=ast.Index(value=ast.Str(s=name)))
