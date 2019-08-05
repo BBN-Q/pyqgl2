@@ -19,8 +19,11 @@ def create_cal_seqs(qubits: qreg, numRepeats, measChans=None, waitcmp=False, del
     waitcmp = True if the sequence contains branching; default False
     delay: optional time between state preparation and measurement (s)
     """
+    # Allows supplying a tuple as is usually done in QGL1
+    qubitreg = QRegister(qubits)
+
     if measChans is None:
-        measChans = qubits
+        measChans = qubitreg
 
     # Make all combinations for qubit calibration states for n qubits and repeat
 
@@ -35,15 +38,15 @@ def create_cal_seqs(qubits: qreg, numRepeats, measChans=None, waitcmp=False, del
     # Calibrate using Id and X pulses
     calSet = [Id, X]
 
-    for pulseSet in product(calSet, repeat=len(qubits)):
+    for pulseSet in product(calSet, repeat=len(qubitreg)):
         # Repeat each calibration numRepeats times
         for _ in range(numRepeats):
-            init(qubits)
-            for pulse, qubit in zip(pulseSet, qubits):
+            init(qubitreg)
+            for pulse, qubit in zip(pulseSet, qubitreg):
                 pulse(qubit)
             if delay:
                 # Add optional delay before measurement
-                Id(qubits(0), length=delay)
+                Id(qubitreg(0), length=delay)
             Barrier(measChans)
             MEAS(measChans)
             # If branching do wait
