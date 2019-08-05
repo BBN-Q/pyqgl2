@@ -184,6 +184,23 @@ def testable_sequence(seqs):
     seqs = flattenSeqs(seqs)
     return seqs
 
+def stripWaitBarrier(seqs):
+    ''''
+    QGL2 includes Waits and Barriers that are added after unit tests in QGL1, so strip them
+    for comparison
+    '''
+    from QGL.ControlFlow import Barrier, Wait
+    newS = []
+    for el in seqs:
+        if isinstance(el, Barrier) or isinstance(el, Wait):
+            continue
+        if isinstance(el, collections.Iterable) and not isinstance(el, (str, Pulse, CompositePulse)) :
+            newel = stripWaitBarrier(el)
+            newS.extend(newel)
+        else:
+            newS.append(el)
+    return newS
+
 # Adapted from unittest.case.py: assertSequenceEqual
 # Except use difflib.unified_diff instead of ndiff - much faster (less detail)
 def assertPulseSequenceEqual(test, seq1, seq2, msg=None):
