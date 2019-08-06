@@ -18,7 +18,6 @@ import ast
 from pyqgl2.lang import QGL2
 from pyqgl2.debugmsg import DebugMsg
 from pyqgl2.ast_util import NodeError, ast2str
-from QGL.Channels import Qubit
 
 class QRegister(object):
     """
@@ -67,6 +66,8 @@ class QRegister(object):
 
     def addArg(self, x, args):
         """Parse one argument to the QRegister constructor. A recursive function."""
+        # Careful; avoid global import of QGL1 stuff from QGL2
+        from QGL.Channels import Qubit
         if hasattr(x, "__iter__") and not isinstance(x, str) and not isinstance(x, QRegister):
             for xx in x:
                 self.addArg(xx, args)
