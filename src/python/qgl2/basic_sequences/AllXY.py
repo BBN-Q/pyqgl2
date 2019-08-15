@@ -41,17 +41,9 @@ def AllXY(q: qreg):
             f2(q)
             MEAS(q)
 
-
-@qgl2decl
-def doAllXY():
-    # All in one QGL2 function to avoid args
-    from qgl2.qgl2 import QRegister
-    q = QRegister('q1')
-    AllXY(q)
-
 # QGL1 function to compile the above QGL2
-# Uses main.py
-# FIXME: Use the same argument parsing
+# Uses main.py functions
+# FIXME: Use the same argument parsing as main.py
 def main():
     from pyqgl2.qreg import QRegister
     import pyqgl2.test_cl
@@ -102,9 +94,4 @@ def main():
         print(pretty(scheduled_seq))
 
 if __name__ == "__main__":
-    # I'd like to call pyqgl2.main but with particular args
-    # if -toHW or -showplot, pass those on
-    # to run a basic sequence, run
-    # basic_sequences/filename.py -m doTestname [-toHW [-showplt]]
-    # pyqgl2.main.__main__(sys.argv[1:]
     main()
