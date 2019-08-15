@@ -11,6 +11,7 @@ from QGL.PatternUtils import flatten
 from QGL.PulsePrimitives import Id, X, MEAS
 from QGL.ControlFlow import qsync, qwait, ControlInstruction, Goto, Barrier
 from QGL.BlockLabel import BlockLabel
+#from QGL.Compiler import normalize
 
 from pyqgl2.test_cl import create_default_channelLibrary
 
@@ -182,12 +183,13 @@ def testable_sequence(seqs):
     by flattening pulse lists.
     '''
     seqs = flattenSeqs(seqs)
+#    seqs = normalize(seqs, None)
     return seqs
 
 def stripWaitBarrier(seqs):
     ''''
     QGL2 includes Waits and Barriers that are added after unit tests in QGL1, so strip them
-    for comparison
+    for comparison. Note however that Barrier;Pulse is how QGL2 does QGL1 PulseBlock(pulses).
     '''
     from QGL.ControlFlow import Barrier, Wait
     newS = []
@@ -203,6 +205,7 @@ def stripWaitBarrier(seqs):
 
 # Adapted from unittest.case.py: assertSequenceEqual
 # Except use difflib.unified_diff instead of ndiff - much faster (less detail)
+# Note QGL2 uses Barriers to force concurrency where QGL1 might use PulseBlock; that will look different.
 def assertPulseSequenceEqual(test, seq1, seq2, msg=None):
     """An equality assertion for ordered sequences of pulses.
 
