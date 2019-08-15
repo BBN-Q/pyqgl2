@@ -7,7 +7,6 @@ from qgl2.util import init
 
 # For tanh shape function
 import QGL.PulseShapes
-#import qgl2.basic_sequences.pulses
 
 @qgl2decl
 def RabiAmp(qubit: qreg, amps, phase=0):
@@ -33,9 +32,7 @@ def RabiAmp(qubit: qreg, amps, phase=0):
 
 #    metafile = compile_to_hardware(seqs, 'Rabi/Rabi', axis_descriptor=axis_descriptor)
 
-# FIXME: qgl2.basic_sequences.pulses.local_tanh no longer needed?
-# This function works in the unit test, but fails when compiling to HW with an index out of bounds.
-# Note that the QGL1 RabiWidth APS1 unit test is expected to fail with OOM, but this is different.
+# Note that QGL2 gives a warning printing the tanh function; harmless
 @qgl2decl
 def RabiWidth(qubit: qreg, widths, amp=1, phase=0, shape_fun=QGL.PulseShapes.tanh):
     """
@@ -193,7 +190,6 @@ def main():
     from pyqgl2.main import compile_function, qgl2_compile_to_hardware
     import numpy as np
     import QGL.PulseShapes
-    #from qgl2.basic_sequences.pulses import local_tanh
 
     toHW = True
     plotPulses = False
@@ -228,7 +224,6 @@ def main():
 #                              ("Swap", (q1, np.linspace(0, 5e-6, 11), "Swap"),
 #                          ]:
 
-    # FIXME: RabiWidth fails with an index out of bounds if toHW?
     for func, args, label in [("RabiAmp", (q1, np.linspace(0, 1, 1), 0), "Rabi"),
                               ("RabiWidth", (q1, np.linspace(0, 5e-6, 11), 1, 0, QGL.PulseShapes.tanh), "Rabi"),
                               ("RabiAmpPi", (q1, q2, np.linspace(0, 1, 11), 0), "Rabi"),
