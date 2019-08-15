@@ -68,8 +68,7 @@ def RabiAmp_NQubits(qubits: qreg, amps, phase=0,
     qubits : tuple of logical channels to implement sequence (LogicalChannel)
     amps : pulse amplitudes to sweep over for all qubits (iterable)
     phase : phase of the pulses (radians)
-    showPlot : whether to plot (boolean)
-    measChans : tuble of qubits to be measured (LogicalChannel)
+    measChans : tuple of qubits to be measured (use qubits if not specified) (LogicalChannel)
     docals, calRepeats: enable calibration sequences, repeated calRepeats times
     """
     if measChans is None:
@@ -105,7 +104,7 @@ def RabiAmpPi(qubit: qreg, mqubit: qreg, amps, phase=0):
     ----------
     qubit : logical channel to implement sequence (LogicalChannel)
     mqubit : logical measurement channel to implement sequence (LogicalChannel)
-              If None and qubit is a register of 2 qubits, then 1st is qubit and 2nd is mqubit
+              If None then use qubit
     amps : pulse amplitudes to sweep over (iterable)
     phase : phase of the pulse (radians)
     """
@@ -151,7 +150,7 @@ def SingleShot(qubit: qreg):
 @qgl2decl
 def PulsedSpec(qubit: qreg, specOn=True):
     """
-    Measurement preceded by a qubit pulse if specOn = True
+    Measurement preceded by a X pulse if specOn
     """
     init(qubit)
     if specOn:
@@ -163,6 +162,8 @@ def PulsedSpec(qubit: qreg, specOn=True):
 
 @qgl2decl
 def Swap(qubit: qreg, delays, mqubit: qreg =None):
+    # Note: Not a QGL1 basic sequence any more, but preserving this anyhow
+
     # Original:
     # seqs = [[X(qubit), X(mqubit), Id(mqubit, d), MEAS(mqubit)*MEAS(qubit)] for d in delays] + create_cal_seqs((mqubit,qubit), 2, measChans=(mqubit,qubit))
 

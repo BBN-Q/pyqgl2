@@ -1,12 +1,9 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-# See DecouplingMin for versions that work better in QGL2
-
 from qgl2.qgl2 import qgl2decl, qreg
 
 from qgl2.qgl1 import X90, Id, Y, U90, MEAS, pulseCentered
 from qgl2.basic_sequences.helpers import create_cal_seqs
-#from qgl2.basic_sequences.new_helpers import addCalibration, compileAndPlot
 from qgl2.util import init
 
 from math import pi
@@ -53,7 +50,6 @@ def HahnEcho(qubit: qreg, pulseSpacings, periods = 0, calRepeats=2):
 
 #    compileAndPlot('Echo/Echo', showPlot)
 
-# No nested QGL2 functions; can have 1 call another though
 @qgl2decl
 def CPMG(qubit: qreg, numPulses, pulseSpacing, calRepeats=2):
     """

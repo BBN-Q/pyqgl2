@@ -92,7 +92,7 @@ def FlipFlop(qubit: qreg, dragParamSweep, maxNumFFs=10):
 
 # QGL1 function to compile the above QGL2
 # Uses main.py
-# FIXME: Use the same argument parsing
+# FIXME: Use the same argument parsing as in main.py
 def main():
     from pyqgl2.qreg import QRegister
     import pyqgl2.test_cl
@@ -112,14 +112,14 @@ def main():
     # Now compile the QGL2 to produce the function that would generate the expected sequence.
     # Supply the path to the QGL2, the main function in that file, and a list of the args to that function.
     # Can optionally supply saveOutput=True to save the qgl1.py
-    # file,
-    # and intermediate_output="path-to-output-file" to save
+    # file, and intermediate_output="path-to-output-file" to save
     # intermediate products
 
     # Pass in a QRegister NOT the real Qubit
     q = QRegister(1)
-    # FlipFlop(q1, np.linspace(0, 5e-6, 11))
+    # Here we do FlipFlop(q1, np.linspace(0, 5e-6, 11))
     # - test_basic_mins uses np.linspace(0,1,11)
+
     # Here we know the function is in the current file
     # You could use os.path.dirname(os.path.realpath(__file)) to find files relative to this script,
     # Or os.getcwd() to get files relative to where you ran from. Or always use absolute paths.
@@ -145,9 +145,4 @@ def main():
         print(pretty(scheduled_seq))
 
 if __name__ == "__main__":
-    # I'd like to call pyqgl2.main but with particular args
-    # if -toHW or -showplot, pass those on
-    # to run a basic sequence, run
-    # basic_sequences/filename.py -m doTestname [-toHW [-showplt]]
-    # pyqgl2.main.__main__(sys.argv[1:]
     main()

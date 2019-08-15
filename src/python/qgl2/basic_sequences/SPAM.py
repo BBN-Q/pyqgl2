@@ -1,12 +1,9 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-# See SPAMMin for cleaner QGL2 versions
-
 from qgl2.qgl2 import qgl2decl, qreg, qgl2main, pulse
 
 from qgl2.qgl1 import X, U, Y90, X90, MEAS, Id
 
-#from qgl2.basic_sequences.new_helpers import compileAndPlot, addMeasPulse
 from qgl2.util import init
 
 from itertools import chain
@@ -78,7 +75,7 @@ def SPAM(qubit: qreg, angleSweep, maxSpamBlocks=10):
 
 # QGL1 function to compile the above QGL2
 # Uses main.py
-# FIXME: Use the same argument parsing
+# FIXME: Use the same argument parsing as main.py
 def main():
     from pyqgl2.qreg import QRegister
     import pyqgl2.test_cl
@@ -104,9 +101,10 @@ def main():
 
     # Pass in a QRegister NOT the real Qubit
     q = QRegister(1)
-    # SPAM(q1, np.linspace(0, pi/2, 11))
 
+    # SPAM(q1, np.linspace(0, pi/2, 11))
     # - test_basic_mins uses np.linspace(0,1,11)
+
     # Here we know the function is in the current file
     # You could use os.path.dirname(os.path.realpath(__file)) to find files relative to this script,
     # Or os.getcwd() to get files relative to where you ran from. Or always use absolute paths.
@@ -132,9 +130,4 @@ def main():
         print(pretty(scheduled_seq))
 
 if __name__ == "__main__":
-    # I'd like to call pyqgl2.main but with particular args
-    # if -toHW or -showplot, pass those on
-    # to run a basic sequence, run
-    # basic_sequences/filename.py -m doTestname [-toHW [-showplt]]
-    # pyqgl2.main.__main__(sys.argv[1:]
     main()

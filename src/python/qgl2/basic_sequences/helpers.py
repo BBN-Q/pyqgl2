@@ -55,7 +55,9 @@ def create_cal_seqs(qubits: qreg, numRepeats, measChans=None, waitcmp=False, del
 
 @qgl2decl
 def measConcurrently(listNQubits: qreg) -> pulse:
-    '''Concurrently measure given QRegister of qubits.'''
+    '''Concurrently measure given QRegister of qubits.
+    Note: Includes a Barrier on the input qreg to force measurements
+    to be concurrent; QGL1 does Pulse*Pulse == PulseBlock(pulses), which is equivalent.'''
     qr = QRegister(listNQubits)
     Barrier(qr)
     MEAS(qr)
