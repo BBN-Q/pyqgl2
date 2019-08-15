@@ -22,7 +22,7 @@ def main3(q:qreg, amps):
 @qgl2decl
 def main4(q:qreg, amps, shape):
     for a in amps:
-        Xtheta(q, amp=a, shapeFun=shape)
+        Xtheta(q, amp=a, shape_fun=shape)
 
 @qgl2decl
 def main5(qs:qreg):
