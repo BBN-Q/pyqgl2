@@ -3,11 +3,15 @@
 from qgl2.qgl2 import qgl2decl, qreg, pulse, sequence
 
 from qgl2.qgl1 import MEAS, Id, X, AC, clifford_seq, Y90m, X90
+from pyqgl2.qreg import QRegister
+
+# FIXME: RB uses Cliffords. Importing all of QGL.Cliffords forces QGL2
+# to read more of QGL than we want. Redo Cliffords in QGL2 with QGL1 stubs where needed
 
 # from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
 from QGL.CliffordsBare import clifford_mat, inverse_clifford
 
-from qgl2.basic_sequences.helpers import create_cal_seqs
+from qgl2.basic_sequences.helpers import create_cal_seqs, measConcurrently
 
 from qgl2.util import init
 
@@ -109,10 +113,6 @@ def SingleQubitRB(qubit: qreg, seqs, purity=False, add_cals=True):
     #   gives a single sequence of all the elements in listOfSequences
     # So the first for loop creates a single list of sequences
 
-
-    # I assume we're not redoing clifford_seq
-    # FIXME: Not updated....
-
     ops = [Id]
     if purity:
         ops = [Id, Y90m, X90]
@@ -121,16 +121,15 @@ def SingleQubitRB(qubit: qreg, seqs, purity=False, add_cals=True):
             init(qubit)
             for c in seq:
                 clifford_seq(c, qubit)
-            #append tomography pulse to measure purity
+            # append tomography pulse to measure purity
             if op == Id:
                 op(qubit, length=0)
             else:
                 op(qubit)
-            #append measurement
+            # append measurement
             MEAS(qubit)
 
     if add_cals:
-        # FIXME: This doesn't work yet
         # Tack on calibration sequences
         create_cal_seqs(qubit, 2)
 
@@ -141,7 +140,7 @@ def TwoQubitRB(q1: qreg, q2: qreg, seqs, add_cals=True):
 
     Parameters
     ----------
-    qubit : logical channel to implement sequence (LogicalChannel)
+    q1,q2 : logical channels to implement sequence (LogicalChannel)
     seqs : list of lists of Clifford group integers
     """
 
@@ -170,12 +169,12 @@ def TwoQubitRB(q1: qreg, q2: qreg, seqs, add_cals=True):
     for seq in seqs:
         init(bothQs)
         for c in seq:
-            clifford_seq(c, q1, q2)
+            clifford_seq(c, q2, q1)
         measConcurrently(bothQs)
 
     # Tack on the calibration sequences
     if add_cals:
-        create_cal_seqs(bothQs, 2)
+        create_cal_seqs((q1, q2), 2)
 
 @qgl2decl
 def SingleQubitRB_AC(qubit: qreg, seqs, purity=False, add_cals=True):
@@ -219,12 +218,12 @@ def SingleQubitRB_AC(qubit: qreg, seqs, purity=False, add_cals=True):
             init(qubit)
             for c in seq:
                 AC(qubit, c)
-            #append tomography pulse to measure purity
+            # append tomography pulse to measure purity
             if ct == 1:
                 op[ct](qubit, length=0)
             else:
                 op[ct](qubit)
-            #append measurement
+            # append measurement
             MEAS(qubit)
 
     if add_cals:
@@ -249,12 +248,12 @@ def SingleQubitRB_DiAC(qubit, seqs, compiled=True, purity=False, add_cals=True):
             init(qubit)
             for c in seq:
                 DiAC(qubit, c, compiled)
-            #append tomography pulse to measure purity
+            # append tomography pulse to measure purity
             if ct == 1:
                 op[ct](qubit, length=0)
             else:
                 op[ct](qubit)
-            #append measurement
+            # append measurement
             MEAS(qubit)
 
 #    axis_descriptor = [{
@@ -264,7 +263,7 @@ def SingleQubitRB_DiAC(qubit, seqs, compiled=True, purity=False, add_cals=True):
 #        'partition': 1
 #    }]
 
-    #Tack on the calibration sequences
+    # Tack on the calibration sequences
     if add_cals:
         for _ in range(2):
             init(qubit)
@@ -551,16 +550,17 @@ def main():
 
     # FIXME: See issue #44: Must supply all args to qgl2main for now
 
+    # Functions here have some extra code to run before running the compiled QGL2,
+    # so define functions for those; random number seeding
+
     def beforeSingleRB():
         np.random.seed(20152606) # set seed for create_RB_seqs()
         random.seed(20152606) # set seed for random.choice()
     # SingleQubitRB(q1, create_RB_seqs(1, 2**np.arange(1,7)))
 
-    # For some reason this only works if I reverse the 2 qubit args
-    # q2 then q1. Why?
-    # The original unit test had this commeent:
+    # The original unit test had this comment:
     """  Fails on APS1, APS2, and Tek7000 due to:
-    File "QGL\PatternUtils.py", line 129, in add_gate_pulses
+    File "QGL/PatternUtils.py", line 129, in add_gate_pulses
     if has_gate(chan) and not pulse.isZero and not (chan.gate_chan
     AttributeError: 'CompositePulse' object has no attribute 'isZero'
     """
@@ -578,10 +578,10 @@ def main():
         np.random.seed(20152606) # set seed for create_RB_seqs
     # SingleQubitRB_AC(q1,create_RB_seqs(1, 2**np.arange(1,7)))
 
-    # SingleQubitIRB_AC(q1, '')
-    # SingleQubitRBT(q1, '')
+# FIXME: Add test of SingleQubitRB_DiAC
+
 #    for func, args, label, beforeFunc in [("SingleQubitRB", (q1, create_RB_seqs(1, 2**np.arange(1,7))), "RB", beforeSingleRB),
-#                              ("TwoQubitRB", (q2, q1, create_RB_seqs(2, [2, 4, 8, 16, 32], repeats=16)), "RB", beforeTwoRB),
+#                              ("TwoQubitRB", (q1, q2, create_RB_seqs(2, [2, 4, 8, 16, 32], repeats=16)), "RB", beforeTwoRB),
 #                              ("SimultaneousRB_AC", (q1, q2, (create_RB_seqs(1, 2**np.arange(1,7)), create_RB_seqs(1, 2**np.arange(1,7)))), "RB", beforeSimRBAC),
 #                              ("SingleQubitRB_AC", (q1,create_RB_seqs(1, 2**np.arange(1,7))), "RB", beforeSingleRBAC),
 #                              ("SingleQubitIRB_AC", (q1,''), "RB"),
@@ -590,9 +590,9 @@ def main():
 #                          ]:
 
     for func, args, label, beforeFunc in [("SingleQubitRB", (q1, create_RB_seqs(1, 2**np.arange(1,7)), False, True), "RB", beforeSingleRB),
-                              ("TwoQubitRB", (q2, q1, create_RB_seqs(2, [2, 4, 8, 16, 32], repeats=16), True), "RB", beforeTwoRB),
-                              ("SingleQubitRB_AC", (q1,create_RB_seqs(1, 2**np.arange(1,7)), False, True), "RB", beforeSingleRBAC),
-                              ("SimultaneousRB_AC", (q1, q2, (create_RB_seqs(1, 2**np.arange(1,7)), create_RB_seqs(1, 2**np.arange(1,7))), True), "RB", beforeSimRBAC),
+                              ("TwoQubitRB", (q1, q2, create_RB_seqs(2, [2, 4, 8, 16, 32], repeats=16), True), "RB", beforeTwoRB),
+#                              ("SingleQubitRB_AC", (q1,create_RB_seqs(1, 2**np.arange(1,7)), False, True), "RB", beforeSingleRBAC),
+#                              ("SimultaneousRB_AC", (q1, q2, (create_RB_seqs(1, 2**np.arange(1,7)), create_RB_seqs(1, 2**np.arange(1,7))), True), "RB", beforeSimRBAC),
 #                              ("SingleQubitIRB_AC", (q1,''), "RB", None),
 # Comment says this relies on a specific file, so don't bother running
                               # ("SingleQubitRBT", (q1,'', fixmePulse, True), "RBT", None),
@@ -610,7 +610,9 @@ def main():
         # Run the QGL2. Note that the generated function takes no arguments itself
         seq = resFunc()
         if toHW:
+            import QGL
             print(f"Compiling {func} sequences to hardware\n")
+            # QGL.Compiler.set_log_level()
             fileNames = qgl2_compile_to_hardware(seq, f'{label}/{label}')
             print(f"Compiled sequences; metafile = {fileNames}")
             if plotPulses:
