@@ -934,6 +934,8 @@ class NameRedirector(ast.NodeTransformer):
         #
         # TODO: add a comment, if possible, with the name of the variable
 
+        # Trying to turn python back into AST
+
         value = self.values[name]
 
         numpy_scalar_types = (
@@ -972,15 +974,19 @@ class NameRedirector(ast.NodeTransformer):
                         redirection.elts[ct] = ast.Name(id=element.use_name(),
                                                         ctx=ast.Load())
                         redirection.elts[ct].qgl_is_qbit = True
-            except:
+            except Exception as e:
                 NodeError.warning_msg(node,
-                    "Could not represent the value [%s] of [%s] (iterable) as an AST node" % (value, name))
+                    "Could not represent the value [%s] of [%s] (iterable) as an AST node: %s" % (value, name, e))
                 redirection = ast.Subscript(
                         value=ast.Name(id=self.table_name, ctx=ast.Load()),
                         slice=ast.Index(value=ast.Str(s=name)))
         else:
+            # value is not an int, float, str, QRegister, QReference or iterable
+            # EG, could be a function reference
+            # Want AST from python. Instaed of making an AST that points to the actual function referenced by 'tanh'
+            # or whatever, create a reference to 'tanh' and hope no-one redefines 'tanh'.
             NodeError.warning_msg(node,
-                "Could not represent the value [%s] of [%s] as an AST node" % (value, name))
+                "Could not represent the value [%s] (an %s) of [%s] as an AST node. Type: %s" % (value, type(value), name))
             redirection = ast.Subscript(
                     value=ast.Name(id=self.table_name, ctx=ast.Load()),
                     slice=ast.Index(value=ast.Str(s=name)))
