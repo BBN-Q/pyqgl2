@@ -37,6 +37,14 @@ def X(qubit: qreg, **kwargs) -> pulse:
     print('X')
 
 @qgl2stub('QGL.PulsePrimitives')
+def Xm(qubit: qreg, **kwargs) -> pulse:
+    print('Xm')
+
+@qgl2stub('QGL.PulsePrimitives')
+def Ym(qubit: qreg, **kwargs) -> pulse:
+    print('Ym')
+
+@qgl2stub('QGL.PulsePrimitives')
 def X90(qubit: qreg, **kwargs) -> pulse:
     print('X90')
 
@@ -76,6 +84,14 @@ def U90(qubi: qreg, phase=0, **kwargs) -> pulse:
 def AC(qubit: qreg, cliffNum) -> pulse:
     print('AC')
 
+@qgl2stub('QGL.PulsePrimitives')
+def ZX90_CR(controlQ: qreg, targetQ: qreg, **kwargs) -> pulse:
+    """
+    A calibrated CR ZX90 pulse.  Uses 'amp' for the pulse amplitude, 'phase' for its phase (in deg).
+    """
+    print('ZX90_CR')
+
+# Used by RB basic sequences
 @qgl2stub('QGL.Cliffords')
 def clifford_seq(c, q1: qreg, q2: qreg = None) -> sequence:
     print('clifford_seq')
