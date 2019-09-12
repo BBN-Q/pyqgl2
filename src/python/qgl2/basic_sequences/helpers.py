@@ -6,6 +6,7 @@ from qgl2.util import init
 
 from itertools import product
 
+# FIXME: measChans should be declared a qreg, but the inliner isn't handling that
 @qgl2decl
 def create_cal_seqs(qubits: qreg, numRepeats, measChans=None, waitcmp=False, delay=None):
     """
