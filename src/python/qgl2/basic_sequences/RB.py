@@ -1,15 +1,15 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qreg, pulse, sequence
+from qgl2.qgl2 import qgl2decl, qreg, pulse, sequence, QRegister
 
 from qgl2.qgl1 import MEAS, Id, X, AC, clifford_seq, Y90m, X90
-from pyqgl2.qreg import QRegister
 
-# FIXME: RB uses Cliffords. Importing all of QGL.Cliffords forces QGL2
-# to read more of QGL than we want. Redo Cliffords in QGL2 with QGL1 stubs where needed
+# RB uses Cliffords. Importing all of QGL.Cliffords forces QGL2
+# to read more of QGL than we want.
+# So instead we redo (some of) Cliffords in QGL2 with QGL1 stub for clifford_seq
 
 # from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
-from QGL.CliffordsBare import clifford_mat, inverse_clifford
+from qgl2.Cliffords import clifford_mat, inverse_clifford
 
 from qgl2.basic_sequences.helpers import create_cal_seqs, measConcurrently
 
