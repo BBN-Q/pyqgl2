@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qreg
+from qgl2.qgl2 import qgl2decl, qreg, QRegister
 
 from qgl2.qgl1 import X90, Id, Y, U90, MEAS, pulseCentered
 from qgl2.basic_sequences.helpers import create_cal_seqs

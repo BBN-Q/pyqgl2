@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qreg, qgl2main, pulse
+from qgl2.qgl2 import qgl2decl, qreg, qgl2main, pulse, QRegister
 
 from qgl2.qgl1 import X, U, Y90, X90, MEAS, Id
 
