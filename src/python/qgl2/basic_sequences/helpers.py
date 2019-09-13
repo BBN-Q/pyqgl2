@@ -23,6 +23,8 @@ def create_cal_seqs(qubits: qreg, numRepeats, measChans=None, waitcmp=False, del
     # Allows supplying a tuple as is usually done in QGL1
     qubitreg = QRegister(qubits)
 
+    # QGL2 will warn here:
+    # warning: parameter [measChans] overwritten by assignment
     if measChans is None:
         measChans = qubitreg
 
