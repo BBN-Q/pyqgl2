@@ -7,6 +7,7 @@ from qgl2.qgl1 import MEAS, Id, X, AC, clifford_seq, Y90m, X90
 # RB uses Cliffords. Importing all of QGL.Cliffords forces QGL2
 # to read more of QGL than we want.
 # So instead we redo (some of) Cliffords in QGL2 with QGL1 stub for clifford_seq
+# TODO: Redo more of Cliffords as QGL2. See issues 51-53 that make this hard.
 
 # from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
 from qgl2.Cliffords import clifford_mat, inverse_clifford
@@ -219,10 +220,12 @@ def SingleQubitRB_AC(qubit: qreg, seqs, purity=False, add_cals=True):
             for c in seq:
                 AC(qubit, c)
             # append tomography pulse to measure purity
-            if ct == 1:
-                op[ct](qubit, length=0)
+            # See issue #: 53
+            func = op[ct]
+            if ct == 0:
+                func(qubit, length=0)
             else:
-                op[ct](qubit)
+                func(qubit)
             # append measurement
             MEAS(qubit)
 
@@ -249,7 +252,7 @@ def SingleQubitRB_DiAC(qubit, seqs, compiled=True, purity=False, add_cals=True):
             for c in seq:
                 DiAC(qubit, c, compiled)
             # append tomography pulse to measure purity
-            if ct == 1:
+            if ct == 0:
                 op[ct](qubit, length=0)
             else:
                 op[ct](qubit)
@@ -294,6 +297,18 @@ def getPulseSeq(qubit: qreg, pulseSeqStr) -> sequence:
         doACPulse(qubit, int(pulseStr))
     MEAS(qubit)
 
+def readSeqFile(seqFile):
+    pulseSeqStrs = []
+    if seqFile is None:
+        raise ValueError("Missing file of sequences")
+    # This next block as QGL2 gives warnings
+    with open(seqFile, 'r') as FID:
+        fileReader = reader(FID)
+        # each line in the file is a sequence, but I don't know how many that is
+        for pulseSeqStr in fileReader:
+            pulseSeqStrs.append(pulseSeqStr)
+    return pulseSeqStrs
+
 @qgl2decl
 def SingleQubitIRB_AC(qubit: qreg, seqFile):
     """
@@ -334,12 +349,11 @@ def SingleQubitIRB_AC(qubit: qreg, seqFile):
     #     chunk2 += [[Id(qubit), measBlock], [X(qubit), measBlock]]
     #     fileNames = compile_to_hardware(chunk2, 'RB/RB', suffix='_{0}'.format(2*ct+2))
 
-    pulseSeqStrs = []
-    with open(seqFile, 'r') as FID:
-        fileReader = reader(FID)
-        # each line in the file is a sequence, but I don't know how many that is
-        for pulseSeqStr in fileReader:
-            pulseSeqStrs.append(pulseSeqStr)
+    # Issue #54:
+    # FIXME: If the helper here raises an error, we get a QGL2 compiler error like:
+    # error: ast eval failure [readSeqFile(seqFile)]: type <class 'ValueError'> Missing file of sequences
+    # error: failed to evaluate assignment [pulseSeqStrs___ass_006 = readSeqFile(seqFile)]
+    pulseSeqStrs = readSeqFile(seqFile)
     numSeqs = len(pulseSeqStrs)
 
     # Hack for limited APS waveform memory and break it up into multiple files
@@ -359,14 +373,14 @@ def SingleQubitIRB_AC(qubit: qreg, seqFile):
                 MEAS(qubit)
                 init(qubit)
                 X(qubit)
-                meas(qubit)
+                MEAS(qubit)
             else:
                 init(qubit)
                 Id(qubit)
-                meas(qubit)
+                MEAS(qubit)
                 init(qubit)
                 X(qubit)
-                meas(qubit)
+                MEAS(qubit)
 
             # Now write these sequences
             # FIXME: Then magically get the sequences here....
@@ -380,6 +394,7 @@ def SingleQubitIRB_AC(qubit: qreg, seqFile):
             doCt += numRandomizations
             isOne = not isOne
 
+# NOTE: This one not expected to work
 @qgl2decl
 def SingleQubitRBT(qubit: qreg, seqFileDir, analyzedPulse: pulse, add_cals=True):
     """	Single qubit randomized benchmarking tomography using atomic Clifford pulses.
@@ -508,8 +523,8 @@ def SimultaneousRB_AC(qubits: qreg, seqs, add_cals=True):
         init(qubits)
         for pulseNums in zip(*seq):
             Barrier(qubits)
-            for q,c in zip(qubits, pulseNums):
-                AC(q,c)
+            for q, c in zip(qubits, pulseNums):
+                AC(q, c)
         # Measure at end of each sequence
         measConcurrently(qubits)
 
@@ -582,26 +597,29 @@ def main():
 
 #    for func, args, label, beforeFunc in [("SingleQubitRB", (q1, create_RB_seqs(1, 2**np.arange(1,7))), "RB", beforeSingleRB),
 #                              ("TwoQubitRB", (q1, q2, create_RB_seqs(2, [2, 4, 8, 16, 32], repeats=16)), "RB", beforeTwoRB),
-#                              ("SimultaneousRB_AC", (q1, q2, (create_RB_seqs(1, 2**np.arange(1,7)), create_RB_seqs(1, 2**np.arange(1,7)))), "RB", beforeSimRBAC),
+#                              ("SimultaneousRB_AC", (qr, (create_RB_seqs(1, 2**np.arange(1,7)), create_RB_seqs(1, 2**np.arange(1,7)))), "RB", beforeSimRBAC),
 #                              ("SingleQubitRB_AC", (q1,create_RB_seqs(1, 2**np.arange(1,7))), "RB", beforeSingleRBAC),
 #                              ("SingleQubitIRB_AC", (q1,''), "RB"),
-# Comment says this relies on a specific file, so don't bother running
+# Comment says this next one relies on a specific file, so don't bother running
 #                              ("SingleQubitRBT", (q1,'', fixmePulse), "RBT"),
 #                          ]:
 
     for func, args, label, beforeFunc in [("SingleQubitRB", (q1, create_RB_seqs(1, 2**np.arange(1,7)), False, True), "RB", beforeSingleRB),
                               ("TwoQubitRB", (q1, q2, create_RB_seqs(2, [2, 4, 8, 16, 32], repeats=16), True), "RB", beforeTwoRB),
-#                              ("SingleQubitRB_AC", (q1,create_RB_seqs(1, 2**np.arange(1,7)), False, True), "RB", beforeSingleRBAC),
-#                              ("SimultaneousRB_AC", (q1, q2, (create_RB_seqs(1, 2**np.arange(1,7)), create_RB_seqs(1, 2**np.arange(1,7))), True), "RB", beforeSimRBAC),
-#                              ("SingleQubitIRB_AC", (q1,''), "RB", None),
-# Comment says this relies on a specific file, so don't bother running
-                              # ("SingleQubitRBT", (q1,'', fixmePulse, True), "RBT", None),
+                              ("SingleQubitRB_AC", (q1,create_RB_seqs(1, 2**np.arange(1,7)), False, True), "RB", beforeSingleRBAC),
+# Warning: This next one is slow....
+                              ("SimultaneousRB_AC", (qr, (create_RB_seqs(1, 2**np.arange(1,7)), create_RB_seqs(1, 2**np.arange(1,7))), True), "RB", beforeSimRBAC),
+# This next one relies on a file of sequence strings, which I don't have
+#                                          ("SingleQubitIRB_AC", (q1,None), "RB", None),
+# Comment says this next one relies on a specific file, so don't bother running
+#                              # ("SingleQubitRBT", (q1,'', fixmePulse, True), "RBT", None),
                            ]:
 
         print(f"\nRun {func}...")
 
         # This is typically setting random seed
-        beforeFunc()
+        if beforeFunc is not None:
+            beforeFunc()
 
         # Here we know the function is in the current file
         # You could use os.path.dirname(os.path.realpath(__file)) to find files relative to this script,
