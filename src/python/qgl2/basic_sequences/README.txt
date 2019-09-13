@@ -13,10 +13,9 @@ as desired:
 * Qubits are not full objects so you can't use the `pulse_params`, as
 in `doCPMG` or `doFlipFlop`. See issue #37.
 * Cliffords should be redone as QGL2 where possible, to avoid
-importing all of QGL1
+importing all of QGL1. But see issues #51-53
 
 Todo
-* RabiWidth; working? Debug
-* RB.py
-* Feedback.py
+* RB.py: Redo more of Cliffords as QGL2
+* Feedback.py: Support using measurements
 * Restore axis_descriptors for basic sequences
