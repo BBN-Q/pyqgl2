@@ -245,7 +245,7 @@ def main():
         seq = resFunc()
         if toHW:
             print(f"Compiling {func} sequences to hardware\n")
-            fileNames = qgl2_compile_to_hardware(seq, f'{label}/{label}')
+            fileNames = qgl2_compile_to_hardware(seq, filename=f'{label}/{label}')
             print(f"Compiled sequences; metafile = {fileNames}")
             if plotPulses:
                 from QGL.PulseSequencePlotter import plot_pulse_files

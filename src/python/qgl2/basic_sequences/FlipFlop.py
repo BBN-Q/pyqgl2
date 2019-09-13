@@ -130,7 +130,7 @@ def main():
     sequences = resFunction()
     if toHW:
         print("Compiling sequences to hardware\n")
-        fileNames = qgl2_compile_to_hardware(sequences, 'FlipFlop/FlipFlop')
+        fileNames = qgl2_compile_to_hardware(sequences, filename='FlipFlop/FlipFlop')
         print(f"Compiled sequences; metafile = {fileNames}")
         if plotPulses:
             from QGL.PulseSequencePlotter import plot_pulse_files
