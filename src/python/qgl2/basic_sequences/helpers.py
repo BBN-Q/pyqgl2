@@ -5,6 +5,8 @@ from qgl2.qgl1 import Id, X, MEAS, Barrier, qwait
 from qgl2.util import init
 
 from itertools import product
+import operator
+from functools import reduce
 
 # FIXME: measChans should be declared a qreg, but the inliner isn't handling that
 @qgl2decl
@@ -64,3 +66,35 @@ def measConcurrently(listNQubits: qreg) -> pulse:
     qr = QRegister(listNQubits)
     Barrier(qr)
     MEAS(qr)
+
+# Copied from QGL/BasicSequences/helpers
+def cal_descriptor(qubits, numRepeats, partition=2, states = ['0', '1']):
+    # generate state set in same order as we do above in create_cal_seqs()
+    state_set = [reduce(operator.add, s) for s in product(states, repeat=len(qubits))]
+    descriptor = {
+        'name': 'calibration',
+        'unit': 'state',
+        'partition': partition,
+        'points': []
+    }
+    for state in state_set:
+        descriptor['points'] += [state] * numRepeats
+    return descriptor
+
+# Copied from QGL/BasicSequences/helpers
+def delay_descriptor(delays, desired_units="us"):
+    if desired_units == "s":
+        scale = 1
+    elif desired_units == "ms":
+        scale = 1e3
+    elif desired_units == "us" or desired_units == u"μs":
+        scale = 1e6
+    elif desired_units == "ns":
+        scale = 1e9
+    axis_descriptor = {
+        'name': 'delay',
+        'unit': desired_units,
+        'points': list(scale * delays),
+        'partition': 1
+    }
+    return axis_descriptor
