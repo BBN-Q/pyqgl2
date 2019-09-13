@@ -65,7 +65,7 @@ def sweep_gateDelay(qubit, sweepPts, qgl2func, plotPulses=False):
     for ct, delay in enumerate(sweepPts):
         seqs = qgl2func()
         # generator.gateDelay = delay
-        metafile=qgl2_compile_to_hardware(seqs, 'BlankingSweeps/GateDelay', suffix='_{}'.format(ct+1))
+        metafile=qgl2_compile_to_hardware(seqs, filename='BlankingSweeps/GateDelay', suffix='_{}'.format(ct+1))
         print(f"Compiled sequences; metafile = {metafile}")
         if plotPulses:
             from QGL.PulseSequencePlotter import plot_pulse_files

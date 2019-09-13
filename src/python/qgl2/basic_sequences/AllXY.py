@@ -79,7 +79,7 @@ def main():
     if toHW:
         print("Compiling sequences to hardware\n")
         # file prefix AllXY/AllXY, no suffix
-        fileNames = qgl2_compile_to_hardware(sequences, 'AllXY/AllXY')
+        fileNames = qgl2_compile_to_hardware(sequences, filename='AllXY/AllXY')
         print(f"Compiled sequences; metafile = {fileNames}")
         if plotPulses:
             from QGL.PulseSequencePlotter import plot_pulse_files
