@@ -4,6 +4,10 @@ NOTE: This duplicates content in QGL. We defer to the QGL implementation for cli
 which allows RB to use clifford_mat, inverse_clifford directly.
 clifford_seq is a stub in qgl1.py
 """
+
+# TODO: Re-implement clifford_seq as QGL2. See issues #51-53.
+# If clifford_seq was split into a 1qbit and 2qbit variety, Cx2 could use the 1qbit version directly and avoid looping (#52)
+
 import numpy as np
 from scipy.linalg import expm
 from numpy import pi
@@ -14,7 +18,7 @@ from functools import reduce
 
 from qgl2.qgl1 import Id, X90, X90m, Y90, Y90m, X, Xm, Y, Ym, ZX90_CR
 
-#Single qubit paulis
+# Single qubit paulis
 pX = np.array([[0, 1], [1, 0]], dtype=np.complex128)
 pY = np.array([[0, -1j], [1j, 0]], dtype=np.complex128)
 pZ = np.array([[1, 0], [0, -1]], dtype=np.complex128)
@@ -23,8 +27,8 @@ pI = np.eye(2, dtype=np.complex128)
 
 # def pauli_mats(n):
 #     """
-# 	Return a list of n-qubit Paulis as numpy array.
-# 	"""
+#     Return a list of n-qubit Paulis as numpy array.
+#     """
 #     assert n > 0, "You need at least 1 qubit!"
 #     if n == 1:
 #         return [pI, pX, pY, pZ]
@@ -33,7 +37,7 @@ pI = np.eye(2, dtype=np.complex128)
 #         return [np.kron(p1, p2)
 #                 for p1, p2 in product([pI, pX, pY, pZ], paulis)]
 
-#Basis single-qubit Cliffords with an arbitrary enumeration
+# Basis single-qubit Cliffords with an arbitrary enumeration
 C1 = {}
 C1[0] = pI
 C1[1] = expm(-1j * (pi / 4) * pX)
@@ -61,7 +65,7 @@ C1[22] = expm(-1j * (pi / 3) * (1 / np.sqrt(3)) * (-pX + pY + pZ))
 C1[23] = expm(-2j * (pi / 3) * (1 / np.sqrt(3)) * (-pX + pY + pZ))
 
 
-#A little memoize decorator
+# A little memoize decorator
 def memoize(function):
     cache = {}
 
@@ -74,27 +78,27 @@ def memoize(function):
 
 
 # @memoize
-# def clifford_multiply(c1, c2):
+# def clifford_multiply(cliff1, cliff2):
 #     '''
-#     Multiplication table for single qubit cliffords.  Note this assumes c1 is applied first.
-#     i.e.  clifford_multiply(c1, c2) calculates c2*c1
+#     Multiplication table for single qubit cliffords.  Note this assumes cliff1 is applied first.
+#     i.e.  clifford_multiply(cliff1, cliff2) calculates cliff2*cliff1
 #     '''
-#     tmpMult = np.dot(C1[c2], C1[c1])
+#     tmpMult = np.dot(C1[cliff2], C1[cliff1])
 #     checkArray = np.array(
 #         [np.abs(np.trace(np.dot(tmpMult.transpose().conj(), C1[x])))
 #          for x in range(24)])
 #     return checkArray.argmax()
 
-# #We can usually (without atomic Cliffords) only apply a subset of the single-qubit Cliffords
-# #i.e. the pulses that we can apply: Id, X90, X90m, Y90, Y90m, X, Y
+# # We can usually (without atomic Cliffords) only apply a subset of the single-qubit Cliffords
+# # i.e. the pulses that we can apply: Id, X90, X90m, Y90, Y90m, X, Y
 # generatorPulses = [0, 1, 3, 4, 6, 2, 5]
 
 
 # def generator_pulse(G):
 #     """
-# 	A function that returns the pulse corresponding to a generator
-# 	Randomly chooses between the -p and -m versions for the 180's
-# 	"""
+#     A function that returns the pulse corresponding to a generator
+#     Randomly chooses between the -p and -m versions for the 180's
+#     """
 #     generatorPulses = {0: (Id, ),
 #                        1: (X90, ),
 #                        3: (X90m, ),
@@ -104,22 +108,22 @@ def memoize(function):
 #                        5: (Y, Ym)}
 #     return choice(generatorPulses[G])
 
-# #Get all combinations of generator sequences up to length three
+# # Get all combinations of generator sequences up to length three
 # generatorSeqs = [x for x in product(generatorPulses,repeat=1)] + \
 #                 [x for x in product(generatorPulses,repeat=2)] + \
 #     [x for x in product(generatorPulses,repeat=3)]
 
-# #Find the effective unitary for each generator sequence
+# # Find the effective unitary for each generator sequence
 # reducedSeqs = np.array([reduce(clifford_multiply, x) for x in generatorSeqs])
 
-#Pick first generator sequence (and thus shortest) that gives each Clifford and then
-#also add all those that have the same length
+# Pick first generator sequence (and thus shortest) that gives each Clifford and then
+# also add all those that have the same length
 
-# #First for each of the 24 single-qubit Cliffords find which sequences create them
+# # First for each of the 24 single-qubit Cliffords find which sequences create them
 # allC1Seqs = [np.nonzero(reducedSeqs == x)[0] for x in range(24)]
-# #And the length of the first one for all 24
+# # And the length of the first one for all 24
 # minSeqLengths = [len(generatorSeqs[seqs[0]]) for seqs in allC1Seqs]
-# #Now pull out all those that are the same length as the first one
+# # Now pull out all those that are the same length as the first one
 # C1Seqs = []
 # for minLength, seqs in zip(minSeqLengths, allC1Seqs):
 #     C1Seqs.append([s for s in seqs if len(generatorSeqs[s]) == minLength])
@@ -130,20 +134,19 @@ The IBM paper has the Sgroup (rotation n*(pi/3) rotations about the X+Y+Z axis)
 Sgroup = [C[0], C[16], C[17]]
 
 The two qubit Cliffords can be written down as the product of
-1. A choice of one of 24^2 C \otimes C single-qubit Cliffords
+1. A choice of one of 24^2 C times C single-qubit Cliffords
 2. Optionally an entangling gate from CNOT, iSWAP and SWAP
-3. Optional one of 9 S \otimes S gate
+3. Optional one of 9 S times S gate
 
 Therefore, we'll enumerate the two-qubit Clifford as a three tuple ((c1,c2), Entangling, (s1,s2))
-
 """
 
-#1. All pairs of single-qubit Cliffords
+# 1. All pairs of single-qubit Cliffords
 for c1, c2 in product(range(24), repeat=2):
     C2Seqs.append(((c1, c2), None, None))
 
-#2. The CNOT-like class, replacing the CNOT with a echoCR
-#TODO: sort out whether we need to explicitly encorporate the single qubit rotations into the trailing S gates
+# 2. The CNOT-like class, replacing the CNOT with a echoCR
+# TODO: sort out whether we need to explicitly encorporate the single qubit rotations into the trailing S gates
 # The leading single-qubit Cliffords are fully sampled so they should be fine
 
 for (c1, c2), (s1, s2) in product(
@@ -152,42 +155,54 @@ for (c1, c2), (s1, s2) in product(
         product([0, 16, 17], repeat=2)):
     C2Seqs.append(((c1, c2), "CNOT", (s1, s2)))
 
-#3. iSWAP like class - replacing iSWAP with (echoCR - (Y90m*Y90m) - echoCR)
+# 3. iSWAP like class - replacing iSWAP with (echoCR - (Y90m*Y90m) - echoCR)
 for (c1, c2), (s1, s2) in product(
         product(
             range(24), repeat=2),
         product([0, 16, 17], repeat=2)):
     C2Seqs.append(((c1, c2), "iSWAP", (s1, s2)))
 
-#4. SWAP like class
+# 4. SWAP like class
 for c1, c2 in product(range(24), repeat=2):
     C2Seqs.append(((c1, c2), "SWAP", None))
 
 
-# def Cx2(c1, c2, q1, q2):
+# @qgl2decl
+# def Cx2(cliff1, cliff2, q1: qreg, q2: qreg) -> sequence:
 #     """
-# 	Helper function to create pulse block for a pair of single-qubit Cliffords
-# 	"""
-#     #Create list of pulse objects on the qubits
-#     seq1 = clifford_seq(c1, q1)
-#     seq2 = clifford_seq(c2, q2)
-
-#     #Create the pulse block
-#     return reduce(operator.add, seq1) * reduce(operator.add, seq2)
-
-
-# def entangling_seq(gate, q1, q2):
+#     Helper function to create pulse block for a pair of single-qubit Cliffords
 #     """
-# 	Helper function to create the entangling gate sequence
-# 	"""
+#     # Create list of pulse objects on the qubits
+#     qr = QRegister(q1, q2)
+#     Barrier(qr)
+#     clifford_seq(cliff1, q1)
+#     clifford_seq(cliff2, q2)
+
+# @qgl2decl
+# def entangling_seq(gate, q1: qreg, q2: qreg) -> sequence:
+#     """
+#     Helper function to create the entangling gate sequence
+#     """
+#     qr = QRegister(q1, q2)
 #     if gate == "CNOT":
-#         return ZX90_CR(q2, q1)
+#         ZX90_CR(q2, q1)
 #     elif gate == "iSWAP":
-#         return [ZX90_CR(q2, q1) , Y90m(q1) * Y90m(q2), ZX90_CR(q2, q1)]
+#         ZX90_CR(q2, q1)
+#         Barrier(qr)
+#         Y90m(q1)
+#         Y90m(q2)
+#         ZX90_CR(q2, q1)
 #     elif gate == "SWAP":
-#         return [ZX90_CR(q2, q1), Y90m(q1) * Y90m(q2), ZX90_CR(
-#             q2, q1), (X90(q1) + Y90m(q1)) * X90(q2), ZX90_CR(q2, q1)]
-
+#         ZX90_CR(q2, q1)
+#         Barrier(qr)
+#         Y90m(q1)
+#         Y90m(q2)
+#         ZX90_CR(q2, q1)
+#         Barrier(qr)
+#         X90(q1)
+#         Y90m(q1)
+#         X90(q2)
+#         ZX90_CR(q2, q1)
 
 def entangling_mat(gate):
     """
@@ -206,24 +221,30 @@ def entangling_mat(gate):
     else:
         raise ValueError("Entangling gate must be one of: CNOT, iSWAP, SWAP.")
 
+# TODO: If neccessary for issue #52, make this clifford_Seq_one1 and clifford_seq_twoq
+# with clifford_seq doing if q2 is None: ... elif isinstance(q2, QRegister): ... else: raise TypeError
 
-# def clifford_seq(c, q1, q2=None):
+# @qgl2decl
+# def clifford_seq(c, q1: qreg, q2: qreg=None) -> sequence:
 #     """
 #     Return a sequence of pulses that implements a clifford C
 #     """
-#     #If qubit2 not defined assume 1 qubit
+#     # If qubit2 not defined assume 1 qubit
 #     if not q2:
 #         genSeq = generatorSeqs[choice(C1Seqs[c])]
-#         return [generator_pulse(g)(q1) for g in genSeq]
+#         for g in genSeq:
+#             generator_pulse(g)(q1)
+#               # Or to handle issue #53:
+#               # func = generator_pulse(g)
+#               # func(q1)
 #     else:
-#         #Look up the sequence for the integer
-#         c = C2Seqs[c]
-#         seq = [Cx2(c[0][0], c[0][1], q1, q2)]
-#         if c[1]:
-#             seq += entangling_seq(c[1], q1, q2)
-#         if c[2]:
-#             seq += [Cx2(c[2][0], c[2][1], q1, q2)]
-#         return seq
+#         # Look up the sequence for the integer
+#         cseq = C2Seqs[c]
+#         Cx2(cseq[0][0], cseq[0][1], q1, q2)
+#         if cseq[1]:
+#             entangling_seq(cseq[1], q1, q2)
+#         if cseq[2]:
+#             Cx2(c[2][0], cseq[2][1], q1, q2)
 
 
 @memoize
@@ -261,5 +282,5 @@ def inverse_clifford(cMat):
     else:
         raise Exception("Expected 2 or 4 qubit dimensional matrix.")
 
-    #If we got here something is wrong
+    # If we got here something is wrong
     raise Exception("Couldn't find inverse clifford")
