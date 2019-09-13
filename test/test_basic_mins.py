@@ -15,7 +15,7 @@ from QGL import *
 from test.helpers import testable_sequence, \
     channel_setup, assertPulseSequenceEqual, \
     get_cal_seqs_1qubit, get_cal_seqs_2qubits, \
-    stripWaitBarrier
+    stripWaitBarrier, flattenPulseBlocks
 
 class TestAllXY(unittest.TestCase):
     def setUp(self):
@@ -123,6 +123,7 @@ class TestAllXY(unittest.TestCase):
         self.assertEqual(len(seqs), 4*21*2)
         assertPulseSequenceEqual(self, seqs[:len(expectedseq)], expectedseq)
 
+# BlankingSweeps are OBE, so not tested
 
 class TestCR(unittest.TestCase):
     def setUp(self):
@@ -432,7 +433,7 @@ class TestFlipFlop(unittest.TestCase):
 # FIXME: Tests for this class are incomplete
 class TestRB(unittest.TestCase):
     def setUp(self):
-        channel_setup()
+        channel_setup(doHW=True)
 
     def test_SingleQubitRB(self):
         q1 = QubitFactory('q1')
@@ -502,7 +503,7 @@ class TestRB(unittest.TestCase):
         # sequence
         # This isn't quite right; this is before adding the Waits for example
         expectedseq = []
-        def testTwoQubitRB(q1, q2, rbseqs, purit=False, add_cal=True):
+        def testTwoQubitRB(q1, q2, rbseqs, add_cal=True):
             from QGL.Cliffords import clifford_seq
             from QGL.BasicSequences.helpers import create_cal_seqs
             from functools import reduce
@@ -542,15 +543,124 @@ class TestRB(unittest.TestCase):
         # self.maxDiff = None
         # Note: We expect the sequences to start differing around element 2110, due
         # to PulseBlock vs list of pulses, given QGL2 uses Barrier;Pulse where QGL1 uses PulseBlock(pulse)
+        # (but that difference is harmless we think)
         assertPulseSequenceEqual(self, seqs[:2110], expectedseq[:2110])
         # assertPulseSequenceEqual(self, seqs, expectedseq)
 
-    # FIXME FIXME: Other RB functions:
-    #  SingleQubitRB_AC
+    def test_SingleQubitRB_AC(self):
+        q1 = QubitFactory('q1')
+        q2 = QubitFactory('q2')
+        qr1 = QRegister(q1)
+        qr2 = QRegister(q2)
+        np.random.seed(20152606) # set seed for create_RB_seqs()
+        rbseqs = create_RB_seqs(1, 2**np.arange(1,7))
+        add_cals = True
+        purity = False
+
+        # Try copying in the basic QGL1 code
+        # Can't do it directly since that code doesn't return the
+        # sequence
+        # This isn't quite right; this is before adding the Waits for example
+        expectedseq = []
+        def testSingleQubitRB_AC(qubit, seqs, purit=False, add_cal=True):
+            from QGL.PulsePrimitives import AC, MEAS, Id, Y90m, X90
+            from QGL.BasicSequences.helpers import create_cal_seqs
+            from functools import reduce
+            import operator
+            seqsBis = []
+            op = [Id(qubit, length=0), Y90m(qubit), X90(qubit)]
+            for ct in range(3 if purit else 1):
+                for seq in seqs:
+                    seqsBis.append([AC(qubit, c) for c in seq])
+                    # append tomography pulse to measure purity
+                    seqsBis[-1].append(op[ct])
+                    # append measurement
+                    seqsBis[-1].append(MEAS(qubit))
+            # Tack on the calibration sequences
+            if add_cals:
+                seqsBis += create_cal_seqs((qubit, ), 2)
+            return seqsBis
+
+        expectedseq = testSingleQubitRB_AC(q1, rbseqs, purity, add_cals)
+        # Must reset the seeds because QGL1 used the prior values, to ensure QGL2 gets same values
+        np.random.seed(20152606) # set seed for create_RB_seqs()
+        resFunction = compile_function("src/python/qgl2/basic_sequences/RB.py",
+                                      "SingleQubitRB_AC",
+                                      (qr1, rbseqs, purity, add_cals))
+        seqs = resFunction()
+        seqs = testable_sequence(seqs)
+        # Run testable on the QGL1 to flatten the sequence of sequences
+        expectedseq = testable_sequence(expectedseq)
+        # Strip out the QGL2 Waits and Barriers that QGL1 doesn't have
+        # Note that if you want to see the real sequence, don't do this
+        seqs = stripWaitBarrier(seqs)
+        # self.maxDiff = None
+        assertPulseSequenceEqual(self, seqs, expectedseq)
+
+    def test_SimultaneousRB_AC(self):
+        q1 = QubitFactory('q1')
+        q2 = QubitFactory('q2')
+        qr1 = QRegister(q1)
+        qr2 = QRegister(q2)
+        qr = QRegister(q1, q2)
+        np.random.seed(20151709) # set seed for create_RB_seqs()
+        rbseqs = create_RB_seqs(1, 2**np.arange(1,7))
+        add_cals = True
+
+        # Try copying in the basic QGL1 code
+        # Can't do it directly since that code doesn't return the
+        # sequence
+        # This isn't quite right; this is before adding the Waits for example
+        expectedseq = []
+        def testSimultaneousRB_AC(qubits, seqs, add_cal=True):
+            from QGL.PulsePrimitives import AC, MEAS
+            from QGL.BasicSequences.helpers import create_cal_seqs
+            from functools import reduce
+            import operator
+            seqsBis = []
+            for seq in zip(*seqs):
+                seqsBis.append([reduce(operator.__mul__,
+                                       [AC(q, c) for q, c in zip(qubits, pulseNums)])
+                                for pulseNums in zip(*seq)])
+
+            # Add the measurement to all sequences
+            for seq in seqsBis:
+                seq.append(reduce(operator.mul, [MEAS(q) for q in qubits]))
+
+            # Tack on the calibration sequences
+            if add_cal:
+                seqsBis += create_cal_seqs((qubits), 2)
+            return seqsBis
+
+        expectedseq = testSimultaneousRB_AC((q1, q2), (rbseqs, rbseqs), add_cals)
+        # Must reset the seeds because QGL1 used the prior values, to ensure QGL2 gets same values
+        np.random.seed(20151709) # set seed for create_RB_seqs()
+        resFunction = compile_function("src/python/qgl2/basic_sequences/RB.py",
+                                      "SimultaneousRB_AC",
+                                      (qr, (rbseqs, rbseqs), add_cals))
+        seqs = resFunction()
+        seqs = testable_sequence(seqs)
+        # Run testable on the QGL1 to flatten the sequence of sequences
+        expectedseq = testable_sequence(expectedseq)
+
+        # QGL2 generates Barrier, P(q1), P(q2), Barrier, ....
+        # where QGL1 does PulseBlock(P(q1) * P(q2))
+        # - these are equivalent, but look different.
+        # I could go thru QGL2, when I find a Barrier, grab all next Pulses up to next Barrier & put them in a PulseBlock?
+        # Here though, I take any PulseBlock in QGL1 and just list the Pulses
+        expectedseq = flattenPulseBlocks(expectedseq)
+
+        # Strip out the QGL2 Waits and Barriers that QGL1 doesn't have
+        # Note that if you want to see the real sequence, don't do this
+        seqs = stripWaitBarrier(seqs)
+
+        # self.maxDiff = None
+        assertPulseSequenceEqual(self, seqs, expectedseq)
+
+    # These RB functions are unlikely to be done:
     #  SingleQubitRB_DiAC (?)
-    #  SingleQubitIRB_AC
+    #  SingleQubitIRB_AC (needs a file of sequences that I don't have)
     #  Not this one that needs a specific file: SingleQubitRBT
-    #   SimultaneousRB_AC
 
 class TestRabi(unittest.TestCase):
     def setUp(self):

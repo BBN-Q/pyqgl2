@@ -18,15 +18,15 @@ from pyqgl2.test_cl import create_default_channelLibrary
 import collections
 from math import pi
 
-def channel_setup(new=True):
+def channel_setup(doHW=False, new=True):
     # new indicates replace any existing library
     # Otherwise if there is an existing library, use it
     # FIXME: For now, supplying first arg false meaning do not create physical channel mappings
     if not new and ChannelLibraries.channelLib is not None and len(ChannelLibraries.channelLib.keys()) != 0:
-        create_default_channelLibrary(False, False)
+        create_default_channelLibrary(doHW, False)
         # create_channel_library(ChannelLibraries.channelLib.channelDict)
     else:
-        create_default_channelLibrary(False, True)
+        create_default_channelLibrary(doHW, True)
         # create_channel_library(new=True)
 
 # # OBE: Create a basic channel library
@@ -199,6 +199,21 @@ def stripWaitBarrier(seqs):
         if isinstance(el, collections.Iterable) and not isinstance(el, (str, Pulse, CompositePulse)) :
             newel = stripWaitBarrier(el)
             newS.extend(newel)
+        else:
+            newS.append(el)
+    return newS
+
+# See RB SimultaneousRB_AC test
+def flattenPulseBlocks(seqs):
+    '''Turn PulseBlocks into linear series of pulses.
+    Used on QGL1 sequences to look more like QGL2 (which precedes these with a Barrier, so is equivalent)
+    '''
+    from QGL.PulseSequencer import PulseBlock
+    newS = []
+    for el in seqs:
+        if isinstance(el, PulseBlock):
+            for p in el.pulses.values():
+                newS.append(p)
         else:
             newS.append(el)
     return newS
