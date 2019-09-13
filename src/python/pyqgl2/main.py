@@ -345,7 +345,7 @@ def compile_function(filename,
     NodeError.halt_on_error()
     return qgl1_main
 
-def qgl2_compile_to_hardware(seqs, filename, suffix=''):
+def qgl2_compile_to_hardware(seqs, filename, suffix='', axis_descriptor=None):
     '''
     Custom compile_to_hardware for QGL2
     '''
@@ -355,7 +355,7 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
 
     scheduled_seq = schedule(seqs)
 
-    return compile_to_hardware([scheduled_seq], filename, suffix)
+    return compile_to_hardware([scheduled_seq], filename, suffix=suffix, axis_descriptor=axis_descriptor)
 
 ######
 # Run the main with
@@ -432,6 +432,7 @@ if __name__ == '__main__':
 
         if opts.tohw:
             print("Compiling sequences to hardware\n")
+            # FIXME: Add option to supply axis_descriptors?
             fileNames = qgl2_compile_to_hardware(sequences, opts.prefix,
                                                  opts.suffix)
             print(fileNames)
