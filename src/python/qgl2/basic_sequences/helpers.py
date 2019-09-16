@@ -7,6 +7,7 @@ from qgl2.util import init
 from itertools import product
 import operator
 from functools import reduce
+import numpy as np
 
 # FIXME: measChans should be declared a qreg, but the inliner isn't handling that
 @qgl2decl
@@ -94,7 +95,8 @@ def delay_descriptor(delays, desired_units="us"):
     axis_descriptor = {
         'name': 'delay',
         'unit': desired_units,
-        'points': list(scale * delays),
+        # Make sure delays is a numpy array so can multiply it by a float safely
+        'points': list(scale * np.array(delays)),
         'partition': 1
     }
     return axis_descriptor
