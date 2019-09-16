@@ -1,6 +1,6 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.basic_sequences.helpers import create_cal_seqs, measConcurrently
+from qgl2.basic_sequences.helpers import create_cal_seqs, measConcurrently, cal_descriptor, delay_descriptor
 from qgl2.qgl2 import qgl2decl, qreg, QRegister
 from qgl2.qgl1 import Utheta, MEAS, X, Id
 from qgl2.util import init
@@ -213,24 +213,59 @@ def main():
     q2 = QRegister("q2")
     qr = QRegister(q1, q2)
 
+    rAmpAmps = np.linspace(0, 1, 1)
+    rWidthWidths = np.linspace(0, 5e-6, 11)
+    ranqAmps = np.linspace(0, 5e-6, 11)
+    tCalR = 2
+    rAmpPiAmps = np.linspace(0, 1, 11)
+
+    def getRAmpAD(amps):
+        return [{
+            'name': 'amplitude',
+            'unit': None,
+            'points': list(amps),
+            'partition': 1
+        }]
+    def getRWidthAD(widths):
+        return [delay_descriptor(widths)]
+
+    def getRAmpNQAD(qubits, amps, calRepeats):
+        return [
+            {
+                'name': 'amplitude',
+                'unit': None,
+                'points': list(amps),
+                'partition': 1
+            },
+            cal_descriptor(qubits, calRepeats)
+        ]
+
+    def getRAmpPiAD(amps):
+        return [{
+            'name': 'amplitude',
+            'unit': None,
+            'points': list(amps),
+            'partition': 1
+        }]
+
     # FIXME: See issue #44: Must supply all args to qgl2main for now
 
-#    for func, args, label in [("RabiAmp", (q1, np.linspace(0, 1, 1)), "Rabi"),
-#                              ("RabiWidth", (q1, np.linspace(0, 5e-6, 11)), "Rabi"),
-#                              ("RabiAmpPi", (q1, q2, np.linspace(0, 1, 11)), "Rabi"),
-#                              ("SingleShow", (q1,), "SingleShot"),
-#                              ("PulsedSpec", (q1,), "Spec"),
-#                              ("RabiAmp_NQubits", (qr,np.linspace(0, 5e-6, 11)), "Rabi"),
-#                              ("Swap", (q1, np.linspace(0, 5e-6, 11), "Swap"),
+#    for func, args, label, axisDec in [("RabiAmp", (q1, rAmpAmps), "Rabi", getRAmpAD(rAmpAmps)),
+#                              ("RabiWidth", (q1, rWidthWidths), "Rabi", getRWidthAD(rWidthWidths)),
+#                              ("RabiAmpPi", (q1, q2, rAmpPiAmps), "Rabi", getRAmpPiAD(rAmpPiAmps)),
+#                              ("SingleShow", (q1,), "SingleShot", None),
+#                              ("PulsedSpec", (q1,), "Spec", None),
+#                              ("RabiAmp_NQubits", (qr,ranqAmps), "Rabi", getRAmpNQAD(qr, ranqAmps, tCalR)),
+#                              ("Swap", (q1, np.linspace(0, 5e-6, 11), "Swap", None),
 #                          ]:
 
-    for func, args, label in [("RabiAmp", (q1, np.linspace(0, 1, 1), 0), "Rabi"),
-                              ("RabiWidth", (q1, np.linspace(0, 5e-6, 11), 1, 0, QGL.PulseShapes.tanh), "Rabi"),
-                              ("RabiAmpPi", (q1, q2, np.linspace(0, 1, 11), 0), "Rabi"),
-                              ("SingleShot", (q1,), "SingleShot"),
-                              ("PulsedSpec", (q1,True), "Spec"),
-                              ("RabiAmp_NQubits", (qr,np.linspace(0, 5e-6, 11), 0, qr, False, 2), "Rabi"),
-                              ("Swap", (q1, np.linspace(0, 5e-6, 11), q2), "Swap")
+    for func, args, label, axisDesc in [("RabiAmp", (q1, rAmpAmps, 0), "Rabi", getRAmpAD(rAmpAmps)),
+                              ("RabiWidth", (q1, rWidthWidths, 1, 0, QGL.PulseShapes.tanh), "Rabi", getRWidthAD(rWidthWidths)),
+                              ("RabiAmpPi", (q1, q2, rAmpPiAmps, 0), "Rabi", getRAmpPiAD(rAmpPiAmps)),
+                              ("SingleShot", (q1,), "SingleShot", None),
+                              ("PulsedSpec", (q1,True), "Spec", None),
+                              ("RabiAmp_NQubits", (qr,ranqAmps, 0, qr, False, tCalR), "Rabi", getRAmpNQAD(qr, ranqAmps, tCalR)),
+                              ("Swap", (q1, np.linspace(0, 5e-6, 11), q2), "Swap", None)
                            ]:
 
         print(f"\nRun {func}...")
@@ -244,7 +279,7 @@ def main():
             print(f"Compiling {func} sequences to hardware\n")
             # To get verbose logging including showing the compiled sequences:
             # QGL.Compiler.set_log_level()
-            fileNames = qgl2_compile_to_hardware(seq, f'{label}/{label}')
+            fileNames = qgl2_compile_to_hardware(seq, filename=f'{label}/{label}', axis_descriptor=axisDesc)
             print(f"Compiled sequences; metafile = {fileNames}")
             if plotPulses:
                 from QGL.PulseSequencePlotter import plot_pulse_files

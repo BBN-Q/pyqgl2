@@ -4,7 +4,7 @@ from qgl2.qgl2 import qgl2decl, qreg, QRegister
 
 from qgl2.qgl1 import Id, X, MEAS, X90, flat_top_gaussian_edge, echoCR, Y90m
 
-from qgl2.basic_sequences.helpers import create_cal_seqs, measConcurrently
+from qgl2.basic_sequences.helpers import create_cal_seqs, measConcurrently, cal_descriptor, delay_descriptor
 from qgl2.util import init
 
 from itertools import product
@@ -301,19 +301,72 @@ def main():
     q1 = QRegister("q1")
     q2 = QRegister("q2")
 
+    # Axis Descriptor generator functions here
+    # This is ugly; they're method dependent, but I can't do them in the QGL2 itself
+    # Additionally, each uses values from the args to the function
+    # So here we make those arguments be constants so we can use them twice
+    # without rewriting the values
+    pirlengths = np.linspace(0, 4e-6, 11) # Lengths arg to PiRabi
+    eclLengths = np.linspace(0, 2e-6, 11) # Lengths arg to EchoCRLen
+    trisefall = 40e-9 # riseFall arg for many
+    tamp = 1 # amp arg for many
+    t2amp = 0.8 # amp arg for CRTomo
+    tphase = 0 # phase arg for many
+    tcalr = 2 # calRepeats arg for many
+    ecpPhases = np.linspace(0, np.pi/2, 11) # phases arg for EchoCRPhase
+    ecaAmps = np.linspace(0, 5e-6, 11) # amps arg for echoCRAmp
+    crtLengths = np.linspace(0, 2e-6, 11) # lengths arg for CRtomo_seq
+    def getPRAxisDesc(lengths, calRepeats):
+        return [
+            delay_descriptor(np.concatenate((lengths, lengths))),
+            # Hard code there are 2 qubits
+            cal_descriptor(('c', 't'), calRepeats)
+        ]
+    def getECLAxisDesc(lengths, calRepeats):
+        return [
+            delay_descriptor(np.concatenate((lengths, lengths))),
+            # Hard code there are 2 qubits
+            cal_descriptor(('controlQ', 'targetQ'), calRepeats)
+        ]
+    def getECPAxisDesc(phases, calRepeats):
+        return [
+            {
+                'name': 'phase',
+                'unit': 'radians',
+                'points': list(phases)+list(phases),
+                'partition': 1
+            },
+            cal_descriptor(('controlQ', 'targetQ'), calRepeats)
+        ]
+    def getECAAxisDesc(amps, calRepeats):
+        return [
+            {
+                'name': 'amplitude',
+                'unit': None,
+                'points': list(amps)+list(amps),
+                'partition': 1
+            },
+            cal_descriptor(('controlQ', 'targetQ'), calRepeats)
+        ]
+    def getCRtAxisDesc(lengths):
+        return [
+            delay_descriptor(np.concatenate((np.repeat(lengths,3), np.repeat(lengths,3)))),
+            cal_descriptor(('targetQ',), 2)
+        ]
+
     # FIXME: See issue #44: Must supply all args to qgl2main for now
 
-#    for func, args, label in [("PiRabi", (q1, q2, np.linspace(0, 4e-6, 11)), "PiRabi"),
-#                              ("EchoCRLen", (q1, q2, np.linspace(0, 2e-6, 11)), "EchoCR"),
-#                              ("EchoCRPhase", (q1, q2, np.linspace(0, np.pi/2, 11)), "EchoCR"),
-#                              ("EchoCRAmp", (q1, q2, np.linspace(0, 5e-6, 11)), "EchoCR"), # FIXME: Right values?
-#                              ("CRtomo_seq", (q1, q2, np.linspace(0, 2e-6, 11), 0), "CR") # FIXME: Right values?
+#    for func, args, label, axisDesc in [("PiRabi", (q1, q2, pirlengths), "PiRabi", getPRAxisDesc(pirlengths, tcalr)),
+#                              ("EchoCRLen", (q1, q2, np.linspace(0, 2e-6, 11)), "EchoCR", getECLAxisDesc(eclLengths, tcalr)),
+#                              ("EchoCRPhase", (q1, q2, np.linspace(0, np.pi/2, 11)), "EchoCR", getECPAxisDesc(ecpPhases, tcalr)),
+#                              ("EchoCRAmp", (q1, q2, np.linspace(0, 5e-6, 11)), "EchoCR", getECAAxisDesc(ecaAmps, tcalr)), # FIXME: Right values?
+#                              ("CRtomo_seq", (q1, q2, np.linspace(0, 2e-6, 11), 0), "CR", getCRtAxisDesc(crtLengths)) # FIXME: Right values?
 #                          ]:
-    for func, args, label in [("PiRabi", (q1, q2, np.linspace(0, 4e-6, 11), 40e-9,1,0,2), "PiRabi"),
-                              ("EchoCRLen", (q1, q2, np.linspace(0, 2e-6, 11),40e-9,1,0,2,0,np.pi/2), "EchoCR"),
-                              ("EchoCRPhase", (q1, q2, np.linspace(0, np.pi/2, 11),40e-9,1,100e-9,2,0,np.pi/2), "EchoCR"),
-                              ("EchoCRAmp", (q1, q2, np.linspace(0, 5e-6, 11),40e-9,50e-9,0,2), "EchoCR"), # FIXME: Right values?
-                              ("CRtomo_seq", (q1, q2, np.linspace(0, 2e-6, 11), 0, 0.8,20e-9), "CR") # FIXME: Right values?
+    for func, args, label, axisDesc in [("PiRabi", (q1, q2, pirlengths, trisefall,tamp,tphase,tcalr), "PiRabi", getPRAxisDesc(pirlengths, tcalr)),
+                              ("EchoCRLen", (q1, q2, eclLengths, trisefall, tamp, tphase, tcalr, 0, np.pi/2), "EchoCR", getECLAxisDesc(eclLengths, tcalr)),
+                              ("EchoCRPhase", (q1, q2, ecpPhases, trisefall,tamp,100e-9,tcalr,0,np.pi/2), "EchoCR", getECPAxisDesc(ecpPhases, tcalr)),
+                              ("EchoCRAmp", (q1, q2, ecaAmps, trisefall,50e-9,tphase,tcalr), "EchoCR", getECAAxisDesc(ecaAmps, tcalr)), # FIXME: Right values?
+                              ("CRtomo_seq", (q1, q2, crtLengths, 0, t2amp,20e-9), "CR", getCRtAxisDesc(crtLengths)) # FIXME: Right values?
                           ]:
 
         print(f"\nRun {func}...")
@@ -325,7 +378,7 @@ def main():
         seq = resFunc()
         if toHW:
             print(f"Compiling {func} sequences to hardware\n")
-            fileNames = qgl2_compile_to_hardware(seq, f'{label}/{label}')
+            fileNames = qgl2_compile_to_hardware(seq, filename=f'{label}/{label}', axis_descriptor=axisDesc)
             print(f"Compiled sequences; metafile = {fileNames}")
             if plotPulses:
                 from QGL.PulseSequencePlotter import plot_pulse_files

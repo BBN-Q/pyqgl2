@@ -12,7 +12,7 @@ from qgl2.qgl1 import MEAS, Id, X, AC, clifford_seq, Y90m, X90
 # from QGL.Cliffords import clifford_seq, clifford_mat, inverse_clifford
 from qgl2.Cliffords import clifford_mat, inverse_clifford
 
-from qgl2.basic_sequences.helpers import create_cal_seqs, measConcurrently
+from qgl2.basic_sequences.helpers import create_cal_seqs, measConcurrently, cal_descriptor, delay_descriptor
 
 from qgl2.util import init
 
@@ -595,24 +595,75 @@ def main():
 
 # FIXME: Add test of SingleQubitRB_DiAC
 
-#    for func, args, label, beforeFunc in [("SingleQubitRB", (q1, create_RB_seqs(1, 2**np.arange(1,7))), "RB", beforeSingleRB),
-#                              ("TwoQubitRB", (q1, q2, create_RB_seqs(2, [2, 4, 8, 16, 32], repeats=16)), "RB", beforeTwoRB),
-#                              ("SimultaneousRB_AC", (qr, (create_RB_seqs(1, 2**np.arange(1,7)), create_RB_seqs(1, 2**np.arange(1,7)))), "RB", beforeSimRBAC),
-#                              ("SingleQubitRB_AC", (q1,create_RB_seqs(1, 2**np.arange(1,7))), "RB", beforeSingleRBAC),
-#                              ("SingleQubitIRB_AC", (q1,''), "RB"),
+    sqCSeqs = create_RB_seqs(1, 2**np.arange(1,7))
+    tqCSeqs = create_RB_seqs(2, [2, 4, 8, 16, 32], repeats=16)
+    simCSeqs = (sqCSeqs, sqCSeqs)
+    tAddCals = True
+    def getSingleQubitRBAD(seqs, add_cals):
+        ad = [{
+            'name': 'length',
+            'unit': None,
+            'points': list(map(len, seqs)),
+            'partition': 1
+        }]
+        if add_cals:
+            ad.append(cal_descriptor(('qubit',), 2))
+        return ad
+
+    def getTwoQubitRBAD(seqs, add_cals):
+        axis_descriptor = [{
+            'name': 'length',
+            'unit': None,
+            'points': list(map(len, seqs)),
+            'partition': 1
+        }]
+        if add_cals:
+            axis_descriptor.append(cal_descriptor(('q1', 'q2'), 2))
+        return axis_descriptor
+
+    def getSingleQubitRBAC_AD(seqs, add_cals):
+        axis_descriptor = [{
+            'name': 'length',
+            'unit': None,
+            'points': list(map(len, seqs)),
+            'partition': 1
+        }]
+        if add_cals:
+            axis_descriptor.append(cal_descriptor(('qubit',), 2))
+        return axis_descriptor
+
+    def getSimRBACAD(seqs, add_cals, qubits):
+        axis_descriptor = [{
+            'name': 'length',
+            'unit': None,
+            'points': list(map(len, seqs)),
+            'partition': 1
+        }]
+        if add_cals:
+            axis_descriptor.append(cal_descriptor((qubits), 2))
+        return axis_descriptor
+
+# FIXME: SingleQubitIRB_AC filenames are more complex
+# FIXME: SingleQubitRBT has complex suffix it should pass to compile_to_hardware
+
+#    for func, args, label, beforeFunc, axisDesc, cseqs in [("SingleQubitRB", (q1, sqCSeqs), "RB", beforeSingleRB, getSingleQubitRBAD(sqCSeqs, tAddCals), sqCSeqs),
+#                              ("TwoQubitRB", (q1, q2, tqCSeqs), "RB", beforeTwoRB, getTwoQubitRBAD(tqCSeqs, tAddCals), tqCSeqs),
+#                              ("SingleQubitRB_AC", (q1,sqCSeqs), "RB", beforeSingleRBAC, getSingleQubitRBAC_AD(sqCSeqs, tAddCals), sqCSeqs),
+#                              ("SimultaneousRB_AC", (qr, simCSeqs), "RB", beforeSimRBAC, getSimRBACAD(simCSeqs, tAddCals, qr), simCSeqs),
+#                              ("SingleQubitIRB_AC", (q1,''), "RB", None, None, None),
 # Comment says this next one relies on a specific file, so don't bother running
-#                              ("SingleQubitRBT", (q1,'', fixmePulse), "RBT"),
+#                              ("SingleQubitRBT", (q1,'', fixmePulse), "RBT", None, None, None),
 #                          ]:
 
-    for func, args, label, beforeFunc in [("SingleQubitRB", (q1, create_RB_seqs(1, 2**np.arange(1,7)), False, True), "RB", beforeSingleRB),
-                              ("TwoQubitRB", (q1, q2, create_RB_seqs(2, [2, 4, 8, 16, 32], repeats=16), True), "RB", beforeTwoRB),
-                              ("SingleQubitRB_AC", (q1,create_RB_seqs(1, 2**np.arange(1,7)), False, True), "RB", beforeSingleRBAC),
+    for func, args, label, beforeFunc, axisDesc, cseqs in [("SingleQubitRB", (q1, sqCSeqs, False, tAddCals), "RB", beforeSingleRB, getSingleQubitRBAD(sqCSeqs, tAddCals), sqCSeqs),
+                              ("TwoQubitRB", (q1, q2, tqCSeqs, tAddCals), "RB", beforeTwoRB, getTwoQubitRBAD(tqCSeqs, tAddCals), tqCSeqs),
+                              ("SingleQubitRB_AC", (q1,sqCSeqs, False, tAddCals), "RB", beforeSingleRBAC, getSingleQubitRBAC_AD(sqCSeqs, tAddCals), sqCSeqs),
 # Warning: This next one is slow....
-                              ("SimultaneousRB_AC", (qr, (create_RB_seqs(1, 2**np.arange(1,7)), create_RB_seqs(1, 2**np.arange(1,7))), True), "RB", beforeSimRBAC),
+                              ("SimultaneousRB_AC", (qr, simCSeqs, tAddCals), "RB", beforeSimRBAC, getSimRBACAD(simCSeqs, tAddCals, qr), simCSeqs),
 # This next one relies on a file of sequence strings, which I don't have
-#                                          ("SingleQubitIRB_AC", (q1,None), "RB", None),
+#                                          ("SingleQubitIRB_AC", (q1,None), "RB", None, None, None),
 # Comment says this next one relies on a specific file, so don't bother running
-#                              # ("SingleQubitRBT", (q1,'', fixmePulse, True), "RBT", None),
+#                              # ("SingleQubitRBT", (q1,'', fixmePulse, True), "RBT", None, None, None),
                            ]:
 
         print(f"\nRun {func}...")
@@ -631,7 +682,10 @@ def main():
             import QGL
             print(f"Compiling {func} sequences to hardware\n")
             # QGL.Compiler.set_log_level()
-            fileNames = qgl2_compile_to_hardware(seq, f'{label}/{label}')
+            em = None
+            if cseqs:
+                em = {'sequences':cseqs}
+            fileNames = qgl2_compile_to_hardware(seq, filename=f'{label}/{label}', axis_descriptor=axisDesc, extra_meta = em)
             print(f"Compiled sequences; metafile = {fileNames}")
             if plotPulses:
                 from QGL.PulseSequencePlotter import plot_pulse_files

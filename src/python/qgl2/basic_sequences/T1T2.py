@@ -4,7 +4,7 @@ from qgl2.qgl2 import qgl2decl, qreg, qgl2main
 
 from qgl2.qgl1 import X, Id, MEAS, X90, U90
 
-from qgl2.basic_sequences.helpers import create_cal_seqs
+from qgl2.basic_sequences.helpers import create_cal_seqs, cal_descriptor, delay_descriptor
 from qgl2.util import init
 
 from scipy.constants import pi
@@ -116,7 +116,8 @@ def main():
     from pyqgl2.main import compile_function, qgl2_compile_to_hardware
 
     toHW = True
-    plotPulses = False
+    plotPulses = False # Don't try creating graphics objects
+    suffix = False # change generated filename to include qbit name
     pyqgl2.test_cl.create_default_channelLibrary(toHW, True)
 
 #    # To turn on verbose logging in compile_function
@@ -133,18 +134,35 @@ def main():
     # intermediate products
 
     # Pass in QRegister(s) NOT real Qubits
-    q1 = QRegister("q1")
+    qbitName = "q1"
+    q1 = QRegister(qbitName)
 
     # FIXME: See issue #44: Must supply all args to qgl2main for now
 
     # InversionRecovery(q1,  np.linspace(0, 5e-6, 11))
     # Ramsey(q1, np.linspace(0, 5e-6, 11))
 
-#    for func, args, label in [("InversionRecovery", (q1, np.linspace(0, 5e-6, 11)), "InversionRecovery"),
-#                              ("Ramsey", (q1, np.linspace(0, 5e-6, 11)), "Ramsey")
+    irDelays = np.linspace(0, 5e-6, 11)
+    rSpacings = np.linspace(0, 5e-6, 11)
+    tCalR = 2
+
+    def irAD(delays, calRepeats):
+        return [
+            delay_descriptor(delays),
+            cal_descriptor(('qubit',), calRepeats)
+            ]
+
+    def rAD(pulseSpacings, calRepeats):
+        return [
+            delay_descriptor(pulseSpacings),
+            cal_descriptor(('qubit',), calRepeats)
+        ]
+
+#    for func, args, label, axisDesc in [("InversionRecovery", (q1, irDelays), "T1", irAD(irDelays, tCalR)),
+#                              ("Ramsey", (q1, rSpacings), "Ramsey", rAD(rSpacings, tCalR))
 #                          ]:
-    for func, args, label in [("InversionRecovery", (q1, np.linspace(0, 5e-6, 11), 2), "InversionRecovery"),
-                              ("Ramsey", (q1, np.linspace(0, 5e-6, 11), 0, 2), "Ramsey")
+    for func, args, label, axisDesc in [("InversionRecovery", (q1, irDelays, tCalR), "T1", irAD(irDelays, tCalR)),
+                              ("Ramsey", (q1, rSpacings, 0, tCalR), "Ramsey", rAD(rSpacings, tCalR))
                           ]:
 
         print(f"\nRun {func}...")
@@ -156,7 +174,13 @@ def main():
         seq = resFunc()
         if toHW:
             print(f"Compiling {func} sequences to hardware\n")
-            fileNames = qgl2_compile_to_hardware(seq, f'{label}/{label}')
+
+            # Generate proper filenames; for these, it isn't just the label Ramsey
+            # T1T2 QGL functions take a suffix boolean default false. If true, then append to label "_qubit.label"; ie "_q1"
+            if suffix:
+                label = label + f"_{qbitName}"
+
+            fileNames = qgl2_compile_to_hardware(seq, filename=f'{label}/{label}', axis_descriptor=axisDesc)
             print(f"Compiled sequences; metafile = {fileNames}")
             if plotPulses:
                 from QGL.PulseSequencePlotter import plot_pulse_files

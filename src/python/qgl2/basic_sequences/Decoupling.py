@@ -3,7 +3,7 @@
 from qgl2.qgl2 import qgl2decl, qreg, QRegister
 
 from qgl2.qgl1 import X90, Id, Y, U90, MEAS, pulseCentered
-from qgl2.basic_sequences.helpers import create_cal_seqs
+from qgl2.basic_sequences.helpers import create_cal_seqs, cal_descriptor, delay_descriptor
 from qgl2.util import init
 
 from math import pi
@@ -106,7 +106,7 @@ def main():
     import numpy as np
 
     toHW = True
-    plotPulses = False
+    plotPulses = False # This tries to produce graphics to display
     pyqgl2.test_cl.create_default_channelLibrary(toHW, True)
 
 #    # To turn on verbose logging in compile_function
@@ -125,13 +125,35 @@ def main():
     # Pass in QRegister(s) NOT real Qubits
     q1 = QRegister("q1")
 
+    # Axis Descriptor generator functions here
+    # This is ugly; they're method dependent, but I can't do them in the QGL2 itself
+    # Additionally, each uses values from the args to the function
+    # So here we make those arguments be constants so we can use them twice
+    # without rewriting the values
+    hahnSpacings = np.linspace(0, 5e-6, 11)
+    tCalR = 2 # calRepeats
+    cpmgNumPulses = [0, 2, 4, 6]
+    cpmgSpacing = 500e-9
+    def getHahnAxisDesc(pulseSpacings, calRepeats):
+        return [
+            delay_descriptor(2 * pulseSpacings),
+            cal_descriptor(('qubit',), calRepeats)
+        ]
+    def getCPMGAxisDesc(pulseSpacing, numPulses, calRepeats):
+        return [
+            # NOTE: numPulses is not a numpy array, so cannot multiply by a float
+            # But thankfully, np.array(np.array) = np.array so this is always a good move here.
+            delay_descriptor(pulseSpacing * np.array(numPulses)),
+            cal_descriptor(('qubit',), calRepeats)
+        ]
+
     # FIXME: See issue #44: Must supply all args to qgl2main for now
 
-#    for func, args, label in [("HahnEcho", (q1, np.linspace(0, 5e-6, 11)), "HahnEcho"),
-#                              ("CPMG", (q1, [0, 2, 4, 5], 500e-9), "CPMG"),
+#    for func, args, label, axisDesc in [("HahnEcho", (q1, hahnSpacings), "HahnEcho", getHahnAxisDesc(hahnSpacings, tCalR)),
+#                              ("CPMG", (q1, cpmgNumPulses, cpmgSpacing), "CPMG", getCPMGAxisDesc(cpmgSpacing, cpmgNumPulses, tCalR)),
 #                          ]:
-    for func, args, label in [("HahnEcho", (q1, np.linspace(0, 5e-6, 11), 0, 2), "HahnEcho"),
-                              ("CPMG", (q1, [0, 2, 4, 6], 500e-9, 2), "CPMG"),
+    for func, args, label, axisDesc in [("HahnEcho", (q1, hahnSpacings, 0, tCalR), "HahnEcho", getHahnAxisDesc(hahnSpacings, tCalR)),
+                              ("CPMG", (q1, cpmgNumPulses, cpmgSpacing, tCalR), "CPMG", getCPMGAxisDesc(cpmgSpacing, cpmgNumPulses, tCalR)),
                           ]:
 
         print(f"\nRun {func}...")
@@ -143,7 +165,7 @@ def main():
         seq = resFunc()
         if toHW:
             print(f"Compiling {func} sequences to hardware\n")
-            fileNames = qgl2_compile_to_hardware(seq, f'{label}/{label}')
+            fileNames = qgl2_compile_to_hardware(seq, filename=f'{label}/{label}', axis_descriptor=axisDesc)
             print(f"Compiled sequences; metafile = {fileNames}")
             if plotPulses:
                 from QGL.PulseSequencePlotter import plot_pulse_files
