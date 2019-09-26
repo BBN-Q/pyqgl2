@@ -149,10 +149,10 @@ def main():
 
     # FIXME: See issue #44: Must supply all args to qgl2main for now
 
-#    for func, args, label, axisDesc in [("HahnEcho", (q1, hahnSpacings), "HahnEcho", getHahnAxisDesc(hahnSpacings, tCalR)),
+#    for func, args, label, axisDesc in [("HahnEcho", (q1, hahnSpacings), "Echo", getHahnAxisDesc(hahnSpacings, tCalR)),
 #                              ("CPMG", (q1, cpmgNumPulses, cpmgSpacing), "CPMG", getCPMGAxisDesc(cpmgSpacing, cpmgNumPulses, tCalR)),
 #                          ]:
-    for func, args, label, axisDesc in [("HahnEcho", (q1, hahnSpacings, 0, tCalR), "HahnEcho", getHahnAxisDesc(hahnSpacings, tCalR)),
+    for func, args, label, axisDesc in [("HahnEcho", (q1, hahnSpacings, 0, tCalR), "Echo", getHahnAxisDesc(hahnSpacings, tCalR)),
                               ("CPMG", (q1, cpmgNumPulses, cpmgSpacing, tCalR), "CPMG", getCPMGAxisDesc(cpmgSpacing, cpmgNumPulses, tCalR)),
                           ]:
 
