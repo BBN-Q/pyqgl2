@@ -108,7 +108,7 @@ def tomo(f, q1: qreg, q2: qreg):
  * Install `git` and `buildessentials` packages
  * `git-lfs` is now required: See https://git-lfs.github.com/
   * Download it & unpack and run `install.sh`
- * Install python 3.5+; easiest done using [Anaconda](https://www.anaconda.com/distribution/#download-section)
+ * Install python 3.6+; easiest done using [Anaconda](https://www.anaconda.com/distribution/#download-section)
   * See below for sample installation given an Anaconda install
   * You will need python 3 compatible atom (either atom 1.0.0-dev or ecpy channel atom 0.4)
  * Install QGL: (https://github.com/BBN-Q/QGL)
@@ -141,7 +141,7 @@ config:
 
 ### Dependencies
  * Working [https://github.com/BBN-Q/QGL] installation (including `networkx`, `numpy`, `scipy`, `bqplot`, `sqlalchemy`)
- * Python 3.5+
+ * Python 3.6+
  * watchdog and meta
  * PYTHONPATH includes `<QGL2 install directory>/src/python`
 
