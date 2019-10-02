@@ -145,6 +145,19 @@ def SingleShot(qubit: qreg):
 #    metafile = compile_to_hardware(seqs, 'SingleShot/SingleShot')
 
 @qgl2decl
+def SingleShotNoArg():
+    """
+    Sample 0-argument 2-segment sequence with qubit prepared in |0> and |1>, useful for single-shot fidelity measurements and kernel calibration
+    """
+    qubit = QRegister(1)
+    init(qubit)
+    Id(qubit)
+    MEAS(qubit)
+    init(qubit)
+    X(qubit)
+    MEAS(qubit)
+
+@qgl2decl
 def PulsedSpec(qubit: qreg, specOn=True):
     """
     Measurement preceded by a X pulse if specOn
