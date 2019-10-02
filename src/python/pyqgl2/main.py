@@ -110,6 +110,9 @@ def parse_args(argv):
     parser.add_argument('-hw', dest='tohw', default=False, action='store_true',
                         help='Compile sequences to hardware (default %(default)s)')
 
+    # FIXME: Support getting other arguments from the commandline for passing
+    # into the qgl2decl
+
     options = parser.parse_args(argv)
 
     # for the sake of consistency and brevity, convert the path
@@ -401,6 +404,8 @@ if __name__ == '__main__':
     else:
         print('No valid ChannelLibrary found')
         sys.exit(1)
+
+    # FIXME: parse remaining commandling arguments as toplevel_bindings
 
     resFunction = compile_function(
             opts.filename, opts.main_name,
