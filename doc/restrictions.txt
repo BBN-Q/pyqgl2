@@ -1,11 +1,13 @@
 Some current limitations of the QGL2 language
  - including ways it is not Python
 
+Note that for the latest set of known issues or planned enhancements,
+see [https://github.com/BBN-Q/pyqgl2/issues].
+
 * In general, *args and **kwargs are not well handled - for type
   checking arguments, etc
 * QGL2 looks at variables named `QBIT_*` as canonical qbits. Another
-  variable that happens to have that name might cause problems. See
-  issue #77.
+  variable that happens to have that name might cause problems.
 * qgl2decl method declarations cannot be nested
  * Make all functions top level functions
 * Methods with a return statement are not inlined
@@ -15,34 +17,12 @@ Some current limitations of the QGL2 language
   from qgl2.basic_sequences.qgl2_plumbing import init
 * QGL2 uses read-only qubits, so you can read their
   parameters, but cannot edit them. Note also that the full QGL
-  ChannelLibrary is not generally available. See issue #76.
-* QGL2 main function cannot take arguments, specifically Qubits. See
-  issue #62.
+  ChannelLibrary is not generally available. See issue #37.
 * There is no current good way to do control flow based on measurement
   results, particularly measurements from a different channel. This
-  will change. See issue #66.
-* Do not use QGL1 control flow functions directly. Use python to set
-  up your control flow.
-* Do not use QGL1 functions that return a list of pulses. Much better
-  (and may be soon required) to rewrite that as a QGL2 function. Issue #79.
+  will change. See issue #24.
 * Do not use a QGL2 function where a pure python function will do;
   using QGL2 is slower / less efficient.
-
-Things to fix:
-
-* 'label' argument to Qubit() must be a literal string - no variable
-  whose value is a string, no expression, etc. Issue #75.
- * EG see `test_Sequences` which loops over qbit names. That won't work.
-* A Qubit() creation is only recognized if it is in an assignment. EG
-  x = Qubit("alabel") works, but
-  return Qubit("alabel") does not. Issue #75.
-* Various ways to read & use file contents (like `with open`)
-  fail. See issue #67, 68, 69.
-* QGL2 performance must be improved.
-* QGL2 does not currently use repeat blocks, in part to avoid repeat
-  blocks that contain a barrier. Issue #74
-* Provide way to give arguments to `compile_function` as arguments to
-  the function being compiled. Issue #50.
 
 Other to do items for QGL2:
 
