@@ -104,6 +104,7 @@ def tomo(f, q1: qreg, q2: qreg):
 
 ## Installation
 ### Current instructions
+<!-- Be sure to keep this in sync with .travis.yml and setup.py -->
  * Most any OS should be OK. Instructions tested on Ubuntu 18.04
  * Install `git` and `buildessentials` packages
  * `git-lfs` is now required: See https://git-lfs.github.com/
@@ -140,6 +141,7 @@ config:
  * Test: `cd pyqgl2; python -m unittest discover`. Should see 80+ tests run without errors (warnings are OK).
 
 ### Dependencies
+<!-- Be sure to keep this in sync with .travis.yml and setup.py -->
  * Working [https://github.com/BBN-Q/QGL] installation (including `networkx`, `numpy`, `scipy`, `bqplot`, `sqlalchemy`)
  * Python 3.6
  * watchdog and meta
