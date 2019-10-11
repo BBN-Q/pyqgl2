@@ -8,7 +8,7 @@ programs directly specify gates at the physical layer, but with many of the
 niceties of a high-level programming language provided by the python host
 language.
 
-Documentation on the QGL2 compiler and language, including current known limitations, is in [doc].
+Documentation on the QGL2 compiler and language, including current known limitations, is in [doc](doc).
 
 ## Examples
 
@@ -16,7 +16,7 @@ For usage examples, see the sample Jupyter notebooks in the [sample notebooks di
 
 For code samples, see the [Basic Sequences](/src/python/qgl2/basic_sequences).
 
-For an example of compiling a QGL2 program from the command-line, see [doc/README.txt].
+For an example of compiling a QGL2 program from the command-line, see the [docs README](doc/README.txt).
 
 QGL2 directly parses the Python syntax to give natural looking qubit sequences and control flow.
 measurement results to variables and control flow statements. For example:
@@ -112,13 +112,13 @@ def tomo(f, q1: qreg, q2: qreg):
  * Install python 3.6; easiest done using [Anaconda](https://www.anaconda.com/distribution/#download-section)
   * See below for sample installation given an Anaconda install
   * You will need python 3 compatible atom (either atom 1.0.0-dev or ecpy channel atom 0.4)
- * Install QGL: (https://github.com/BBN-Q/QGL)
+ * Install [QGL](https://github.com/BBN-Q/QGL)
   * Install QGL dependencies: `cd QGL; pip install -e .`
   * From within the QGL git clone, set up git lfs: `<QGL>$ git lfs install`
   * Add QGL to your `.bashrc`: `export PYTHONPATH=$QHOME/QGL:$QHOME/pyqgl2/src/python`
  * Then: `pip install meta` and `pip install watchdog`
  * Optional: `pip install pep8` and `pip install pylint`
- * For typical usage, you also need Auspex (https://github.com/BBN-Q/Auspex)
+ * For typical usage, you also need [Auspex](https://github.com/BBN-Q/Auspex)
   * See install instructions at https://auspex.readthedocs.io/en/latest/
    * Download or clone, then `cd auspex; pip install -e .`
   * Put `Auspex/src` on your `PYTHONPATH` as in above
@@ -142,14 +142,14 @@ config:
 
 ### Dependencies
 <!-- Be sure to keep this in sync with .travis.yml and setup.py -->
- * Working [https://github.com/BBN-Q/QGL] installation (including `networkx`, `numpy`, `scipy`, `bqplot`, `sqlalchemy`)
+ * Working [QGL](https://github.com/BBN-Q/QGL) installation (including `networkx`, `numpy`, `scipy`, `bqplot`, `sqlalchemy`)
  * Python 3.6
  * watchdog and meta
  * PYTHONPATH includes `<QGL2 install directory>/src/python`
 
 ### Sample install using Anaconda
 ```bash
-<install anaconda python3>
+# install anaconda python3
 conda install future
 conda install -c ecpy atom watchdog
 pip install meta
