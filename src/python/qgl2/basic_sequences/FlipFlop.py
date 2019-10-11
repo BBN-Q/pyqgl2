@@ -1,135 +1,29 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qreg, qgl2main, pulse
-
-from QGL.PulsePrimitives import X90, X90m, Y90, Id, X, MEAS
-from QGL.Compiler import compile_to_hardware
-from QGL.PulseSequencePlotter import plot_pulse_files
-
-from itertools import chain
-
-#from qgl2.basic_sequences.new_helpers import addMeasPulse, compileAndPlot
+from qgl2.qgl2 import qgl2decl, qreg, qgl2main, pulse, QRegister
+from qgl2.qgl1 import X90, X90m, Y90, Id, X, MEAS
 from qgl2.util import init
 
-def FlipFlopq1(qubit: qreg, dragParamSweep, maxNumFFs=10, showPlot=False):
-    """
-    Flip-flop sequence (X90-X90m)**n to determine off-resonance or DRAG parameter optimization.
-
-    Parameters
-    ----------
-    qubit : logical channel to implement sequence (LogicalChannel) 
-    dragParamSweep : drag parameter values to sweep over (iterable)
-    maxNumFFs : maximum number of flip-flop pairs to do
-    showPlot : whether to plot (boolean)
-    """
-
-    # Original:
-    # def flipflop_seqs(dragScaling):
-    #     """ Helper function to create a list of sequences with a specified drag parameter. """
-    #     qubit.pulse_params['dragScaling'] = dragScaling
-    #     return [[X90(qubit)] + [X90(qubit), X90m(qubit)]*rep + [Y90(qubit)] for rep in range(maxNumFFs)]
-
-    # # Insert an identity at the start of every set to mark them off
-    # originalScaling = qubit.pulse_params['dragScaling']
-    # seqs = list(chain.from_iterable([[[Id(qubit)]] + flipflop_seqs(dragParam) for dragParam in dragParamSweep]))
-    # qubit.pulse_params['dragScaling'] = originalScaling
-
-    # # Add a final pi for reference
-    # seqs.append([X(qubit)])
-
-    # # Add the measurment block to every sequence
-    # measBlock = MEAS(qubit)
-    # for seq in seqs:
-    #     seq.append(measBlock)
-
-    # fileNames = compile_to_hardware(seqs, 'FlipFlop/FlipFlop')
-    # print(fileNames)
-
-    # if showPlot:
-    #     plot_pulse_files(fileNames)
-
-    def flipflop_seqs(dragScaling):
-        """ Helper function to create a list of sequences with a specified drag parameter. """
-        qubit.pulse_params['dragScaling'] = dragScaling
-        seqs = []
-        for rep in range(maxNumFFs):
-            seq = []
-            seq.append(X90(qubit))
-            # FIXME: Origin used [X90] + [X90, X90m]... is this right?
-            for _ in range(rep):
-                seq.append(X90(qubit))
-                seq.append(X90m(qubit))
-            seq.append(Y90(qubit))
-            seqs.append(seq)
-        return seqs
-
-    # Insert an identity at the start of every set to mark them off
-    # Want a result something like:
-    # [['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9'], ['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9'], ['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9']]
-
-    seqs = []
-    originalScaling = qubit.pulse_params['dragScaling']
-    for dragParam in dragParamSweep:
-        seqs.append([Id(qubit)])
-        # FIXME: In original this was [[Id]] + flipflop - is this
-        # right?
-        ffs = flipflop_seqs(dragParam)
-        for elem in ffs:
-            seqs.append(elem)
-    qubit.pulse_params['dragScaling'] = originalScaling
-
-    # Add a final pi for reference
-    seqs.append([X(qubit)])
-
-    # Add the measurment block to every sequence
-#    seqs = addMeasPulse(seqs, qubit)
-
-    # Be sure to un-decorate this function to make it work without the
-    # QGL2 compiler
-#    compileAndPlot(seqs, 'FlipFlop/FlipFlop', showPlot)
+from itertools import chain
 
 @qgl2decl
 def flipflop_seqs(dragScaling, maxNumFFs, qubit: qreg):
     """ Helper function to create a list of sequences with a specified drag parameter. """
-    # FIXME: cause qubit is a placeholder, can't access pulse_params
+    # QGL2 qubits are read only.
+    # So instead, supply the dragScaling as an explicit kwarg to all pulses
     # qubit.pulse_params['dragScaling'] = dragScaling
+
     for rep in range(maxNumFFs):
         init(qubit)
         X90(qubit, dragScaling=dragScaling)
-        # FIXME: Original used [X90] + [X90, X90m]... is this right?
         for _ in range(rep):
             X90(qubit, dragScaling=dragScaling)
-            X90m(qubi, dragScaling=dragScaling)
+            X90m(qubit, dragScaling=dragScaling)
         Y90(qubit, dragScaling=dragScaling)
-        MEAS(qubit) # FIXME: Need original dragScaling?
+        MEAS(qubit)
 
 @qgl2decl
-def FlipFlopMin():
-    # FIXME: No args
-    qubit = QubitFactory('q1')
-    dragParamSweep = np.linspace(0, 5e-6, 11) # FIXME
-    maxNumFFs = 10
-
-    # FIXME: cause qubit is a placeholder, can't access pulse_params
-    # originalScaling = qubit.pulse_params['dragScaling']
-    for dragParam in dragParamSweep:
-        init(qubit)
-        Id(qubit)
-        MEAS(qubit) # FIXME: Need original dragScaling?
-
-        # FIXME: In original this was [[Id]] + flipflop - is this
-        # right?
-        flipflop_seqs(dragParam, maxNumFFs, qubit)
-    # FIXME: cause qubit is a placeholder, can't access pulse_params
-    # qubit.pulse_params['dragScaling'] = originalScaling
-
-    # Add a final pi for reference
-    init(qubit)
-    X(qubit)
-    MEAS(qubit)
-
-@qgl2decl
-def FlipFlop(qubit: qreg, dragParamSweep, maxNumFFs=10, showPlot=False):
+def FlipFlop(qubit: qreg, dragParamSweep, maxNumFFs=10):
     """
     Flip-flop sequence (X90-X90m)**n to determine off-resonance or DRAG parameter optimization.
 
@@ -138,7 +32,6 @@ def FlipFlop(qubit: qreg, dragParamSweep, maxNumFFs=10, showPlot=False):
     qubit : logical channel to implement sequence (LogicalChannel) 
     dragParamSweep : drag parameter values to sweep over (iterable)
     maxNumFFs : maximum number of flip-flop pairs to do
-    showPlot : whether to plot (boolean)
     """
 
     # Original:
@@ -170,16 +63,17 @@ def FlipFlop(qubit: qreg, dragParamSweep, maxNumFFs=10, showPlot=False):
     # Want a result something like:
     # [['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9'], ['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9'], ['Id'], ['X9', 'Y9'], ['X9', 'X9', 'X9m', 'Y9'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9']]
 
-    originalScaling = qubit.pulse_params['dragScaling']
+    # QGL2 qubits are read only, so can't modify qubit.pulse_params[dragScaling],
+    # Instead of modifying qubit, we'll just supply the drag param explicitly to each pulse
+    # So no need to save this off and reset afterwards
+    # originalScaling = qubit.pulse_params['dragScaling']
     for dragParam in dragParamSweep:
         init(qubit)
         Id(qubit)
-        MEAS(qubit) # FIXME: Need original dragScaling?
+        MEAS(qubit)
 
-        # FIXME: In original this was [[Id]] + flipflop - is this
-        # right?
         flipflop_seqs(dragParam, maxNumFFs, qubit)
-    qubit.pulse_params['dragScaling'] = originalScaling
+    # qubit.pulse_params['dragScaling'] = originalScaling
 
     # Add a final pi for reference
     init(qubit)
@@ -194,31 +88,61 @@ def FlipFlop(qubit: qreg, dragParamSweep, maxNumFFs=10, showPlot=False):
     # 'X9', 'X9m', 'Y9', 'M'], ['X9', 'X9', 'X9m', 'X9', 'X9m', 'Y9',
     # 'M'], ['X', 'M']]
 
-    # Here we rely on the QGL compiler to pass in the sequence it
-    # generates to compileAndPlot
 #    compileAndPlot('FlipFlop/FlipFlop', showPlot)
 
-# Imports for testing only
-from QGL.Channels import Qubit, LogicalMarkerChannel
-from qgl2.qgl1 import Qubit, QubitFactory
-import numpy as np
-from math import pi
-
-@qgl2main
+# QGL1 function to compile the above QGL2
+# Uses main.py
+# FIXME: Use the same argument parsing as in main.py
 def main():
-    # Set up 1 qbit, following model in QGL/test/test_Sequences
+    from pyqgl2.qreg import QRegister
+    import pyqgl2.test_cl
+    from pyqgl2.main import compile_function, qgl2_compile_to_hardware
+    import numpy as np
 
-    # FIXME: Cannot use these in current QGL2 compiler, because
-    # a: QGL2 doesn't understand creating class instances, and 
-    # b: QGL2 currently only understands the fake Qbits
-#    qg1 = LogicalMarkerChannel(label="q1-gate")
-#    q1 = Qubit(label='q1', gate_chan=qg1)
-#    q1.pulse_params['length'] = 30e-9
-#    q1.pulse_params['phase'] = pi/2
+    toHW = True
+    plotPulses = True
+    pyqgl2.test_cl.create_default_channelLibrary(toHW, True)
 
-    # Use stub Qubits, but comment this out when running directly.
-    q1 = QubitFactory("q1")
-    FlipFlop(q1, np.linspace(0, 5e-6, 11))
+#    # To turn on verbose logging in compile_function
+#    from pyqgl2.ast_util import NodeError
+#    from pyqgl2.debugmsg import DebugMsg
+#    NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+#    DebugMsg.set_level(0)
+
+    # Now compile the QGL2 to produce the function that would generate the expected sequence.
+    # Supply the path to the QGL2, the main function in that file, and a list of the args to that function.
+    # Can optionally supply saveOutput=True to save the qgl1.py
+    # file, and intermediate_output="path-to-output-file" to save
+    # intermediate products
+
+    # Pass in a QRegister NOT the real Qubit
+    q = QRegister(1)
+    # Here we do FlipFlop(q1, np.linspace(0, 5e-6, 11))
+    # - test_basic_mins uses np.linspace(0,1,11)
+
+    # Here we know the function is in the current file
+    # You could use os.path.dirname(os.path.realpath(__file)) to find files relative to this script,
+    # Or os.getcwd() to get files relative to where you ran from. Or always use absolute paths.
+    resFunction = compile_function(__file__,
+                                               "FlipFlop",
+                                               (q, np.linspace(0, 5e-6, 11), 10))
+    # Run the QGL2. Note that the generated function takes no arguments itself
+    sequences = resFunction()
+    if toHW:
+        print("Compiling sequences to hardware\n")
+        fileNames = qgl2_compile_to_hardware(sequences, filename='FlipFlop/FlipFlop')
+        print(f"Compiled sequences; metafile = {fileNames}")
+        if plotPulses:
+            from QGL.PulseSequencePlotter import plot_pulse_files
+            # FIXME: As called, this returns a graphical object to display
+            plot_pulse_files(fileNames)
+    else:
+        print("\nGenerated sequences:\n")
+        from QGL.Scheduler import schedule
+
+        scheduled_seq = schedule(sequences)
+        from IPython.lib.pretty import pretty
+        print(pretty(scheduled_seq))
 
 if __name__ == "__main__":
     main()

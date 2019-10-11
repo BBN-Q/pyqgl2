@@ -110,6 +110,9 @@ def parse_args(argv):
     parser.add_argument('-hw', dest='tohw', default=False, action='store_true',
                         help='Compile sequences to hardware (default %(default)s)')
 
+    # FIXME: Support getting other arguments from the commandline for passing
+    # into the qgl2decl
+
     options = parser.parse_args(argv)
 
     # for the sake of consistency and brevity, convert the path
@@ -345,7 +348,7 @@ def compile_function(filename,
     NodeError.halt_on_error()
     return qgl1_main
 
-def qgl2_compile_to_hardware(seqs, filename, suffix=''):
+def qgl2_compile_to_hardware(seqs, filename, suffix='', axis_descriptor=None, extra_meta=None, tdm_seq = False):
     '''
     Custom compile_to_hardware for QGL2
     '''
@@ -355,7 +358,7 @@ def qgl2_compile_to_hardware(seqs, filename, suffix=''):
 
     scheduled_seq = schedule(seqs)
 
-    return compile_to_hardware([scheduled_seq], filename, suffix)
+    return compile_to_hardware([scheduled_seq], filename, suffix=suffix, axis_descriptor=axis_descriptor, extra_meta=extra_meta, tdm_seq=tdm_seq)
 
 ######
 # Run the main with
@@ -402,6 +405,8 @@ if __name__ == '__main__':
         print('No valid ChannelLibrary found')
         sys.exit(1)
 
+    # FIXME: parse remaining commandling arguments as toplevel_bindings
+
     resFunction = compile_function(
             opts.filename, opts.main_name,
             toplevel_bindings=None, saveOutput=opts.saveOutput,
@@ -432,6 +437,7 @@ if __name__ == '__main__':
 
         if opts.tohw:
             print("Compiling sequences to hardware\n")
+            # FIXME: Add option to supply axis_descriptors?
             fileNames = qgl2_compile_to_hardware(sequences, opts.prefix,
                                                  opts.suffix)
             print(fileNames)

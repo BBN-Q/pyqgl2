@@ -1,7 +1,9 @@
+# NOTE: When editing this, be sure to update setup.py
+
 language: python
 python:
   - "3.6"
-  - "3.5"
+#  - "3.7" (fails due to watchdog; skip for now)
 
 install:
   # Setup anaconda. See http://conda.pydata.org/docs/travis.html

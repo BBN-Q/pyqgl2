@@ -178,7 +178,7 @@ class TestTopLevelBinding(unittest.TestCase):
         q1 = QubitFactory('q1')
         qr = QRegister('q1')
         amps = range(5)
-        expectedseq = [Xtheta(q1, amp=a, shapeFun=PulseShapes.tanh) for a in amps]
+        expectedseq = [Xtheta(q1, amp=a, shape_fun=PulseShapes.tanh) for a in amps]
 
         # tuple input for toplevel_bindings
         resFunction = compile_function(

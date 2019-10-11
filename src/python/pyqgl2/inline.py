@@ -569,6 +569,7 @@ def create_inline_procedure(func_ptree, call_ptree):
         new_name = tmp_names.create_tmp_name(orig_name=orig_name)
         actual_param = seen_param_names[orig_name]
         rewriter.add_mapping(orig_name, new_name)
+        # print(f"Add rewriter mapping from {orig_name} to {new_name} for actual param {ast.dump(actual_param)}")
 
         # NodeError.diag_msg(call_ptree,
         #         'ASSIGN %s -> %s' % (new_name, ast.dump(actual_param)))
@@ -663,6 +664,7 @@ def create_inline_procedure(func_ptree, call_ptree):
 
             new_name = tmp_names.create_tmp_name(orig_name=orig_name)
             rewriter.add_mapping(orig_name, new_name)
+            # print(f"Added rewriter mapping from {param_ind}th keyword param {orig_name} to {new_name}")
 
             # NodeError.diag_msg(call_ptree,
             #         ('DASSIGN %s -> %s' %
@@ -710,6 +712,7 @@ def create_inline_procedure(func_ptree, call_ptree):
                 isinstance(actual, ast.NameConstant)) and
                 is_static_ref(func_ptree, name)):
             rewriter.add_constant(name, actual)
+            # print(f"Added rewriter map from {name} to constant '{actual}'")
         else:
             new_name = rewriter.get_mapping(name)
             new_setup_locals.append(ast.Assign(
@@ -769,14 +772,21 @@ def create_inline_procedure(func_ptree, call_ptree):
             #
             # TODO: what if the expression isn't a const?
             #
-            if not isinstance(
-                    rewriter.name2const[formal_param.arg], ast.Name):
+            # Note that here we now allow a qbit to be a None NameConstant (ie from a default)
+            if isinstance(rewriter.name2const[formal_param.arg], ast.Name):
+                qbit_fparams.append(formal_param.arg)
+                qbit_aparams.append(rewriter.name2const[formal_param.arg].id)
+            elif isinstance(rewriter.name2const[formal_param.arg], ast.NameConstant) and rewriter.name2const[formal_param.arg].value == None:
+                # A qbit argument given a default of None in the method signature should be OK
+                qbit_fparams.append(formal_param.arg)
+                qbit_aparams.append(None)
+            else:
+                NodeError.error_msg(call_ptree, "Had param '%s' annotated as a qbit but it is not a Name (is %s). Return list() when trying to inline '%s': %s" % (formal_param.arg, type(rewriter.name2const[formal_param.arg]), ast2str(call_ptree).strip(), ast2str(formal_param).strip()))
                 return list()
 
-            qbit_fparams.append(formal_param.arg)
-            qbit_aparams.append(rewriter.name2const[formal_param.arg].id)
-
-    qbit_aparams_txt = ', '.join(sorted(qbit_aparams))
+    # Unused....
+    # Note that above we now include None in the list of aparams, which we can't then sort
+    # qbit_aparams_txt = ', '.join(sorted(qbit_aparams))
 
     # Now check whether any formal qbit parameters map onto
     # the same actual, by examining the name rewriter.
@@ -794,15 +804,19 @@ def create_inline_procedure(func_ptree, call_ptree):
         # way to tell the user what the *local* name is, which
         # is usually more useful
         #
-        qbit_aparam = rewriter.name2const[qbit_fparam].id
-        if qbit_aparam in qbit_aparams_reverse:
-            NodeError.error_msg(call_ptree,
-                    'dup qbit [%s] used for [%s] and [%s]' % (
-                        qbit_aparam,
-                        qbit_aparams_reverse[qbit_aparam], qbit_fparam))
-            return None
-        else:
-            qbit_aparams_reverse[qbit_aparam] = qbit_fparam
+        # Note that here we only worry about qbits that map to a variable
+        # In particular, a qbit that maps to None (a default value), is ignored here
+        qbit_mapped = rewriter.name2const[qbit_fparam]
+        if isinstance(qbit_mapped, ast.Name):
+            qbit_aparam = qbit_mapped.id
+            if qbit_aparam in qbit_aparams_reverse:
+                NodeError.error_msg(call_ptree,
+                                    'dup qbit [%s] used for [%s] and [%s]' % (
+                                        qbit_aparam,
+                                        qbit_aparams_reverse[qbit_aparam], qbit_fparam))
+                return None
+            else:
+                qbit_aparams_reverse[qbit_aparam] = qbit_fparam
 
     # We want to preserve a reference to the original call,
     # and make sure it doesn't get clobbered.
@@ -934,6 +948,8 @@ class NameRedirector(ast.NodeTransformer):
         #
         # TODO: add a comment, if possible, with the name of the variable
 
+        # Trying to turn python back into AST
+
         value = self.values[name]
 
         numpy_scalar_types = (
@@ -972,15 +988,19 @@ class NameRedirector(ast.NodeTransformer):
                         redirection.elts[ct] = ast.Name(id=element.use_name(),
                                                         ctx=ast.Load())
                         redirection.elts[ct].qgl_is_qbit = True
-            except:
+            except Exception as e:
                 NodeError.warning_msg(node,
-                    "Could not represent the value [%s] of [%s] as an AST node" % (value, name))
+                    "Could not represent the value [%s] of [%s] (iterable) as an AST node: %s" % (value, name, e))
                 redirection = ast.Subscript(
                         value=ast.Name(id=self.table_name, ctx=ast.Load()),
                         slice=ast.Index(value=ast.Str(s=name)))
         else:
+            # value is not an int, float, str, QRegister, QReference or iterable
+            # EG, could be a function reference
+            # Want AST from python. Instaed of making an AST that points to the actual function referenced by 'tanh'
+            # or whatever, create a reference to 'tanh' and hope no-one redefines 'tanh'.
             NodeError.warning_msg(node,
-                "Could not represent the value [%s] of [%s] as an AST node" % (value, name))
+                "Could not represent the value [%s] (an %s) of [%s] as an AST node." % (value, type(value), name))
             redirection = ast.Subscript(
                     value=ast.Name(id=self.table_name, ctx=ast.Load()),
                     slice=ast.Index(value=ast.Str(s=name)))
@@ -1478,8 +1498,8 @@ class Inliner(ast.NodeTransformer):
         if not isinstance(call_ptree.func, ast.Name):
             NodeError.error_msg(
                     call_ptree,
-                    ('cannot inline function expression [%s]'
-                        % ast2str(call_ptree).strip()))
+                    ('cannot inline function expression [%s] (type %s)'
+                        % (ast2str(call_ptree).strip(), type(call_ptree.func))))
             return None
 
         func_name = collapse_name(call_ptree.func)
@@ -1934,8 +1954,8 @@ def inline_call(base_call, importer):
     if not isinstance(base_call.func, ast.Name):
         NodeError.error_msg(
                 base_call,
-                ('function not called by name [%s]' %
-                    ast2str(base_call).strip()))
+                ('function not called by name [%s]: func is a %s' %
+                    (ast2str(base_call).strip(), type(base_call.func))))
         return base_call
 
     func_filename = base_call.qgl_fname

@@ -34,8 +34,11 @@ class QRegister(object):
         '''
         Valid constructor calls:
             QRegister(N) where N is an integer
+          Or mix and match or use lists or tuples of:
             QRegister("q2", "q5", ...) where the strings are the names of Qubits
             QRegister(qr1, qr2, qr3, ...) where each object is a QRegister
+            QRegister(q1, q2, ...) where each object is a QGL Qubit
+        NOTE: Qubit names must currently be of the form "q<int>"
         '''
 
         self.qubits = []
@@ -50,28 +53,9 @@ class QRegister(object):
                 if ct not in QRegister.KNOWN_QUBITS:
                     self.qubits.append(ct)
                 ct += 1
-        elif len(args) == 1 and isinstance(args[0], QRegister):
-            # duplicates the QRegister; allows failsafe creating QRegiser whatever the arg
-            self.qubits = args[0].qubits
-        elif all(isinstance(x, str) for x in args):
-            # named qubits
-            for arg in args:
-                # assume names are of the form "qN"
-                # TODO throw an error if the provided string doesn't have that form
-                try:
-                    idx = int(arg[1:])
-                except ValueError as ve:
-                    raise ValueError(f"QRegister names must be of the form q<int>: '{arg}'")
-                self.qubits.append(idx)
-        elif all(isinstance(x, QRegister) for x in args):
-            # concatenated register
-            for arg in args:
-                # FIXME: What overlaps does this disallow?
-                if arg.qubits in self.qubits:
-                    raise NameError(f"Non-disjoint qubit sets in concatenated registers. {arg} has duplicates with others in {args}")
-                self.qubits.extend(arg.qubits)
         else:
-            raise NameError(f"Invalid QRegister constructor 'QRegister({args})'.")
+            for x in args:
+                self.addArg(x, args)
 
         # add qubits to KNOWN_QUBITS
         for q in self.qubits:
@@ -79,6 +63,52 @@ class QRegister(object):
 
         QRegister.NUM_REGISTERS += 1
         self.reg_name = 'QREG_' + str(QRegister.NUM_REGISTERS)
+
+    def addArg(self, x, args):
+        """Parse one argument to the QRegister constructor. A recursive function."""
+        # Careful; avoid global import of QGL1 stuff from QGL2
+        from QGL.Channels import Qubit
+        if hasattr(x, "__iter__") and not isinstance(x, str) and not isinstance(x, QRegister):
+            for xx in x:
+                self.addArg(xx, args)
+        elif isinstance(x, QRegister):
+            # duplicates the QRegister; allows failsafe creating QRegister whatever the arg
+            for q in x.qubits:
+                if q not in self.qubits:
+                    self.qubits.append(q)
+                else:
+                    # Duplicate - skip
+                    # FIXME: Print warning?
+                    pass
+        elif isinstance(x, str):
+            # assume names are of the form "qN"
+            # TODO throw an error if the provided string doesn't have that form
+            try:
+                idx = int(x[1:])
+            except ValueError as ve:
+                raise ValueError(f"QRegister names must be of the form q<int>: '{x}' (from args {args})")
+            if idx not in self.qubits:
+                self.qubits.append(idx)
+            else:
+                # duplicate - skip
+                pass
+        elif isinstance(x, Qubit):
+            # assume names are of the form "qN"
+            # TODO throw an error if the provided string doesn't have that form
+            try:
+                idx = int(x.label[1:])
+            except ValueError as ve:
+                raise ValueError(f"QRegister names must be of the form q<int>: '{x}' (from args {args})")
+            if idx not in self.qubits:
+                self.qubits.append(idx)
+            else:
+                # duplicate - skip
+                # FIXME: Print warning?
+                pass
+        elif isinstance(x, QReference):
+            self.addArg(x.ref[x.idx], args)
+        else:
+            raise NameError(f"Invalid QRegister constructor 'QRegister({args})'; arg {x} unknown.")
 
     def __repr__(self):
         return str(self)

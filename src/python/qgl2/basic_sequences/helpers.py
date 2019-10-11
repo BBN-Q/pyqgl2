@@ -5,7 +5,11 @@ from qgl2.qgl1 import Id, X, MEAS, Barrier, qwait
 from qgl2.util import init
 
 from itertools import product
+import operator
+from functools import reduce
+import numpy as np
 
+# FIXME: measChans should be declared a qreg, but the inliner isn't handling that
 @qgl2decl
 def create_cal_seqs(qubits: qreg, numRepeats, measChans=None, waitcmp=False, delay=None):
     """
@@ -19,8 +23,13 @@ def create_cal_seqs(qubits: qreg, numRepeats, measChans=None, waitcmp=False, del
     waitcmp = True if the sequence contains branching; default False
     delay: optional time between state preparation and measurement (s)
     """
+    # Allows supplying a tuple as is usually done in QGL1
+    qubitreg = QRegister(qubits)
+
+    # QGL2 will warn here:
+    # warning: parameter [measChans] overwritten by assignment
     if measChans is None:
-        measChans = qubits
+        measChans = qubitreg
 
     # Make all combinations for qubit calibration states for n qubits and repeat
 
@@ -35,15 +44,15 @@ def create_cal_seqs(qubits: qreg, numRepeats, measChans=None, waitcmp=False, del
     # Calibrate using Id and X pulses
     calSet = [Id, X]
 
-    for pulseSet in product(calSet, repeat=len(qubits)):
+    for pulseSet in product(calSet, repeat=len(qubitreg)):
         # Repeat each calibration numRepeats times
         for _ in range(numRepeats):
-            init(qubits)
-            for pulse, qubit in zip(pulseSet, qubits):
+            init(qubitreg)
+            for pulse, qubit in zip(pulseSet, qubitreg):
                 pulse(qubit)
             if delay:
                 # Add optional delay before measurement
-                Id(qubits(0), length=delay)
+                Id(qubitreg(0), length=delay)
             Barrier(measChans)
             MEAS(measChans)
             # If branching do wait
@@ -52,7 +61,42 @@ def create_cal_seqs(qubits: qreg, numRepeats, measChans=None, waitcmp=False, del
 
 @qgl2decl
 def measConcurrently(listNQubits: qreg) -> pulse:
-    '''Concurrently measure given QRegister of qubits.'''
+    '''Concurrently measure given QRegister of qubits.
+    Note: Includes a Barrier on the input qreg to force measurements
+    to be concurrent; QGL1 does Pulse*Pulse == PulseBlock(pulses), which is equivalent.'''
     qr = QRegister(listNQubits)
     Barrier(qr)
     MEAS(qr)
+
+# Copied from QGL/BasicSequences/helpers
+def cal_descriptor(qubits, numRepeats, partition=2, states = ['0', '1']):
+    # generate state set in same order as we do above in create_cal_seqs()
+    state_set = [reduce(operator.add, s) for s in product(states, repeat=len(qubits))]
+    descriptor = {
+        'name': 'calibration',
+        'unit': 'state',
+        'partition': partition,
+        'points': []
+    }
+    for state in state_set:
+        descriptor['points'] += [state] * numRepeats
+    return descriptor
+
+# Copied from QGL/BasicSequences/helpers
+def delay_descriptor(delays, desired_units="us"):
+    if desired_units == "s":
+        scale = 1
+    elif desired_units == "ms":
+        scale = 1e3
+    elif desired_units == "us" or desired_units == u"μs":
+        scale = 1e6
+    elif desired_units == "ns":
+        scale = 1e9
+    axis_descriptor = {
+        'name': 'delay',
+        'unit': desired_units,
+        # Make sure delays is a numpy array so can multiply it by a float safely
+        'points': list(scale * np.array(delays)),
+        'partition': 1
+    }
+    return axis_descriptor
