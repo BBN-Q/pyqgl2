@@ -106,7 +106,13 @@ class QRegister(object):
                 # FIXME: Print warning?
                 pass
         elif isinstance(x, QReference):
-            self.addArg(x.ref[x.idx], args)
+            self.addArg(x.ref.qubits[x.idx], args)
+        elif isinstance(x, int):
+            if x not in self.qubits:
+                self.qubits.append(x)
+            else:
+                # duplicate - skip
+                pass
         else:
             raise NameError(f"Invalid QRegister constructor 'QRegister({args})'; arg {x} unknown.")
 
@@ -206,7 +212,14 @@ class QReference(object):
         return (self.ref == other.ref) and (self.idx == other.idx)
 
     def __len__(self):
-        return len(self.ref.qubits[self.idx])
+        x = self.ref.qubits[self.idx]
+        if isinstance(x, int):
+            return 1
+        else:
+            return len(x)
+
+    def __hash__(self):
+        return hash(self.ref) + hash(self.idx)
 
     def use_name(self):
         return self.ref.use_name()

@@ -2,6 +2,7 @@ import unittest
 
 import ast
 from pyqgl2.qreg import QRegister, QReference
+from test.helpers import channel_setup
 
 class TestQRegister(unittest.TestCase):
     def setUp(self):
@@ -36,6 +37,24 @@ class TestQRegister(unittest.TestCase):
         self.assertTrue(isinstance(b, QReference))
         self.assertEqual(b.ref, a)
         self.assertEqual(b.idx, 2)
+
+    # Supplying qubit of same name/index multiple times is no-op; remove duplicates
+    # Can use lists and tuples too; sets don't work yet
+    def test_unique(self):
+        a = QRegister(3)
+        b = QRegister('q3')
+        c = QRegister(QRegister(a))
+        d = QRegister(a,[b,a],(c,a))
+        self.assertEqual(a,d)
+
+    # QRegister from Qubit produces QRegister of same name
+    def test_qreg_from_qubit(self):
+        from QGL import QubitFactory
+        channel_setup()
+        a = QRegister(1)
+        bq = QubitFactory('q1')
+        c = QRegister((bq,))
+        self.assertEqual(a, c)
 
     def test_factory(self):
         node = ast.parse("a = QRegister('q1', 'q5')").body[0]
