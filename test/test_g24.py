@@ -111,7 +111,7 @@ class TestG24(unittest.TestCase):
 
         q1 = QubitFactory('q1')
 
-        resFunction = compile_function('test/code/g24.py', 't6')
+        resFunction = compile_function('test/code/g24.py', 't2')
         seqs = resFunction()
         seqs = testable_sequence(seqs)
 
