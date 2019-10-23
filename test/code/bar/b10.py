@@ -1,4 +1,4 @@
-from qgl2.qgl2 import concur, qbit, qgl2decl
+from qgl2.qgl2 import concur, qreg, qgl2decl
 from qgl2.qgl2 import sequence, pulse, qgl2main, classical
 
 from qgl2.qgl1 import QubitFactory, X90, Y90, X, MEAS, Utheta, Xtheta
@@ -8,7 +8,7 @@ from qgl2.qgl1 import CmpEq
 from qgl2.util import init
 
 @qgl2decl
-def loopy3(a: qbit, b: qbit):
+def loopy3(a: qreg, b: qreg):
     for _ in range(2):
         X90(a)
         Utheta(b)

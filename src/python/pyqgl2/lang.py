@@ -22,8 +22,10 @@ class QGL2(object):
 
     CLASSICAL = 'classical'
     PULSE = 'pulse'
+    # A QRegister (containing 1+ qubits)
     QBIT = 'qreg'
-    QBIT_LIST = 'qreg_list'
+    # DO NOT USE
+    #    QBIT_LIST = 'qreg_list'
     # like a Wait
     CONTROL = 'control'
     # A sequence of pulses

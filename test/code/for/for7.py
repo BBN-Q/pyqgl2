@@ -1,10 +1,10 @@
 
-from qgl2.qgl2 import concur, qbit, qgl2decl, qgl2main
+from qgl2.qgl2 import concur, qreg, qgl2decl, qgl2main
 from qgl2.qgl1 import QubitFactory, Id
 from qgl2.util import init
 
 @qgl2decl
-def MEAS(q: qbit) -> pulse:
+def MEAS(q: qreg) -> pulse:
     # measure q, and as a side effect put the result in
     # a magic context-local variable named vmeas.
     #
@@ -14,7 +14,7 @@ def MEAS(q: qbit) -> pulse:
     measurement(q)
 
 @qgl2decl
-def settle(q: qbit) -> pulse:
+def settle(q: qreg) -> pulse:
 
     init(q)
     while True:
@@ -24,7 +24,7 @@ def settle(q: qbit) -> pulse:
         Id(q)
 
 @qgl2decl
-def setup(a: qbit, b: qbit, c: qbit):
+def setup(a: qreg, b: qreg, c: qreg):
 
     with concur:
         for qbit in [a, b, c]:

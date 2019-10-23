@@ -4,9 +4,10 @@
 # how to handle these functions
 
 # The annotations are defined in here
-from qgl2.qgl2 import qreg, pulse, qgl2stub, qgl2meas, qreg_list, control
+from qgl2.qgl2 import qreg, pulse, qgl2stub, qgl2meas, control, classical, sequence
 
 # Many uses of Id supply a delay. That's the length: an int or float
+# Must use the label 'length'
 # FIXME: Do we need to include that explicitly?
 @qgl2stub('QGL.PulsePrimitives')
 def Id(channel: qreg, *args, **kwargs) -> pulse:
@@ -34,6 +35,14 @@ def Ztheta(qubit: qreg, angle=0, label='Ztheta', **kwargs) -> pulse:
 @qgl2stub('QGL.PulsePrimitives')
 def X(qubit: qreg, **kwargs) -> pulse:
     print('X')
+
+@qgl2stub('QGL.PulsePrimitives')
+def Xm(qubit: qreg, **kwargs) -> pulse:
+    print('Xm')
+
+@qgl2stub('QGL.PulsePrimitives')
+def Ym(qubit: qreg, **kwargs) -> pulse:
+    print('Ym')
 
 @qgl2stub('QGL.PulsePrimitives')
 def X90(qubit: qreg, **kwargs) -> pulse:
@@ -76,18 +85,34 @@ def AC(qubit: qreg, cliffNum) -> pulse:
     print('AC')
 
 @qgl2stub('QGL.PulsePrimitives')
-def flat_top_gaussian(chan: qreg, riseFall, length, amp, phase=0) -> pulse:
+def ZX90_CR(controlQ: qreg, targetQ: qreg, **kwargs) -> pulse:
+    """
+    A calibrated CR ZX90 pulse.  Uses 'amp' for the pulse amplitude, 'phase' for its phase (in deg).
+    """
+    print('ZX90_CR')
+
+# Used by RB basic sequences
+@qgl2stub('QGL.Cliffords')
+def clifford_seq(c, q1: qreg, q2: qreg = None) -> sequence:
+    print('clifford_seq')
+
+@qgl2stub('QGL.PulsePrimitives')
+def flat_top_gaussian(chan: qreg, riseFall, length, amp, phase=0, label="flat_top_gaussian") -> pulse:
     print('flat_top_gaussian')
 
 @qgl2stub('qgl2.qgl1_util', 'flat_top_gaussian_edge_impl')
 def flat_top_gaussian_edge(source: qreg, target: qreg, riseFall,
-                           length, amp, phase=0) -> pulse:
+                           length, amp, phase=0, label="flat_top_gussian") -> pulse:
     print('flat_top_gaussian_edge')
+
+# Helper for CPMG, to get around not being able to access qubit params (issue #37)
+@qgl2stub('qgl2.qgl1_util', 'pulseCentered')
+def pulseCentered(qubit: qreg, pFunc, pulseSpacing) -> pulse:
+    print("pFunc(qubit, length=(pulseSpacing - qubit.pulse_params['length']) / 2)")
 
 @qgl2stub('QGL.PulsePrimitives')
 def echoCR(controlQ: qreg, targetQ: qreg, amp=1, phase=0, length=200e-9, riseFall=20e-9, lastPi=True) -> pulse:
     print('echoCR')
-
 
 @qgl2stub('QGL.PulsePrimitives')
 def CNOT(controlQ: qreg, targetQ: qreg, **kwargs) -> pulse:
@@ -96,7 +121,6 @@ def CNOT(controlQ: qreg, targetQ: qreg, **kwargs) -> pulse:
 # FIXME: QGL2 can't handle *args
 # Calls include: qubit, 2 qubits, qreg list. But so far
 # our qgl2 uses are just with a single qreg
-#def MEAS(*args: qreg_list, **kwargs) -> pulse:
 @qgl2meas('QGL.PulsePrimitives')
 def MEAS(q: qreg, *args, **kwargs) -> pulse:
     print('MEAS')
@@ -130,8 +154,16 @@ def EdgeFactory(source: qreg, target: qreg) -> qreg:
     print('EdgeFactory')
 
 @qgl2stub('QGL.ChannelLibraries')
-def QubitFactory(label, **kwargs) -> qreg:
+def QubitFactory(label) -> qreg:
     print('QubitFactory')
+
+@qgl2stub('QGL.ChannelLibraries')
+def MeasFactory(label) -> qreg:
+    print('MeasFactory')
+
+@qgl2stub('QGL.ChannelLibraries')
+def MarkerFactory(label) -> qreg:
+    print('MarkerFactory')
 
 # This is used just in testing mains
 # Note that this is really a class
@@ -219,3 +251,14 @@ def BlockLabel(label):
 @qgl2stub('QGL.TdmInstructions')
 def Invalidate(addr, nmeas, channel=None, tdm=True) -> control:
     pass
+
+# FIXME: I'd like to allow a reference to QGL.ChannelLibraries.channelLib static; how?
+
+# FIXME: I'd like to add these methods on the CL object, but how?
+# @qgl2stub('QGL.ChannelLibraries')
+# def new_qubit(label, **kwargs) -> qreg:
+#     pass
+
+# @qgl2stub('QGL.ChannelLibraries')
+# def new_edge(source, target):
+#    pass

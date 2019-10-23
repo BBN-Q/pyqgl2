@@ -1,9 +1,9 @@
 from qgl2.qgl2 import concur, qgl2decl, qgl2main
-from qgl2.qgl2 import classical, pulse, qbit, qbit_list
+from qgl2.qgl2 import classical, pulse, qreg
 from qgl2.qgl1 import QubitFactory, MEAS, X90, X
 
 @qgl2decl
-def foo(q1:qbit, q2:qbit):
+def foo(q1:qreg, q2:qreg):
 
 	with concur:
 		while True:
@@ -54,7 +54,7 @@ def main():
 		MEAS(q2)
 
 @qgl2decl
-def reset(q:qbit):
+def reset(q:qreg):
 	m = MEAS(q)
 	while m == 1:
 		X(q)

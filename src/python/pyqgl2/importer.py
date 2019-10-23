@@ -872,8 +872,8 @@ class NameSpaces(object):
                     q_return = QGL2.QBIT
                 elif ret.id == QGL2.CLASSICAL:
                     q_return = QGL2.CLASSICAL
-                elif ret.id == QGL2.QBIT_LIST:
-                    q_return = QGL2.QBIT_LIST
+#                elif ret.id == QGL2.QBIT_LIST:
+#                    q_return = QGL2.QBIT_LIST
                 elif ret.id == QGL2.PULSE:
                     q_return = QGL2.PULSE
                 elif ret.id == QGL2.CONTROL:
@@ -898,8 +898,8 @@ class NameSpaces(object):
                         q_args.append('%s:%s' % (name, QGL2.QBIT))
                     elif annotation.id == QGL2.CLASSICAL:
                         q_args.append('%s:%s' % (name, QGL2.CLASSICAL))
-                    elif annotation.id == QGL2.QBIT_LIST:
-                        q_args.append('%s:%s' % (name, QGL2.QBIT_LIST))
+#                    elif annotation.id == QGL2.QBIT_LIST:
+#                        q_args.append('%s:%s' % (name, QGL2.QBIT_LIST))
                     elif annotation.id == QGL2.PULSE:
                         q_args.append('%s:%s' % (name, QGL2.PULSE))
                     elif annotation.id == QGL2.CONTROL:
