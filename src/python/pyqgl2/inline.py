@@ -999,8 +999,8 @@ class NameRedirector(ast.NodeTransformer):
             # EG, could be a function reference
             # Want AST from python. Instaed of making an AST that points to the actual function referenced by 'tanh'
             # or whatever, create a reference to 'tanh' and hope no-one redefines 'tanh'.
-            NodeError.debug_msg(node,
-                "Could not represent the value [%s] (an %s) of [%s] as an AST node." % (value, type(value), name))
+            # NodeError.warning_msg(node,
+            #     "Could not represent the value [%s] (an %s) of [%s] as an AST node." % (value, type(value), name))
 
             redirection = ast.Subscript(
                     value=ast.Name(id=self.table_name, ctx=ast.Load()),
