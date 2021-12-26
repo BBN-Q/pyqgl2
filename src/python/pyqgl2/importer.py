@@ -1118,6 +1118,8 @@ class NameSpaces(object):
 
         """
 
+        print('IMPORT %s' % pyqgl2.ast_util.ast2str(stmnt))
+
         # setup the namespace for this module
         # NOTE: this is incomplete: it only sets up the specific
         # name, and may do so repeatedly.

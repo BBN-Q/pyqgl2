@@ -38,5 +38,22 @@ def QMeas(q: qreg, qval=None):
     if qval is not None:
         maddr = qval.addr
 
-    Invalidate(maddr, 0x1)
-    MEASA(q, maddr=maddr)
+    bitpos = 0
+    mask = 0
+    for qbit in q:
+        mask += (1 << bitpos)
+        bitpos += 1
+
+    # no mask?  must be nothing to do
+    #
+    if mask:
+        # TODO: we should only invalidate the mask, because that's the
+        # only part that will become valid after the measurements, but
+        # should we zero-out the entire word?
+        #
+        Invalidate(maddr, mask)
+
+        bitpos = 0
+        for qbit in q:
+            MEASA(qbit, maddr=(maddr, bitpos))
+            bitpos += 1

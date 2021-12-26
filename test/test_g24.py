@@ -104,6 +104,26 @@ class TestG24(unittest.TestCase):
 
         assertPulseSequenceEqual(self, seqs, expected_seq)
 
+    def test_g24_0(self):
+        q1 = QubitFactory('q1')
+        q2 = QubitFactory('q2')
+
+        resFunction = compile_function('test/code/g24.py', 't0',
+                intermediate_output='ffx')
+        seqs = resFunction()
+
+        print('A HERE')
+        print('A SEQ0 %s' % str(seqs))
+
+        seqs = testable_sequence(seqs)
+
+        print('B HERE')
+        print('B SEQ0 %s' % str(seqs))
+
+        expected_seq = [ MEASA(q1, maddr=(16, 0)), MEASA(q2, maddr=(16, 1)) ]
+
+        assertPulseSequenceEqual(self, seqs, expected_seq)
+
     def test_g24_6(self):
         """
         Minimal program that does something with runtime values
