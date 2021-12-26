@@ -1,65 +1,17 @@
 # Copyright 2016 by Raytheon BBN Technologies Corp.  All Rights Reserved.
 
-from qgl2.qgl2 import qgl2decl, qbit, qgl2main
+from qgl2.qgl2 import qgl2decl, qreg, qgl2main
 
-from QGL.PulsePrimitives import X, Id, MEAS, X90, U90
-from QGL.Compiler import compile_to_hardware
-from QGL.PulseSequencePlotter import plot_pulse_files
+from qgl2.qgl1 import X, Id, MEAS, X90, U90
 
-from qgl2.basic_sequences.helpers import create_cal_seqs
-from qgl2.basic_sequences.new_helpers import addCalibration, compileAndPlot
+from qgl2.basic_sequences.helpers import create_cal_seqs, cal_descriptor, delay_descriptor
 from qgl2.util import init
-from qgl2.qgl1 import X90, Id, U90, MEAS, X, QubitFactory
-from qgl2.qgl1 import Sync, Wait
 
 from scipy.constants import pi
 import numpy as np
 
-def InversionRecoveryq1(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=False):
-    """
-    Inversion recovery experiment to measure qubit T1
-
-    Parameters
-    ----------
-    qubit : logical channel to implement sequence (LogicalChannel) 
-    delays : delays after inversion before measurement (iterable; seconds)
-    showPlot : whether to plot (boolean)
-    calRepeats : how many repetitions of calibration pulses (int)
-    """
-
-    # Original: 
-    # # Create the basic sequences
-    # seqs = [[X(qubit), Id(qubit, d), MEAS(qubit)] for d in delays]
-
-    # # Tack on the calibration scalings
-    # seqs += create_cal_seqs((qubit,), calRepeats)
-
-    # fileNames = compile_to_hardware(seqs, 'T1'+('_'+qubit.label)*suffix+'/T1'+('_'+qubit.label)*suffix)
-    # print(fileNames)
-
-    # if showPlot:
-    #     plot_pulse_files(fileNames)
-    seqs = []
-    for d in delays:
-        seq = []
-        seq.append(X(qubit))
-        seq.append(Id(qubit, d))
-        seq.append(MEAS(qubit))
-        seqs.append(seq)
-
-    # Tack on calibration
-    seqs = addCalibration(seqs, (qubit,), calRepeats)
-
-    # Calculate label
-    label = 'T1'+('_'+qubit.label)*suffix
-    fullLabel = label + '/' + label
-
-    # Be sure to un-decorate this function to make it work without the
-    # QGL2 compiler
-    compileAndPlot(seqs, fullLabel, showPlot)
-
 @qgl2decl
-def InversionRecovery(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=False):
+def InversionRecovery(qubit: qreg, delays, calRepeats=2):
     """
     Inversion recovery experiment to measure qubit T1
 
@@ -67,7 +19,6 @@ def InversionRecovery(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=
     ----------
     qubit : logical channel to implement sequence (LogicalChannel) 
     delays : delays after inversion before measurement (iterable; seconds)
-    showPlot : whether to plot (boolean)
     calRepeats : how many repetitions of calibration pulses (int)
     """
 
@@ -86,135 +37,24 @@ def InversionRecovery(qubit: qbit, delays, showPlot=False, calRepeats=2, suffix=
     for d in delays:
         init(qubit)
         X(qubit)
-        Id(qubit, d)
+        Id(qubit, length=d)
         MEAS(qubit)
 
     # Tack on calibration
-    create_cal_seqs((qubit,), calRepeats)
+    create_cal_seqs(qubit, calRepeats)
 
-    # Calculate label
-    label = 'T1'+('_'+qubit.label)*suffix
-    fullLabel = label + '/' + label
+#    metafile = compile_to_hardware(seqs,
+#        'T1' + ('_' + qubit.label) * suffix + '/T1' + ('_' + qubit.label) * suffix,
+#        axis_descriptor=[
+#            delay_descriptor(delays),
+#            cal_descriptor((qubit,), calRepeats)
+#        ])
 
-    # Here we rely on the QGL compiler to pass in the sequence it
-    # generates to compileAndPlot
-    compileAndPlot(fullLabel, showPlot)
 
-def Ramseyq1(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2, suffix=False):
-    """
-    Variable pulse spacing Ramsey (pi/2 - tau - pi/2) with optional TPPI.
-
-    Parameters
-    ----------
-    qubit : logical channel to implement sequence (LogicalChannel) 
-    pulseSpacings : pulse spacings (iterable; seconds)
-    TPPIFreq : frequency for TPPI phase updates of second Ramsey pulse (Hz)
-    showPlot : whether to plot (boolean)
-    calRepeats : how many repetitions of calibration pulses (int)
-    """
-
-    # Original:
-    # # Create the phases for the TPPI
-    # phases = 2*pi*TPPIFreq*pulseSpacings
-
-    # # Create the basic Ramsey sequence
-    # seqs = [[X90(qubit), Id(qubit, d), U90(qubit, phase=phase), MEAS(qubit)] 
-    #         for d,phase in zip(pulseSpacings, phases)]
-
-    # # Tack on the calibration scalings
-    # seqs += create_cal_seqs((qubit,), calRepeats)
-
-    # fileNames = compile_to_hardware(seqs, 'Ramsey'+('_'+qubit.label)*suffix+'/Ramsey'+('_'+qubit.label)*suffix)
-    # print(fileNames)
-
-    # if showPlot:
-    #     plot_pulse_files(fileNames)
-
-    # Create the phases for the TPPI
-    phases = 2*pi*TPPIFreq*pulseSpacings
-
-    # Creating sequences that look like this:
-    # [['X90', 'Id', 'U90', 'M'], ['X90', 'Id', 'U90', 'M']]
-
-    # Create the basic Ramsey sequence
-    seqs = []
-    for d,phase in zip(pulseSpacings, phases):
-        seq = []
-        seq.append(X90(qubit))
-        seq.append(Id(qubit, d))
-        seq.append(U90(qubit, phase=phase))
-        seq.append(MEAS(qubit))
-        seqs.append(seq)
-
-    # Tack on calibration
-    seqs = addCalibration(seqs, (qubit,), calRepeats)
-
-    # Calculate label
-    label = 'Ramsey'+('_'+qubit.label)*suffix
-    fullLabel = label + '/' + label
-
-    # Be sure to un-decorate this function to make it work without the
-    # QGL2 compiler
-    compileAndPlot(seqs, fullLabel, showPlot)
-
-# produce a Ramsey sequence on qbit named q
 # pulse spacings: 100ns to 10us step by 100ns
 # TPPIFreq: 1Mhz (arg is in hz)
 @qgl2decl
-def doRamsey():
-    q = QubitFactory('q1')
-    TPPIFreq=1e6
-    # FIXME: QGL2 doesn't deal well with the call to np.arange
-    pulseS = [  1.00000000e-07,   2.00000000e-07,   3.00000000e-07,
-         4.00000000e-07,   5.00000000e-07,   6.00000000e-07,
-         7.00000000e-07,   8.00000000e-07,   9.00000000e-07,
-         1.00000000e-06,   1.10000000e-06,   1.20000000e-06,
-         1.30000000e-06,   1.40000000e-06,   1.50000000e-06,
-         1.60000000e-06,   1.70000000e-06,   1.80000000e-06,
-         1.90000000e-06,   2.00000000e-06,   2.10000000e-06,
-         2.20000000e-06,   2.30000000e-06,   2.40000000e-06,
-         2.50000000e-06,   2.60000000e-06,   2.70000000e-06,
-         2.80000000e-06,   2.90000000e-06,   3.00000000e-06,
-         3.10000000e-06,   3.20000000e-06,   3.30000000e-06,
-         3.40000000e-06,   3.50000000e-06,   3.60000000e-06,
-         3.70000000e-06,   3.80000000e-06,   3.90000000e-06,
-         4.00000000e-06,   4.10000000e-06,   4.20000000e-06,
-         4.30000000e-06,   4.40000000e-06,   4.50000000e-06,
-         4.60000000e-06,   4.70000000e-06,   4.80000000e-06,
-         4.90000000e-06,   5.00000000e-06,   5.10000000e-06,
-         5.20000000e-06,   5.30000000e-06,   5.40000000e-06,
-         5.50000000e-06,   5.60000000e-06,   5.70000000e-06,
-         5.80000000e-06,   5.90000000e-06,   6.00000000e-06,
-         6.10000000e-06,   6.20000000e-06,   6.30000000e-06,
-         6.40000000e-06,   6.50000000e-06,   6.60000000e-06,
-         6.70000000e-06,   6.80000000e-06,   6.90000000e-06,
-         7.00000000e-06,   7.10000000e-06,   7.20000000e-06,
-         7.30000000e-06,   7.40000000e-06,   7.50000000e-06,
-         7.60000000e-06,   7.70000000e-06,   7.80000000e-06,
-         7.90000000e-06,   8.00000000e-06,   8.10000000e-06,
-         8.20000000e-06,   8.30000000e-06,   8.40000000e-06,
-         8.50000000e-06,   8.60000000e-06,   8.70000000e-06,
-         8.80000000e-06,   8.90000000e-06,   9.00000000e-06,
-         9.10000000e-06,   9.20000000e-06,   9.30000000e-06,
-         9.40000000e-06,   9.50000000e-06,   9.60000000e-06,
-         9.70000000e-06,   9.80000000e-06,   9.90000000e-06]
-    #pulseSpacings=np.arange(100e-9, 10e-6, 100e-9)
-    # Create the phases for the TPPI
-    phases = 2*pi*TPPIFreq*pulseS
-    # Create the basic Ramsey sequence
-    # FIXME: QGL2 doesn't deal well with this call to zip
-    for d,phase in zip(pulseS, phases):
-        init(q)
-        X90(q)
-        Id(q, d)
-        U90(q, phase=phase)
-        MEAS(q)
-
-    # Tack on calibration
-    create_cal_seqs((q,), calRepeats)
-
-@qgl2decl
-def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2, suffix=False):
+def Ramsey(qubit: qreg, pulseSpacings, TPPIFreq=0, calRepeats=2):
     """
     Variable pulse spacing Ramsey (pi/2 - tau - pi/2) with optional TPPI.
 
@@ -223,7 +63,6 @@ def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2,
     qubit : logical channel to implement sequence (LogicalChannel) 
     pulseSpacings : pulse spacings (iterable; seconds)
     TPPIFreq : frequency for TPPI phase updates of second Ramsey pulse (Hz)
-    showPlot : whether to plot (boolean)
     calRepeats : how many repetitions of calibration pulses (int)
     """
 
@@ -254,63 +93,106 @@ def Ramsey(qubit: qbit, pulseSpacings, TPPIFreq=0, showPlot=False, calRepeats=2,
     for d,phase in zip(pulseSpacings, phases):
         init(qubit)
         X90(qubit)
-        Id(qubit, d)
+        Id(qubit, length=d)
         U90(qubit, phase=phase)
         MEAS(qubit)
 
     # Tack on calibration
-    create_cal_seqs((qubit,), calRepeats)
+    create_cal_seqs(qubit, calRepeats)
 
-    # Calculate label
-    label = 'Ramsey'+('_'+qubit.label)*suffix
-    fullLabel = label + '/' + label
+#    metafile = compile_to_hardware(seqs,
+#        'Ramsey' + ('_' + qubit.label) * suffix + '/Ramsey' + ('_' + qubit.label) * suffix,
+#        axis_descriptor=[
+#            delay_descriptor(pulseSpacings),
+#            cal_descriptor((qubit,), calRepeats)
+#        ])
 
-    # Here we rely on the QGL compiler to pass in the sequence it
-    # generates to compileAndPlot
-    compileAndPlot(fullLabel, showPlot)
 
-# Imports for testing only
-from QGL.Channels import Qubit, LogicalMarkerChannel, Measurement
-import QGL.ChannelLibraries as ChannelLibrary
-from qgl2.qgl1 import QubitFactory
-import numpy as np
-from math import pi
-
-@qgl2main
+# A main for running the sequences here with some typical argument values
+# Here it runs all of them; could do a parse_args like main.py
 def main():
-    # Set up 2 qbits, following model in QGL/test/test_Sequences
+    from pyqgl2.qreg import QRegister
+    import pyqgl2.test_cl
+    from pyqgl2.main import compile_function, qgl2_compile_to_hardware
 
-    # FIXME: Cannot use these in current QGL2 compiler, because
-    # a: QGL2 doesn't understand creating class instances, and 
-    # b: QGL2 currently only understands the fake Qbits
-#    qg1 = LogicalMarkerChannel(label="q1-gate")
-#    q1 = Qubit(label='q1', gate_chan=qg1)
-#    q1.pulse_params['length'] = 30e-9
-#    q1.pulse_params['phase'] = pi/2
-#    sTrig = LogicalMarkerChannel(label='slaveTrig')
-#    dTrig = LogicalMarkerChannel(label='digitizerTrig')
-#    Mq1 = '';
-#    Mq1gate = LogicalMarkerChannel(label='M-q1-gate')
-#    m = Measurement(label='M-q1', gate_chan = Mq1gate, trig_chan = dTrig)
+    toHW = True
+    plotPulses = False # Don't try creating graphics objects
+    suffix = False # change generated filename to include qbit name
+    pyqgl2.test_cl.create_default_channelLibrary(toHW, True)
 
-#    ChannelLibrary.channelLib = ChannelLibrary.ChannelLibrary()
-#    ChannelLibrary.channelLib.channelDict = {
-#        'q1-gate': qg1,
-#        'q1': q1,
-#        'slaveTrig': sTrig,
-#        'digitizerTrig': dTrig,
-#        'M-q1': m,
-#        'M-q1-gate': Mq1gate
-#    }
-#    ChannelLibrary.channelLib.build_connectivity_graph()
+#    # To turn on verbose logging in compile_function
+#    from pyqgl2.ast_util import NodeError
+#    from pyqgl2.debugmsg import DebugMsg
+#    NodeError.MUTE_ERR_LEVEL = NodeError.NODE_ERROR_NONE
+#    DebugMsg.set_level(0)
 
-    # Use stub Qubits, but comment this out when running directly.
-    q1 = QubitFactory("q1")
+    # Now compile the QGL2 to produce the function that would generate the expected sequence.
+    # Supply the path to the QGL2, the main function in that file, and a list of the args to that function.
+    # Can optionally supply saveOutput=True to save the qgl1.py
+    # file,
+    # and intermediate_output="path-to-output-file" to save
+    # intermediate products
 
-    print("Run InversionRecovery")
-    InversionRecovery(q1,  np.linspace(0, 5e-6, 11))
-    print("Run Ramsey")
-    Ramsey(q1, np.linspace(0, 5e-6, 11))
+    # Pass in QRegister(s) NOT real Qubits
+    qbitName = "q1"
+    q1 = QRegister(qbitName)
+
+    # FIXME: See issue #44: Must supply all args to qgl2main for now
+
+    # InversionRecovery(q1,  np.linspace(0, 5e-6, 11))
+    # Ramsey(q1, np.linspace(0, 5e-6, 11))
+
+    irDelays = np.linspace(0, 5e-6, 11)
+    rSpacings = np.linspace(0, 5e-6, 11)
+    tCalR = 2
+
+    def irAD(delays, calRepeats):
+        return [
+            delay_descriptor(delays),
+            cal_descriptor(('qubit',), calRepeats)
+            ]
+
+    def rAD(pulseSpacings, calRepeats):
+        return [
+            delay_descriptor(pulseSpacings),
+            cal_descriptor(('qubit',), calRepeats)
+        ]
+
+#    for func, args, label, axisDesc in [("InversionRecovery", (q1, irDelays), "T1", irAD(irDelays, tCalR)),
+#                              ("Ramsey", (q1, rSpacings), "Ramsey", rAD(rSpacings, tCalR))
+#                          ]:
+    for func, args, label, axisDesc in [("InversionRecovery", (q1, irDelays, tCalR), "T1", irAD(irDelays, tCalR)),
+                              ("Ramsey", (q1, rSpacings, 0, tCalR), "Ramsey", rAD(rSpacings, tCalR))
+                          ]:
+
+        print(f"\nRun {func}...")
+        # Here we know the function is in the current file
+        # You could use os.path.dirname(os.path.realpath(__file)) to find files relative to this script,
+        # Or os.getcwd() to get files relative to where you ran from. Or always use absolute paths.
+        resFunc = compile_function(__file__, func, args)
+        # Run the QGL2. Note that the generated function takes no arguments itself
+        seq = resFunc()
+        if toHW:
+            print(f"Compiling {func} sequences to hardware\n")
+
+            # Generate proper filenames; for these, it isn't just the label Ramsey
+            # T1T2 QGL functions take a suffix boolean default false. If true, then append to label "_qubit.label"; ie "_q1"
+            if suffix:
+                label = label + f"_{qbitName}"
+
+            fileNames = qgl2_compile_to_hardware(seq, filename=f'{label}/{label}', axis_descriptor=axisDesc)
+            print(f"Compiled sequences; metafile = {fileNames}")
+            if plotPulses:
+                from QGL.PulseSequencePlotter import plot_pulse_files
+                # FIXME: As called, this returns a graphical object to display
+                plot_pulse_files(fileNames)
+        else:
+            print(f"\nGenerated {func} sequences:\n")
+            from QGL.Scheduler import schedule
+
+            scheduled_seq = schedule(seq)
+            from IPython.lib.pretty import pretty
+            print(pretty(scheduled_seq))
 
 if __name__ == "__main__":
     main()

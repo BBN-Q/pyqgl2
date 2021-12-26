@@ -5,11 +5,11 @@
 # file that uses any of these symbols.
 #
 from qgl2.qgl2 import concur, qgl2decl, qgl2main
-from qgl2.qgl2 import classical, pulse, qbit, qbit_list
+from qgl2.qgl2 import classical, pulse, qreg
 from qgl2.qgl1 import QubitFactory, X90, Y90, MEAS
 
 @qgl2decl
-def test_loops(a:qbit, b:qbit):
+def test_loops(a:qreg, b:qreg):
 
     x = QubitFactory("1")
     # Next line causes an error - qbit reassignment

@@ -4,13 +4,19 @@
 
 from QGL.ChannelLibraries import EdgeFactory
 from QGL.ControlFlow import Sync, Wait
-from QGL.PulsePrimitives import flat_top_gaussian
+from QGL.PulsePrimitives import *
 
 def init_real(*args):
     return Wait(args)
 
 def flat_top_gaussian_edge_impl(
-        source, target, riseFall, length, amp, phase=0):
+        source, target, riseFall, length, amp, phase=0, label="flat_top_gaussian"):
+    '''Retrieve the edge from source to target and do a flat_top_gaussian on it'''
 
     CRchan = EdgeFactory(source, target)
-    return flat_top_gaussian(CRchan, riseFall, length, amp, phase=0)
+    return flat_top_gaussian(CRchan, riseFall, length, amp, phase, label)
+
+# Helper for CPMG
+# See issue #37
+def pulseCentered(qubit, pFunc, pulseSpacing):
+    return pFunc(qubit, length=(pulseSpacing - qubit.pulse_params["length"]) / 2)

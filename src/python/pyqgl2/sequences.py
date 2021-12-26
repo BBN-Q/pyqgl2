@@ -230,6 +230,8 @@ class SequenceExtractor(object):
 
         self.qbits = self.qbits_from_qregs(self.allocated_qregs)
         for q in self.qbits:
+            # Using QubitFactory here means the qubit must already exist
+            # If did Channels.Qubit, we'd be creating it new; but it wouldn't be in the ChannelLibrary
             stmnt = ast.parse("QBIT_{0} = QubitFactory('q{0}')".format(q))
             self.qbit_creates.append(stmnt)
 
@@ -290,6 +292,8 @@ class SequenceExtractor(object):
         # as required by create_imports_list(), plus
         # extras as required.
 
+        # FIXME: Since QubitFactory is in qgl2.qgl1, why is this needed?
+        # - find_imports didn't find QubitFactory?
         base_imports = indent + 'from QGL import QubitFactory\n'
 
         found_imports = ('\n' + indent).join(self.create_imports_list())

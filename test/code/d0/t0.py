@@ -1,25 +1,25 @@
 
 from qgl2.qgl2 import concur, seq
 from qgl2.qgl2 import qgl2decl, qgl2main
-from qgl2.qgl2 import classical, pulse, qbit, qbit_list
+from qgl2.qgl2 import classical, pulse, qreg
 from qgl2.qgl1 import QubitFactory, X, X90, Y, Y90
 
 @qgl2decl
-def t3(x: qbit, y: qbit):
+def t3(x: qreg, y: qreg):
     t2(y, x)
 
 @qgl2decl
-def t2(x: qbit, y: qbit):
+def t2(x: qreg, y: qreg):
     t1(x, y)
 
 @qgl2decl
-def t1(q_a: qbit, q_b: qbit):
+def t1(q_a: qreg, q_b: qreg):
     with concur:
         X(q_a) + X90(q_a) + Y90(q_a)
         Y(q_b) + Y90(q_b) + X90(q_b)
 
 @qgl2decl
-def yy(a: qbit):
+def yy(a: qreg):
     return 4
 
 @qgl2decl

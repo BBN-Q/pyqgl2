@@ -1,22 +1,22 @@
 
-from qgl2.qgl2 import concur, qbit, qgl2decl, Qbit
+from qgl2.qgl2 import concur, qreg, qgl2decl
 from qgl2.qgl2 import Qbit
 
 @qgl2decl
-def func_a1(a: qbit, b: qbit, c: qbit):
+def func_a1(a: qreg, b: qreg, c: qreg):
     with concur:
         for q in [a, b, c]:
             X90(a)
             func_b(q)
 
 @qgl2decl
-def func_a2(a: qbit, b: qbit, c: qbit):
+def func_a2(a: qreg, b: qreg, c: qreg):
     for q in [a, b, c]:
         X90(a)
         func_b(q)
 
 @qgl2decl
-def func_b(a: qbit):
+def func_b(a: qreg):
     for x in [1, 2, 3]:
         X180(a, x)
     for x in [4, 5, 6]:

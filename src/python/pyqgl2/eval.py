@@ -1450,11 +1450,19 @@ class EvalTransformer(object):
         """
 
         local_variables = self.eval_state.locals_stack[-1]
+        if len(local_variables) == 0:
+            DebugMsg.log("local_variables has length: %d!" % len(local_variables), DebugMsg.HIGH)
+        else:
+            DebugMsg.log("local_variables has length: %d:" % len(local_variables), DebugMsg.MEDIUM)
+            for k in local_variables:
+                v = local_variables[k]
+                DebugMsg.log(f"local_var[{k}]={v}\n", DebugMsg.LOW)
 
         for check in vec:
             (var_name, type_name, fp_name, func, src, row, col) = check
 
             mapped_name = self.rewriter.get_mapping(var_name)
+            DebugMsg.log(f"For var '{var_name}' found mapped '{mapped_name}' to look up in local_variables\n", DebugMsg.MEDIUM)
             value = local_variables[mapped_name]
 
             # QGL2check actually does the check and prints

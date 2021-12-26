@@ -10,7 +10,7 @@ import sys
 # file that uses any of these symbols.
 #
 from qgl2.qgl2 import concur, qgl2decl, qgl2main
-from qgl2.qgl2 import classical, pulse, qbit, qbit_list
+from qgl2.qgl2 import classical, pulse, qreg
 from qgl2.qgl1 import QubitFactory
 
 # Examples of import and from statements
@@ -23,14 +23,14 @@ def not_qgl():
     print("not qgl")
 
 @qgl2decl
-def alpha(chan) -> qbit:
-    # you can't create a qbit in a return statement
+def alpha(chan) -> qreg:
+    # you can't create a qreg in a return statement
     # with a non string argument
     # so this is wrong
     return foo(chan)
 
 @qgl2decl
-def beta(chan:classical) -> qbit:
+def beta(chan:classical) -> qreg:
     return alpha(chan)
 
 @qgl2main
